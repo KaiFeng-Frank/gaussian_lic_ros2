@@ -40,7 +40,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +u
           source /opt/ros/${ROS_DISTRO}/setup.bash
+          set -u
           bash -n scripts/*.sh
           /usr/bin/python3 -m py_compile \
             scripts/check_profiles.py \
@@ -54,5 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +u
           source /opt/ros/${ROS_DISTRO}/setup.bash
+          set -u
           colcon build --event-handlers console_direct+
