@@ -5,9 +5,6 @@ on:
   push:
     branches: [main]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     name: build-${{ matrix.ros_distro }}
@@ -18,7 +15,7 @@ jobs:
       matrix:
         ros_distro: [jazzy, humble]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         shell: bash
