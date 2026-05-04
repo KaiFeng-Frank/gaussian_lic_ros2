@@ -9,6 +9,7 @@ find_package(builtin_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 add_library(trajectory_manager
+  src/imu_propagator.cpp
   src/trajectory_manager.cpp
 )
 target_include_directories(trajectory_manager PUBLIC
@@ -30,7 +31,17 @@ target_link_libraries(trajectory_manager_probe
 )
 ament_target_dependencies(trajectory_manager_probe builtin_interfaces)
 
-install(TARGETS trajectory_manager trajectory_manager_probe
+add_executable(imu_propagator_probe
+  test/imu_propagator_probe.cpp
+)
+target_include_directories(imu_propagator_probe PRIVATE include)
+target_link_libraries(imu_propagator_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(imu_propagator_probe builtin_interfaces)
+
+install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
