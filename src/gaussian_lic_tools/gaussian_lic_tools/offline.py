@@ -164,8 +164,9 @@ def iter_xyzrgb_points(cloud_msg, max_points):
 
 
 def pose_to_record(msg):
-    p = msg.pose.position
-    q = msg.pose.orientation
+    pose = msg.pose.pose if hasattr(msg.pose, "pose") else msg.pose
+    p = pose.position
+    q = pose.orientation
     return (
         stamp_to_float(msg.header.stamp),
         float(p.x),

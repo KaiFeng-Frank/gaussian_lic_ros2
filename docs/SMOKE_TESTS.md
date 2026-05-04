@@ -408,3 +408,23 @@ tail -n 1 /tmp/gaussian_lic_save_test/point_cloud.ply
 ```
 
 This initializes foreground Gaussian tensors from keyframe-gated `MapperDataset` pending points, then appends later pending keyframe points into the same tensor map. The behavior matches the upstream initialize/extend lifecycle at the tensor boundary. Rasterization, optimization, pruning, and gradient-aware densification are still later porting slices.
+
+## Current Reproduction Artifacts
+
+To create current ROS2 artifacts from actual mapper output topics:
+
+```bash
+./scripts/collect_current_results.sh \
+  --bag bags/synthetic_frontend_raw_demo \
+  --frontend-adapter \
+  --output /tmp/gaussian_lic_current_results
+```
+
+The same collector can exercise the Torch Gaussian preview path:
+
+```bash
+./scripts/collect_current_results.sh \
+  --torch \
+  --render-mode rasterizer \
+  --output /tmp/gaussian_lic_current_results_torch
+```

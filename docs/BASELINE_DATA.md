@@ -28,6 +28,28 @@ Check whether the raw data, archived ROS1 baseline, and ROS2 current artifacts a
   --markdown baseline_readiness.md
 ```
 
+Collect ROS2 current artifacts from a rosbag2 replay after the mapper is built:
+
+```bash
+./scripts/collect_current_results.sh \
+  --bag /home/frank/data/fast_livo/<sequence>_frontend_raw \
+  --frontend-adapter \
+  --output results/fastlivo2/current
+```
+
+For the current Torch Gaussian preview path:
+
+```bash
+./scripts/collect_current_results.sh \
+  --bag /home/frank/data/fast_livo/<sequence>_frontend_raw \
+  --frontend-adapter \
+  --torch \
+  --render-mode rasterizer \
+  --output results/fastlivo2/current
+```
+
+The output directory is intentionally shaped for `scripts/reproduction_report.py` and `scripts/baseline_readiness.py`: `trajectory.tum`, `point_cloud.ply`, and `metrics.json` are required.
+
 Convert a downloaded official FAST-LIVO2 ROS1 bag into the ROS2 raw-sensor frontend contract:
 
 ```bash
@@ -95,6 +117,8 @@ log/noetic_gaussian_lic_build_attempt.log
 ```
 
 No `baseline/fastlivo2/CBD_Building_01` archive should be created until the upstream run actually emits `trajectory.tum`, `point_cloud.ply`, `metrics.json`, `run.log`, and renders. The comparison gate must remain blocked until both ROS1 baseline artifacts and ROS2 current artifacts exist.
+
+`scripts/collect_current_results.sh` creates the ROS2 current archive from actual `/gaussian_lic/*` mapper outputs. It also stores `run.log`, the recorded `ros2_output_bag/`, the service-saved `saved_map/`, and offline debug extraction under `offline/` for auditability.
 
 Required ROS1 baseline archive:
 

@@ -302,8 +302,8 @@ def build_next_actions(report):
         )
     if baseline["ok"] and not report["current_results"]["ok"]:
         actions.append(
-            "Run the ROS2 reproduction pipeline and write current artifacts under "
-            f"{report['current_results']['path']}"
+            "Run scripts/collect_current_results.sh on the selected ROS2 bag and write current "
+            f"artifacts under {report['current_results']['path']}"
         )
     if baseline["ok"] and report["current_results"]["ok"]:
         actions.append(

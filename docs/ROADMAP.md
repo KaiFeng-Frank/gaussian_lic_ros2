@@ -129,6 +129,7 @@ baseline_manifest.json
 - [x] Python-only CI artifact gates for baseline manifests and reproduction reports.
 - [x] FAST-LIVO2 data fetch/readiness scripts for executable baseline status.
 - [x] Reproducible ROS1 upstream baseline build-attempt script for the local Noetic Docker environment.
+- [x] Add a ROS2 current-results collector that records mapper outputs and writes `trajectory.tum`, `point_cloud.ply`, and `metrics.json`.
 - [x] Jazzy CI smoke tests with a generated mini rosbag2 sequence.
 - [ ] ROS1 upstream baseline archive for FAST-LIVO2.
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
