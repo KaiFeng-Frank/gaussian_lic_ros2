@@ -417,6 +417,7 @@ To create current ROS2 artifacts from actual mapper output topics:
 ./scripts/collect_current_results.sh \
   --bag bags/synthetic_frontend_raw_demo \
   --frontend-adapter \
+  --optional-depth \
   --output /tmp/gaussian_lic_current_results
 ```
 

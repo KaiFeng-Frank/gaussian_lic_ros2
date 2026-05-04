@@ -11,6 +11,7 @@ ENABLE_TORCH=false
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 PUBLISH_TF=false
+REQUIRE_DEPTH_TOPIC=true
 RENDER_MODE="debug_cpu"
 RECORD_SEC=12
 TIMEOUT_SEC=20
@@ -37,6 +38,7 @@ Options:
   --torch                      Enable Torch Gaussian map init/extend and save Gaussian PLY output.
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
+  --optional-depth             Allow mapper replay without a depth image topic.
   --tf                         Enable TF publication.
   --render-mode MODE           debug_cpu, debug_input, rasterizer, or off. Default: debug_cpu.
   --sensor-qos RELIABILITY     Override input sensor QoS reliability: best_effort or reliable.
@@ -69,6 +71,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --identity-pose-fallback)
       IDENTITY_POSE_FALLBACK=true
+      shift
+      ;;
+    --optional-depth)
+      REQUIRE_DEPTH_TOPIC=false
       shift
       ;;
     --tf)
@@ -135,6 +141,7 @@ launch_args=(
   frontend_adapter:="${FRONTEND_ADAPTER}"
   adapter_identity_pose_fallback:="${IDENTITY_POSE_FALLBACK}"
   publish_tf:="${PUBLISH_TF}"
+  require_depth_topic:="${REQUIRE_DEPTH_TOPIC}"
   render_mode:="${RENDER_MODE}"
 )
 
