@@ -187,7 +187,7 @@ local strict chain can be run from one resumable entrypoint:
   --render-mode rasterizer \
   --current-torch-device cuda \
   --current-torch-optimization-steps 1 \
-  --current-torch-max-foreground 20000
+  --current-torch-max-foreground 800000
 ```
 
 The script converts the official ROS1 bag into a sqlite-backed ROS2

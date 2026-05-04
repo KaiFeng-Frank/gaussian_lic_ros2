@@ -17,7 +17,7 @@ CURRENT_PLAY_RATE=1
 CURRENT_POST_PLAY_SETTLE=8
 CURRENT_TORCH_DEVICE=cpu
 CURRENT_TORCH_OPTIMIZATION_STEPS=1
-CURRENT_TORCH_MAX_FOREGROUND=20000
+CURRENT_TORCH_MAX_FOREGROUND=800000
 CURRENT_TORCH_PRUNE_MIN_OPACITY=0.005
 TIMEOUT_SEC=30
 OVERWRITE=false
@@ -53,7 +53,7 @@ Options:
   --current-torch-optimization-steps N
                             Torch optimization steps per keyframe in rasterizer mode. Default: 1
   --current-torch-max-foreground N
-                            Foreground Gaussian cap in rasterizer mode. Default: 20000
+                            Foreground Gaussian cap in rasterizer mode. Default: 800000
   --current-torch-prune-min-opacity X
                             Foreground opacity pruning threshold in rasterizer mode. Default: 0.005
   --timeout N              Current-result wait timeout. Default: 30

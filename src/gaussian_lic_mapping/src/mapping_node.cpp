@@ -653,16 +653,6 @@ private:
     dataset_.trim_map_points(max_map_points_ > 0 ? static_cast<size_t>(max_map_points_) : 0U);
     map_points_pub_->publish(make_map_points_message(frame_stamp));
     (void)record;
-    if (publish_rendered_preview_ && normalized_qos_token(render_mode_) != "off") {
-      try {
-        rendered_image_pub_->publish(make_rendered_preview_message(frame_stamp));
-      } catch (const std::exception & ex) {
-        ++render_error_count_;
-        RCLCPP_WARN_THROTTLE(
-          get_logger(), *get_clock(), 2000,
-          "failed to publish rendered preview: %s", ex.what());
-      }
-    }
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     const auto intrinsics = current_intrinsics();
     if (enable_torch_camera_conversion_) {
@@ -685,6 +675,16 @@ private:
     }
     maybe_update_torch_gaussians(record);
 #endif
+    if (publish_rendered_preview_ && normalized_qos_token(render_mode_) != "off") {
+      try {
+        rendered_image_pub_->publish(make_rendered_preview_message(frame_stamp));
+      } catch (const std::exception & ex) {
+        ++render_error_count_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "failed to publish rendered preview: %s", ex.what());
+      }
+    }
   }
 
   void maybe_complete_depth(MapperFrameData & frame_data)

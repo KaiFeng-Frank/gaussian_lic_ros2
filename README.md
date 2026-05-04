@@ -546,7 +546,7 @@ Run or resume the strict chain from the local `CBD_Building_01` bag:
   --render-mode rasterizer \
   --current-torch-device cuda \
   --current-torch-optimization-steps 1 \
-  --current-torch-max-foreground 20000
+  --current-torch-max-foreground 800000
 ```
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
