@@ -4,6 +4,19 @@ project(gaussian_lic_mapping)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(GAUSSIAN_LIC_ENABLE_TORCH "Build optional libtorch/CUDA mapper backend probes" OFF)
+option(GAUSSIAN_LIC_ENABLE_CUDA "Enable strict CUDA/Torch Gaussian backend build plumbing" OFF)
+
+if(GAUSSIAN_LIC_ENABLE_CUDA AND NOT GAUSSIAN_LIC_ENABLE_TORCH)
+  message(FATAL_ERROR "GAUSSIAN_LIC_ENABLE_CUDA requires GAUSSIAN_LIC_ENABLE_TORCH=ON")
+endif()
+
+if(GAUSSIAN_LIC_ENABLE_CUDA)
+  enable_language(CUDA)
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
+    set(CMAKE_CUDA_ARCHITECTURES 86 89 100 120)
+  endif()
+  find_package(CUDAToolkit REQUIRED)
+endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -93,6 +106,10 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
     ${OpenCV_LIBS}
     ${TORCH_LIBRARIES}
   )
+  if(GAUSSIAN_LIC_ENABLE_CUDA)
+    target_compile_definitions(torch_backend PUBLIC GAUSSIAN_LIC_ENABLE_CUDA=1)
+    target_link_libraries(torch_backend CUDA::cudart)
+  endif()
 
   add_executable(torch_backend_probe
     src/mapper_dataset.cpp
@@ -104,6 +121,10 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
     torch_backend
     ${TORCH_LIBRARIES}
   )
+  if(GAUSSIAN_LIC_ENABLE_CUDA)
+    target_compile_definitions(torch_backend_probe PRIVATE GAUSSIAN_LIC_ENABLE_CUDA=1)
+    target_link_libraries(torch_backend_probe CUDA::cudart)
+  endif()
 
   target_compile_definitions(mapping_node PRIVATE GAUSSIAN_LIC_ENABLE_TORCH=1)
   target_compile_options(mapping_node PRIVATE ${TORCH_CXX_FLAGS})
