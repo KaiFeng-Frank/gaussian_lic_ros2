@@ -154,6 +154,7 @@ baseline_manifest.json
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, and deterministic correction probe.
+- [x] Add a native visual photometric residual factor and subscribe tracking to mapper rendered-image output.
 - [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
 - [x] Publish odometry, path, TF, and Gaussian mapper input topics natively.
 - [ ] Keep any ROS1 bridge mode clearly marked as temporary.

@@ -13,6 +13,9 @@ def generate_launch_description():
     raw_depth_topic = LaunchConfiguration("raw_depth_topic")
     raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
     raw_imu_topic = LaunchConfiguration("raw_imu_topic")
+    rendered_image_topic = LaunchConfiguration("rendered_image_topic")
+    enable_lio_factor = LaunchConfiguration("enable_lio_factor")
+    enable_visual_factor = LaunchConfiguration("enable_visual_factor")
 
     return LaunchDescription(
         [
@@ -22,6 +25,9 @@ def generate_launch_description():
             DeclareLaunchArgument("raw_depth_topic", default_value="/camera/depth"),
             DeclareLaunchArgument("raw_pointcloud_topic", default_value="/livox/lidar"),
             DeclareLaunchArgument("raw_imu_topic", default_value="/imu"),
+            DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
+            DeclareLaunchArgument("enable_lio_factor", default_value="true"),
+            DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             Node(
                 package="gaussian_lic_tracking",
                 executable="tracking_node",
@@ -39,6 +45,9 @@ def generate_launch_description():
                         "raw_depth_topic": raw_depth_topic,
                         "raw_pointcloud_topic": raw_pointcloud_topic,
                         "raw_imu_topic": raw_imu_topic,
+                        "rendered_image_topic": rendered_image_topic,
+                        "enable_lio_factor": enable_lio_factor,
+                        "enable_visual_factor": enable_visual_factor,
                     }
                 ],
             ),

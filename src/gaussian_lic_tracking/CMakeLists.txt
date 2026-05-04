@@ -17,6 +17,7 @@ add_library(trajectory_manager
   src/imu_propagator.cpp
   src/lidar_factor.cpp
   src/trajectory_manager.cpp
+  src/visual_factor.cpp
 )
 target_include_directories(trajectory_manager PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -57,6 +58,15 @@ target_link_libraries(lidar_factor_probe
 )
 ament_target_dependencies(lidar_factor_probe builtin_interfaces)
 
+add_executable(visual_factor_probe
+  test/visual_factor_probe.cpp
+)
+target_include_directories(visual_factor_probe PRIVATE include)
+target_link_libraries(visual_factor_probe
+  trajectory_manager
+)
+ament_target_dependencies(visual_factor_probe builtin_interfaces)
+
 add_executable(tracking_node
   src/tracking_node.cpp
 )
@@ -73,7 +83,7 @@ ament_target_dependencies(tracking_node
   tf2_ros
 )
 
-install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe lidar_factor_probe tracking_node
+install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe lidar_factor_probe visual_factor_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

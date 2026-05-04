@@ -119,7 +119,7 @@ Imu -> native ROS2 subscription/counting for the LIC input contract
 PoseStamped -> optional TF map -> camera when publish_tf:=true
 ```
 
-The CUDA rasterizer, fused SSIM loss, visibility-masked SparseGaussianAdam, densification/pruning, and strict CUDA rendered preview are ported behind the Torch/CUDA build profile. The native tracking package now provides timestamp-safe trajectory/IMU primitives, native odometry/path/TF publication, and an initial LiDAR residual correction factor. Full Coco-LIC2-grade VIO and sliding-window joint optimization are still separate from this mapper backend work.
+The CUDA rasterizer, fused SSIM loss, visibility-masked SparseGaussianAdam, densification/pruning, and strict CUDA rendered preview are ported behind the Torch/CUDA build profile. The native tracking package now provides timestamp-safe trajectory/IMU primitives, native odometry/path/TF publication, an initial LiDAR residual correction factor, and a visual residual path that compares mapper rendered images with incoming camera frames. Full Coco-LIC2-grade sliding-window joint optimization is still separate from this mapper backend work.
 
 ## Dataset Profiles
 

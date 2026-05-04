@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+namespace gaussian_lic_tracking
+{
+
+struct VisualFrame
+{
+  int64_t stamp_ns{0};
+  size_t width{0};
+  size_t height{0};
+  std::vector<float> gray;
+};
+
+struct VisualResidual
+{
+  bool valid{false};
+  size_t compared_pixels{0};
+  double mean_abs_error{0.0};
+  double rmse{0.0};
+};
+
+class VisualFactor
+{
+public:
+  explicit VisualFactor(size_t max_pixels = 200000);
+
+  void set_max_pixels(size_t max_pixels);
+  size_t max_pixels() const { return max_pixels_; }
+
+  VisualResidual evaluate(const VisualFrame & reference, const VisualFrame & candidate) const;
+
+private:
+  size_t max_pixels_{200000};
+};
+
+}  // namespace gaussian_lic_tracking

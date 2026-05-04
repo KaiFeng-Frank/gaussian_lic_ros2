@@ -10,6 +10,7 @@
 #include <gaussian_lic_tracking/imu_propagator.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
 #include <gaussian_lic_tracking/time.hpp>
+#include <gaussian_lic_tracking/visual_factor.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -40,12 +41,15 @@ public:
     pose_topic_ = declare_parameter<std::string>("pose_topic", "/pose_for_gs");
     odometry_topic_ = declare_parameter<std::string>("odometry_topic", "/gaussian_lic/frontend/odometry");
     path_topic_ = declare_parameter<std::string>("path_topic", "/gaussian_lic/frontend/path");
+    rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
     child_frame_ = declare_parameter<std::string>("child_frame", "base_link");
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
     sensor_qos_depth_ = declare_parameter<int>("sensor_qos_depth", 5);
     sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
+    enable_visual_factor_ = declare_parameter<bool>("enable_visual_factor", true);
+    visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
     lidar_min_points_ = declare_parameter<int>("lidar_min_points", 32);
     lidar_max_frame_points_ = declare_parameter<int>("lidar_max_frame_points", 2000);
@@ -63,12 +67,13 @@ public:
     lidar_config.correction_gain = lidar_correction_gain_;
     lidar_config.max_correction_m = lidar_max_correction_m_;
     lidar_factor_.set_config(lidar_config);
+    visual_factor_.set_max_pixels(static_cast<size_t>(std::max(visual_max_pixels_, 1)));
 
     auto qos = make_sensor_qos();
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
       raw_image_topic_, qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        image_pub_->publish(*msg);
+        handle_image(*msg);
       });
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
       raw_camera_info_topic_, qos,
@@ -98,6 +103,11 @@ public:
     pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic_, 20);
     odometry_pub_ = create_publisher<nav_msgs::msg::Odometry>(odometry_topic_, 20);
     path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic_, rclcpp::QoS(1).transient_local().reliable());
+    rendered_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
+      rendered_image_topic_, rclcpp::QoS(1).transient_local().reliable(),
+      [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
+        handle_rendered_image(*msg);
+      });
     if (publish_tf_) {
       tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     }
@@ -135,6 +145,41 @@ private:
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "failed to propagate IMU tracking state: %s", ex.what());
+    }
+  }
+
+  void handle_image(const sensor_msgs::msg::Image & msg)
+  {
+    image_pub_->publish(msg);
+    if (!enable_visual_factor_) {
+      return;
+    }
+    gaussian_lic_tracking::VisualFrame observed;
+    if (!decode_image_gray(msg, observed)) {
+      return;
+    }
+    if (has_rendered_frame_) {
+      last_visual_residual_ = visual_factor_.evaluate(latest_rendered_frame_, observed);
+      if (last_visual_residual_.valid) {
+        RCLCPP_DEBUG_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "visual residual pixels=%zu mae=%.6f rmse=%.6f",
+          last_visual_residual_.compared_pixels,
+          last_visual_residual_.mean_abs_error,
+          last_visual_residual_.rmse);
+      }
+    }
+  }
+
+  void handle_rendered_image(const sensor_msgs::msg::Image & msg)
+  {
+    if (!enable_visual_factor_) {
+      return;
+    }
+    gaussian_lic_tracking::VisualFrame rendered;
+    if (decode_image_gray(msg, rendered)) {
+      latest_rendered_frame_ = std::move(rendered);
+      has_rendered_frame_ = true;
     }
   }
 
@@ -206,6 +251,74 @@ private:
       tf.transform.rotation = pose.pose.orientation;
       tf_broadcaster_->sendTransform(tf);
     }
+  }
+
+  bool decode_image_gray(
+    const sensor_msgs::msg::Image & msg,
+    gaussian_lic_tracking::VisualFrame & frame) const
+  {
+    int channels = 0;
+    int r_offset = 0;
+    int g_offset = 0;
+    int b_offset = 0;
+    if (msg.encoding == "mono8" || msg.encoding == "8UC1") {
+      channels = 1;
+    } else if (msg.encoding == "rgb8") {
+      channels = 3;
+      r_offset = 0;
+      g_offset = 1;
+      b_offset = 2;
+    } else if (msg.encoding == "bgr8") {
+      channels = 3;
+      r_offset = 2;
+      g_offset = 1;
+      b_offset = 0;
+    } else if (msg.encoding == "rgba8") {
+      channels = 4;
+      r_offset = 0;
+      g_offset = 1;
+      b_offset = 2;
+    } else if (msg.encoding == "bgra8") {
+      channels = 4;
+      r_offset = 2;
+      g_offset = 1;
+      b_offset = 0;
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "image encoding %s is not supported by the native tracking visual factor",
+        msg.encoding.c_str());
+      return false;
+    }
+
+    const size_t width = static_cast<size_t>(msg.width);
+    const size_t height = static_cast<size_t>(msg.height);
+    if (width == 0U || height == 0U || msg.step < width * static_cast<size_t>(channels)) {
+      return false;
+    }
+    if (msg.data.size() < static_cast<size_t>(msg.step) * height) {
+      return false;
+    }
+
+    frame.stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+    frame.width = width;
+    frame.height = height;
+    frame.gray.assign(width * height, 0.0F);
+    for (size_t row = 0; row < height; ++row) {
+      const size_t row_offset = row * static_cast<size_t>(msg.step);
+      for (size_t col = 0; col < width; ++col) {
+        const size_t base = row_offset + col * static_cast<size_t>(channels);
+        if (channels == 1) {
+          frame.gray[row * width + col] = static_cast<float>(msg.data[base]) / 255.0F;
+        } else {
+          const float red = static_cast<float>(msg.data[base + static_cast<size_t>(r_offset)]);
+          const float green = static_cast<float>(msg.data[base + static_cast<size_t>(g_offset)]);
+          const float blue = static_cast<float>(msg.data[base + static_cast<size_t>(b_offset)]);
+          frame.gray[row * width + col] = (0.299F * red + 0.587F * green + 0.114F * blue) / 255.0F;
+        }
+      }
+    }
+    return true;
   }
 
   std::vector<Eigen::Vector3d> decode_pointcloud_xyz(const sensor_msgs::msg::PointCloud2 & msg)
@@ -297,12 +410,15 @@ private:
   std::string pose_topic_;
   std::string odometry_topic_;
   std::string path_topic_;
+  std::string rendered_image_topic_;
   std::string world_frame_;
   std::string child_frame_;
   bool publish_tf_{false};
   int max_path_length_{5000};
   int sensor_qos_depth_{5};
   std::string sensor_qos_reliability_{"best_effort"};
+  bool enable_visual_factor_{true};
+  int visual_max_pixels_{200000};
   bool enable_lio_factor_{true};
   int lidar_min_points_{32};
   int lidar_max_frame_points_{2000};
@@ -317,6 +433,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rendered_image_sub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_pub_;
@@ -329,6 +446,10 @@ private:
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   bool has_lidar_keyframe_{false};
+  gaussian_lic_tracking::VisualFactor visual_factor_;
+  gaussian_lic_tracking::VisualFrame latest_rendered_frame_;
+  gaussian_lic_tracking::VisualResidual last_visual_residual_;
+  bool has_rendered_frame_{false};
   nav_msgs::msg::Path path_;
 };
 
