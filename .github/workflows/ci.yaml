@@ -107,16 +107,9 @@ jobs:
           source /opt/ros/${ROS_DISTRO}/setup.bash
           source install/setup.bash
           set -u
-          ./scripts/create_synthetic_bag.sh \
-            --output bags/ci_synthetic_gs_demo \
-            --duration 4
-          ./scripts/smoke_test.sh \
+          ./scripts/ci_replay_smoke.sh \
             --bag bags/ci_synthetic_gs_demo \
-            --tf \
-            --timeout 20
-          ./scripts/smoke_test.sh \
-            --bag bags/ci_synthetic_gs_demo \
-            --minimal-inputs \
+            --duration 4 \
             --timeout 20
 
       - name: Upload Jazzy smoke logs

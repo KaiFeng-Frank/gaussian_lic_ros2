@@ -82,6 +82,12 @@ Replay it through the native mapper:
 ./scripts/smoke_test.sh --bag bags/synthetic_gs_demo --tf
 ```
 
+Run the same generated-bag replay smoke used by the Jazzy CI leg:
+
+```bash
+./scripts/ci_replay_smoke.sh --bag bags/ci_synthetic_gs_demo --duration 4 --timeout 20
+```
+
 Run the same bag with a dataset profile:
 
 ```bash

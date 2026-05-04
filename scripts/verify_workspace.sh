@@ -57,7 +57,7 @@ cd "${ROOT_DIR}"
 
 echo "[verify] bash syntax"
 bash -n scripts/build_jazzy.sh scripts/build_ros2.sh scripts/create_synthetic_bag.sh scripts/fetch_upstreams.sh \
-  scripts/smoke_test.sh scripts/verify_artifact_gates.sh scripts/verify_workspace.sh
+  scripts/ci_replay_smoke.sh scripts/smoke_test.sh scripts/verify_artifact_gates.sh scripts/verify_workspace.sh
 
 echo "[verify] python syntax"
 /usr/bin/python3 - <<'PY'

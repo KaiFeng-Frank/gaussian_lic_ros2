@@ -214,6 +214,12 @@ The workspace verification script calls `scripts/verify_artifact_gates.sh`, whic
 
 The Jazzy CI leg also builds the workspace, records a short synthetic rosbag2 sequence, and replays it through the non-torch mapper smoke path in both full-contract and `--minimal-inputs` modes. Humble remains build-only until the replay smoke path is validated there.
 
+Run the same mini replay smoke locally with:
+
+```bash
+./scripts/ci_replay_smoke.sh --bag bags/ci_synthetic_gs_demo --duration 4 --timeout 20
+```
+
 Reliable input-QoS rosbag2 check:
 
 ```bash
