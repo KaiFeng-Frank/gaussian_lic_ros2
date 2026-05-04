@@ -338,7 +338,21 @@ rg -q "tracking_hz: [1-9]" /tmp/gaussian_lic_smoke_status.txt
 rg -q "mapping_hz: [1-9]" /tmp/gaussian_lic_smoke_status.txt
 rg -q "tracking_state: 2" /tmp/gaussian_lic_smoke_status.txt
 rg -q "mapping_state: 2" /tmp/gaussian_lic_smoke_status.txt
-rg -q "render_mode: 1" /tmp/gaussian_lic_smoke_status.txt
+case "${RENDER_MODE}" in
+  off)
+    EXPECTED_RENDER_MODE=0
+    ;;
+  debug_cpu)
+    EXPECTED_RENDER_MODE=1
+    ;;
+  rasterizer)
+    EXPECTED_RENDER_MODE=2
+    ;;
+  debug_input)
+    EXPECTED_RENDER_MODE=3
+    ;;
+esac
+rg -q "render_mode: ${EXPECTED_RENDER_MODE}" /tmp/gaussian_lic_smoke_status.txt
 rg -q "num_mapping_frames: [1-9]" /tmp/gaussian_lic_smoke_status.txt
 rg -q "num_errors: 0" /tmp/gaussian_lic_smoke_status.txt
 

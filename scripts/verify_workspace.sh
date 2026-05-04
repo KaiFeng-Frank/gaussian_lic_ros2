@@ -183,6 +183,8 @@ if [[ "${CHECK_TORCH}" == "true" ]]; then
   ros2 run gaussian_lic_mapping torch_backend_probe
   echo "[verify] torch smoke"
   ./scripts/smoke_test.sh --bag "${BAG_PATH}" --torch --tf
+  echo "[verify] torch rasterizer preview smoke"
+  ./scripts/smoke_test.sh --torch --tf --render-mode rasterizer --timeout 12
 fi
 
 echo "[verify] passed"

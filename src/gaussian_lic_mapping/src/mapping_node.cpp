@@ -387,6 +387,17 @@ private:
     return static_cast<uint8_t>(std::lround(clamped * 255.0F));
   }
 
+  static float sigmoid(const float value)
+  {
+    return 1.0F / (1.0F + std::exp(-value));
+  }
+
+  static float sh_dc_to_rgb(const float value)
+  {
+    constexpr float c0 = 0.28209479177387814F;
+    return std::clamp(0.5F + c0 * value, 0.0F, 1.0F);
+  }
+
   static sensor_msgs::msg::PointField make_point_field(
     const std::string & name,
     const uint32_t offset,
@@ -1074,6 +1085,108 @@ private:
     return image;
   }
 
+#ifdef GAUSSIAN_LIC_ENABLE_TORCH
+  sensor_msgs::msg::Image make_torch_gaussian_preview_message(
+    const builtin_interfaces::msg::Time & stamp) const
+  {
+    sensor_msgs::msg::Image image = make_input_preview_message(stamp);
+    if (
+      image.width == 0 || image.height == 0 || !torch_gaussian_initialized_ ||
+      torch_gaussian_count_ == 0)
+    {
+      return make_projected_map_preview_message(stamp);
+    }
+
+    torch::NoGradGuard no_grad;
+    const auto xyz = torch_gaussian_map_.xyz.detach().to(torch::kCPU).contiguous();
+    const auto features_dc = torch_gaussian_map_.features_dc.detach().to(torch::kCPU).contiguous();
+    const auto scaling = torch_gaussian_map_.scaling.detach().to(torch::kCPU).contiguous();
+    const auto opacity = torch_gaussian_map_.opacity.detach().to(torch::kCPU).contiguous();
+    if (xyz.dim() != 2 || xyz.size(1) < 3 || features_dc.dim() != 3 || features_dc.size(2) < 3) {
+      return make_projected_map_preview_message(stamp);
+    }
+
+    const auto xyz_a = xyz.accessor<float, 2>();
+    const auto dc_a = features_dc.accessor<float, 3>();
+    const auto scaling_a = scaling.accessor<float, 2>();
+    const auto opacity_a = opacity.accessor<float, 2>();
+    const auto intrinsics = current_intrinsics();
+    const Eigen::Matrix3d r_cw = last_q_wc_.toRotationMatrix().transpose();
+    std::vector<float> z_buffer(static_cast<size_t>(image.width) * image.height,
+      std::numeric_limits<float>::infinity());
+    size_t visible_count = 0;
+
+    const int64_t start_index = static_cast<int64_t>(torch_gaussian_map_.skybox_count);
+    for (int64_t i = start_index; i < xyz.size(0); ++i) {
+      const Eigen::Vector3d xyz_world{
+        static_cast<double>(xyz_a[i][0]),
+        static_cast<double>(xyz_a[i][1]),
+        static_cast<double>(xyz_a[i][2])};
+      const Eigen::Vector3d xyz_cam = r_cw * (xyz_world - last_t_wc_);
+      if (xyz_cam.z() <= 0.0) {
+        continue;
+      }
+
+      const double u_float = intrinsics.fx * xyz_cam.x() / xyz_cam.z() + intrinsics.cx;
+      const double v_float = intrinsics.fy * xyz_cam.y() / xyz_cam.z() + intrinsics.cy;
+      if (!std::isfinite(u_float) || !std::isfinite(v_float)) {
+        continue;
+      }
+
+      const float scale_x = std::exp(scaling_a[i][0]);
+      const float scale_y = std::exp(scaling_a[i][1]);
+      const float scale_seed = std::max(scale_x, scale_y);
+      const float projected_radius = static_cast<float>(
+        intrinsics.fx * static_cast<double>(scale_seed) / xyz_cam.z());
+      const int radius = static_cast<int>(std::ceil(std::clamp(projected_radius, 1.0F, 8.0F)));
+      const float sigma = std::max(static_cast<float>(radius) * 0.5F, 0.5F);
+      const float alpha_seed = std::clamp(sigmoid(opacity_a[i][0]), 0.05F, 0.95F);
+      const float rgb[3] = {
+        sh_dc_to_rgb(dc_a[i][0][0]),
+        sh_dc_to_rgb(dc_a[i][0][1]),
+        sh_dc_to_rgb(dc_a[i][0][2])};
+
+      const int u_center = static_cast<int>(std::lround(u_float));
+      const int v_center = static_cast<int>(std::lround(v_float));
+      for (int dv = -radius; dv <= radius; ++dv) {
+        const int v = v_center + dv;
+        if (v < 0 || v >= static_cast<int>(image.height)) {
+          continue;
+        }
+        for (int du = -radius; du <= radius; ++du) {
+          const int u = u_center + du;
+          if (u < 0 || u >= static_cast<int>(image.width)) {
+            continue;
+          }
+          const float d2 = static_cast<float>(du * du + dv * dv);
+          if (d2 > static_cast<float>(radius * radius)) {
+            continue;
+          }
+
+          const size_t offset = static_cast<size_t>(v) * image.width + static_cast<size_t>(u);
+          const float depth = static_cast<float>(xyz_cam.z());
+          if (depth > z_buffer[offset] + static_cast<float>(scale_seed)) {
+            continue;
+          }
+          z_buffer[offset] = std::min(z_buffer[offset], depth);
+          const float alpha = alpha_seed * std::exp(-0.5F * d2 / (sigma * sigma));
+          uint8_t * dst = image.data.data() + offset * 3U;
+          for (size_t channel = 0; channel < 3U; ++channel) {
+            const float current = static_cast<float>(dst[channel]) / 255.0F;
+            dst[channel] = color_channel_to_u8((1.0F - alpha) * current + alpha * rgb[channel]);
+          }
+          ++visible_count;
+        }
+      }
+    }
+
+    if (visible_count == 0) {
+      return make_projected_map_preview_message(stamp);
+    }
+    return image;
+  }
+#endif
+
   sensor_msgs::msg::Image make_rendered_preview_message(
     const builtin_interfaces::msg::Time & stamp) const
   {
@@ -1088,8 +1201,12 @@ private:
       return make_projected_map_preview_message(stamp);
     }
     if (mode == "rasterizer") {
+#ifdef GAUSSIAN_LIC_ENABLE_TORCH
+      return make_torch_gaussian_preview_message(stamp);
+#else
       throw std::runtime_error(
         "render_mode=rasterizer requested, but the Gaussian rasterizer backend is not ported yet");
+#endif
     }
     throw std::runtime_error(
       "render_mode must be debug_cpu, debug_input, rasterizer, or off, got " + render_mode_);

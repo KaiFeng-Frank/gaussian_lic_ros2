@@ -96,13 +96,14 @@ baseline_manifest.json
 - [x] Add save-map service for initialized Gaussian PLY export.
 - [x] Add save-map fallback for accumulated debug XYZRGB PLY export.
 - [x] Publish CPU projected-map preview on `/gaussian_lic/rendered_image`.
+- [x] Publish a Torch GaussianMap splat preview for `render_mode:=rasterizer`.
 - [x] Register `mapping_node` as an `rclcpp_components` composable node.
 - [x] Add configurable input sensor QoS for ROS2 driver/rosbag2 compatibility.
 - [x] Fill `MappingStatus` tracking/mapping rate fields from live frame counters.
 - [x] Make TensorRT depth completion optional at the ROS2 mapper input boundary.
 - [ ] Port Gaussian rasterization, optimization, densification, and pruning.
 - [x] Publish mapper status.
-- [ ] Replace rendered-image preview with Gaussian rasterizer output.
+- [ ] Replace CPU Gaussian splat preview with upstream CUDA Gaussian rasterizer output.
 
 ## Milestone 3: Gaussian-LIC2 Frontend/Tracking Port
 

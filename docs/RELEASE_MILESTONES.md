@@ -54,7 +54,7 @@ Goal: the Gaussian-LIC2 frontend/tracking path runs natively in ROS2 without dep
 Goal: replace the debug mapping slice with the real Gaussian-LIC backend.
 
 - Port CUDA rasterizer, simple-knn, fused-ssim, optimizer, densification, pruning, and upstream-compatible PLY persistence.
-- Change the default render path to `render_mode:=rasterizer`.
+- Change the default render path to `render_mode:=rasterizer` after replacing the interim CPU Gaussian splat preview with the upstream CUDA rasterizer.
 - Keep `render_mode:=debug_cpu` only as a temporary diagnostic path and remove it after v0.3 stabilization.
 - Keep TensorRT/depth completion optional; `depth_completion:=false` must run without TensorRT installed.
 

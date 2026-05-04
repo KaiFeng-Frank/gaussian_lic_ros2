@@ -188,7 +188,7 @@ rotation:      [N, 4]
 opacity:       [N, 1]
 ```
 
-The torch backend now supports optional upstream-style skybox seeding and incremental foreground insertion from pending keyframe points. It is still not the full mapper: differentiable rasterization, optimization, pruning/densification, and rasterized rendered-image publishing remain separate porting steps. This keeps the heavy torch dependency compile-time optional while allowing the live ROS2 data path to exercise the same tensor boundaries and map-growth lifecycle that the full Gaussian core will need.
+The torch backend now supports optional upstream-style skybox seeding and incremental foreground insertion from pending keyframe points. `render_mode:=rasterizer` publishes a CPU Gaussian splat preview from the live `TorchGaussianMap` using Gaussian centers, DC color, scale, opacity, and the current camera pose. It is still not the full mapper: differentiable CUDA rasterization, optimization, pruning/densification, and gradient-based map updates remain separate porting steps. This keeps the heavy torch dependency compile-time optional while allowing the live ROS2 data path to exercise the same tensor boundaries, map-growth lifecycle, and rasterizer output topic that the full Gaussian core will need.
 
 After initialization and each keyframe extension, the node publishes the current map as chunked `gaussian_lic_msgs/msg/GaussianArray` on `/gaussian_lic/gaussian_map` with reliable transient-local QoS. The message uses public transport values:
 
