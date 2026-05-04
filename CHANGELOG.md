@@ -11,6 +11,7 @@
 - Added image-projection color fallback for PointCloud2 mapper inputs that do not carry RGB fields.
 - Added synthetic smoke coverage for image-projected point coloring from uncolored PointCloud2 input.
 - Added `require_depth_topic` so the mapper can run with sparse point-projected depth when depth images are unavailable.
+- Added a `mapper_minimal` bag contract mode for point/pose/image replay bags.
 
 ## v0.1.0-m1-infra - 2026-05-03
 

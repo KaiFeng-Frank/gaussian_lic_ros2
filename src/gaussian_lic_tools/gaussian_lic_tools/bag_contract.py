@@ -15,6 +15,12 @@ DEFAULT_CONTRACT = {
     "/imu_for_gs": "sensor_msgs/msg/Imu",
 }
 
+MINIMAL_REQUIRED_TOPICS = {
+    "/points_for_gs",
+    "/pose_for_gs",
+    "/image_for_gs",
+}
+
 
 def load_ros2_metadata(bag_path):
     import yaml
@@ -94,8 +100,7 @@ def load_bag_info(bag_path, bag_format):
     return info, topics, bag_format
 
 
-def load_contract(args):
-    contract = dict(DEFAULT_CONTRACT)
+def load_contracts(args):
     overrides = {
         "/points_for_gs": args.pointcloud_topic,
         "/pose_for_gs": args.pose_topic,
@@ -104,28 +109,36 @@ def load_contract(args):
         "/depth_for_gs": args.depth_topic,
         "/imu_for_gs": args.imu_topic,
     }
+
+    required_defaults = set(DEFAULT_CONTRACT)
+    if args.contract == "mapper_minimal":
+        required_defaults = set(MINIMAL_REQUIRED_TOPICS)
+
+    required = {}
+    optional = {}
     for default_name, actual_name in overrides.items():
-        if actual_name == default_name:
-            continue
-        msg_type = contract.pop(default_name)
-        contract[actual_name] = msg_type
-    return contract
+        target = required if default_name in required_defaults else optional
+        target[actual_name] = DEFAULT_CONTRACT[default_name]
+    return required, optional
 
 
-def check_contract(topics, contract):
+def check_topic_contract(topics, contract, required):
     checks = {}
     errors = []
     for topic, expected_type in contract.items():
         actual = topics.get(topic)
         if actual is None:
             checks[topic] = {
-                "ok": False,
+                "ok": not required,
+                "required": required,
+                "present": False,
                 "expected_type": expected_type,
                 "actual_type": None,
                 "message_count": 0,
-                "error": "missing topic",
+                "error": "missing topic" if required else "missing optional topic",
             }
-            errors.append(f"{topic}: missing topic")
+            if required:
+                errors.append(f"{topic}: missing topic")
             continue
 
         actual_type = actual["type"]
@@ -138,6 +151,8 @@ def check_contract(topics, contract):
 
         checks[topic] = {
             "ok": not topic_errors,
+            "required": required,
+            "present": True,
             "expected_type": expected_type,
             "actual_type": actual_type,
             "serialization_format": actual["serialization_format"],
@@ -151,19 +166,23 @@ def check_contract(topics, contract):
 
 def build_report(args):
     info, topics, detected_format = load_bag_info(args.bag, args.bag_format)
-    contract = load_contract(args)
-    checks, errors = check_contract(topics, contract)
+    required_contract, optional_contract = load_contracts(args)
+    required_checks, required_errors = check_topic_contract(topics, required_contract, required=True)
+    optional_checks, optional_errors = check_topic_contract(topics, optional_contract, required=False)
+    errors = required_errors + optional_errors
     duration_nsec = int(info.get("duration", {}).get("nanoseconds", 0))
     return {
         "bag": str(Path(args.bag).expanduser().resolve()),
         "bag_format": detected_format,
+        "contract": args.contract,
         "storage_identifier": info.get("storage_identifier", ""),
         "ros_distro": info.get("ros_distro", ""),
         "duration_sec": duration_nsec * 1e-9,
         "message_count": int(info.get("message_count", 0)),
         "contract_ok": not errors,
         "errors": errors,
-        "required_topics": checks,
+        "required_topics": required_checks,
+        "optional_topics": optional_checks,
         "all_topics": topics,
     }
 
@@ -174,6 +193,15 @@ def main(argv=None):
     )
     parser.add_argument("--bag", required=True, help="ROS2 bag directory or ROS1 .bag")
     parser.add_argument("--bag-format", choices=("auto", "ros1", "ros2"), default="auto")
+    parser.add_argument(
+        "--contract",
+        choices=("full", "mapper_minimal"),
+        default="full",
+        help=(
+            "Topic contract to validate. full requires the complete mapper input set; "
+            "mapper_minimal requires point cloud, pose, and image only."
+        ),
+    )
     parser.add_argument("--pointcloud-topic", default="/points_for_gs")
     parser.add_argument("--pose-topic", default="/pose_for_gs")
     parser.add_argument("--image-topic", default="/image_for_gs")

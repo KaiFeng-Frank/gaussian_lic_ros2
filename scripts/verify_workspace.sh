@@ -102,6 +102,12 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json \
   >/tmp/gaussian_lic_bag_contract_verify.json
 rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_contract_verify.json
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag "${BAG_PATH}" \
+  --contract mapper_minimal \
+  --json \
+  >/tmp/gaussian_lic_bag_minimal_contract_verify.json
+rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_minimal_contract_verify.json
 rm -rf /tmp/gaussian_lic_offline_verify
 ros2 run gaussian_lic_tools gaussian_lic_offline \
   --bag "${BAG_PATH}" \

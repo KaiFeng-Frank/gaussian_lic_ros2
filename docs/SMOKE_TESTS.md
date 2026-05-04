@@ -180,7 +180,7 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json
 ```
 
-The same command accepts `--bag-format ros1` for a ROS1 `.bag` when the optional `rosbags` package is available in that Python environment. This is useful before converting archived upstream bags to rosbag2.
+The same command accepts `--contract mapper_minimal` for intermediate replay bags that contain only `/points_for_gs`, `/pose_for_gs`, and `/image_for_gs`; CameraInfo, depth, and IMU are reported as optional topics in that mode. It also accepts `--bag-format ros1` for a ROS1 `.bag` when the optional `rosbags` package is available in that Python environment. This is useful before converting archived upstream bags to rosbag2.
 
 Run the same mapper checks from rosbag2 playback:
 

@@ -125,6 +125,17 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json
 ```
 
+For intermediate replay bags that only contain the mapper's synchronized core topics, use:
+
+```bash
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag /path/to/intermediate_bag \
+  --contract mapper_minimal \
+  --json
+```
+
+`mapper_minimal` requires `/points_for_gs`, `/pose_for_gs`, and `/image_for_gs`. It still reports `/camera_info_for_gs`, `/depth_for_gs`, and `/imu_for_gs` when present, but missing optional topics do not fail the check. Use it with `require_depth_topic:=false` and profile intrinsics when replaying bags that do not carry depth or CameraInfo.
+
 The same checker can inspect ROS1 `.bag` metadata before conversion when the optional `rosbags` package is installed:
 
 ```bash
@@ -132,6 +143,7 @@ The same checker can inspect ROS1 `.bag` metadata before conversion when the opt
 ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --bag /path/to/input.bag \
   --bag-format ros1 \
+  --contract mapper_minimal \
   --json
 ```
 

@@ -148,3 +148,9 @@ The bag contract checker uses the same optional dependency when inspecting ROS1 
 ```bash
 gaussian_lic_bag_check --bag /path/to/input.bag --bag-format ros1 --json
 ```
+
+For intermediate mapper bags without CameraInfo, depth, or IMU, use the minimal replay contract:
+
+```bash
+gaussian_lic_bag_check --bag /path/to/input.bag --bag-format ros1 --contract mapper_minimal --json
+```
