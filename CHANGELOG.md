@@ -14,6 +14,10 @@
 - Added a Torch GaussianMap CPU splat preview for `render_mode:=rasterizer` and smoke coverage for the rasterizer status mode.
 - Added `scripts/collect_current_results.sh` to record ROS2 mapper outputs and write current reproduction artifacts for baseline-vs-current reports.
 - Confirmed the ROS1 upstream `gs_mapping` baseline target builds in Docker with OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6.
+- Added `scripts/frontend_raw_to_ros1_mapper_contract.py` to convert official FAST-LIVO2 ROS2 frontend raw bags into a ROS1 mapper-contract bag for shared upstream/current replay.
+- Added `scripts/run_upstream_baseline.sh` and `scripts/patch_upstream_baseline.py` to run the upstream ROS1 Gaussian-LIC/Gaussian-LIC2 mapper in Docker, archive baseline artifacts, and guard local TensorRT/libtorch runtime issues.
+- Extended baseline and point-cloud artifact gates to read binary little-endian Gaussian PLY files from upstream.
+- Produced a curated official FAST-LIVO2 `Bright_Screen_Wall_curated_8s` baseline-vs-current report with trajectory and point-cloud gates passing while strict `CBD_Building_01` data remains quota-blocked.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
 - Implemented the dependency-gated ROS1 `.bag` to rosbag2 converter backend using `rosbags`.
 - Added `gaussian_lic_bag_check` to validate rosbag2 mapper-contract topics before replay.

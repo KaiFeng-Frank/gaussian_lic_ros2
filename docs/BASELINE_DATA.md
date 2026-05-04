@@ -75,6 +75,53 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
 
 `frontend_sensor_raw` is the true LIC2 sensor-input contract. It requires camera image, CameraInfo, LiDAR PointCloud2, and IMU topics, but does not require pose or odometry. `frontend_raw` remains the temporary adapter contract for smoke tests that inject a pose source.
 
+Create the curated ROS1 upstream mapper-contract substitute from the official `Bright_Screen_Wall_frontend_raw` bag:
+
+```bash
+PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages \
+  /usr/bin/python3 scripts/frontend_raw_to_ros1_mapper_contract.py \
+  --input /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --output /home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_8s.bag \
+  --max-duration-sec 8 \
+  --overwrite
+```
+
+Run the ROS1 upstream baseline on that shared mapper-contract input:
+
+```bash
+./scripts/run_upstream_baseline.sh \
+  --bag /home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_8s.bag \
+  --sequence Bright_Screen_Wall_curated_8s \
+  --output baseline/fastlivo2/Bright_Screen_Wall_curated_8s \
+  --rebuild \
+  --runtime-sec 180
+```
+
+Run the curated baseline-vs-current report:
+
+```bash
+./scripts/reproduction_report.py \
+  --baseline-dir baseline/fastlivo2/Bright_Screen_Wall_curated_8s \
+  --current-dir results/fastlivo2/Bright_Screen_Wall_current \
+  --sequence Bright_Screen_Wall_curated_8s \
+  --skip-metrics \
+  --trajectory-align first \
+  --min-trajectory-coverage 0.4 \
+  --max-association-dt 0.2 \
+  --pointcloud-align centroid \
+  --max-pointcloud-points 50000 \
+  --max-nearest-m 0.5 \
+  --max-chamfer-rmse-m 0.5 \
+  --max-chamfer-mean-m 0.5 \
+  --max-chamfer-max-m 0.5 \
+  --max-unmatched-ratio 0.25 \
+  --min-point-count-ratio 0.5 \
+  --max-point-count-ratio 5.0 \
+  --max-centroid-drift-m 0.5 \
+  --output results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json \
+  --markdown results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.md
+```
+
 ## Execution Status: 2026-05-04
 
 Strict target sequence:
@@ -90,7 +137,9 @@ Status:
 - `Bright_Screen_Wall.bag` has been downloaded from the same official FAST-LIVO2 Google Drive mirror and converted to `/home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw`.
 - The converted `Bright_Screen_Wall_frontend_raw` bag passes `frontend_sensor_raw` and has replayed through the ROS2 LIC2 contract adapter, forwarding camera images, CameraInfo, LiDAR PointCloud2, and IMU data.
 - The upstream ROS1 Gaussian-LIC/Gaussian-LIC2 Noetic build is build-complete in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6 SDK.
-- `Bright_Screen_Wall_frontend_raw` has produced a ROS2 current artifact directory at `results/fastlivo2/Bright_Screen_Wall_current`; this is not a substitute for the strict `CBD_Building_01` baseline.
+- `Bright_Screen_Wall_frontend_raw` has produced a ROS2 current artifact directory at `results/fastlivo2/Bright_Screen_Wall_current`.
+- The curated official substitute `Bright_Screen_Wall_curated_8s` has produced a ROS1 upstream baseline archive at `baseline/fastlivo2/Bright_Screen_Wall_curated_8s`.
+- The curated report at `results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json` passes trajectory and point-cloud gates. Metrics are intentionally skipped because this substitute uses identity-pose fallback and is not the strict `CBD_Building_01` paper gate.
 
 Current ROS1 upstream build status:
 
@@ -98,6 +147,7 @@ Current ROS1 upstream build status:
 - The strict local OpenCV 4.7.0 build under `/home/frank/Software/opencv/opencv-4.7.0/build` is incomplete for upstream linking; the generated OpenCV config references `libopencv_gapi.so.4.7.0`, but that library is absent. A direct rebuild attempt of the 4.7 targets currently fails in the host Conda/CMake linker environment on `/lib64/libm.so.6` and `/lib64/libmvec.so.1`.
 - The existing OpenCV 4.10 CUDA build under `/home/frank/Software/opencv/opencv-4.10.0/build` removes the OpenCV link blocker when passed with `--opencv-dir`; with TensorRT installed, the upstream `gs_mapping` target builds successfully.
 - Current CUDA/compiler pairing needs a compatibility include for `FLT_MAX` in copied upstream CUDA files. `scripts/upstream_baseline_build_attempt.sh` applies that include only inside `/tmp/catkin_gaussian`, leaving `external/Gaussian-LIC` unchanged.
+- `scripts/run_upstream_baseline.sh` applies runtime-only patches to the copied upstream workspace: lazy depth-completer construction when depth completion is disabled, compatible `libstdc++` preloading for libtorch, LPIPS/cuDNN failure isolation, and a fallback Gaussian XYZ PLY writer if upstream binary PLY writing fails.
 
 Re-run the upstream build attempt:
 

@@ -8,6 +8,7 @@ import json
 import math
 from pathlib import Path
 import statistics
+import struct
 import sys
 
 
@@ -20,18 +21,41 @@ class PointCloud:
     colors: list
 
 
+PLY_SCALAR_TYPES = {
+    "char": "b",
+    "int8": "b",
+    "uchar": "B",
+    "uint8": "B",
+    "short": "h",
+    "int16": "h",
+    "ushort": "H",
+    "uint16": "H",
+    "int": "i",
+    "int32": "i",
+    "uint": "I",
+    "uint32": "I",
+    "float": "f",
+    "float32": "f",
+    "double": "d",
+    "float64": "d",
+}
+
+
 def parse_ply_header(stream, path):
     first_line = stream.readline()
-    if first_line.strip() != "ply":
+    if first_line.strip() != b"ply":
         raise ValueError(f"{path}: not a PLY file")
 
     vertex_count = None
     vertex_properties = []
     current_element = None
-    is_ascii = False
+    ply_format = None
 
     for raw_line in stream:
-        line = raw_line.strip()
+        try:
+            line = raw_line.decode("ascii").strip()
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"{path}: binary data started before end_header") from exc
         if line == "end_header":
             break
         if not line or line.startswith("comment "):
@@ -39,7 +63,11 @@ def parse_ply_header(stream, path):
 
         parts = line.split()
         if parts[:2] == ["format", "ascii"]:
-            is_ascii = True
+            ply_format = "ascii"
+        elif parts[:2] == ["format", "binary_little_endian"]:
+            ply_format = "binary_little_endian"
+        elif parts[:2] == ["format", "binary_big_endian"]:
+            ply_format = "binary_big_endian"
         elif parts[0] == "element":
             current_element = parts[1]
             if current_element == "vertex":
@@ -49,67 +77,126 @@ def parse_ply_header(stream, path):
                 raise ValueError(f"{path}: list properties on vertex elements are not supported")
             if len(parts) != 3:
                 raise ValueError(f"{path}: malformed vertex property line: {line}")
-            vertex_properties.append(parts[2])
+            if parts[1] not in PLY_SCALAR_TYPES:
+                raise ValueError(f"{path}: unsupported vertex property type: {parts[1]}")
+            vertex_properties.append((parts[2], parts[1]))
     else:
         raise ValueError(f"{path}: missing end_header")
 
-    if not is_ascii:
-        raise ValueError(f"{path}: only ascii PLY files are supported")
+    if ply_format not in ("ascii", "binary_little_endian"):
+        raise ValueError(f"{path}: unsupported PLY format {ply_format!r}")
     if vertex_count is None:
         raise ValueError(f"{path}: missing element vertex declaration")
+    property_names = [name for name, _ in vertex_properties]
     for required in ("x", "y", "z"):
-        if required not in vertex_properties:
+        if required not in property_names:
             raise ValueError(f"{path}: missing vertex property {required}")
-    return vertex_count, vertex_properties
+    return vertex_count, vertex_properties, ply_format
+
+
+def load_ascii_vertices(stream, path, vertex_count, properties, property_index, has_color, stride):
+    points = []
+    colors = []
+    for row in range(vertex_count):
+        raw_line = stream.readline()
+        if not raw_line:
+            raise ValueError(f"{path}: expected {vertex_count} vertices, found {row}")
+        if row % stride != 0:
+            continue
+
+        parts = raw_line.decode("ascii").split()
+        if len(parts) < len(properties):
+            raise ValueError(f"{path}: vertex row {row + 1} has too few columns")
+
+        try:
+            point = (
+                float(parts[property_index["x"]]),
+                float(parts[property_index["y"]]),
+                float(parts[property_index["z"]]),
+            )
+            if not all(math.isfinite(value) for value in point):
+                continue
+            points.append(point)
+            if has_color:
+                colors.append(
+                    (
+                        float(parts[property_index["red"]]),
+                        float(parts[property_index["green"]]),
+                        float(parts[property_index["blue"]]),
+                    )
+                )
+        except ValueError as exc:
+            raise ValueError(f"{path}: non-numeric vertex row {row + 1}") from exc
+    return points, colors
+
+
+def load_binary_little_endian_vertices(stream, path, vertex_count, properties, property_index, has_color, stride):
+    points = []
+    colors = []
+    unpacker = struct.Struct("<" + "".join(PLY_SCALAR_TYPES[property_type] for _, property_type in properties))
+    for row in range(vertex_count):
+        raw = stream.read(unpacker.size)
+        if len(raw) != unpacker.size:
+            raise ValueError(f"{path}: expected {vertex_count} binary vertices, found {row}")
+        if row % stride != 0:
+            continue
+        values = unpacker.unpack(raw)
+        point = (
+            float(values[property_index["x"]]),
+            float(values[property_index["y"]]),
+            float(values[property_index["z"]]),
+        )
+        if not all(math.isfinite(value) for value in point):
+            continue
+        points.append(point)
+        if has_color:
+            colors.append(
+                (
+                    float(values[property_index["red"]]),
+                    float(values[property_index["green"]]),
+                    float(values[property_index["blue"]]),
+                )
+            )
+    return points, colors
 
 
 def load_ply(path, max_points):
-    resolved = str(Path(path).expanduser().resolve())
-    points = []
-    colors = []
-    with Path(path).expanduser().open("r", encoding="utf-8") as stream:
-        vertex_count, properties = parse_ply_header(stream, path)
-        property_index = {name: index for index, name in enumerate(properties)}
+    resolved_path = Path(path).expanduser().resolve()
+    resolved = str(resolved_path)
+    with resolved_path.open("rb") as stream:
+        vertex_count, properties, ply_format = parse_ply_header(stream, path)
+        property_names = [name for name, _ in properties]
+        property_index = {name: index for index, name in enumerate(property_names)}
         color_properties = ("red", "green", "blue")
         has_color = all(name in property_index for name in color_properties)
         stride = 1
         if max_points > 0 and vertex_count > max_points:
             stride = math.ceil(vertex_count / max_points)
 
-        for row in range(vertex_count):
-            raw_line = stream.readline()
-            if not raw_line:
-                raise ValueError(f"{path}: expected {vertex_count} vertices, found {row}")
-            if row % stride != 0:
-                continue
-
-            parts = raw_line.split()
-            if len(parts) < len(properties):
-                raise ValueError(f"{path}: vertex row {row + 1} has too few columns")
-
-            try:
-                point = (
-                    float(parts[property_index["x"]]),
-                    float(parts[property_index["y"]]),
-                    float(parts[property_index["z"]]),
-                )
-                if not all(math.isfinite(value) for value in point):
-                    continue
-                points.append(point)
-                if has_color:
-                    colors.append(
-                        (
-                            float(parts[property_index["red"]]),
-                            float(parts[property_index["green"]]),
-                            float(parts[property_index["blue"]]),
-                        )
-                    )
-            except ValueError as exc:
-                raise ValueError(f"{path}: non-numeric vertex row {row + 1}") from exc
+        if ply_format == "ascii":
+            points, colors = load_ascii_vertices(
+                stream,
+                path,
+                vertex_count,
+                properties,
+                property_index,
+                has_color,
+                stride,
+            )
+        else:
+            points, colors = load_binary_little_endian_vertices(
+                stream,
+                path,
+                vertex_count,
+                properties,
+                property_index,
+                has_color,
+                stride,
+            )
 
     if not points:
         raise ValueError(f"{path}: no valid xyz vertices found")
-    return PointCloud(resolved, vertex_count, properties, points, colors)
+    return PointCloud(resolved, vertex_count, property_names, points, colors)
 
 
 def add(lhs, rhs):

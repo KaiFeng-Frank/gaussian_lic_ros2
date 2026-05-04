@@ -48,11 +48,14 @@ def count_tum_poses(path):
 
 
 def count_ply_vertices(path):
-    with path.open("r", encoding="utf-8") as stream:
-        if stream.readline().strip() != "ply":
+    with path.open("rb") as stream:
+        if stream.readline().strip() != b"ply":
             raise ValueError(f"{path}: not a PLY file")
         for raw_line in stream:
-            line = raw_line.strip()
+            try:
+                line = raw_line.decode("ascii").strip()
+            except UnicodeDecodeError as exc:
+                raise ValueError(f"{path}: binary data started before end_header") from exc
             if line == "end_header":
                 break
             parts = line.split()

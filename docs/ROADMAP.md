@@ -11,7 +11,7 @@ See `docs/RELEASE_MILESTONES.md` for release criteria and artifacts.
 
 ## Immediate Next Step
 
-Baseline data gate:
+Strict baseline data gate:
 
 ```text
 ./scripts/baseline_readiness.py --dataset-root /home/frank/data/fast_livo --sequence CBD_Building_01
@@ -36,12 +36,13 @@ Current execution gate:
   --sequence CBD_Building_01
 ```
 
-As of 2026-05-04, `CBD_Building_01` download is blocked by Google Drive quota. The upstream ROS1 `gs_mapping` target builds successfully in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6. Strict OpenCV 4.7.0 is still incomplete locally. `Bright_Screen_Wall` is the first official FAST-LIVO2 bag that has passed the ROS2 raw-sensor adapter replay and produced a ROS2 current artifact directory.
+As of 2026-05-04, `CBD_Building_01` download is blocked by Google Drive quota. The upstream ROS1 `gs_mapping` target builds successfully in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6. Strict OpenCV 4.7.0 is still incomplete locally.
 
-Then bring up the upstream baseline environment, run Gaussian-LIC/Gaussian-LIC2 on FAST-LIVO2, and archive outputs under:
+To avoid waiting on the quota-blocked strict sequence, the current executable substitute is the official FAST-LIVO2 `Bright_Screen_Wall` bag, curated to the first 8 seconds. It now has:
 
 ```text
-baseline/fastlivo2/<sequence>/
+baseline/fastlivo2/Bright_Screen_Wall_curated_8s/
+results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json
 ```
 
 Required baseline artifacts:
@@ -131,6 +132,7 @@ baseline_manifest.json
 - [x] Reproducible ROS1 upstream baseline build-attempt script for the local Noetic Docker environment.
 - [x] Add a ROS2 current-results collector that records mapper outputs and writes `trajectory.tum`, `point_cloud.ply`, and `metrics.json`.
 - [x] Jazzy CI smoke tests with a generated mini rosbag2 sequence.
-- [ ] ROS1 upstream baseline archive for FAST-LIVO2.
+- [x] ROS1 upstream baseline archive for the official curated FAST-LIVO2 `Bright_Screen_Wall_curated_8s` substitute.
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
-- [ ] PR comparison report on real or curated mini-sequence artifacts.
+- [x] PR comparison report on real or curated mini-sequence artifacts.
+- [ ] Strict `CBD_Building_01` ROS1 upstream baseline archive and report after the official data source becomes downloadable.
