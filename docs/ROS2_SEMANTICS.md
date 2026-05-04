@@ -46,6 +46,10 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
 - Strict baseline comparison still needs the same topic stamps and start order as
   the ROS1 run. If rosbag2 playback ordering is not enough for a target sequence,
   add a deterministic sequential replay helper instead of tuning estimator code.
+- `scripts/rosbag2_timing_audit.py` checks `metadata.yaml` plus sqlite3 `.db3`
+  message timestamp ordering and required topic counts before a replay is used
+  as baseline evidence. MCAP bags are reported as metadata-only unless an MCAP
+  parser is available in the local environment.
 
 ## Regression Check
 

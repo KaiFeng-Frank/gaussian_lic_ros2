@@ -16,6 +16,7 @@ MAPPING_NODE = ROOT / "src" / "gaussian_lic_mapping" / "src" / "mapping_node.cpp
 FRONTEND_ADAPTER = ROOT / "src" / "gaussian_lic_frontend" / "src" / "lic2_contract_adapter_node.cpp"
 RUN_BAG_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "run_bag.launch.py"
 SEMANTICS_DOC = ROOT / "docs" / "ROS2_SEMANTICS.md"
+TIMING_AUDIT = ROOT / "scripts" / "rosbag2_timing_audit.py"
 
 
 def read(path: Path) -> str:
@@ -32,6 +33,7 @@ def source_files() -> list[Path]:
     roots = [
         ROOT / "src" / "gaussian_lic_mapping",
         ROOT / "src" / "gaussian_lic_frontend",
+        ROOT / "src" / "gaussian_lic_tracking",
     ]
     paths: list[Path] = []
     for root in roots:
@@ -46,10 +48,13 @@ def main() -> int:
 
     if not SEMANTICS_DOC.is_file():
         errors.append("docs/ROS2_SEMANTICS.md is missing")
+    if not TIMING_AUDIT.is_file():
+        errors.append("scripts/rosbag2_timing_audit.py is missing")
 
     mapping_text = read(MAPPING_NODE)
     frontend_text = read(FRONTEND_ADAPTER)
     launch_text = read(RUN_BAG_LAUNCH)
+    timing_audit_text = read(TIMING_AUDIT)
 
     if "stamp_to_sec" in mapping_text:
         errors.append("mapping_node still exposes stamp_to_sec; use int64 nanoseconds for sync math")
@@ -73,6 +78,8 @@ def main() -> int:
         errors.append("run_bag.launch.py rosbag2 replay must publish /clock")
     if '"use_sim_time", default_value="true"' not in launch_text:
         errors.append("run_bag.launch.py must default use_sim_time to true")
+    if "global_time_regressions" not in timing_audit_text or "strict-storage" not in timing_audit_text:
+        errors.append("rosbag2_timing_audit.py must check timestamp regressions and strict storage mode")
 
     for path in sorted(CONFIG_DIR.glob("*.yaml")):
         params = mapping_params(path)
