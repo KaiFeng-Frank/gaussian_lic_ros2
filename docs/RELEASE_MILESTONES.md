@@ -13,6 +13,7 @@ Goal: make strict reproduction measurable before the native algorithm port grows
 - Add a trajectory regression gate for timestamp-associated TUM trajectory drift.
 - Add a point-cloud regression gate for ASCII PLY map drift.
 - Add a baseline manifest generator for archived ROS1 artifact fingerprinting.
+- Add a FAST-LIVO2 data fetch/readiness gate for `CBD_Building_01`.
 - Add a combined reproduction report that aggregates manifest, metrics, trajectory, and map gates.
 
 Release artifacts:
@@ -24,6 +25,16 @@ baseline/fastlivo2/<sequence>/renders/
 baseline/fastlivo2/<sequence>/metrics.json
 baseline/fastlivo2/<sequence>/run.log
 baseline/fastlivo2/<sequence>/baseline_manifest.json
+```
+
+Raw FAST-LIVO2 data is checked with:
+
+```bash
+./scripts/baseline_readiness.py \
+  --dataset-root /home/frank/data/fast_livo \
+  --baseline-dir baseline/fastlivo2/CBD_Building_01 \
+  --current-results-dir results/fastlivo2/current \
+  --sequence CBD_Building_01
 ```
 
 ## v0.2.0 - Gaussian-LIC2 ROS2 Native Frontend

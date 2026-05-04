@@ -409,6 +409,25 @@ Run the same Python-only artifact gates used by GitHub Actions locally:
 
 Set `GAUSSIAN_LIC_ARTIFACT_DIR=/path/to/reports` to choose where the synthetic JSON/Markdown reports are written. In GitHub Actions those files are uploaded as the `artifact-gate-reports` workflow artifact.
 
+Check real FAST-LIVO2 baseline readiness:
+
+```bash
+./scripts/baseline_readiness.py \
+  --dataset-root /home/frank/data/fast_livo \
+  --baseline-dir baseline/fastlivo2/CBD_Building_01 \
+  --current-results-dir results/fastlivo2/current \
+  --sequence CBD_Building_01 \
+  --markdown baseline_readiness.md
+```
+
+Fetch the official FAST-LIVO2 quick-start bag when the data gate reports missing raw data:
+
+```bash
+./scripts/fetch_fastlivo2_sequence.py \
+  --sequence CBD_Building_01 \
+  --output-dir /home/frank/data/fast_livo
+```
+
 ## Release Roadmap
 
 The public plan is release-driven:
@@ -423,8 +442,15 @@ v0.4.0  Strict FAST-LIVO2 Reproduction
 Immediate next action:
 
 ```text
-Prepare ROS1 upstream baseline environment:
-docker pull ros:noetic-ros-base-focal
+Fetch FAST-LIVO2 CBD_Building_01 and run the upstream Gaussian-LIC/Gaussian-LIC2 baseline.
+```
+
+The data fetch is executable:
+
+```bash
+./scripts/fetch_fastlivo2_sequence.py \
+  --sequence CBD_Building_01 \
+  --output-dir /home/frank/data/fast_livo
 ```
 
 Then run the original Gaussian-LIC/Gaussian-LIC2 upstream on FAST-LIVO2 and archive artifacts under:
@@ -444,13 +470,13 @@ Validate and fingerprint the archived baseline before comparing ROS2 results:
 
 The baseline manifest checks `trajectory.tum`, `point_cloud.ply`, `metrics.json`, `run.log`, and `renders/`, then writes artifact sizes, SHA-256 hashes, pose count, PLY vertex count, and render count to `baseline_manifest.json`.
 
-Current blocker:
+Current readiness gate:
 
 ```text
-FAST-LIVO2 bag data is required at /home/frank/data/fast_livo/
+./scripts/baseline_readiness.py --dataset-root /home/frank/data/fast_livo --sequence CBD_Building_01
 ```
 
-See [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+See [docs/BASELINE_DATA.md](docs/BASELINE_DATA.md), [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Docker
 

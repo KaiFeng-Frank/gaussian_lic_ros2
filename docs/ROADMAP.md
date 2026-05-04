@@ -11,16 +11,18 @@ See `docs/RELEASE_MILESTONES.md` for release criteria and artifacts.
 
 ## Immediate Next Step
 
-Blocker:
+Baseline data gate:
 
 ```text
-FAST-LIVO2 bag data is required at /home/frank/data/fast_livo/
+./scripts/baseline_readiness.py --dataset-root /home/frank/data/fast_livo --sequence CBD_Building_01
 ```
 
 First concrete action:
 
 ```bash
-docker pull ros:noetic-ros-base-focal
+./scripts/fetch_fastlivo2_sequence.py \
+  --sequence CBD_Building_01 \
+  --output-dir /home/frank/data/fast_livo
 ```
 
 Then bring up the upstream baseline environment, run Gaussian-LIC/Gaussian-LIC2 on FAST-LIVO2, and archive outputs under:
@@ -110,6 +112,7 @@ baseline_manifest.json
 - [x] Performance regression comparison script.
 - [x] Jazzy/Humble build-only CI skeleton.
 - [x] Python-only CI artifact gates for baseline manifests and reproduction reports.
+- [x] FAST-LIVO2 data fetch/readiness scripts for executable baseline status.
 - [x] Jazzy CI smoke tests with a generated mini rosbag2 sequence.
 - [ ] ROS1 upstream baseline archive for FAST-LIVO2.
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.

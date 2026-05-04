@@ -25,6 +25,8 @@
 - Added `scripts/trajectory_compare.py` for timestamp-associated TUM trajectory drift gates.
 - Added `scripts/pointcloud_compare.py` for ASCII PLY map drift gates.
 - Added `scripts/baseline_manifest.py` for ROS1 baseline artifact validation and fingerprinting.
+- Added `scripts/fetch_fastlivo2_sequence.py` to discover and download official FAST-LIVO2 Google Drive sequence bags.
+- Added `scripts/baseline_readiness.py` to gate FAST-LIVO2 data, ROS1 baseline artifacts, and ROS2 current artifacts before reproduction comparison.
 - Added `scripts/reproduction_report.py` to aggregate baseline manifest, metrics, trajectory, and PLY drift gates.
 - Added a Python-only GitHub Actions artifact-gates job using `scripts/verify_artifact_gates.sh`.
 - Uploaded artifact-gate JSON/Markdown reports from CI as `artifact-gate-reports`.

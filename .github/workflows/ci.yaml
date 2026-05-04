@@ -33,6 +33,7 @@ jobs:
           set -euo pipefail
           export GAUSSIAN_LIC_ARTIFACT_DIR=artifact_reports
           ./scripts/verify_artifact_gates.sh
+          cat artifact_reports/baseline_readiness.md >> "${GITHUB_STEP_SUMMARY}"
           cat artifact_reports/reproduction_report.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload artifact gate reports
