@@ -65,6 +65,17 @@ TorchGaussianMap initialize_gaussian_map(
   double scaling_scale,
   double fx,
   double fy,
+  torch::Device device = torch::kCPU,
+  int skybox_points_num = 0,
+  double skybox_radius = 1000.0);
+
+size_t append_pending_points_to_gaussian_map(
+  TorchGaussianMap & map,
+  const MapperDataset & dataset,
+  int sh_degree,
+  double scaling_scale,
+  double fx,
+  double fy,
   torch::Device device = torch::kCPU);
 
 }  // namespace gaussian_lic_mapping

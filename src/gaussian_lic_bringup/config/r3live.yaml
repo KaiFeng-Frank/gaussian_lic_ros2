@@ -23,6 +23,10 @@ mapping_node:
     sh_degree: 3
     scaling_scale: 2.0
     gaussian_init_min_points: 1
+    gaussian_init_min_keyframes: 1
+    enable_torch_gaussian_extend: true
+    skybox_points_num: 0
+    skybox_radius: 1000.0
     torch_gaussian_device: cpu
     gaussian_map_chunk_size: 1024
     max_path_length: 5000

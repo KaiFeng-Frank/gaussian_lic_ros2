@@ -36,8 +36,26 @@ int main()
   point.depth_m = 1.0F;
   frame_data.points.push_back(point);
   dataset.add_frame(std::move(frame_data));
-  const auto gaussian_map = gaussian_lic_mapping::initialize_gaussian_map(
+  auto gaussian_map = gaussian_lic_mapping::initialize_gaussian_map(
     dataset, 3, 1.0, 1.0, 1.0, torch::kCPU);
+  const auto gaussian_count_after_init = gaussian_map.foreground_count + gaussian_map.skybox_count;
+
+  dataset.clear_pending_points();
+  gaussian_lic_mapping::MapperFrameData second_frame_data;
+  second_frame_data.frame_index = 1;
+  second_frame_data.is_keyframe = true;
+  second_frame_data.width = 1;
+  second_frame_data.height = 1;
+  second_frame_data.image_rgb_float = frame.image_rgb_float.clone();
+  second_frame_data.depth_m_float = frame.depth_m_float.clone();
+  gaussian_lic_mapping::MapperPoint second_point;
+  second_point.xyz_world = Eigen::Vector3f(0.1F, 0.0F, 1.0F);
+  second_point.color_rgb = Eigen::Vector3f(0.75F, 0.5F, 0.25F);
+  second_point.depth_m = 1.0F;
+  second_frame_data.points.push_back(second_point);
+  dataset.add_frame(std::move(second_frame_data));
+  const auto appended_count = gaussian_lic_mapping::append_pending_points_to_gaussian_map(
+    gaussian_map, dataset, 3, 1.0, 1.0, 1.0, torch::kCPU);
 
   std::cout << "torch_version=" << TORCH_VERSION << "\n";
   std::cout << "cuda_available=" << (torch::cuda::is_available() ? "true" : "false") << "\n";
@@ -48,6 +66,8 @@ int main()
   std::cout << "gaussian_xyz_sizes=" << gaussian_map.xyz.sizes() << "\n";
   std::cout << "gaussian_features_dc_sizes=" << gaussian_map.features_dc.sizes() << "\n";
   std::cout << "gaussian_features_rest_sizes=" << gaussian_map.features_rest.sizes() << "\n";
+  std::cout << "gaussian_count_after_init=" << gaussian_count_after_init << "\n";
+  std::cout << "appended_count=" << appended_count << "\n";
   std::cout << "gaussian_count=" << gaussian_map.foreground_count + gaussian_map.skybox_count << "\n";
   return 0;
 }

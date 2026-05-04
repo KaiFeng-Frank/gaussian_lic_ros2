@@ -19,6 +19,7 @@ def generate_launch_description():
     synthetic_input = LaunchConfiguration("synthetic_input")
     enable_torch_camera_conversion = LaunchConfiguration("enable_torch_camera_conversion")
     enable_torch_gaussian_init = LaunchConfiguration("enable_torch_gaussian_init")
+    enable_torch_gaussian_extend = LaunchConfiguration("enable_torch_gaussian_extend")
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
     sensor_qos_history = LaunchConfiguration("sensor_qos_history")
@@ -47,6 +48,7 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
             "enable_torch_camera_conversion": enable_torch_camera_conversion,
             "enable_torch_gaussian_init": enable_torch_gaussian_init,
+            "enable_torch_gaussian_extend": enable_torch_gaussian_extend,
             "torch_gaussian_device": torch_gaussian_device,
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
@@ -85,6 +87,11 @@ def generate_launch_description():
             "enable_torch_gaussian_init",
             default_value="false",
             description="Enable optional Torch Gaussian map initialization when mapping_node was built with torch support",
+        ),
+        DeclareLaunchArgument(
+            "enable_torch_gaussian_extend",
+            default_value="true",
+            description="Append new keyframe pending points to the Torch Gaussian map after initialization",
         ),
         DeclareLaunchArgument(
             "torch_gaussian_device",

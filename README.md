@@ -16,7 +16,7 @@ Available now:
 - ROS2 synchronization/conversion for the Gaussian-LIC mapper input contract:
   `/points_for_gs`, `/pose_for_gs`, `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/imu_for_gs`.
 - Odometry, path, TF, debug map cloud, rendered debug preview, status, GaussianArray, and SaveMap interfaces.
-- Optional libtorch/CUDA initialization path for foreground Gaussian tensors.
+- Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, and incremental foreground insertion.
 - Dataset profile YAMLs derived from upstream Gaussian-LIC: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - `gaussian_lic_offline` CLI for rosbag2 artifact extraction without launching ROS nodes.
 - M1 release docs, status schema, performance regression script, and Jazzy/Humble build-only CI skeleton.
@@ -132,10 +132,12 @@ Expected shape output includes:
 ```text
 image_sizes=[3, 1, 1]
 depth_sizes=[1, 1]
-gaussian_xyz_sizes=[1, 3]
-gaussian_features_dc_sizes=[1, 1, 3]
-gaussian_features_rest_sizes=[1, 15, 3]
-gaussian_count=1
+gaussian_xyz_sizes=[2, 3]
+gaussian_features_dc_sizes=[2, 1, 3]
+gaussian_features_rest_sizes=[2, 15, 3]
+gaussian_count_after_init=1
+appended_count=1
+gaussian_count=2
 ```
 
 On the tested machine, CUDA is available. TensorRT is not installed and must remain optional.

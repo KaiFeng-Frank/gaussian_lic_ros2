@@ -34,6 +34,10 @@ REQUIRED_PARAMS = {
     "sh_degree": int,
     "scaling_scale": (int, float),
     "gaussian_init_min_points": int,
+    "gaussian_init_min_keyframes": int,
+    "enable_torch_gaussian_extend": bool,
+    "skybox_points_num": int,
+    "skybox_radius": (int, float),
     "torch_gaussian_device": str,
     "gaussian_map_chunk_size": int,
     "max_path_length": int,
@@ -123,11 +127,19 @@ def check_profile(path: Path) -> list[str]:
         "process_period_ms",
         "select_every_k_frame",
         "gaussian_init_min_points",
+        "gaussian_init_min_keyframes",
         "gaussian_map_chunk_size",
     ):
         value = params.get(key)
         if isinstance(value, int) and value <= 0:
             errors.append(f"{key} must be positive")
+
+    value = params.get("skybox_points_num")
+    if isinstance(value, int) and value < 0:
+        errors.append("skybox_points_num must be non-negative")
+    value = params.get("skybox_radius")
+    if isinstance(value, (int, float)) and value <= 0:
+        errors.append("skybox_radius must be positive")
 
     return errors
 

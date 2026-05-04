@@ -85,13 +85,18 @@ public:
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     enable_torch_camera_conversion_ = declare_parameter<bool>("enable_torch_camera_conversion", false);
     enable_torch_gaussian_init_ = declare_parameter<bool>("enable_torch_gaussian_init", false);
+    enable_torch_gaussian_extend_ = declare_parameter<bool>("enable_torch_gaussian_extend", true);
 #else
     declare_parameter<bool>("enable_torch_camera_conversion", false);
     declare_parameter<bool>("enable_torch_gaussian_init", false);
+    declare_parameter<bool>("enable_torch_gaussian_extend", true);
 #endif
     gaussian_init_min_points_ = declare_parameter<int>("gaussian_init_min_points", 1);
+    gaussian_init_min_keyframes_ = declare_parameter<int>("gaussian_init_min_keyframes", 1);
     sh_degree_ = declare_parameter<int>("sh_degree", 3);
     scaling_scale_ = declare_parameter<double>("scaling_scale", 1.0);
+    skybox_points_num_ = declare_parameter<int>("skybox_points_num", 0);
+    skybox_radius_ = declare_parameter<double>("skybox_radius", 1000.0);
     torch_gaussian_device_name_ = declare_parameter<std::string>("torch_gaussian_device", "cpu");
     gaussian_map_chunk_size_ = declare_parameter<int>("gaussian_map_chunk_size", 1024);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
@@ -226,6 +231,9 @@ public:
     RCLCPP_INFO(get_logger(), "Torch Gaussian initialization %s, min points %d, device %s",
       enable_torch_gaussian_init_ ? "enabled" : "disabled",
       gaussian_init_min_points_, torch_gaussian_device_name_.c_str());
+    RCLCPP_INFO(get_logger(), "Torch Gaussian extension %s, min keyframes %d, skybox points %d",
+      enable_torch_gaussian_extend_ ? "enabled" : "disabled",
+      gaussian_init_min_keyframes_, skybox_points_num_);
 #else
     RCLCPP_INFO(get_logger(), "Torch camera conversion unavailable in this build");
     RCLCPP_INFO(get_logger(), "Torch Gaussian initialization unavailable in this build");
@@ -438,9 +446,11 @@ private:
       }
 
       try {
+        const auto iteration_start = std::chrono::steady_clock::now();
         MapperFrameData frame_data = gaussian_lic_mapping::convert_aligned_frame(
           frame, dataset_.all_frame_count(), select_every_k_frame_);
         record_converted_frame(std::move(frame_data));
+        record_iteration_timing(iteration_start);
       } catch (const std::exception & ex) {
         ++conversion_error_count_;
         RCLCPP_WARN_THROTTLE(
@@ -450,6 +460,17 @@ private:
 
       ++processed;
     }
+  }
+
+  void record_iteration_timing(const std::chrono::steady_clock::time_point & iteration_start)
+  {
+    const std::chrono::duration<double, std::milli> elapsed =
+      std::chrono::steady_clock::now() - iteration_start;
+    last_mapping_latency_ms_ = static_cast<float>(elapsed.count());
+    cumulative_iteration_ms_ += elapsed.count();
+    ++iteration_timing_count_;
+    mean_iteration_ms_ = static_cast<float>(
+      cumulative_iteration_ms_ / static_cast<double>(iteration_timing_count_));
   }
 
   void record_converted_frame(MapperFrameData && frame_data)
@@ -497,7 +518,7 @@ private:
           "failed to create TorchCamera: %s", ex.what());
       }
     }
-    maybe_initialize_torch_gaussians();
+    maybe_update_torch_gaussians(record.is_keyframe);
 #endif
   }
 
@@ -516,43 +537,80 @@ private:
     return device;
   }
 
-  void maybe_initialize_torch_gaussians()
+  void refresh_torch_gaussian_status(const torch::Device & device)
   {
-    if (!enable_torch_gaussian_init_ || torch_gaussian_initialized_) {
+    torch_gaussian_count_ = torch_gaussian_map_.foreground_count + torch_gaussian_map_.skybox_count;
+    torch_gaussian_device_label_ = device.str();
+
+    std::ostringstream xyz_dims;
+    std::ostringstream feature_dims;
+    xyz_dims << torch_gaussian_map_.xyz.sizes();
+    feature_dims << torch_gaussian_map_.features_dc.sizes();
+    last_torch_gaussian_xyz_dims_ = xyz_dims.str();
+    last_torch_gaussian_feature_dims_ = feature_dims.str();
+  }
+
+  void maybe_update_torch_gaussians(const bool is_keyframe)
+  {
+    if (!enable_torch_gaussian_init_ || !is_keyframe) {
       return;
     }
     if (dataset_.pending_point_count() < static_cast<size_t>(std::max(gaussian_init_min_points_, 1))) {
+      return;
+    }
+    if (dataset_.train_frame_count() < static_cast<size_t>(std::max(gaussian_init_min_keyframes_, 1))) {
       return;
     }
 
     try {
       const auto intrinsics = current_intrinsics();
       const auto device = resolve_torch_gaussian_device();
-      torch_gaussian_map_ = gaussian_lic_mapping::initialize_gaussian_map(
-        dataset_, sh_degree_, scaling_scale_, intrinsics.fx, intrinsics.fy, device);
-      torch_gaussian_initialized_ = true;
-      torch_gaussian_count_ = torch_gaussian_map_.foreground_count + torch_gaussian_map_.skybox_count;
-      torch_gaussian_device_label_ = device.str();
+      if (!torch_gaussian_initialized_) {
+        torch_gaussian_map_ = gaussian_lic_mapping::initialize_gaussian_map(
+          dataset_, sh_degree_, scaling_scale_, intrinsics.fx, intrinsics.fy, device,
+          skybox_points_num_, skybox_radius_);
+        torch_gaussian_initialized_ = true;
+        last_torch_gaussian_inserted_ = torch_gaussian_map_.foreground_count;
+        ++torch_gaussian_init_count_;
+        refresh_torch_gaussian_status(device);
 
-      std::ostringstream xyz_dims;
-      std::ostringstream feature_dims;
-      xyz_dims << torch_gaussian_map_.xyz.sizes();
-      feature_dims << torch_gaussian_map_.features_dc.sizes();
-      last_torch_gaussian_xyz_dims_ = xyz_dims.str();
-      last_torch_gaussian_feature_dims_ = feature_dims.str();
+        dataset_.clear_pending_points();
+        publish_torch_gaussian_map();
+        RCLCPP_INFO(
+          get_logger(),
+          "Initialized Torch Gaussian map: foreground=%zu skybox=%zu xyz=%s features_dc=%s device=%s",
+          torch_gaussian_map_.foreground_count, torch_gaussian_map_.skybox_count,
+          last_torch_gaussian_xyz_dims_.c_str(), last_torch_gaussian_feature_dims_.c_str(),
+          torch_gaussian_device_label_.c_str());
+        return;
+      }
 
+      if (!enable_torch_gaussian_extend_) {
+        dataset_.clear_pending_points();
+        return;
+      }
+
+      last_torch_gaussian_inserted_ = gaussian_lic_mapping::append_pending_points_to_gaussian_map(
+        torch_gaussian_map_, dataset_, sh_degree_, scaling_scale_, intrinsics.fx, intrinsics.fy, device);
+      ++torch_gaussian_extend_count_;
+      refresh_torch_gaussian_status(device);
       dataset_.clear_pending_points();
       publish_torch_gaussian_map();
       RCLCPP_INFO(
         get_logger(),
-        "Initialized Torch Gaussian map: gaussians=%zu xyz=%s features_dc=%s device=%s",
-        torch_gaussian_count_, last_torch_gaussian_xyz_dims_.c_str(),
-        last_torch_gaussian_feature_dims_.c_str(), torch_gaussian_device_label_.c_str());
+        "Extended Torch Gaussian map: inserted=%zu foreground=%zu skybox=%zu xyz=%s device=%s",
+        last_torch_gaussian_inserted_, torch_gaussian_map_.foreground_count,
+        torch_gaussian_map_.skybox_count, last_torch_gaussian_xyz_dims_.c_str(),
+        torch_gaussian_device_label_.c_str());
     } catch (const std::exception & ex) {
-      ++torch_gaussian_init_error_count_;
+      if (torch_gaussian_initialized_) {
+        ++torch_gaussian_extend_error_count_;
+      } else {
+        ++torch_gaussian_init_error_count_;
+      }
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
-        "failed to initialize Torch Gaussian map: %s", ex.what());
+        "failed to update Torch Gaussian map: %s", ex.what());
     }
   }
 
@@ -592,7 +650,7 @@ private:
 
       gaussian_lic_msgs::msg::GaussianArray message;
       message.header.stamp = now();
-      message.header.frame_id = "map";
+      message.header.frame_id = world_frame_;
       message.total_count = total_count_msg;
       message.chunk_index = static_cast<uint32_t>(
         std::min<size_t>(chunk_index, std::numeric_limits<uint32_t>::max()));
@@ -644,9 +702,9 @@ private:
     }
 
     torch::NoGradGuard no_grad;
-    const int64_t skybox_count = include_skybox ?
+    const int64_t start_index = include_skybox ?
       0 : static_cast<int64_t>(torch_gaussian_map_.skybox_count);
-    const auto slice = torch::indexing::Slice(skybox_count);
+    const auto slice = torch::indexing::Slice(start_index, torch::indexing::None);
     const auto xyz = torch_gaussian_map_.xyz.index({slice}).detach().to(torch::kCPU).contiguous();
     const auto features_dc = torch_gaussian_map_.features_dc.index({slice})
       .detach().transpose(1, 2).flatten(1).contiguous().to(torch::kCPU);
@@ -1057,7 +1115,7 @@ private:
     msg.render_mode = render_mode_status_value();
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     if (torch_gaussian_initialized_) {
-      msg.status_text = "ROS2 frame conversion active; Torch Gaussian map initialized";
+      msg.status_text = "ROS2 frame conversion active; Torch Gaussian map updating on keyframes";
     } else if (enable_torch_gaussian_init_) {
       msg.status_text = "ROS2 frame conversion active; waiting for Torch Gaussian initialization";
     } else {
@@ -1074,12 +1132,13 @@ private:
     msg.num_dropped_messages =
       dropped_pointcloud_count_ + dropped_pose_count_ + dropped_image_count_ + dropped_depth_count_;
     msg.num_errors =
-      conversion_error_count_ + torch_camera_error_count_ + torch_gaussian_init_error_count_ + render_error_count_;
+      conversion_error_count_ + torch_camera_error_count_ + torch_gaussian_init_error_count_ +
+      torch_gaussian_extend_error_count_ + render_error_count_;
     msg.tracking_hz = last_tracking_hz_;
     msg.mapping_hz = last_mapping_hz_;
     msg.tracking_latency_ms = 0.0F;
-    msg.mapping_latency_ms = 0.0F;
-    msg.mean_iteration_ms = 0.0F;
+    msg.mapping_latency_ms = last_mapping_latency_ms_;
+    msg.mean_iteration_ms = mean_iteration_ms_;
     msg.gpu_memory_mb = 0.0F;
     msg.active_profile = active_profile_;
     status_pub_->publish(msg);
@@ -1092,7 +1151,9 @@ private:
       "last_points=%zu pending_points=%zu map_points=%zu total_points=%zu | "
       "rate tracking=%.2fHz mapping=%.2fHz | "
       "torch_cameras=%lu torch_errors=%lu torch_image=%s torch_depth=%s | "
-      "torch_gaussians=%zu gaussian_init_errors=%lu gaussian_xyz=%s gaussian_features=%s gaussian_device=%s | "
+      "torch_gaussians=%zu gaussian_inits=%lu gaussian_extends=%lu last_inserted=%zu "
+      "gaussian_init_errors=%lu gaussian_extend_errors=%lu gaussian_xyz=%s gaussian_features=%s "
+      "gaussian_device=%s | latency last=%.3fms mean=%.3fms | "
       "camera_info=%lu intrinsics=%s fx=%.3f fy=%.3f cx=%.3f cy=%.3f | "
       "dropped points=%lu pose=%lu image=%lu depth=%lu skipped_depth=%lu conversion_errors=%lu | "
       "queues=%zu/%zu/%zu/%zu",
@@ -1104,8 +1165,11 @@ private:
       last_tracking_hz_, last_mapping_hz_,
       torch_camera_count_, torch_camera_error_count_, last_torch_image_dims_.c_str(),
       last_torch_depth_dims_.c_str(),
-      torch_gaussian_count_, torch_gaussian_init_error_count_, last_torch_gaussian_xyz_dims_.c_str(),
+      torch_gaussian_count_, torch_gaussian_init_count_, torch_gaussian_extend_count_,
+      last_torch_gaussian_inserted_, torch_gaussian_init_error_count_,
+      torch_gaussian_extend_error_count_, last_torch_gaussian_xyz_dims_.c_str(),
       last_torch_gaussian_feature_dims_.c_str(), torch_gaussian_device_label_.c_str(),
+      last_mapping_latency_ms_, mean_iteration_ms_,
       camera_info_count_, intrinsics.source.c_str(), intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy,
       dropped_pointcloud_count_, dropped_pose_count_, dropped_image_count_, dropped_depth_count_,
       dataset_.skipped_nonpositive_depth_count(), conversion_error_count_,
@@ -1144,13 +1208,17 @@ private:
   std::string intrinsics_source_{"params"};
   bool enable_torch_camera_conversion_{false};
   bool enable_torch_gaussian_init_{false};
+  bool enable_torch_gaussian_extend_{true};
   bool publish_rendered_preview_{true};
   std::string active_profile_{"default"};
   std::string render_mode_{"debug_cpu"};
   std::string rendered_image_mode_;
   int gaussian_init_min_points_{1};
+  int gaussian_init_min_keyframes_{1};
   int sh_degree_{3};
   double scaling_scale_{1.0};
+  int skybox_points_num_{0};
+  double skybox_radius_{1000.0};
   std::string torch_gaussian_device_name_{"cpu"};
   int gaussian_map_chunk_size_{1024};
   int max_path_length_{5000};
@@ -1189,6 +1257,10 @@ private:
   uint64_t last_rate_converted_count_{0};
   float last_tracking_hz_{0.0F};
   float last_mapping_hz_{0.0F};
+  float last_mapping_latency_ms_{0.0F};
+  float mean_iteration_ms_{0.0F};
+  double cumulative_iteration_ms_{0.0};
+  uint64_t iteration_timing_count_{0};
 
   uint64_t pointcloud_count_{0};
   uint64_t pose_count_{0};
@@ -1200,7 +1272,10 @@ private:
   uint64_t converted_frame_count_{0};
   uint64_t torch_camera_count_{0};
   uint64_t torch_camera_error_count_{0};
+  uint64_t torch_gaussian_init_count_{0};
+  uint64_t torch_gaussian_extend_count_{0};
   uint64_t torch_gaussian_init_error_count_{0};
+  uint64_t torch_gaussian_extend_error_count_{0};
   uint64_t dropped_pointcloud_count_{0};
   uint64_t dropped_pose_count_{0};
   uint64_t dropped_image_count_{0};
@@ -1214,6 +1289,7 @@ private:
   Eigen::Vector3d last_t_wc_{Eigen::Vector3d::Zero()};
   size_t last_points_in_frame_{0};
   size_t torch_gaussian_count_{0};
+  size_t last_torch_gaussian_inserted_{0};
   std::string last_torch_image_dims_{"n/a"};
   std::string last_torch_depth_dims_{"n/a"};
   std::string last_torch_gaussian_xyz_dims_{"n/a"};

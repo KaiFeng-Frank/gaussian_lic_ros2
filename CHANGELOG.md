@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added keyframe-gated Torch Gaussian initialization and incremental foreground insertion for the ROS2 mapping node.
+- Added optional skybox tensor seeding, Gaussian map republishing after extension, and mapping latency/mean iteration status fields.
+- Added profile parameters for Gaussian extension and skybox control.
+
 ## v0.1.0-m1-infra - 2026-05-03
 
 M1 infrastructure checkpoint for the Gaussian-LIC ROS2 port.

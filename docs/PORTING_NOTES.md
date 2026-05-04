@@ -144,10 +144,11 @@ When `mapping_node` is built with `GAUSSIAN_LIC_ENABLE_TORCH=ON`, launch can ena
 ```bash
 enable_torch_camera_conversion:=true
 enable_torch_gaussian_init:=true
+enable_torch_gaussian_extend:=true
 torch_gaussian_device:=cpu
 ```
 
-The Gaussian initialization mirrors the foreground tensor boundary of upstream `GaussianModel::initialize()`:
+The Gaussian initialization mirrors the tensor boundary of upstream `GaussianModel::initialize()` and is gated on keyframes to match the upstream mapping loop:
 
 ```text
 xyz:           [N, 3]
@@ -158,9 +159,9 @@ rotation:      [N, 4]
 opacity:       [N, 1]
 ```
 
-It is still an initialization skeleton, not the full mapper. Skybox points, differentiable rasterization, optimization, pruning/densification, rendered-image publishing, and map persistence remain separate porting steps. This keeps the heavy torch dependency compile-time optional while allowing the live ROS2 data path to exercise the same tensor boundaries that the full Gaussian core will need.
+The torch backend now supports optional upstream-style skybox seeding and incremental foreground insertion from pending keyframe points. It is still not the full mapper: differentiable rasterization, optimization, pruning/densification, and rasterized rendered-image publishing remain separate porting steps. This keeps the heavy torch dependency compile-time optional while allowing the live ROS2 data path to exercise the same tensor boundaries and map-growth lifecycle that the full Gaussian core will need.
 
-After initialization, the node publishes the current foreground map as chunked `gaussian_lic_msgs/msg/GaussianArray` on `/gaussian_lic/gaussian_map` with reliable transient-local QoS. The message uses public transport values:
+After initialization and each keyframe extension, the node publishes the current map as chunked `gaussian_lic_msgs/msg/GaussianArray` on `/gaussian_lic/gaussian_map` with reliable transient-local QoS. The message uses public transport values:
 
 ```text
 rotation_xyzw: internal [w, x, y, z] tensor converted to [x, y, z, w]

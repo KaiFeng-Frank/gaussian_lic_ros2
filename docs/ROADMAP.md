@@ -71,7 +71,8 @@ run.log
 - [x] Add optional libtorch/CUDA build path.
 - [x] Add live `MapperDataset -> TorchCamera` conversion behind a build flag.
 - [x] Add foreground `MapperDataset -> TorchGaussianMap` initialization behind a build flag.
-- [x] Publish initialized foreground Gaussian map as chunked `GaussianArray`.
+- [x] Add keyframe-gated skybox seeding and incremental foreground Gaussian insertion.
+- [x] Publish initialized and extended Gaussian map as chunked `GaussianArray`.
 - [x] Add save-map service for initialized Gaussian PLY export.
 - [x] Add save-map fallback for accumulated debug XYZRGB PLY export.
 - [x] Publish CPU projected-map preview on `/gaussian_lic/rendered_image`.

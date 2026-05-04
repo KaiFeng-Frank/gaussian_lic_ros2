@@ -225,13 +225,15 @@ image_sizes=[3, 1, 1]
 depth_sizes=[1, 1]
 world_view_sizes=[4, 4]
 projection_sizes=[4, 4]
-gaussian_xyz_sizes=[1, 3]
-gaussian_features_dc_sizes=[1, 1, 3]
-gaussian_features_rest_sizes=[1, 15, 3]
-gaussian_count=1
+gaussian_xyz_sizes=[2, 3]
+gaussian_features_dc_sizes=[2, 1, 3]
+gaussian_features_rest_sizes=[2, 15, 3]
+gaussian_count_after_init=1
+appended_count=1
+gaussian_count=2
 ```
 
-## Live Mapping Node With TorchCamera And Gaussian Initialization
+## Live Mapping Node With TorchCamera And Incremental Gaussian Map
 
 The shortest local torch-enabled check is:
 
@@ -259,6 +261,7 @@ ros2 launch gaussian_lic_bringup run_bag.launch.py \
   use_sim_time:=false \
   enable_torch_camera_conversion:=true \
   enable_torch_gaussian_init:=true \
+  enable_torch_gaussian_extend:=true \
   torch_gaussian_device:=cpu
 ```
 
@@ -267,8 +270,9 @@ Expected log:
 ```text
 Torch camera conversion enabled
 torch_cameras=... torch_errors=0 torch_image=[3, 1, 1] torch_depth=[1, 1]
-Initialized Torch Gaussian map: gaussians=1 xyz=[1, 3] features_dc=[1, 1, 3] device=cpu
-torch_gaussians=1 gaussian_init_errors=0 gaussian_xyz=[1, 3] gaussian_features=[1, 1, 3]
+Initialized Torch Gaussian map: foreground=... skybox=0 xyz=[..., 3] features_dc=[..., 1, 3] device=cpu
+Extended Torch Gaussian map: inserted=... foreground=... skybox=0 xyz=[..., 3] device=cpu
+torch_gaussians=... gaussian_inits=1 gaussian_extends=... gaussian_init_errors=0 gaussian_extend_errors=0
 ```
 
 Verify the transient-local Gaussian map output from another shell:
@@ -288,7 +292,7 @@ ros2 topic echo --once --timeout 5 \
 Expected fields:
 
 ```text
-total_count: 1
+total_count: ...
 chunk_index: 0
 chunk_count: 1
 gaussians:
@@ -319,4 +323,4 @@ sed -n '1,12p' /tmp/gaussian_lic_save_test/point_cloud.ply
 tail -n 1 /tmp/gaussian_lic_save_test/point_cloud.ply
 ```
 
-This initializes the foreground Gaussian tensors once from `MapperDataset` pending points and then clears the pending point buffers, matching the first initialization boundary of upstream `GaussianModel::initialize()`. Skybox generation, rasterization, optimization, and map growth are still later porting slices.
+This initializes foreground Gaussian tensors from keyframe-gated `MapperDataset` pending points, then appends later pending keyframe points into the same tensor map. The behavior matches the upstream initialize/extend lifecycle at the tensor boundary. Rasterization, optimization, pruning, and gradient-aware densification are still later porting slices.

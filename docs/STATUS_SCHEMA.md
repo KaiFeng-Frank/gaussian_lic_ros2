@@ -45,7 +45,7 @@ mean_iteration_ms
 gpu_memory_mb
 ```
 
-The current mapping slice fills rates and counters. Full tracking/mapping ports must fill latency and GPU memory fields before v0.4 strict reproduction.
+The current mapping slice fills rates, counters, mapping latency, and mean iteration time. Full tracking/mapping ports must fill tracking latency and GPU memory fields before v0.4 strict reproduction.
 
 ## Render Mode Policy
 
