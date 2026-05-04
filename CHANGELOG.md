@@ -28,6 +28,7 @@
 - Added `scripts/ci_replay_smoke.sh` so CI and local generated-bag replay smoke share one entrypoint.
 - Added CI replay smoke artifact export for bag contracts and offline extraction outputs.
 - Uploaded per-distro CI `log/` directories for colcon and smoke-test diagnostics.
+- Added Markdown job summaries for artifact gates and CI replay smoke reports.
 
 ## v0.1.0-m1-infra - 2026-05-03
 

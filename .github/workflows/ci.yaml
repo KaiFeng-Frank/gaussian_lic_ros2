@@ -33,6 +33,7 @@ jobs:
           set -euo pipefail
           export GAUSSIAN_LIC_ARTIFACT_DIR=artifact_reports
           ./scripts/verify_artifact_gates.sh
+          cat artifact_reports/reproduction_report.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload artifact gate reports
         if: always()
@@ -112,6 +113,7 @@ jobs:
             --artifact-dir ci_replay_artifacts \
             --duration 4 \
             --timeout 20
+          cat ci_replay_artifacts/replay_summary.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload Jazzy replay artifacts
         if: always() && matrix.ros_distro == 'jazzy'

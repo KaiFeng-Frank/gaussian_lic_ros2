@@ -220,7 +220,7 @@ Run the same mini replay smoke locally with:
 ./scripts/ci_replay_smoke.sh --bag bags/ci_synthetic_gs_demo --duration 4 --timeout 20
 ```
 
-Use `--artifact-dir /path/to/reports` or `GAUSSIAN_LIC_CI_REPLAY_ARTIFACT_DIR=/path/to/reports` to persist the generated bag contract reports, offline metrics, TUM trajectory, and debug PLY. CI uploads that directory as `jazzy-replay-artifacts`.
+Use `--artifact-dir /path/to/reports` or `GAUSSIAN_LIC_CI_REPLAY_ARTIFACT_DIR=/path/to/reports` to persist the generated bag contract reports, offline metrics, TUM trajectory, debug PLY, and `replay_summary.md`. CI uploads that directory as `jazzy-replay-artifacts` and appends the replay summary to the GitHub job summary.
 
 Each ROS distro build job uploads its full `log/` directory as `<distro>-ci-logs`, including colcon logs and any smoke-test launch logs.
 
