@@ -21,6 +21,34 @@ https://xingxingzuo.github.io/gaussian_lic2/
 
 The upstream README announces the Gaussian-LIC2 release on 2026-02-21 and includes the Gaussian-LIC2 citation. The public repository currently exposes only the `master` branch at `cd4c122`, with no separate LIC2 tag or branch. The checked tree includes LIC2-labeled depth-completion sources and the updated Gaussian backend surface, while its run instructions still reference Coco-LIC for odometry input. This ROS2 port therefore treats `external/Gaussian-LIC` as the primary upstream for all released Gaussian-LIC/Gaussian-LIC2 code, and treats Coco-LIC only as historical ROS1 reference material unless a specific compatibility issue requires it.
 
+Released surface in `external/Gaussian-LIC`:
+
+```text
+config/*.yaml                 Dataset profiles for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, R3LIVE
+launch/*.launch               ROS1 mapper launch files
+src/mapping.*                 ROS1 mapper node surface and training loop
+src/gaussian.*                Gaussian model state, optimizer, densification, PLY persistence
+src/rasterizer/*              CUDA rasterizer and renderer wrapper
+src/simple-knn/*              CUDA nearest-neighbor/distCUDA2 support
+src/fused-ssim/*              Fused SSIM CUDA loss
+src/depth_completer.*         TensorRT/SPNet depth-completion wrapper
+ckpt/SPNet/*                  SPNet training/export helpers
+ckpt/export_onnx*.py          ONNX export helpers for TensorRT depth completion
+```
+
+What is not exposed as native code in the current public tree:
+
+- A standalone Gaussian-LIC2 ROS frontend/tracking executable.
+- A native Livox/IMU/camera odometry publisher independent of the mapper contract.
+- ROS2 launch, message, or rosbag2 runtime surfaces.
+
+Porting implication: the ROS2 repository can port the released LIC2 Gaussian
+mapping, rasterizer, optimizer, depth-completion, and config surfaces directly
+from `external/Gaussian-LIC`. The frontend/tracking side must stay behind the
+native `gaussian_lic_frontend/lic2_contract_adapter` boundary until upstream
+publishes more frontend code or a compatible native odometry implementation is
+ported from the legacy reference.
+
 ## Gaussian-LIC ROS Surface
 
 Gaussian-LIC has a relatively thin ROS1 surface. The core mapping and CUDA code is mostly behind `mapping.cpp`, `mapping.h`, and `gaussian.cpp`.
@@ -109,7 +137,7 @@ Important porting issues:
 2. Port Gaussian-LIC `mapping.cpp/.h` middleware synchronization surface from ROS1 to `rclcpp`. Done for the four mapper input topics.
 3. Keep input topics compatible with `/image_for_gs`, `/depth_for_gs`, `/pose_for_gs`, `/points_for_gs` first. Done.
 4. Add a native raw-topic to mapper-contract adapter for camera, LiDAR, IMU, pose, and odometry. Done in `gaussian_lic_frontend/lic2_contract_adapter`; it also publishes frontend odometry/path and optional TF from incoming pose/odometry.
-5. Inventory the released Gaussian-LIC2 code surface in `external/Gaussian-LIC`, prioritizing depth completion, rasterization, optimization, and any frontend/tracking code that appears in future upstream commits.
+5. Inventory the released Gaussian-LIC2 code surface in `external/Gaussian-LIC`, prioritizing depth completion, rasterization, optimization, and any frontend/tracking code that appears in future upstream commits. Done for `cd4c122`; no standalone native LIC2 frontend/tracking executable is exposed in this tree.
 6. Replace upstream ROS1 bag reading or launch assumptions with rosbag2/live subscriptions instead of relying on ROS1 bridge.
 
 ## Current Native Mapping Behavior
@@ -125,6 +153,9 @@ The current node also converts the aligned messages into `MapperFrameData`, mirr
 
 `MapperDataset` now accumulates those converted frames into train/test records and pending point/color/depth arrays.
 
-The current node intentionally stops before upstream `Camera` tensor creation, Gaussian initialization, extension, and optimization. Those require bringing in the upstream CUDA/libtorch build surface. TensorRT should be optional because the local machine does not currently have TensorRT installed, and upstream only needs it for depth completion.
-
-An optional torch backend probe now converts `CameraFrameRecord` into a torch-backed camera representation. This is not yet wired into the live mapping node by default.
+The current node ports the live tensor boundary far enough to create Torch
+cameras, seed and extend a foreground `TorchGaussianMap`, seed an optional
+skybox, run a bounded photometric DC/opacity update, prune by opacity/count, and
+publish/save Gaussian PLY artifacts. The remaining backend delta is the upstream
+CUDA rasterizer, full loss schedule, densification, and production renderer.
+TensorRT remains optional because upstream only needs it for depth completion.

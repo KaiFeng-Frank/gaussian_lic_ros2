@@ -112,7 +112,7 @@ baseline_manifest.json
 
 ## Milestone 3: Gaussian-LIC2 Frontend/Tracking Port
 
-- [ ] Inventory the released Gaussian-LIC2 surface in `external/Gaussian-LIC`, including depth completion, rasterizer/optimizer changes, and any frontend/tracking code available in upstream commits.
+- [x] Inventory the released Gaussian-LIC2 surface in `external/Gaussian-LIC`, including depth completion, rasterizer/optimizer changes, and any frontend/tracking code available in upstream commits.
 - [x] Add `gaussian_lic_frontend/lic2_contract_adapter` as the ROS2 boundary for raw camera/LiDAR/IMU/pose inputs.
 - [ ] Port Livox/custom point handling to ROS2.
 - [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
