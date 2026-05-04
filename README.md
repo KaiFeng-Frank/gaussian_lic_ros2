@@ -345,6 +345,8 @@ Run the same Python-only artifact gates used by GitHub Actions locally:
 ./scripts/verify_artifact_gates.sh
 ```
 
+Set `GAUSSIAN_LIC_ARTIFACT_DIR=/path/to/reports` to choose where the synthetic JSON/Markdown reports are written. In GitHub Actions those files are uploaded as the `artifact-gate-reports` workflow artifact.
+
 ## Release Roadmap
 
 The public plan is release-driven:

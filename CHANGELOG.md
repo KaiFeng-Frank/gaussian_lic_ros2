@@ -21,6 +21,7 @@
 - Added `scripts/baseline_manifest.py` for ROS1 baseline artifact validation and fingerprinting.
 - Added `scripts/reproduction_report.py` to aggregate baseline manifest, metrics, trajectory, and PLY drift gates.
 - Added a Python-only GitHub Actions artifact-gates job using `scripts/verify_artifact_gates.sh`.
+- Uploaded artifact-gate JSON/Markdown reports from CI as `artifact-gate-reports`.
 
 ## v0.1.0-m1-infra - 2026-05-03
 

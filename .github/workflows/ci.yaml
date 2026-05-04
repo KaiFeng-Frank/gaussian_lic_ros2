@@ -31,7 +31,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export GAUSSIAN_LIC_ARTIFACT_DIR=artifact_reports
           ./scripts/verify_artifact_gates.sh
+
+      - name: Upload artifact gate reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-gate-reports
+          path: artifact_reports
+          if-no-files-found: error
 
   build:
     name: build-${{ matrix.ros_distro }}
