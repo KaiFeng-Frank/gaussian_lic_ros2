@@ -60,6 +60,7 @@ For the current Torch Gaussian preview path:
   --post-play-settle 30 \
   --record-sec 650 \
   --torch \
+  --torch-device cuda \
   --render-mode rasterizer \
   --output results/fastlivo2/current
 ```

@@ -11,6 +11,7 @@ ENABLE_TORCH=false
 TORCH_OPTIMIZATION_STEPS=0
 TORCH_MAX_FOREGROUND=0
 TORCH_PRUNE_MIN_OPACITY=0.005
+TORCH_DEVICE="cpu"
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
@@ -51,6 +52,7 @@ Options:
   --torch-optimization-steps N Enable Torch photometric Gaussian tensor updates with N steps per keyframe.
   --torch-max-foreground N     Enable Torch pruning and retain at most N foreground Gaussians.
   --torch-prune-min-opacity X  Enable Torch pruning and drop foreground Gaussians below opacity X.
+  --torch-device DEVICE        Torch Gaussian device: cpu, cuda, or auto. Default: cpu.
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
@@ -101,6 +103,10 @@ while [[ $# -gt 0 ]]; do
     --torch-prune-min-opacity)
       ENABLE_TORCH=true
       TORCH_PRUNE_MIN_OPACITY="$2"
+      shift 2
+      ;;
+    --torch-device)
+      TORCH_DEVICE="$2"
       shift 2
       ;;
     --frontend-adapter)
@@ -189,6 +195,10 @@ if [[ "${RENDER_MODE}" == "rasterizer" && "${ENABLE_TORCH}" != "true" ]]; then
   echo "--render-mode rasterizer requires --torch in the current ROS2 port" >&2
   exit 2
 fi
+if [[ "${RENDER_MODE}" == "rasterizer" && "${TORCH_DEVICE}" == "cpu" ]]; then
+  echo "--render-mode rasterizer requires --torch-device cuda or auto with the strict CUDA build" >&2
+  exit 2
+fi
 
 set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
@@ -256,7 +266,7 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
     enable_torch_gaussian_pruning:="${torch_prune_enabled}"
     torch_gaussian_prune_min_opacity:="${TORCH_PRUNE_MIN_OPACITY}"
     torch_gaussian_max_foreground:="${TORCH_MAX_FOREGROUND}"
-    torch_gaussian_device:=cpu
+    torch_gaussian_device:="${TORCH_DEVICE}"
   )
 fi
 
@@ -435,7 +445,7 @@ echo "[current] extracting rendered image pairs"
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -465,6 +475,7 @@ metrics.update(
         "play_rate": float(sys.argv[13]),
         "loop_playback": sys.argv[14] == "true",
         "post_play_settle_sec": float(sys.argv[15]),
+        "torch_device": sys.argv[16],
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

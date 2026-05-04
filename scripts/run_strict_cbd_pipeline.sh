@@ -15,6 +15,7 @@ UPSTREAM_RUNTIME_SEC=0
 CURRENT_RECORD_SEC=12
 CURRENT_PLAY_RATE=1
 CURRENT_POST_PLAY_SETTLE=8
+CURRENT_TORCH_DEVICE=cpu
 TIMEOUT_SEC=30
 OVERWRITE=false
 SKIP_CONVERT=false
@@ -44,6 +45,8 @@ Options:
   --current-play-rate R    Pass to collect_current_results.sh. Default: 1
   --current-post-play-settle SEC
                             Pass to collect_current_results.sh. Default: 8
+  --current-torch-device DEVICE
+                            Pass to collect_current_results.sh when --render-mode rasterizer is used.
   --timeout N              Current-result wait timeout. Default: 30
   --overwrite              Recreate converted frontend/mapper-contract outputs.
   --skip-convert           Reuse existing converted bags.
@@ -101,6 +104,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-post-play-settle)
       CURRENT_POST_PLAY_SETTLE="$2"
+      shift 2
+      ;;
+    --current-torch-device)
+      CURRENT_TORCH_DEVICE="$2"
       shift 2
       ;;
     --timeout)
@@ -200,9 +207,14 @@ fi
 
 if [[ "${SKIP_CURRENT}" != "true" ]]; then
   echo "[strict-cbd] collecting ROS2 current results: ${CURRENT_DIR}"
+  current_torch_args=()
+  if [[ "${RENDER_MODE}" == "rasterizer" ]]; then
+    current_torch_args+=(--torch --torch-device "${CURRENT_TORCH_DEVICE}")
+  fi
   ./scripts/collect_current_results.sh \
     --bag "${FRONTEND_RAW}" \
     --output "${CURRENT_DIR}" \
+    "${current_torch_args[@]}" \
     --frontend-adapter \
     --imu-pose-fallback \
     --sync-image-to-pointcloud \
