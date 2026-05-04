@@ -117,6 +117,14 @@ metrics.json
 
 This is the seed for the future `gaussian_lic_offline` reproduction binary. The current implementation reads mapper contract topics and writes debug artifacts; it does not yet run the full Coco-LIC/Gaussian-LIC algorithm offline.
 
+Validate that a rosbag2 directory has the mapper input contract before replaying it:
+
+```bash
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag bags/synthetic_gs_demo \
+  --json
+```
+
 ## ROS1 Bag Conversion
 
 Convert an archived ROS1 `.bag` into a ROS2 bag directory for replay:

@@ -22,6 +22,7 @@ setup(
             "synthetic_gs_frame_pub = gaussian_lic_tools.synthetic_gs_frame_pub:main",
             "topic_probe = gaussian_lic_tools.topic_probe:main",
             "gaussian_lic_offline = gaussian_lic_tools.offline:main",
+            "gaussian_lic_bag_check = gaussian_lic_tools.bag_contract:main",
         ],
     },
 )

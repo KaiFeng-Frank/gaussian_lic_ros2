@@ -154,6 +154,16 @@ Topic: /depth_for_gs
 Topic: /imu_for_gs
 ```
 
+Check the mapper contract directly:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag bags/synthetic_gs_demo \
+  --json
+```
+
 Run the same mapper checks from rosbag2 playback:
 
 ```bash

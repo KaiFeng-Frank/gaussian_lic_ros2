@@ -97,6 +97,11 @@ set +u
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 set -u
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag "${BAG_PATH}" \
+  --json \
+  >/tmp/gaussian_lic_bag_contract_verify.json
+rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_contract_verify.json
 rm -rf /tmp/gaussian_lic_offline_verify
 ros2 run gaussian_lic_tools gaussian_lic_offline \
   --bag "${BAG_PATH}" \
