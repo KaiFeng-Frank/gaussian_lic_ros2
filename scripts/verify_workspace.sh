@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 SKIP_BUILD=false
 CHECK_TORCH=false
 FULL_PROFILES=false
@@ -101,7 +102,7 @@ echo "[verify] minimal bag smoke"
 
 echo "[verify] offline artifact extraction"
 set +u
-source /opt/ros/jazzy/setup.bash
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source install/setup.bash
 set -u
 ros2 run gaussian_lic_tools gaussian_lic_bag_check \
@@ -156,7 +157,7 @@ if [[ "${CHECK_TORCH}" == "true" ]]; then
   echo "[verify] torch build"
   GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
   set +u
-  source /opt/ros/jazzy/setup.bash
+  source "/opt/ros/${ROS_DISTRO}/setup.bash"
   source install/setup.bash
   set -u
   echo "[verify] torch backend probe"

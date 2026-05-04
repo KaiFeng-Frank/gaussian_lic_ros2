@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 ENABLE_TORCH=false
 PUBLISH_TF=false
 USE_COMPOSITION=false
@@ -166,7 +167,7 @@ if [[ "${MINIMAL_INPUTS}" == "true" && "${ENABLE_TORCH}" == "true" ]]; then
 fi
 
 set +u
-source /opt/ros/jazzy/setup.bash
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source "${ROOT_DIR}/install/setup.bash"
 set -u
 cd "${ROOT_DIR}"

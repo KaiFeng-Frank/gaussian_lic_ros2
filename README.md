@@ -39,7 +39,7 @@ CUDA 12.8
 libtorch 2.7.0
 ```
 
-Humble is represented in CI as build-only scaffolding; Jazzy is the first-class development target.
+Humble is represented in CI as build-only scaffolding; Jazzy is the first-class development target. Runtime helper scripts default to `ROS_DISTRO=jazzy` and can be pointed at another installed distro by exporting `ROS_DISTRO` before running them.
 
 On this machine, use the ASCII workspace path:
 

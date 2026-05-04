@@ -23,6 +23,7 @@
 - Added a Python-only GitHub Actions artifact-gates job using `scripts/verify_artifact_gates.sh`.
 - Uploaded artifact-gate JSON/Markdown reports from CI as `artifact-gate-reports`.
 - Added a Jazzy CI synthetic rosbag2 replay smoke step with uploaded smoke logs.
+- Made synthetic bag, smoke, and workspace verification helpers respect `ROS_DISTRO` with a Jazzy default.
 
 ## v0.1.0-m1-infra - 2026-05-03
 
