@@ -111,10 +111,36 @@ def make_pointcloud2(store, np, livox_msg, frame_id):
     )
 
 
-def make_image_and_info(store, cv2, np, compressed_msg, args):
+def make_image_and_info(store, cv2, np, source_msg, args):
     image_cls = store.types["sensor_msgs/msg/Image"]
-    header = make_header(store, compressed_msg.header, args.camera_frame)
-    encoded = np.asarray(compressed_msg.data, dtype=np.uint8)
+    header = make_header(store, source_msg.header, args.camera_frame)
+    if hasattr(source_msg, "height") and hasattr(source_msg, "width") and hasattr(source_msg, "encoding"):
+        height = int(source_msg.height)
+        width = int(source_msg.width)
+        data = np.asarray(source_msg.data, dtype=np.uint8)
+        image = image_cls(
+            header=header,
+            height=height,
+            width=width,
+            encoding=str(source_msg.encoding),
+            is_bigendian=int(source_msg.is_bigendian),
+            step=int(source_msg.step),
+            data=data.astype(np.uint8, copy=False),
+        )
+        camera_info = make_camera_info(
+            store,
+            np,
+            header,
+            width,
+            height,
+            args.fx,
+            args.fy,
+            args.cx,
+            args.cy,
+        )
+        return image, camera_info
+
+    encoded = np.asarray(source_msg.data, dtype=np.uint8)
     decoded = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
     if decoded is None:
         raise ValueError("OpenCV could not decode compressed image")
@@ -203,6 +229,11 @@ def convert(args):
         lidar_conn = writer.add_connection(args.output_lidar_topic, "sensor_msgs/msg/PointCloud2", typestore=store)
         imu_conn = writer.add_connection(args.output_imu_topic, "sensor_msgs/msg/Imu", typestore=store)
 
+        available_topics = {connection.topic for connection in reader.connections}
+        input_image_topic = args.input_image_topic
+        if input_image_topic not in available_topics and "/left_camera/image" in available_topics:
+            input_image_topic = "/left_camera/image"
+
         for connection, bag_time, rawdata in reader.messages():
             if first_time is None:
                 first_time = int(bag_time)
@@ -212,12 +243,12 @@ def convert(args):
             if args.max_written_messages > 0 and written >= args.max_written_messages:
                 break
 
-            if connection.topic not in (args.input_image_topic, args.input_lidar_topic, args.input_imu_topic):
+            if connection.topic not in (input_image_topic, args.input_lidar_topic, args.input_imu_topic):
                 counts["skipped"] += 1
                 continue
 
             msg = reader.deserialize(rawdata, connection.msgtype)
-            if connection.topic == args.input_image_topic:
+            if connection.topic == input_image_topic:
                 image, camera_info = make_image_and_info(store, cv2, np, msg, args)
                 timestamp = stamp_to_nsec(image.header.stamp)
                 queue_write(image_conn, timestamp, store.serialize_cdr(image, "sensor_msgs/msg/Image"))
