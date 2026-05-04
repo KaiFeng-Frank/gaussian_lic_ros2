@@ -167,6 +167,19 @@ matched rendered images under `renders/`:
   --strict
 ```
 
+After `/home/frank/data/fast_livo/CBD_Building_01.bag` is present, the full
+local strict chain can be run from one resumable entrypoint:
+
+```bash
+./scripts/run_strict_cbd_pipeline.sh --overwrite
+```
+
+The script converts the official ROS1 bag into a sqlite-backed ROS2
+`frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
+runs the upstream ROS1 baseline container, collects ROS2 current artifacts, and
+emits strict readiness/report JSON and Markdown files under the current-results
+directory.
+
 The validated curated chain can also be re-run from one entrypoint:
 
 ```bash

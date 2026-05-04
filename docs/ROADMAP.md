@@ -181,4 +181,5 @@ baseline_manifest.json
 - [x] ROS1 upstream baseline archive for the official curated FAST-LIVO2 `Bright_Screen_Wall_curated_8s` substitute.
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
 - [x] PR comparison report on real or curated mini-sequence artifacts.
+- [x] Resumable strict `CBD_Building_01` pipeline entrypoint from official bag to strict report.
 - [ ] Strict `CBD_Building_01` ROS1 upstream baseline archive and report after the official data source becomes downloadable.
