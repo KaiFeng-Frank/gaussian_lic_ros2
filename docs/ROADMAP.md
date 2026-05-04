@@ -17,12 +17,11 @@ Completed proof/evidence scope:
 
 - ROS2 workspace, messages, launch, composable mapper node, dataset profiles, bag contracts, artifact extraction, and CI artifact gates.
 - Native mapper input contract and `lic2_contract_adapter` boundary for raw camera/LiDAR/IMU plus pose/odometry.
-- Optional Torch Gaussian tensor path with keyframe initialization, skybox seeding, foreground append, bounded pruning, CUDA rasterizer preview, CUDA rasterizer/fused-SSIM/depth loss, and visibility-masked SparseGaussianAdam updates for the full Gaussian parameter set.
+- Optional Torch Gaussian tensor path with keyframe initialization, skybox seeding, foreground append, gradient-aware densification, multi-criteria pruning, opacity reset scheduling, CUDA rasterizer preview, CUDA rasterizer/fused-SSIM/depth loss, and visibility-masked SparseGaussianAdam updates for the full Gaussian parameter set.
 - Official FAST-LIVO2 `Bright_Screen_Wall` substitute report with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` gates passing.
 
 Incomplete paper-algorithm scope:
 
-- Gradient-aware densification split/clone scheduling is not ported.
 - `lic2_contract_adapter` is not the native continuous-time Gaussian-LIC/Coco-LIC tracker.
 - TensorRT/SPNet depth completion is optional at the boundary but not integrated as a native backend.
 - Strict `CBD_Building_01` paper reproduction is blocked until the official bag is available locally and the native algorithm path is complete.
@@ -132,7 +131,9 @@ baseline_manifest.json
 - [x] Port upstream visibility-masked SparseGaussianAdam CUDA update with a strict probe.
 - [x] Wire the CUDA rasterizer into the ROS2 Torch backend loss path with L1 + fused-SSIM + optional depth supervision.
 - [x] Replace the CUDA Torch backend manual SGD path with visibility-masked SparseGaussianAdam updates for xyz/features/scaling/rotation/opacity.
-- [ ] Port gradient-aware densification split/clone scheduling.
+- [x] Port gradient-aware densification split/clone scheduling.
+- [x] Extend pruning with opacity, foreground cap, screen radius, world-scale, and long-invisible criteria.
+- [x] Add opacity reset scheduling for long-running Gaussian optimization.
 - [x] Publish mapper status.
 - [x] Replace CPU Gaussian splat preview with upstream CUDA Gaussian rasterizer output in the strict CUDA path.
 

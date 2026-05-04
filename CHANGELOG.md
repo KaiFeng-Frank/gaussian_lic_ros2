@@ -44,6 +44,8 @@
 - Wired the strict CUDA rasterizer into the Torch Gaussian backend with L1 + fused-SSIM + optional depth supervision and visibility-masked SparseGaussianAdam updates for xyz, SH features, opacity, scaling, and rotation.
 - Added `render_gaussian_map_from_camera` and wired `render_mode:=rasterizer` to publish CUDA rasterizer RGB output from the Torch Gaussian map in strict CUDA builds.
 - Added `torch_cuda_backend_probe` to verify the public optimization/render path produces supervised rasterizer loss, initializes all SparseAdam state tensors, renders a nonblank preview, and updates all Gaussian parameter groups on CUDA.
+- Added gradient-aware Torch Gaussian densification with clone/split topology updates, optimizer-state extension, multi-criteria pruning, and opacity reset scheduling.
+- Extended `torch_cuda_backend_probe` to verify densification split growth, bounded pruning, and opacity reset execution on CUDA.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
 - Implemented the dependency-gated ROS1 `.bag` to rosbag2 converter backend using `rosbags`.
 - Added `gaussian_lic_bag_check` to validate rosbag2 mapper-contract topics before replay.

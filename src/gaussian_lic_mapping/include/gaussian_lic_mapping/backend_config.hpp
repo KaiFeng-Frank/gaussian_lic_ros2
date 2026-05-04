@@ -44,6 +44,17 @@ struct GaussianBackendConfig
   bool enable_density_control{false};
   double prune_min_opacity{0.005};
   int max_foreground_gaussians{0};
+  bool enable_densification{false};
+  int densify_every_steps{100};
+  double densify_grad_threshold{0.0002};
+  double densify_scene_extent{0.0};
+  double densify_percent_dense{0.01};
+  int densify_max_new_gaussians{20000};
+  double prune_max_screen_radius{0.0};
+  double prune_max_world_scale{0.0};
+  int prune_invisible_steps{0};
+  int opacity_reset_interval{3000};
+  double opacity_reset_value{0.01};
 };
 
 }  // namespace gaussian_lic_mapping

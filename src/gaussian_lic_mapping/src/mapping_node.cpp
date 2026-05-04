@@ -134,6 +134,28 @@ public:
       declare_parameter<double>("torch_gaussian_prune_min_opacity", 0.005);
     backend_config_.max_foreground_gaussians =
       declare_parameter<int>("torch_gaussian_max_foreground", 0);
+    backend_config_.enable_densification =
+      declare_parameter<bool>("enable_torch_gaussian_densification", false);
+    backend_config_.densify_every_steps =
+      declare_parameter<int>("torch_gaussian_densify_every_steps", 100);
+    backend_config_.densify_grad_threshold =
+      declare_parameter<double>("torch_gaussian_densify_grad_threshold", 0.0002);
+    backend_config_.densify_scene_extent =
+      declare_parameter<double>("torch_gaussian_densify_scene_extent", 0.0);
+    backend_config_.densify_percent_dense =
+      declare_parameter<double>("torch_gaussian_densify_percent_dense", 0.01);
+    backend_config_.densify_max_new_gaussians =
+      declare_parameter<int>("torch_gaussian_densify_max_new", 20000);
+    backend_config_.prune_max_screen_radius =
+      declare_parameter<double>("torch_gaussian_prune_max_screen_radius", 0.0);
+    backend_config_.prune_max_world_scale =
+      declare_parameter<double>("torch_gaussian_prune_max_world_scale", 0.0);
+    backend_config_.prune_invisible_steps =
+      declare_parameter<int>("torch_gaussian_prune_invisible_steps", 0);
+    backend_config_.opacity_reset_interval =
+      declare_parameter<int>("torch_gaussian_opacity_reset_interval", 3000);
+    backend_config_.opacity_reset_value =
+      declare_parameter<double>("torch_gaussian_opacity_reset_value", 0.01);
     torch_gaussian_device_name_ = declare_parameter<std::string>("torch_gaussian_device", "cpu");
     gaussian_map_chunk_size_ = declare_parameter<int>("gaussian_map_chunk_size", 1024);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
@@ -283,6 +305,15 @@ public:
       backend_config_.enable_density_control ? "enabled" : "disabled",
       backend_config_.prune_min_opacity,
       backend_config_.max_foreground_gaussians);
+    RCLCPP_INFO(
+      get_logger(),
+      "Torch Gaussian densification %s, every_steps=%d grad_threshold=%.6f percent_dense=%.4f max_new=%d opacity_reset_interval=%d",
+      backend_config_.enable_densification ? "enabled" : "disabled",
+      backend_config_.densify_every_steps,
+      backend_config_.densify_grad_threshold,
+      backend_config_.densify_percent_dense,
+      backend_config_.densify_max_new_gaussians,
+      backend_config_.opacity_reset_interval);
 #else
     RCLCPP_INFO(get_logger(), "Torch camera conversion unavailable in this build");
     RCLCPP_INFO(get_logger(), "Torch Gaussian initialization unavailable in this build");
@@ -723,6 +754,67 @@ private:
     }
   }
 
+  void maybe_densify_torch_gaussians(const torch::Device & device)
+  {
+    if (
+      !backend_config_.enable_density_control ||
+      !backend_config_.enable_densification ||
+      !torch_gaussian_initialized_ ||
+      backend_config_.densify_every_steps <= 0 ||
+      torch_gaussian_optimization_step_count_ == 0 ||
+      torch_gaussian_optimization_step_count_ - last_torch_densify_step_ <
+      static_cast<uint64_t>(backend_config_.densify_every_steps))
+    {
+      return;
+    }
+
+    try {
+      const auto result = gaussian_lic_mapping::densify_gaussian_map(
+        torch_gaussian_map_, backend_config_);
+      last_torch_densified_ = result.cloned_count + result.split_child_count;
+      if (result.after_count != result.before_count || last_torch_densified_ > 0) {
+        ++torch_gaussian_densify_count_;
+        torch_gaussian_densified_total_ += static_cast<uint64_t>(last_torch_densified_);
+        last_torch_densify_step_ = torch_gaussian_optimization_step_count_;
+        refresh_torch_gaussian_status(device);
+      }
+    } catch (const std::exception & ex) {
+      ++torch_gaussian_densify_error_count_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "failed to densify Torch Gaussian map: %s", ex.what());
+    }
+  }
+
+  void maybe_reset_torch_gaussian_opacity(const torch::Device & device)
+  {
+    if (
+      !torch_gaussian_initialized_ ||
+      backend_config_.opacity_reset_interval <= 0 ||
+      torch_gaussian_optimization_step_count_ == 0 ||
+      torch_gaussian_optimization_step_count_ - last_torch_opacity_reset_step_ <
+      static_cast<uint64_t>(backend_config_.opacity_reset_interval))
+    {
+      return;
+    }
+
+    try {
+      const auto result = gaussian_lic_mapping::reset_gaussian_opacity(
+        torch_gaussian_map_, backend_config_);
+      last_torch_opacity_reset_ = result.reset_count;
+      if (result.reset_count > 0) {
+        ++torch_gaussian_opacity_reset_count_;
+        last_torch_opacity_reset_step_ = torch_gaussian_optimization_step_count_;
+        refresh_torch_gaussian_status(device);
+      }
+    } catch (const std::exception & ex) {
+      ++torch_gaussian_opacity_reset_error_count_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "failed to reset Torch Gaussian opacity: %s", ex.what());
+    }
+  }
+
   void maybe_update_torch_gaussians(const gaussian_lic_mapping::CameraFrameRecord & record)
   {
     if (!record.is_keyframe) {
@@ -751,16 +843,18 @@ private:
 
         dataset_.clear_pending_points();
         maybe_optimize_torch_gaussians(record, intrinsics, device);
+        maybe_densify_torch_gaussians(device);
         maybe_prune_torch_gaussians(device);
+        maybe_reset_torch_gaussian_opacity(device);
         publish_torch_gaussian_map();
         RCLCPP_INFO(
           get_logger(),
-          "Initialized Torch Gaussian map: foreground=%zu skybox=%zu xyz=%s features_dc=%s device=%s opt_steps=%lu opt_loss=%.6f supervised=%zu pruned=%zu",
+          "Initialized Torch Gaussian map: foreground=%zu skybox=%zu xyz=%s features_dc=%s device=%s opt_steps=%lu opt_loss=%.6f supervised=%zu densified=%zu pruned=%zu reset_opacity=%zu",
           torch_gaussian_map_.foreground_count, torch_gaussian_map_.skybox_count,
           last_torch_gaussian_xyz_dims_.c_str(), last_torch_gaussian_feature_dims_.c_str(),
           torch_gaussian_device_label_.c_str(), torch_gaussian_optimization_step_count_,
           last_torch_optimization_loss_, last_torch_optimization_supervised_,
-          last_torch_pruned_);
+          last_torch_densified_, last_torch_pruned_, last_torch_opacity_reset_);
         return;
       }
 
@@ -775,16 +869,18 @@ private:
       refresh_torch_gaussian_status(device);
       dataset_.clear_pending_points();
       maybe_optimize_torch_gaussians(record, intrinsics, device);
+      maybe_densify_torch_gaussians(device);
       maybe_prune_torch_gaussians(device);
+      maybe_reset_torch_gaussian_opacity(device);
       publish_torch_gaussian_map();
       RCLCPP_INFO(
         get_logger(),
-        "Extended Torch Gaussian map: inserted=%zu foreground=%zu skybox=%zu xyz=%s device=%s opt_steps=%lu opt_loss=%.6f supervised=%zu pruned=%zu",
+        "Extended Torch Gaussian map: inserted=%zu foreground=%zu skybox=%zu xyz=%s device=%s opt_steps=%lu opt_loss=%.6f supervised=%zu densified=%zu pruned=%zu reset_opacity=%zu",
         last_torch_gaussian_inserted_, torch_gaussian_map_.foreground_count,
         torch_gaussian_map_.skybox_count, last_torch_gaussian_xyz_dims_.c_str(),
         torch_gaussian_device_label_.c_str(), torch_gaussian_optimization_step_count_,
         last_torch_optimization_loss_, last_torch_optimization_supervised_,
-        last_torch_pruned_);
+        last_torch_densified_, last_torch_pruned_, last_torch_opacity_reset_);
     } catch (const std::exception & ex) {
       if (torch_gaussian_initialized_) {
         ++torch_gaussian_extend_error_count_;
@@ -1501,7 +1597,8 @@ private:
     msg.num_errors =
       conversion_error_count_ + torch_camera_error_count_ + torch_gaussian_init_error_count_ +
       torch_gaussian_extend_error_count_ + torch_gaussian_optimization_error_count_ +
-      torch_gaussian_prune_error_count_ + render_error_count_;
+      torch_gaussian_densify_error_count_ + torch_gaussian_prune_error_count_ +
+      torch_gaussian_opacity_reset_error_count_ + render_error_count_;
     msg.tracking_hz = last_tracking_hz_;
     msg.mapping_hz = last_mapping_hz_;
     msg.tracking_latency_ms = 0.0F;
@@ -1523,6 +1620,8 @@ private:
       "gaussian_init_errors=%lu gaussian_extend_errors=%lu gaussian_xyz=%s gaussian_features=%s "
       "gaussian_device=%s gaussian_opt_calls=%lu gaussian_opt_steps=%lu "
       "gaussian_opt_supervised=%zu gaussian_opt_loss=%.6f gaussian_opt_errors=%lu | "
+      "gaussian_densify_calls=%lu gaussian_densified_total=%lu last_densified=%zu gaussian_densify_errors=%lu | "
+      "gaussian_opacity_resets=%lu last_reset=%zu opacity_reset_errors=%lu | "
       "gaussian_prune_calls=%lu gaussian_pruned_total=%lu last_pruned=%zu gaussian_prune_errors=%lu | "
       "latency last=%.3fms mean=%.3fms | "
       "camera_info=%lu intrinsics=%s fx=%.3f fy=%.3f cx=%.3f cy=%.3f | "
@@ -1543,6 +1642,10 @@ private:
       torch_gaussian_optimization_count_, torch_gaussian_optimization_step_count_,
       last_torch_optimization_supervised_, last_torch_optimization_loss_,
       torch_gaussian_optimization_error_count_,
+      torch_gaussian_densify_count_, torch_gaussian_densified_total_, last_torch_densified_,
+      torch_gaussian_densify_error_count_,
+      torch_gaussian_opacity_reset_count_, last_torch_opacity_reset_,
+      torch_gaussian_opacity_reset_error_count_,
       torch_gaussian_prune_count_, torch_gaussian_pruned_total_, last_torch_pruned_,
       torch_gaussian_prune_error_count_,
       last_mapping_latency_ms_, mean_iteration_ms_,
@@ -1651,12 +1754,19 @@ private:
   uint64_t torch_gaussian_extend_count_{0};
   uint64_t torch_gaussian_optimization_count_{0};
   uint64_t torch_gaussian_optimization_step_count_{0};
+  uint64_t torch_gaussian_densify_count_{0};
+  uint64_t torch_gaussian_densified_total_{0};
+  uint64_t torch_gaussian_opacity_reset_count_{0};
   uint64_t torch_gaussian_prune_count_{0};
   uint64_t torch_gaussian_pruned_total_{0};
   uint64_t torch_gaussian_init_error_count_{0};
   uint64_t torch_gaussian_extend_error_count_{0};
   uint64_t torch_gaussian_optimization_error_count_{0};
+  uint64_t torch_gaussian_densify_error_count_{0};
+  uint64_t torch_gaussian_opacity_reset_error_count_{0};
   uint64_t torch_gaussian_prune_error_count_{0};
+  uint64_t last_torch_densify_step_{0};
+  uint64_t last_torch_opacity_reset_step_{0};
   uint64_t dropped_pointcloud_count_{0};
   uint64_t dropped_pose_count_{0};
   uint64_t dropped_image_count_{0};
@@ -1673,6 +1783,8 @@ private:
   size_t torch_gaussian_count_{0};
   size_t last_torch_gaussian_inserted_{0};
   size_t last_torch_optimization_supervised_{0};
+  size_t last_torch_densified_{0};
+  size_t last_torch_opacity_reset_{0};
   size_t last_torch_pruned_{0};
   float last_torch_optimization_loss_{0.0F};
   std::string last_torch_image_dims_{"n/a"};

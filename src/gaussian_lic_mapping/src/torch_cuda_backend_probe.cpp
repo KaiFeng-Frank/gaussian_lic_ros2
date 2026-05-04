@@ -159,6 +159,19 @@ int main()
   const double scaling_delta = max_delta(scaling_before, map.scaling);
   const double rotation_delta = max_delta(rotation_before, map.rotation);
   const double opacity_delta = max_delta(opacity_before, map.opacity);
+  const size_t count_before_densify = map.foreground_count + map.skybox_count;
+  config.enable_density_control = true;
+  config.enable_densification = true;
+  config.densify_grad_threshold = 0.0;
+  config.densify_scene_extent = 1.0;
+  config.densify_percent_dense = 0.50;
+  config.densify_max_new_gaussians = 8;
+  const auto densify_result = gaussian_lic_mapping::densify_gaussian_map(map, config);
+  config.enable_densification = false;
+  config.max_foreground_gaussians = 4;
+  config.prune_min_opacity = 0.0;
+  const auto prune_result = gaussian_lic_mapping::prune_gaussian_map(map, config);
+  const auto reset_result = gaussian_lic_mapping::reset_gaussian_opacity(map, config);
   const bool adam_state_defined =
     map.xyz_exp_avg.defined() &&
     map.features_dc_exp_avg.defined() &&
@@ -180,6 +193,12 @@ int main()
             << " scaling_delta=" << scaling_delta
             << " rotation_delta=" << rotation_delta
             << " opacity_delta=" << opacity_delta
+            << " densify_before=" << count_before_densify
+            << " densify_after=" << densify_result.after_count
+            << " cloned=" << densify_result.cloned_count
+            << " split_children=" << densify_result.split_child_count
+            << " prune_removed=" << prune_result.removed_count
+            << " reset_count=" << reset_result.reset_count
             << " adam_state_defined=" << (adam_state_defined ? "true" : "false")
             << "\n";
 
@@ -201,6 +220,14 @@ int main()
   }
   if (xyz_delta <= 0.0 && scaling_delta <= 0.0 && rotation_delta <= 0.0 && rest_delta <= 0.0) {
     std::cerr << "CUDA backend did not update any geometric/high-order parameter group\n";
+    return 1;
+  }
+  if (densify_result.after_count <= count_before_densify || densify_result.split_child_count == 0) {
+    std::cerr << "CUDA backend densification did not split high-gradient Gaussians\n";
+    return 1;
+  }
+  if (prune_result.removed_count == 0 || reset_result.reset_count == 0) {
+    std::cerr << "CUDA backend density-control prune/reset did not execute\n";
     return 1;
   }
 

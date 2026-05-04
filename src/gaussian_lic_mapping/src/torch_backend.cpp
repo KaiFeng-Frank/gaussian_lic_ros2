@@ -291,6 +291,167 @@ void validate_gaussian_map_for_optimization(const TorchGaussianMap & map)
   }
 }
 
+void index_select_if_matching(torch::Tensor & tensor, const torch::Tensor & keep_indices, const int64_t old_count)
+{
+  if (tensor.defined() && tensor.dim() > 0 && tensor.size(0) == old_count) {
+    tensor = tensor.index_select(0, keep_indices).contiguous();
+  }
+}
+
+void require_grad_for_map_after_topology_change(TorchGaussianMap & map)
+{
+  require_grad_for_map(map);
+  map.xyz_gradient_accum = torch::Tensor();
+  map.xyz_gradient_vector_accum = torch::Tensor();
+  map.xyz_gradient_denom = torch::Tensor();
+  map.max_radii2d = torch::Tensor();
+  map.visibility_miss_count = torch::Tensor();
+}
+
+void ensure_density_statistics(TorchGaussianMap & map)
+{
+  if (!map.xyz.defined()) {
+    return;
+  }
+  const auto count = map.xyz.size(0);
+  const auto float_options = map.xyz.options().dtype(torch::kFloat32);
+  const auto int_options = map.xyz.options().dtype(torch::kInt64);
+  if (
+    !map.xyz_gradient_accum.defined() || map.xyz_gradient_accum.sizes() != torch::IntArrayRef({count, 1}) ||
+    map.xyz_gradient_accum.device() != map.xyz.device())
+  {
+    map.xyz_gradient_accum = torch::zeros({count, 1}, float_options);
+  }
+  if (
+    !map.xyz_gradient_vector_accum.defined() ||
+    map.xyz_gradient_vector_accum.sizes() != torch::IntArrayRef({count, 3}) ||
+    map.xyz_gradient_vector_accum.device() != map.xyz.device())
+  {
+    map.xyz_gradient_vector_accum = torch::zeros({count, 3}, float_options);
+  }
+  if (
+    !map.xyz_gradient_denom.defined() || map.xyz_gradient_denom.sizes() != torch::IntArrayRef({count, 1}) ||
+    map.xyz_gradient_denom.device() != map.xyz.device())
+  {
+    map.xyz_gradient_denom = torch::zeros({count, 1}, float_options);
+  }
+  if (
+    !map.max_radii2d.defined() || map.max_radii2d.sizes() != torch::IntArrayRef({count, 1}) ||
+    map.max_radii2d.device() != map.xyz.device())
+  {
+    map.max_radii2d = torch::zeros({count, 1}, float_options);
+  }
+  if (
+    !map.visibility_miss_count.defined() ||
+    map.visibility_miss_count.sizes() != torch::IntArrayRef({count, 1}) ||
+    map.visibility_miss_count.device() != map.xyz.device())
+  {
+    map.visibility_miss_count = torch::zeros({count, 1}, int_options);
+  }
+}
+
+void append_optional_state(torch::Tensor & state, const torch::Tensor & extension)
+{
+  if (state.defined()) {
+    state = torch::cat({state, torch::zeros_like(extension)}, 0).contiguous();
+  }
+}
+
+void append_optional_density_stat(torch::Tensor & state, const int64_t extension_count, const int64_t width)
+{
+  if (state.defined()) {
+    state = torch::cat({
+      state,
+      torch::zeros({extension_count, width}, state.options())}, 0).contiguous();
+  }
+}
+
+void append_gaussian_topology(
+  TorchGaussianMap & map,
+  const torch::Tensor & xyz,
+  const torch::Tensor & features_dc,
+  const torch::Tensor & features_rest,
+  const torch::Tensor & scaling,
+  const torch::Tensor & rotation,
+  const torch::Tensor & opacity)
+{
+  const int64_t extension_count = xyz.size(0);
+  if (extension_count <= 0) {
+    return;
+  }
+
+  map.xyz = torch::cat({map.xyz, xyz}, 0).contiguous();
+  map.features_dc = torch::cat({map.features_dc, features_dc}, 0).contiguous();
+  map.features_rest = torch::cat({map.features_rest, features_rest}, 0).contiguous();
+  map.scaling = torch::cat({map.scaling, scaling}, 0).contiguous();
+  map.rotation = torch::cat({map.rotation, rotation}, 0).contiguous();
+  map.opacity = torch::cat({map.opacity, opacity}, 0).contiguous();
+
+  append_optional_state(map.xyz_exp_avg, xyz);
+  append_optional_state(map.xyz_exp_avg_sq, xyz);
+  append_optional_state(map.features_dc_exp_avg, features_dc);
+  append_optional_state(map.features_dc_exp_avg_sq, features_dc);
+  append_optional_state(map.features_rest_exp_avg, features_rest);
+  append_optional_state(map.features_rest_exp_avg_sq, features_rest);
+  append_optional_state(map.scaling_exp_avg, scaling);
+  append_optional_state(map.scaling_exp_avg_sq, scaling);
+  append_optional_state(map.rotation_exp_avg, rotation);
+  append_optional_state(map.rotation_exp_avg_sq, rotation);
+  append_optional_state(map.opacity_exp_avg, opacity);
+  append_optional_state(map.opacity_exp_avg_sq, opacity);
+  append_optional_density_stat(map.xyz_gradient_accum, extension_count, 1);
+  append_optional_density_stat(map.xyz_gradient_vector_accum, extension_count, 3);
+  append_optional_density_stat(map.xyz_gradient_denom, extension_count, 1);
+  append_optional_density_stat(map.max_radii2d, extension_count, 1);
+  append_optional_density_stat(map.visibility_miss_count, extension_count, 1);
+  map.foreground_count += static_cast<size_t>(extension_count);
+  require_grad_for_map(map);
+}
+
+void select_gaussian_topology(TorchGaussianMap & map, const torch::Tensor & keep_indices, const size_t kept_foreground)
+{
+  const int64_t old_count = map.xyz.size(0);
+  index_select_if_matching(map.xyz, keep_indices, old_count);
+  index_select_if_matching(map.features_dc, keep_indices, old_count);
+  index_select_if_matching(map.features_rest, keep_indices, old_count);
+  index_select_if_matching(map.scaling, keep_indices, old_count);
+  index_select_if_matching(map.rotation, keep_indices, old_count);
+  index_select_if_matching(map.opacity, keep_indices, old_count);
+  index_select_if_matching(map.xyz_exp_avg, keep_indices, old_count);
+  index_select_if_matching(map.xyz_exp_avg_sq, keep_indices, old_count);
+  index_select_if_matching(map.features_dc_exp_avg, keep_indices, old_count);
+  index_select_if_matching(map.features_dc_exp_avg_sq, keep_indices, old_count);
+  index_select_if_matching(map.features_rest_exp_avg, keep_indices, old_count);
+  index_select_if_matching(map.features_rest_exp_avg_sq, keep_indices, old_count);
+  index_select_if_matching(map.scaling_exp_avg, keep_indices, old_count);
+  index_select_if_matching(map.scaling_exp_avg_sq, keep_indices, old_count);
+  index_select_if_matching(map.rotation_exp_avg, keep_indices, old_count);
+  index_select_if_matching(map.rotation_exp_avg_sq, keep_indices, old_count);
+  index_select_if_matching(map.opacity_exp_avg, keep_indices, old_count);
+  index_select_if_matching(map.opacity_exp_avg_sq, keep_indices, old_count);
+  index_select_if_matching(map.xyz_gradient_accum, keep_indices, old_count);
+  index_select_if_matching(map.xyz_gradient_vector_accum, keep_indices, old_count);
+  index_select_if_matching(map.xyz_gradient_denom, keep_indices, old_count);
+  index_select_if_matching(map.max_radii2d, keep_indices, old_count);
+  index_select_if_matching(map.visibility_miss_count, keep_indices, old_count);
+  map.foreground_count = kept_foreground;
+  require_grad_for_map(map);
+}
+
+double estimate_scene_extent(const TorchGaussianMap & map)
+{
+  const int64_t skybox_count = static_cast<int64_t>(map.skybox_count);
+  const int64_t foreground_count = map.xyz.size(0) - skybox_count;
+  if (foreground_count <= 1) {
+    return 1.0;
+  }
+  const auto foreground = map.xyz.index({torch::indexing::Slice(skybox_count, torch::indexing::None)}).detach();
+  const auto min_values = std::get<0>(foreground.min(0));
+  const auto max_values = std::get<0>(foreground.max(0));
+  const auto extent = torch::norm(max_values - min_values).to(torch::kCPU).item<double>();
+  return std::max(extent, 1.0e-6);
+}
+
 torch::Tensor select_visible_gaussians(
   const TorchGaussianMap & map,
   const TorchCamera & camera,
@@ -435,6 +596,31 @@ void sparse_adam_step_if_enabled(
     1.0e-15F);
 }
 
+void accumulate_density_statistics(
+  TorchGaussianMap & map,
+  const torch::Tensor & visible_mask,
+  const torch::Tensor & radii)
+{
+  if (!map.xyz.grad().defined()) {
+    return;
+  }
+  torch::NoGradGuard no_grad;
+  ensure_density_statistics(map);
+  const auto mask_f = visible_mask.to(torch::kFloat32).unsqueeze(1);
+  const auto grad = map.xyz.grad().detach();
+  const auto grad_norm = torch::norm(grad, 2, 1, true);
+  map.xyz_gradient_accum.add_(grad_norm * mask_f);
+  map.xyz_gradient_vector_accum.add_(grad * mask_f);
+  map.xyz_gradient_denom.add_(mask_f);
+  map.max_radii2d = torch::maximum(map.max_radii2d, radii.to(torch::kFloat32).unsqueeze(1));
+
+  const auto visible_i = visible_mask.unsqueeze(1);
+  map.visibility_miss_count = torch::where(
+    visible_i,
+    torch::zeros_like(map.visibility_miss_count),
+    map.visibility_miss_count + 1);
+}
+
 torch::Tensor make_raster_background(
   const GaussianBackendConfig & config,
   torch::Device device)
@@ -565,6 +751,7 @@ TorchOptimizationResult optimize_gaussian_map_with_cuda_rasterizer(
     }
 
     loss.backward();
+    accumulate_density_statistics(map, visible_mask, radii);
     {
       torch::NoGradGuard no_grad;
       sparse_adam_step_if_enabled(
@@ -746,14 +933,14 @@ size_t append_pending_points_to_gaussian_map(
     dataset, sh_degree, scaling_scale, fx, fy, device);
 
   torch::NoGradGuard no_grad;
-  map.xyz = torch::cat({map.xyz, foreground.xyz}, 0);
-  map.features_dc = torch::cat({map.features_dc, foreground.features_dc}, 0);
-  map.features_rest = torch::cat({map.features_rest, foreground.features_rest}, 0);
-  map.scaling = torch::cat({map.scaling, foreground.scaling}, 0);
-  map.rotation = torch::cat({map.rotation, foreground.rotation}, 0);
-  map.opacity = torch::cat({map.opacity, foreground.opacity}, 0);
-  require_grad_for_map(map);
-  map.foreground_count += foreground.foreground_count;
+  append_gaussian_topology(
+    map,
+    foreground.xyz,
+    foreground.features_dc,
+    foreground.features_rest,
+    foreground.scaling,
+    foreground.rotation,
+    foreground.opacity);
   return foreground.foreground_count;
 }
 
@@ -870,6 +1057,151 @@ TorchRenderResult render_gaussian_map_from_camera(
 #endif
 }
 
+TorchDensifyResult densify_gaussian_map(
+  TorchGaussianMap & map,
+  const GaussianBackendConfig & config)
+{
+  TorchDensifyResult result;
+  result.before_count = map.foreground_count + map.skybox_count;
+  if (!config.enable_density_control || !config.enable_densification) {
+    result.after_count = result.before_count;
+    return result;
+  }
+
+  validate_gaussian_map_for_optimization(map);
+  ensure_density_statistics(map);
+  const int64_t total_count = map.xyz.size(0);
+  const int64_t skybox_count = static_cast<int64_t>(map.skybox_count);
+  const int64_t foreground_count = total_count - skybox_count;
+  if (foreground_count <= 0) {
+    result.after_count = result.before_count;
+    return result;
+  }
+
+  const auto device = map.xyz.device();
+  const auto long_options = torch::TensorOptions().dtype(torch::kLong).device(device);
+  const auto foreground_slice = torch::indexing::Slice(skybox_count, torch::indexing::None);
+  const auto denom = map.xyz_gradient_denom.index({foreground_slice});
+  auto mean_grad = map.xyz_gradient_accum.index({foreground_slice}) / torch::clamp_min(denom, 1.0F);
+  mean_grad = mean_grad.flatten();
+  auto selected = torch::logical_and(
+    mean_grad.ge(static_cast<float>(config.densify_grad_threshold)),
+    denom.flatten().gt(0.0F));
+  if (selected.sum().item<int64_t>() == 0) {
+    result.after_count = result.before_count;
+    return result;
+  }
+
+  const double scene_extent = config.densify_scene_extent > 0.0 ?
+    config.densify_scene_extent : estimate_scene_extent(map);
+  const float dense_scale_threshold = static_cast<float>(
+    std::max(scene_extent * std::max(config.densify_percent_dense, 0.0), 1.0e-6));
+  const auto foreground_scales = torch::exp(map.scaling.index({foreground_slice}));
+  const auto max_scales = std::get<0>(foreground_scales.max(1));
+  const auto large = max_scales.gt(dense_scale_threshold);
+
+  auto split_local = torch::nonzero(torch::logical_and(selected, large)).flatten().to(long_options);
+  auto clone_local = torch::nonzero(torch::logical_and(selected, torch::logical_not(large))).flatten().to(long_options);
+  const int max_new = std::max(config.densify_max_new_gaussians, 0);
+  if (max_new > 0) {
+    const int64_t max_split_parents = std::min<int64_t>(split_local.size(0), max_new / 2);
+    split_local = split_local.index({torch::indexing::Slice(0, max_split_parents)});
+    const int64_t remaining = std::max<int64_t>(0, max_new - 2 * max_split_parents);
+    clone_local = clone_local.index({torch::indexing::Slice(0, std::min<int64_t>(clone_local.size(0), remaining))});
+  }
+
+  const auto clone_indices = clone_local + skybox_count;
+  const auto split_indices = split_local + skybox_count;
+  const int64_t clone_count = clone_indices.size(0);
+  const int64_t split_parent_count = split_indices.size(0);
+  if (clone_count == 0 && split_parent_count == 0) {
+    result.after_count = result.before_count;
+    return result;
+  }
+
+  auto make_directions = [&map](const torch::Tensor & indices) {
+    auto directions = map.xyz_gradient_vector_accum.index_select(0, indices);
+    const auto norms = torch::norm(directions, 2, 1, true);
+    auto fallback = torch::zeros_like(directions);
+    fallback.index_put_({torch::indexing::Slice(), 0}, 1.0F);
+    return torch::where(norms.gt(1.0e-8F), directions / torch::clamp_min(norms, 1.0e-8F), fallback);
+  };
+
+  std::vector<torch::Tensor> xyz_ext;
+  std::vector<torch::Tensor> dc_ext;
+  std::vector<torch::Tensor> rest_ext;
+  std::vector<torch::Tensor> scaling_ext;
+  std::vector<torch::Tensor> rotation_ext;
+  std::vector<torch::Tensor> opacity_ext;
+
+  if (clone_count > 0) {
+    const auto clone_directions = make_directions(clone_indices);
+    const auto clone_scales = std::get<0>(
+      torch::exp(map.scaling.index_select(0, clone_indices)).max(1, true));
+    xyz_ext.push_back(map.xyz.index_select(0, clone_indices) + 0.25F * clone_directions * clone_scales);
+    dc_ext.push_back(map.features_dc.index_select(0, clone_indices));
+    rest_ext.push_back(map.features_rest.index_select(0, clone_indices));
+    scaling_ext.push_back(map.scaling.index_select(0, clone_indices));
+    rotation_ext.push_back(map.rotation.index_select(0, clone_indices));
+    opacity_ext.push_back(map.opacity.index_select(0, clone_indices));
+    result.cloned_count = static_cast<size_t>(clone_count);
+  }
+
+  if (split_parent_count > 0) {
+    const auto split_directions = make_directions(split_indices);
+    const auto split_scales = std::get<0>(
+      torch::exp(map.scaling.index_select(0, split_indices)).max(1, true));
+    const auto base_xyz = map.xyz.index_select(0, split_indices);
+    xyz_ext.push_back(torch::cat({
+      base_xyz + 0.5F * split_directions * split_scales,
+      base_xyz - 0.5F * split_directions * split_scales}, 0));
+    dc_ext.push_back(torch::cat({
+      map.features_dc.index_select(0, split_indices),
+      map.features_dc.index_select(0, split_indices)}, 0));
+    rest_ext.push_back(torch::cat({
+      map.features_rest.index_select(0, split_indices),
+      map.features_rest.index_select(0, split_indices)}, 0));
+    const auto child_scaling = map.scaling.index_select(0, split_indices) - static_cast<float>(std::log(1.6));
+    scaling_ext.push_back(torch::cat({child_scaling, child_scaling}, 0));
+    rotation_ext.push_back(torch::cat({
+      map.rotation.index_select(0, split_indices),
+      map.rotation.index_select(0, split_indices)}, 0));
+    opacity_ext.push_back(torch::cat({
+      map.opacity.index_select(0, split_indices),
+      map.opacity.index_select(0, split_indices)}, 0));
+    result.split_parent_count = static_cast<size_t>(split_parent_count);
+    result.split_child_count = static_cast<size_t>(split_parent_count * 2);
+  }
+
+  torch::NoGradGuard no_grad;
+  append_gaussian_topology(
+    map,
+    torch::cat(xyz_ext, 0).contiguous(),
+    torch::cat(dc_ext, 0).contiguous(),
+    torch::cat(rest_ext, 0).contiguous(),
+    torch::cat(scaling_ext, 0).contiguous(),
+    torch::cat(rotation_ext, 0).contiguous(),
+    torch::cat(opacity_ext, 0).contiguous());
+
+  if (split_parent_count > 0) {
+    const int64_t total_after_append = map.xyz.size(0);
+    auto keep_mask = torch::ones({total_after_append}, torch::TensorOptions().dtype(torch::kBool).device(device));
+    keep_mask.index_put_({split_indices}, false);
+    const auto keep_indices = torch::nonzero(keep_mask).flatten().to(long_options);
+    const size_t kept_foreground = map.foreground_count - static_cast<size_t>(split_parent_count);
+    select_gaussian_topology(map, keep_indices, kept_foreground);
+    result.removed_parent_count = static_cast<size_t>(split_parent_count);
+  }
+
+  ensure_density_statistics(map);
+  map.xyz_gradient_accum.zero_();
+  map.xyz_gradient_vector_accum.zero_();
+  map.xyz_gradient_denom.zero_();
+  map.max_radii2d.zero_();
+  result.after_count = map.foreground_count + map.skybox_count;
+  return result;
+}
+
 TorchPruneResult prune_gaussian_map(
   TorchGaussianMap & map,
   const GaussianBackendConfig & config)
@@ -894,12 +1226,23 @@ TorchPruneResult prune_gaussian_map(
   const auto foreground_slice = torch::indexing::Slice(skybox_count, torch::indexing::None);
   const auto opacity = torch::sigmoid(map.opacity.index({foreground_slice}).detach()).flatten();
 
-  torch::Tensor keep_foreground;
+  auto keep_mask = torch::ones({foreground_count}, torch::TensorOptions().dtype(torch::kBool).device(device));
   if (config.prune_min_opacity > 0.0) {
-    keep_foreground = torch::nonzero(opacity.ge(config.prune_min_opacity)).flatten().to(long_options);
-  } else {
-    keep_foreground = torch::arange(foreground_count, long_options);
+    keep_mask = torch::logical_and(keep_mask, opacity.ge(static_cast<float>(config.prune_min_opacity)));
   }
+  if (config.prune_max_screen_radius > 0.0 && map.max_radii2d.defined()) {
+    const auto radii = map.max_radii2d.index({foreground_slice}).flatten();
+    keep_mask = torch::logical_and(keep_mask, radii.le(static_cast<float>(config.prune_max_screen_radius)));
+  }
+  if (config.prune_max_world_scale > 0.0) {
+    const auto max_scale = std::get<0>(torch::exp(map.scaling.index({foreground_slice}).detach()).max(1));
+    keep_mask = torch::logical_and(keep_mask, max_scale.le(static_cast<float>(config.prune_max_world_scale)));
+  }
+  if (config.prune_invisible_steps > 0 && map.visibility_miss_count.defined()) {
+    const auto miss_count = map.visibility_miss_count.index({foreground_slice}).flatten();
+    keep_mask = torch::logical_and(keep_mask, miss_count.lt(config.prune_invisible_steps));
+  }
+  auto keep_foreground = torch::nonzero(keep_mask).flatten().to(long_options);
 
   const int max_foreground = std::max(config.max_foreground_gaussians, 0);
   if (max_foreground > 0 && keep_foreground.size(0) > max_foreground) {
@@ -924,18 +1267,34 @@ TorchPruneResult prune_gaussian_map(
   }
 
   torch::NoGradGuard no_grad;
-  map.xyz = map.xyz.index_select(0, keep_indices).contiguous();
-  map.features_dc = map.features_dc.index_select(0, keep_indices).contiguous();
-  map.features_rest = map.features_rest.index_select(0, keep_indices).contiguous();
-  map.scaling = map.scaling.index_select(0, keep_indices).contiguous();
-  map.rotation = map.rotation.index_select(0, keep_indices).contiguous();
-  map.opacity = map.opacity.index_select(0, keep_indices).contiguous();
-  map.foreground_count = kept_foreground;
-  require_grad_for_map(map);
+  select_gaussian_topology(map, keep_indices, kept_foreground);
 
   result.after_count = map.foreground_count + map.skybox_count;
   result.removed_count = result.before_count > result.after_count ?
     result.before_count - result.after_count : 0U;
+  return result;
+}
+
+TorchOpacityResetResult reset_gaussian_opacity(
+  TorchGaussianMap & map,
+  const GaussianBackendConfig & config)
+{
+  TorchOpacityResetResult result;
+  validate_gaussian_map_for_optimization(map);
+  const int64_t skybox_count = static_cast<int64_t>(map.skybox_count);
+  const int64_t foreground_count = map.xyz.size(0) - skybox_count;
+  if (foreground_count <= 0 || config.opacity_reset_value <= 0.0 || config.opacity_reset_value >= 1.0) {
+    return result;
+  }
+
+  torch::NoGradGuard no_grad;
+  const auto foreground_slice = torch::indexing::Slice(skybox_count, torch::indexing::None);
+  map.opacity.index_put_(
+    {foreground_slice},
+    inverse_sigmoid(static_cast<float>(config.opacity_reset_value) *
+      torch::ones({foreground_count, 1}, map.opacity.options())));
+  result.reset_count = static_cast<size_t>(foreground_count);
+  require_grad_for_map(map);
   return result;
 }
 

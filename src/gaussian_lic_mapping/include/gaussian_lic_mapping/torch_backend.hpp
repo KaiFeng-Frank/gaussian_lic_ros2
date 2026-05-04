@@ -53,6 +53,11 @@ struct TorchGaussianMap
   torch::Tensor rotation_exp_avg_sq;
   torch::Tensor opacity_exp_avg;
   torch::Tensor opacity_exp_avg_sq;
+  torch::Tensor xyz_gradient_accum;
+  torch::Tensor xyz_gradient_vector_accum;
+  torch::Tensor xyz_gradient_denom;
+  torch::Tensor max_radii2d;
+  torch::Tensor visibility_miss_count;
   int sh_degree{0};
   size_t foreground_count{0};
   size_t skybox_count{0};
@@ -79,6 +84,21 @@ struct TorchPruneResult
   size_t before_count{0};
   size_t after_count{0};
   size_t removed_count{0};
+};
+
+struct TorchDensifyResult
+{
+  size_t before_count{0};
+  size_t after_count{0};
+  size_t cloned_count{0};
+  size_t split_parent_count{0};
+  size_t split_child_count{0};
+  size_t removed_parent_count{0};
+};
+
+struct TorchOpacityResetResult
+{
+  size_t reset_count{0};
 };
 
 torch::Tensor cv_mat_to_torch_tensor_float32(
@@ -142,7 +162,15 @@ TorchRenderResult render_gaussian_map_from_camera(
   const GaussianBackendConfig & config,
   torch::Device device = torch::kCPU);
 
+TorchDensifyResult densify_gaussian_map(
+  TorchGaussianMap & map,
+  const GaussianBackendConfig & config);
+
 TorchPruneResult prune_gaussian_map(
+  TorchGaussianMap & map,
+  const GaussianBackendConfig & config);
+
+TorchOpacityResetResult reset_gaussian_opacity(
   TorchGaussianMap & map,
   const GaussianBackendConfig & config);
 
