@@ -30,6 +30,10 @@ SKIP_BASELINE=false
 SKIP_BUILD=false
 REBUILD=false
 CHECK_ONLY=false
+DERIVE_GAUSSIAN_RGB=false
+MAPPER_BAG_SET=false
+SEQUENCE_SET=false
+CURRENT_RECORD_SEC_SET=false
 
 usage() {
   cat <<'EOF'
@@ -67,6 +71,10 @@ Options:
   --imu-pose-fallback      Use IMU gyro orientation fallback for current ROS2 collection.
   --fastlivo2-camera-lidar-transform
                            Transform raw FAST-LIVO2 LiDAR points into camera frame.
+                           When sequence, mapper bag, current dir, or record duration are
+                           not overridden, this selects the validated transformed
+                           Bright_Screen_Wall defaults.
+  --derive-gaussian-rgb    Derive Gaussian PLY RGB from f_dc_0..2 during the point-cloud gate.
   --render-mode MODE       Current render mode. Default: debug_cpu.
   --skip-convert           Reuse an existing mapper-contract bag.
   --skip-current           Reuse an existing ROS2 current artifact directory.
@@ -85,6 +93,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mapper-bag)
       MAPPER_BAG="$2"
+      MAPPER_BAG_SET=true
       shift 2
       ;;
     --baseline-dir)
@@ -99,6 +108,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sequence)
       SEQUENCE="$2"
+      SEQUENCE_SET=true
       shift 2
       ;;
     --max-duration-sec)
@@ -111,6 +121,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-record-sec)
       CURRENT_RECORD_SEC="$2"
+      CURRENT_RECORD_SEC_SET=true
       shift 2
       ;;
     --current-timeout)
@@ -142,6 +153,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fastlivo2-camera-lidar-transform)
       POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
+      shift
+      ;;
+    --derive-gaussian-rgb)
+      DERIVE_GAUSSIAN_RGB=true
       shift
       ;;
     --render-mode)
@@ -185,11 +200,26 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "${ROOT_DIR}"
+if [[ "${POINTCLOUD_TRANSFORM_PROFILE}" == "fastlivo2" ]]; then
+  if [[ "${SEQUENCE_SET}" != "true" ]]; then
+    SEQUENCE="Bright_Screen_Wall_fastlivo2_extrinsic_8s"
+  fi
+  if [[ "${MAPPER_BAG_SET}" != "true" ]]; then
+    MAPPER_BAG="/home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_extrinsic_8s.bag"
+  fi
+  if [[ "${CURRENT_RECORD_SEC_SET}" != "true" ]]; then
+    CURRENT_RECORD_SEC=10
+  fi
+fi
 if [[ "${BASELINE_DIR_SET}" != "true" ]]; then
   BASELINE_DIR="${ROOT_DIR}/baseline/fastlivo2/${SEQUENCE}"
 fi
-if [[ "${CURRENT_DIR_SET}" != "true" && "${SEQUENCE}" != "Bright_Screen_Wall_curated_8s" ]]; then
-  CURRENT_DIR="${ROOT_DIR}/results/fastlivo2/${SEQUENCE}_current"
+if [[ "${CURRENT_DIR_SET}" != "true" ]]; then
+  if [[ "${POINTCLOUD_TRANSFORM_PROFILE}" == "fastlivo2" ]]; then
+    CURRENT_DIR="${ROOT_DIR}/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_fullseq"
+  elif [[ "${SEQUENCE}" != "Bright_Screen_Wall_curated_8s" ]]; then
+    CURRENT_DIR="${ROOT_DIR}/results/fastlivo2/${SEQUENCE}_current"
+  fi
 fi
 if [[ "${RENDER_MODE}" == "rasterizer" ]]; then
   RUN_TORCH_CURRENT=true
@@ -326,23 +356,29 @@ check_artifacts "${CURRENT_DIR}" "current"
 check_artifacts "${BASELINE_DIR}" "baseline"
 
 echo "[curated] writing reproduction report"
-./scripts/reproduction_report.py \
-  --baseline-dir "${BASELINE_DIR}" \
-  --current-dir "${CURRENT_DIR}" \
-  --sequence "${SEQUENCE}" \
-  --metric-key debug_points \
-  --trajectory-align first \
-  --min-trajectory-coverage 0.4 \
-  --max-association-dt 0.2 \
-  --pointcloud-align centroid \
-  --max-pointcloud-points 50000 \
-  --max-nearest-m 0.5 \
-  --max-chamfer-rmse-m 0.5 \
-  --max-chamfer-mean-m 0.5 \
-  --max-chamfer-max-m 0.5 \
-  --max-unmatched-ratio 0.25 \
-  --min-point-count-ratio 0.5 \
-  --max-point-count-ratio 5.0 \
-  --max-centroid-drift-m 0.5 \
-  --output "${CURRENT_DIR}/reproduction_report.json" \
+report_args=(
+  ./scripts/reproduction_report.py
+  --baseline-dir "${BASELINE_DIR}"
+  --current-dir "${CURRENT_DIR}"
+  --sequence "${SEQUENCE}"
+  --metric-key debug_points
+  --trajectory-align first
+  --min-trajectory-coverage 0.4
+  --max-association-dt 0.2
+  --pointcloud-align centroid
+  --max-pointcloud-points 50000
+  --max-nearest-m 0.5
+  --max-chamfer-rmse-m 0.5
+  --max-chamfer-mean-m 0.5
+  --max-chamfer-max-m 0.5
+  --max-unmatched-ratio 0.25
+  --min-point-count-ratio 0.5
+  --max-point-count-ratio 5.0
+  --max-centroid-drift-m 0.5
+  --output "${CURRENT_DIR}/reproduction_report.json"
   --markdown "${CURRENT_DIR}/reproduction_report.md"
+)
+if [[ "${DERIVE_GAUSSIAN_RGB}" == "true" ]]; then
+  report_args+=(--derive-gaussian-rgb)
+fi
+"${report_args[@]}"

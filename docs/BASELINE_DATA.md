@@ -144,6 +144,18 @@ The validated curated chain can also be re-run from one entrypoint:
 ./scripts/run_curated_fastlivo2_report.sh --skip-build
 ```
 
+The transformed Bright substitute uses the released FAST-LIVO2 camera-LiDAR
+extrinsics for both the ROS1 mapper-contract baseline and the ROS2 LIC2 adapter
+current run. The transform flag selects the validated sequence name, mapper bag,
+baseline directory, current directory, and 10 second current recording window
+unless those paths are explicitly overridden:
+
+```bash
+./scripts/run_curated_fastlivo2_report.sh \
+  --fastlivo2-camera-lidar-transform \
+  --skip-build
+```
+
 For a report-only refresh using the already archived ROS1 baseline and ROS2 current artifacts:
 
 ```bash
@@ -153,6 +165,21 @@ For a report-only refresh using the already archived ROS1 baseline and ROS2 curr
   --skip-baseline \
   --skip-build
 ```
+
+For the transformed Bright report-only refresh:
+
+```bash
+./scripts/run_curated_fastlivo2_report.sh \
+  --fastlivo2-camera-lidar-transform \
+  --skip-convert \
+  --skip-current \
+  --skip-baseline \
+  --skip-build
+```
+
+Add `--derive-gaussian-rgb` to the report command only when the goal is to audit
+color drift from upstream Gaussian PLY `f_dc_0..2` coefficients. The current
+validated geometry gate does not enable that color audit by default.
 
 ## Execution Status: 2026-05-04
 
@@ -173,7 +200,7 @@ Status:
 - The curated official substitute `Bright_Screen_Wall_curated_8s` has produced a ROS1 upstream baseline archive at `baseline/fastlivo2/Bright_Screen_Wall_curated_8s`.
 - The curated report at `results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json` passes metrics, trajectory, and point-cloud gates. The metrics gate is limited to the shared `debug_points` artifact count because this substitute uses identity-pose fallback and is not the strict `CBD_Building_01` paper gate.
 - `scripts/run_curated_fastlivo2_report.sh` now replays that executable chain end to end, including report-only refresh mode for already archived artifacts.
-- The transformed FAST-LIVO2 extrinsic path has produced `/home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_extrinsic_8s.bag` and a ROS1 upstream baseline at `baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_extrinsic_8s`; this path validates camera-frame color/photometric supervision, but it is still not a strict paper gate until native frontend odometry replaces pose fallback.
+- The transformed FAST-LIVO2 extrinsic path has produced `/home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_extrinsic_8s.bag`, a ROS1 upstream baseline at `baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_extrinsic_8s`, and a deterministic ROS2 current report at `results/fastlivo2/Bright_Screen_Wall_current_extrinsic_fullseq/reproduction_report.json` with metrics, trajectory, and point-cloud gates passing. This validates camera-frame color/photometric supervision mechanics on official data, but it remains a Bright substitute rather than the strict `CBD_Building_01` paper gate while that sequence is quota-blocked and the adapter still uses pose fallback.
 
 Current ROS1 upstream build status:
 
