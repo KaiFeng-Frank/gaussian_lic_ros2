@@ -104,7 +104,7 @@ Run the curated baseline-vs-current report:
   --baseline-dir baseline/fastlivo2/Bright_Screen_Wall_curated_8s \
   --current-dir results/fastlivo2/Bright_Screen_Wall_current \
   --sequence Bright_Screen_Wall_curated_8s \
-  --skip-metrics \
+  --metric-key debug_points \
   --trajectory-align first \
   --min-trajectory-coverage 0.4 \
   --max-association-dt 0.2 \
@@ -139,7 +139,7 @@ Status:
 - The upstream ROS1 Gaussian-LIC/Gaussian-LIC2 Noetic build is build-complete in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6 SDK.
 - `Bright_Screen_Wall_frontend_raw` has produced a ROS2 current artifact directory at `results/fastlivo2/Bright_Screen_Wall_current`.
 - The curated official substitute `Bright_Screen_Wall_curated_8s` has produced a ROS1 upstream baseline archive at `baseline/fastlivo2/Bright_Screen_Wall_curated_8s`.
-- The curated report at `results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json` passes trajectory and point-cloud gates. Metrics are intentionally skipped because this substitute uses identity-pose fallback and is not the strict `CBD_Building_01` paper gate.
+- The curated report at `results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json` passes metrics, trajectory, and point-cloud gates. The metrics gate is limited to the shared `debug_points` artifact count because this substitute uses identity-pose fallback and is not the strict `CBD_Building_01` paper gate.
 
 Current ROS1 upstream build status:
 
