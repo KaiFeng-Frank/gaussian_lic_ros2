@@ -122,6 +122,22 @@ Run the curated baseline-vs-current report:
   --markdown results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.md
 ```
 
+The validated curated chain can also be re-run from one entrypoint:
+
+```bash
+./scripts/run_curated_fastlivo2_report.sh --skip-build
+```
+
+For a report-only refresh using the already archived ROS1 baseline and ROS2 current artifacts:
+
+```bash
+./scripts/run_curated_fastlivo2_report.sh \
+  --skip-convert \
+  --skip-current \
+  --skip-baseline \
+  --skip-build
+```
+
 ## Execution Status: 2026-05-04
 
 Strict target sequence:
@@ -140,6 +156,7 @@ Status:
 - `Bright_Screen_Wall_frontend_raw` has produced a ROS2 current artifact directory at `results/fastlivo2/Bright_Screen_Wall_current`.
 - The curated official substitute `Bright_Screen_Wall_curated_8s` has produced a ROS1 upstream baseline archive at `baseline/fastlivo2/Bright_Screen_Wall_curated_8s`.
 - The curated report at `results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json` passes metrics, trajectory, and point-cloud gates. The metrics gate is limited to the shared `debug_points` artifact count because this substitute uses identity-pose fallback and is not the strict `CBD_Building_01` paper gate.
+- `scripts/run_curated_fastlivo2_report.sh` now replays that executable chain end to end, including report-only refresh mode for already archived artifacts.
 
 Current ROS1 upstream build status:
 
