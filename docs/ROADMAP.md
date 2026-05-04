@@ -56,6 +56,7 @@ baseline_manifest.json
 - [x] Add rosbag2 smoke-test instructions.
 - [x] Add calibration file schema.
 - [x] Add dataset-specific ROS2 mapping profiles for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
+- [x] Add a native ROS2 frontend contract adapter from raw sensor/pose topics to mapper topics.
 - [ ] Add full real-dataset topic remaps/adapters once the native Gaussian-LIC2 frontend/tracking port is in place.
 
 ## Milestone 2: Gaussian-LIC Mapping Port
@@ -89,6 +90,7 @@ baseline_manifest.json
 ## Milestone 3: Gaussian-LIC2 Frontend/Tracking Port
 
 - [ ] Inventory the released Gaussian-LIC2 surface in `external/Gaussian-LIC`, including depth completion, rasterizer/optimizer changes, and any frontend/tracking code available in upstream commits.
+- [x] Add `gaussian_lic_frontend/lic2_contract_adapter` as the ROS2 boundary for raw camera/LiDAR/IMU/pose inputs.
 - [ ] Port Livox/custom point handling to ROS2.
 - [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
 - [ ] Publish odometry, path, TF, and Gaussian mapper input topics natively.

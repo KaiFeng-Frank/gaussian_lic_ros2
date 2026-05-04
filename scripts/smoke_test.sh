@@ -7,6 +7,7 @@ ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 ENABLE_TORCH=false
 PUBLISH_TF=false
 USE_COMPOSITION=false
+FRONTEND_ADAPTER=false
 SENSOR_QOS_RELIABILITY=""
 TIMEOUT_SEC=8
 SAVE_DIR="/tmp/gaussian_lic_smoke_map"
@@ -20,7 +21,7 @@ MINIMAL_INPUTS=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--optional-depth-check] [--minimal-inputs] [--bag DIR] [--timeout SEC] [--save-dir DIR]
+Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--frontend-adapter] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--optional-depth-check] [--minimal-inputs] [--bag DIR] [--timeout SEC] [--save-dir DIR]
 
 Runs the synthetic ROS2 mapping smoke test and verifies published outputs.
 
@@ -28,6 +29,8 @@ Options:
   --torch         Also verify Torch Gaussian map topic and SaveMap service.
   --tf            Enable and verify map -> camera TF output.
   --composition   Load mapping_node as a composable rclcpp component.
+  --frontend-adapter
+                  Publish synthetic raw sensor topics and route them through lic2_contract_adapter.
   --sensor-qos    Override input sensor QoS reliability: best_effort or reliable.
   --config FILE   Override the bringup parameter YAML.
   --render-mode MODE
@@ -60,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --composition)
       USE_COMPOSITION=true
+      shift
+      ;;
+    --frontend-adapter)
+      FRONTEND_ADAPTER=true
       shift
       ;;
     --sensor-qos)
@@ -178,6 +185,7 @@ rm -f "${LAUNCH_LOG}"
 
 launch_args=(
   stub_mode:=false
+  frontend_adapter:="${FRONTEND_ADAPTER}"
   publish_tf:="${PUBLISH_TF}"
   use_composition:="${USE_COMPOSITION}"
   render_mode:="${RENDER_MODE}"

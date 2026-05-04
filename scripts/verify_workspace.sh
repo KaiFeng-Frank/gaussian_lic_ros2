@@ -135,6 +135,9 @@ echo "[verify] artifact gates"
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf
 
+echo "[verify] frontend adapter smoke"
+./scripts/smoke_test.sh --frontend-adapter --tf
+
 echo "[verify] image color fallback smoke"
 ./scripts/smoke_test.sh --image-color-fallback-check
 

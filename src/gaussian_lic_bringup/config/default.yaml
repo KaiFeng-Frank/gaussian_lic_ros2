@@ -25,6 +25,30 @@ synthetic_gs_frame_pub:
     image_color_rgb: "0,0,0"
     publish_depth: true
 
+lic2_contract_adapter:
+  ros__parameters:
+    raw_image_topic: /camera/image
+    raw_camera_info_topic: /camera/camera_info
+    raw_depth_topic: /camera/depth
+    raw_pointcloud_topic: /livox/lidar
+    raw_imu_topic: /imu
+    pose_stamped_topic: /gaussian_lic/frontend/pose
+    odometry_topic: /gaussian_lic/frontend/odometry
+    image_topic: /image_for_gs
+    camera_info_topic: /camera_info_for_gs
+    depth_topic: /depth_for_gs
+    pose_topic: /pose_for_gs
+    pointcloud_topic: /points_for_gs
+    imu_topic: /imu_for_gs
+    sensor_qos_reliability: best_effort
+    sensor_qos_history: keep_last
+    sensor_qos_depth: 5
+    enable_depth_passthrough: true
+    enable_imu_passthrough: true
+    identity_pose_fallback: false
+    world_frame: map
+    report_period_sec: 2.0
+
 mapping_node:
   ros__parameters:
     image_topic: /image_for_gs

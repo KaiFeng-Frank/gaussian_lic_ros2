@@ -13,6 +13,7 @@ This checkpoint is the M1 infrastructure slice. It is useful today for ROS2 inte
 Available now:
 
 - Native ROS2 packages for messages, launch/config, mapping scaffold, and test tools.
+- `gaussian_lic_frontend/lic2_contract_adapter` for routing raw ROS2 camera/LiDAR/IMU/pose topics into the mapper contract.
 - ROS2 synchronization/conversion for the Gaussian-LIC mapper input contract:
   `/points_for_gs`, `/pose_for_gs`, `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/imu_for_gs`.
 - Odometry, path, TF, debug map cloud, rendered debug preview, status, GaussianArray, and SaveMap interfaces.
@@ -23,7 +24,7 @@ Available now:
 
 Still pending:
 
-- Native Gaussian-LIC2 frontend/tracking port.
+- Native Gaussian-LIC2 frontend/tracking algorithm port.
 - Full Gaussian rasterizer, optimizer, densification, pruning, and real rendered output.
 - TensorRT depth completion as an optional backend.
 - Strict FAST-LIVO2 reproduction against archived ROS1 upstream baseline artifacts.
@@ -103,6 +104,14 @@ Run the same bag with a dataset profile:
 ```
 
 The synthetic demo image is `1x1`; real dataset intrinsics can project the synthetic point outside the image, so profile smoke tests skip the red-pixel assertion.
+
+Exercise the native LIC2 frontend contract adapter with synthetic raw sensor topics:
+
+```bash
+./scripts/smoke_test.sh --frontend-adapter --tf
+```
+
+This publishes `/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`, and `/gaussian_lic/frontend/pose`, then lets `lic2_contract_adapter` forward them into `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/imu_for_gs`, and `/pose_for_gs`. It is a ROS2 boundary adapter, not the finished LIC2 odometry algorithm.
 
 ## Offline Mode
 
@@ -241,6 +250,20 @@ Current mapper contract:
 /depth_for_gs        sensor_msgs/msg/Image
 /imu_for_gs          sensor_msgs/msg/Imu
 ```
+
+`gaussian_lic_frontend/lic2_contract_adapter` provides the first native frontend boundary. Its default raw inputs are:
+
+```text
+/camera/image
+/camera/camera_info
+/camera/depth
+/livox/lidar
+/imu
+/gaussian_lic/frontend/pose
+/gaussian_lic/frontend/odometry
+```
+
+It republishes raw sensor and pose/odometry outputs into the mapper contract above. If only odometry is available, it converts `nav_msgs/msg/Odometry` into `/pose_for_gs`.
 
 When `/points_for_gs` has no `rgb`, `rgba`, or `r/g/b` fields, the mapper projects each valid camera-frame point into `/image_for_gs` using the active `CameraInfo` intrinsics and samples RGB from the image. Points outside the image keep the white fallback color.
 

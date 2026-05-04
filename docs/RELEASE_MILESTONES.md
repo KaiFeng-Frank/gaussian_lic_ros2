@@ -31,6 +31,7 @@ baseline/fastlivo2/<sequence>/baseline_manifest.json
 Goal: the Gaussian-LIC2 frontend/tracking path runs natively in ROS2 without depending on a ROS1 runtime.
 
 - Refactor timestamp math to `int64_t` nanoseconds before ROS2 API replacement.
+- Keep `gaussian_lic_frontend/lic2_contract_adapter` as the raw-topic to mapper-contract boundary while the full odometry frontend is being ported.
 - Port PointCloud2/Livox LiDAR input, IMU input, camera input, continuous-time trajectory, and odometry output against the released Gaussian-LIC2 upstream surface; if upstream still delegates odometry to legacy code, keep that boundary explicit and native in ROS2.
 - Publish `/gaussian_lic/frontend/odometry`, `/gaussian_lic/frontend/path`, TF, and the mapper input topics:
   `/image_for_gs`, `/depth_for_gs`, `/pose_for_gs`, `/points_for_gs`.

@@ -10,7 +10,7 @@ cd /home/frank/gaussian_lic_ros2
 Expected result:
 
 ```text
-Summary: 4 packages finished
+Summary: 5 packages finished
 ```
 
 Validate packaged launch profiles:
@@ -89,6 +89,14 @@ To exercise optional depth synchronization:
 ```
 
 That check disables synthetic `/depth_for_gs`, launches the mapper with `require_depth_topic:=false`, and verifies the node still publishes odometry, path, map points, rendered preview, status, and SaveMap output using point-projected sparse depth.
+
+To exercise the native LIC2 frontend contract boundary:
+
+```bash
+./scripts/smoke_test.sh --frontend-adapter --tf
+```
+
+That check publishes synthetic raw sensor topics (`/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`) plus `/gaussian_lic/frontend/pose`, runs `gaussian_lic_frontend/lic2_contract_adapter`, and verifies the mapper receives the forwarded `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/pose_for_gs`, and `/imu_for_gs` contract.
 
 When `rviz:=true`, RViz2 opens the packaged `gaussian_lic.rviz` view with odometry, path, accumulated map points, rendered-image preview, and TF displays.
 

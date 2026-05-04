@@ -42,6 +42,31 @@ Gaussian-LIC2 is now public in the primary `APRIL-ZJU/Gaussian-LIC` upstream, so
 
 ## Current Native Slice
 
+`gaussian_lic_frontend/lic2_contract_adapter` is the first native ROS2 frontend boundary. It subscribes to the raw sensor/pose surface:
+
+```text
+/camera/image
+/camera/camera_info
+/camera/depth
+/livox/lidar
+/imu
+/gaussian_lic/frontend/pose
+/gaussian_lic/frontend/odometry
+```
+
+and republishes into the mapper contract:
+
+```text
+/image_for_gs
+/camera_info_for_gs
+/depth_for_gs
+/points_for_gs
+/pose_for_gs
+/imu_for_gs
+```
+
+Odometry messages are converted into `PoseStamped` for `/pose_for_gs`. This adapter is intentionally a boundary node; it does not replace the full Gaussian-LIC2 continuous-time odometry/frontend algorithm.
+
 `gaussian_lic_mapping/mapping_node` now ports the ROS-facing frame synchronization and frame-conversion surface from upstream Gaussian-LIC. It buffers:
 
 ```text

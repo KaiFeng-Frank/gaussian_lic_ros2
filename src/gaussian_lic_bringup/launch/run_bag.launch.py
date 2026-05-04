@@ -17,6 +17,8 @@ def generate_launch_description():
     loop_bag = LaunchConfiguration("loop_bag")
     stub_mode = LaunchConfiguration("stub_mode")
     synthetic_input = LaunchConfiguration("synthetic_input")
+    frontend_adapter = LaunchConfiguration("frontend_adapter")
+    adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
     synthetic_pointcloud_color_mode = LaunchConfiguration("synthetic_pointcloud_color_mode")
     synthetic_point_color_rgb = LaunchConfiguration("synthetic_point_color_rgb")
     synthetic_image_color_rgb = LaunchConfiguration("synthetic_image_color_rgb")
@@ -74,6 +76,32 @@ def generate_launch_description():
             "publish_depth": synthetic_publish_depth,
         },
     ]
+    synthetic_raw_parameters = [
+        config,
+        {
+            "use_sim_time": use_sim_time,
+            "pointcloud_topic": "/livox/lidar",
+            "pose_topic": "/gaussian_lic/frontend/pose",
+            "image_topic": "/camera/image",
+            "camera_info_topic": "/camera/camera_info",
+            "depth_topic": "/camera/depth",
+            "imu_topic": "/imu",
+            "pointcloud_color_mode": synthetic_pointcloud_color_mode,
+            "point_color_rgb": synthetic_point_color_rgb,
+            "image_color_rgb": synthetic_image_color_rgb,
+            "publish_depth": synthetic_publish_depth,
+        },
+    ]
+    adapter_parameters = [
+        config,
+        {
+            "use_sim_time": use_sim_time,
+            "sensor_qos_reliability": sensor_qos_reliability,
+            "sensor_qos_history": sensor_qos_history,
+            "sensor_qos_depth": sensor_qos_depth,
+            "identity_pose_fallback": adapter_identity_pose_fallback,
+        },
+    ]
     native_node_condition = IfCondition(PythonExpression([
         "'", stub_mode, "'.lower() == 'false' and '", use_composition, "'.lower() == 'false'",
     ]))
@@ -86,6 +114,13 @@ def generate_launch_description():
     play_bag_loop_condition = IfCondition(PythonExpression([
         "'", play_bag, "'.lower() == 'true' and '", loop_bag, "'.lower() == 'true'",
     ]))
+    frontend_adapter_condition = IfCondition(frontend_adapter)
+    synthetic_mapper_condition = IfCondition(PythonExpression([
+        "'", synthetic_input, "'.lower() == 'true' and '", frontend_adapter, "'.lower() == 'false'",
+    ]))
+    synthetic_raw_condition = IfCondition(PythonExpression([
+        "'", synthetic_input, "'.lower() == 'true' and '", frontend_adapter, "'.lower() == 'true'",
+    ]))
 
     return LaunchDescription([
         DeclareLaunchArgument("bag", default_value="", description="rosbag2 directory to replay"),
@@ -94,6 +129,16 @@ def generate_launch_description():
         DeclareLaunchArgument("loop_bag", default_value="false", description="Loop rosbag2 playback until launch shutdown"),
         DeclareLaunchArgument("stub_mode", default_value="true", description="Run smoke-test nodes instead of native mapper"),
         DeclareLaunchArgument("synthetic_input", default_value="false", description="Publish synthetic synchronized mapper inputs"),
+        DeclareLaunchArgument(
+            "frontend_adapter",
+            default_value="false",
+            description="Run the LIC2 frontend contract adapter between raw sensor topics and mapper topics",
+        ),
+        DeclareLaunchArgument(
+            "adapter_identity_pose_fallback",
+            default_value="false",
+            description="Let the adapter publish identity poses from point-cloud stamps when no odometry is available",
+        ),
         DeclareLaunchArgument(
             "synthetic_pointcloud_color_mode",
             default_value="packed_rgb",
@@ -217,6 +262,15 @@ def generate_launch_description():
             condition=native_node_condition,
         ),
 
+        Node(
+            package="gaussian_lic_frontend",
+            executable="lic2_contract_adapter",
+            name="lic2_contract_adapter",
+            output="screen",
+            parameters=adapter_parameters,
+            condition=frontend_adapter_condition,
+        ),
+
         ComposableNodeContainer(
             package="rclcpp_components",
             executable="component_container_mt",
@@ -240,7 +294,16 @@ def generate_launch_description():
             name="synthetic_gs_frame_pub",
             output="screen",
             parameters=synthetic_parameters,
-            condition=IfCondition(synthetic_input),
+            condition=synthetic_mapper_condition,
+        ),
+
+        Node(
+            package="gaussian_lic_tools",
+            executable="synthetic_gs_frame_pub",
+            name="synthetic_raw_frame_pub",
+            output="screen",
+            parameters=synthetic_raw_parameters,
+            condition=synthetic_raw_condition,
         ),
 
         Node(

@@ -17,9 +17,9 @@ std_msgs/Header header
 uint8 state
 string status_text
 
-# Component-level states. Tracking belongs to the Coco-LIC frontend; mapping
-# belongs to the Gaussian-LIC backend. Use STATE_UNCONFIGURED when a component
-# is not present in the current process.
+# Component-level states. Tracking belongs to the Gaussian-LIC2 frontend; mapping
+# belongs to the Gaussian backend. Use STATE_UNCONFIGURED when a component is
+# not present in the current process.
 uint8 tracking_state
 uint8 mapping_state
 uint8 render_mode
