@@ -204,7 +204,7 @@ The smoke script launches rosbag2 with `loop_bag:=true` so volatile input-topic 
 
 The non-torch smoke path also calls `/gaussian_lic/save_map` and checks that a debug XYZRGB PLY is written.
 
-The offline artifact extraction check writes `point_cloud_debug.ply` and verifies the synthetic PointCloud2 packed `rgb` value is preserved as `255 32 16`.
+The offline artifact extraction check writes `point_cloud_debug.ply`, verifies the synthetic PointCloud2 packed `rgb` value is preserved as `255 32 16`, and checks that `metrics.json` includes topic rates, trajectory path length, point-cloud bounds, and color coverage.
 
 Reliable input-QoS rosbag2 check:
 

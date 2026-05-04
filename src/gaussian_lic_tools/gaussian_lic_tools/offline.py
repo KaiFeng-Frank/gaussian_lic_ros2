@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 from pathlib import Path
 import struct
 
@@ -90,7 +91,7 @@ def iter_xyzrgb_points(cloud_msg, max_points):
                 red, green, blue = 255, 255, 255
         except (IndexError, KeyError, TypeError, ValueError):
             continue
-        yield x, y, z, red, green, blue
+        yield x, y, z, red, green, blue, color_mode != "none"
         count += 1
 
 
@@ -117,8 +118,72 @@ def write_xyzrgb_ply(path, points):
         stream.write("property uchar green\n")
         stream.write("property uchar blue\n")
         stream.write("end_header\n")
-        for x, y, z, red, green, blue in points:
+        for x, y, z, red, green, blue, _has_color in points:
             stream.write(f"{x:.9f} {y:.9f} {z:.9f} {red} {green} {blue}\n")
+
+
+def compute_trajectory_path_length(poses):
+    if len(poses) < 2:
+        return 0.0
+
+    total = 0.0
+    previous = poses[0][1].pose.position
+    for _stamp, pose_msg in poses[1:]:
+        current = pose_msg.pose.position
+        dx = float(current.x) - float(previous.x)
+        dy = float(current.y) - float(previous.y)
+        dz = float(current.z) - float(previous.z)
+        total += math.sqrt(dx * dx + dy * dy + dz * dz)
+        previous = current
+    return total
+
+
+def compute_point_bounds(points):
+    if not points:
+        return {"min": [], "max": []}
+
+    min_x = min(point[0] for point in points)
+    min_y = min(point[1] for point in points)
+    min_z = min(point[2] for point in points)
+    max_x = max(point[0] for point in points)
+    max_y = max(point[1] for point in points)
+    max_z = max(point[2] for point in points)
+    return {
+        "min": [min_x, min_y, min_z],
+        "max": [max_x, max_y, max_z],
+    }
+
+
+def compute_color_stats(points):
+    if not points:
+        return {
+            "points_with_color": 0,
+            "points_without_color": 0,
+            "mean_rgb": [],
+        }
+
+    points_with_color = sum(1 for point in points if point[6])
+    channel_sums = [0, 0, 0]
+    for point in points:
+        channel_sums[0] += int(point[3])
+        channel_sums[1] += int(point[4])
+        channel_sums[2] += int(point[5])
+
+    count = len(points)
+    return {
+        "points_with_color": points_with_color,
+        "points_without_color": count - points_with_color,
+        "mean_rgb": [value / count for value in channel_sums],
+    }
+
+
+def compute_topic_rates(topic_counts, duration_sec):
+    if duration_sec <= 0.0:
+        return {topic: 0.0 for topic in sorted(topic_counts)}
+    return {
+        topic: count / duration_sec
+        for topic, count in sorted(topic_counts.items())
+    }
 
 
 def detect_storage_id(bag_path):
@@ -196,10 +261,20 @@ def run(args):
         "duration_sec": duration_sec,
         "message_count": int(sum(topic_counts.values())),
         "topic_counts": topic_counts,
+        "topic_hz": compute_topic_rates(topic_counts, duration_sec),
         "pose_topic": args.pose_topic,
         "pointcloud_topic": args.pointcloud_topic,
         "trajectory_poses": len(poses),
+        "trajectory": {
+            "poses": len(poses),
+            "path_length_m": compute_trajectory_path_length(poses),
+        },
         "debug_points": len(points),
+        "debug_cloud": {
+            "points": len(points),
+            "bounds": compute_point_bounds(points),
+            **compute_color_stats(points),
+        },
         "outputs": {
             "trajectory_tum": str(trajectory_path),
             "point_cloud_debug_ply": str(point_cloud_path),
