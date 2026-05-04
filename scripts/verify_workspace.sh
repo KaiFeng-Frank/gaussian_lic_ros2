@@ -66,16 +66,10 @@ from pathlib import Path
 import ast
 
 paths = [
-    Path("scripts/baseline_manifest.py"),
-    Path("scripts/check_profiles.py"),
-    Path("scripts/convert_ros1_bag_to_rosbag2.py"),
-    Path("scripts/perf_regression.py"),
-    Path("scripts/pointcloud_compare.py"),
-    Path("scripts/reproduction_report.py"),
-    Path("scripts/trajectory_compare.py"),
     Path("src/gaussian_lic_bringup/launch/run_bag.launch.py"),
     Path("src/gaussian_lic_bringup/setup.py"),
 ]
+paths.extend(sorted(Path("scripts").glob("*.py")))
 paths.extend(sorted(Path("src/gaussian_lic_tools/gaussian_lic_tools").glob("*.py")))
 for path in paths:
     ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -131,6 +125,12 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   >/tmp/gaussian_lic_bag_frontend_raw_contract_verify.json
 rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_frontend_raw_contract_verify.json
 rg -q '"frontend_pose_source"' /tmp/gaussian_lic_bag_frontend_raw_contract_verify.json
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag "${FRONTEND_RAW_BAG_PATH}" \
+  --contract frontend_sensor_raw \
+  --json \
+  >/tmp/gaussian_lic_bag_frontend_sensor_raw_contract_verify.json
+rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_frontend_sensor_raw_contract_verify.json
 rm -rf /tmp/gaussian_lic_offline_verify
 ros2 run gaussian_lic_tools gaussian_lic_offline \
   --bag "${BAG_PATH}" \

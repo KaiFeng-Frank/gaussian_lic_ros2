@@ -117,13 +117,15 @@ def load_bag_info(bag_path, bag_format):
 
 
 def load_contracts(args):
-    if args.contract == "frontend_raw":
+    if args.contract in ("frontend_raw", "frontend_sensor_raw"):
         required = {
             args.raw_image_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/camera/image"],
             args.raw_camera_info_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/camera/camera_info"],
             args.raw_pointcloud_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/livox/lidar"],
             args.raw_imu_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/imu"],
         }
+        if args.contract == "frontend_sensor_raw":
+            return required, {args.raw_depth_topic: FRONTEND_RAW_OPTIONAL_CONTRACT["/camera/depth"]}
         optional = {
             args.raw_depth_topic: FRONTEND_RAW_OPTIONAL_CONTRACT["/camera/depth"],
             args.frontend_pose_topic: FRONTEND_RAW_POSE_ALTERNATIVES[
@@ -263,12 +265,13 @@ def main(argv=None):
     parser.add_argument("--bag-format", choices=("auto", "ros1", "ros2"), default="auto")
     parser.add_argument(
         "--contract",
-        choices=("full", "mapper_minimal", "frontend_raw"),
+        choices=("full", "mapper_minimal", "frontend_raw", "frontend_sensor_raw"),
         default="full",
         help=(
             "Topic contract to validate. full requires the complete mapper input set; "
             "mapper_minimal requires point cloud, pose, and image only; "
-            "frontend_raw validates raw topics consumed by lic2_contract_adapter."
+            "frontend_raw validates raw topics consumed by lic2_contract_adapter; "
+            "frontend_sensor_raw validates true LIC2 sensor input without a pose source."
         ),
     )
     parser.add_argument("--pointcloud-topic", default="/points_for_gs")

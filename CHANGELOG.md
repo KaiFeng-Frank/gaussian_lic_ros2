@@ -6,6 +6,7 @@
 - Added `gaussian_lic_frontend/lic2_contract_adapter` to route raw ROS2 camera/LiDAR/IMU/pose topics into the Gaussian mapper contract.
 - Extended the LIC2 contract adapter with frontend odometry/path outputs and optional TF.
 - Added a `frontend_raw` bag contract and synthetic raw frontend bag recording mode for LIC2 adapter input validation.
+- Added a `frontend_sensor_raw` bag contract for true LIC2 camera/LiDAR/IMU input without requiring a pose source.
 - Extended CI replay smoke to replay raw frontend bags through the LIC2 adapter and report the `frontend_raw` contract.
 - Added synthetic raw odometry input coverage for the LIC2 adapter and `frontend_raw` bag contract.
 - Added keyframe-gated Torch Gaussian initialization and incremental foreground insertion for the ROS2 mapping node.
@@ -26,6 +27,7 @@
 - Added `scripts/pointcloud_compare.py` for ASCII PLY map drift gates.
 - Added `scripts/baseline_manifest.py` for ROS1 baseline artifact validation and fingerprinting.
 - Added `scripts/fetch_fastlivo2_sequence.py` to discover and download official FAST-LIVO2 Google Drive sequence bags.
+- Added `scripts/fastlivo2_ros1_to_frontend_raw.py` to convert official FAST-LIVO2 ROS1 bags into ROS2 camera/LiDAR/IMU frontend input bags.
 - Added `scripts/baseline_readiness.py` to gate FAST-LIVO2 data, ROS1 baseline artifacts, and ROS2 current artifacts before reproduction comparison.
 - Added `scripts/reproduction_report.py` to aggregate baseline manifest, metrics, trajectory, and PLY drift gates.
 - Added a Python-only GitHub Actions artifact-gates job using `scripts/verify_artifact_gates.sh`.

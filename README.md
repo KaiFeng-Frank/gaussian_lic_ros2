@@ -190,6 +190,25 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
 
 `frontend_raw` requires raw image, CameraInfo, PointCloud2 LiDAR, and IMU topics, requires at least one pose source from `/gaussian_lic/frontend/pose` or `/gaussian_lic/frontend/input_odometry`, and treats `/camera/depth` as optional.
 
+For true LIC2 frontend input bags that do not have pose yet, use:
+
+```bash
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag /path/to/frontend_sensor_raw_bag \
+  --contract frontend_sensor_raw \
+  --json
+```
+
+Convert an official FAST-LIVO2 ROS1 bag into that ROS2 raw-sensor contract:
+
+```bash
+PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages \
+  /usr/bin/python3 scripts/fastlivo2_ros1_to_frontend_raw.py \
+  --input /home/frank/data/fast_livo/Bright_Screen_Wall.bag \
+  --output /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --overwrite
+```
+
 Replay a minimal rosbag2 mapper bag with:
 
 ```bash
