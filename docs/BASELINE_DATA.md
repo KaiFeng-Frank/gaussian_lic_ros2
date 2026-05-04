@@ -102,6 +102,21 @@ PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site
   --overwrite
 ```
 
+To make the ROS1 upstream baseline consume the same image-projected color
+surface as the ROS2 mapper, add packed RGB fields to the mapper-contract point
+cloud:
+
+```bash
+PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages \
+  /usr/bin/python3 scripts/frontend_raw_to_ros1_mapper_contract.py \
+  --input /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --output /home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_color_8s.bag \
+  --max-duration-sec 8 \
+  --pointcloud-transform-profile fastlivo2 \
+  --colorize-pointcloud \
+  --overwrite
+```
+
 Run the ROS1 upstream baseline on that shared mapper-contract input:
 
 ```bash

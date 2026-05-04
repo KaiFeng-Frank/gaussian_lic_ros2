@@ -19,6 +19,7 @@ DEFAULT_INTRINSICS = {
 }
 
 POINT_FIELD_FLOAT32 = 7
+POINT_FIELD_UINT8 = 2
 FASTLIVO2_CAMERA_LIDAR_R = (
     0.006101930, -0.999863000, -0.015417200,
     -0.006154490, 0.015379600, -0.999863000,
@@ -146,6 +147,25 @@ def convert_point_fields(store, source_fields):
     ]
 
 
+def image_msg_to_rgb_float(np, source_msg):
+    data = np.asarray(source_msg.data, dtype=np.uint8).reshape(-1)
+    height = int(source_msg.height)
+    width = int(source_msg.width)
+    step = int(source_msg.step)
+    encoding = str(source_msg.encoding).lower()
+    rows = data.reshape(height, step)
+    if encoding == "bgr8":
+        bgr = rows[:, : width * 3].reshape(height, width, 3)
+        return np.ascontiguousarray(bgr[:, :, ::-1], dtype=np.float32) / 255.0
+    if encoding == "rgb8":
+        rgb = rows[:, : width * 3].reshape(height, width, 3)
+        return np.ascontiguousarray(rgb, dtype=np.float32) / 255.0
+    if encoding == "mono8":
+        mono = rows[:, :width].reshape(height, width).astype(np.float32) / 255.0
+        return np.repeat(mono[:, :, None], 3, axis=2)
+    raise ValueError(f"unsupported image encoding for pointcloud colorization: {source_msg.encoding}")
+
+
 def make_ros1_image(store, np, source_msg, frame_id, seq):
     image_cls = store.types["sensor_msgs/msg/Image"]
     return image_cls(
@@ -188,6 +208,26 @@ def write_float32_column(np, point_bytes, offset, values, endian):
     point_bytes[:, offset : offset + 4] = packed
 
 
+def numeric_column(np, point_bytes, field, endian):
+    datatype = int(field.datatype)
+    dtype_by_datatype = {
+        1: "i1",
+        2: "u1",
+        3: f"{endian}i2",
+        4: f"{endian}u2",
+        5: f"{endian}i4",
+        6: f"{endian}u4",
+        7: f"{endian}f4",
+        8: f"{endian}f8",
+    }
+    if datatype not in dtype_by_datatype:
+        raise ValueError(f"unsupported PointField datatype for colorization: {datatype}")
+    item_size = np.dtype(dtype_by_datatype[datatype]).itemsize
+    offset = int(field.offset)
+    return np.ascontiguousarray(point_bytes[:, offset : offset + item_size]).view(
+        dtype_by_datatype[datatype]).reshape(-1)
+
+
 def transform_xyz(np, x, y, z, args):
     if args.pointcloud_transform_profile == "identity":
         return x, y, z
@@ -205,7 +245,87 @@ def transform_xyz(np, x, y, z, args):
     return transformed[0], transformed[1], transformed[2]
 
 
-def filtered_pointcloud_payload(np, source_msg, args):
+def intensity_rgb(np, point_bytes, fields, kept_indices, endian):
+    intensity_field = fields.get("intensity") or fields.get("reflectivity")
+    if intensity_field is None:
+        return np.full((len(kept_indices), 3), 255, dtype=np.uint8)
+
+    intensity = numeric_column(np, point_bytes, intensity_field, endian).astype(np.float64)
+    datatype = int(intensity_field.datatype)
+    if datatype == POINT_FIELD_UINT8:
+        normalized = intensity
+    elif datatype == 4:
+        normalized = intensity / 65535.0 * 255.0
+    elif datatype == 6:
+        normalized = intensity / 4294967295.0 * 255.0
+    else:
+        normalized = np.where(intensity > 1.0, intensity, intensity * 255.0)
+    values = np.clip(normalized[kept_indices], 0, 255).astype(np.uint8)
+    return np.repeat(values[:, None], 3, axis=1)
+
+
+def projected_rgb(np, x, y, z, kept_indices, image_rgb, args, fallback_rgb):
+    if image_rgb is None:
+        return fallback_rgb
+
+    rgb = fallback_rgb.copy()
+    xk = np.asarray(x[kept_indices], dtype=np.float64)
+    yk = np.asarray(y[kept_indices], dtype=np.float64)
+    zk = np.asarray(z[kept_indices], dtype=np.float64)
+    u = np.floor(float(args.fx) * xk / zk + float(args.cx)).astype(np.int64)
+    v = np.floor(float(args.fy) * yk / zk + float(args.cy)).astype(np.int64)
+    valid = (u >= 0) & (v >= 0) & (u < image_rgb.shape[1]) & (v < image_rgb.shape[0])
+    if np.any(valid):
+        sampled = np.clip(image_rgb[v[valid], u[valid], :] * 255.0, 0, 255).astype(np.uint8)
+        rgb[valid] = sampled
+    return rgb
+
+
+def packed_rgb_float(red, green, blue):
+    rgb = (int(red) << 16) | (int(green) << 8) | int(blue)
+    return struct.unpack("<f", struct.pack("<I", rgb))[0]
+
+
+def colorized_pointcloud_payload(np, point_bytes, fields, x, y, z, mask, image_rgb, args, endian):
+    kept_indices = np.nonzero(mask)[0]
+    fallback = intensity_rgb(np, point_bytes, fields, kept_indices, endian)
+    colors = projected_rgb(np, x, y, z, kept_indices, image_rgb, args, fallback)
+
+    point_step = 20
+    payload = bytearray(len(kept_indices) * point_step)
+    for out_index, source_index in enumerate(kept_indices):
+        offset = out_index * point_step
+        red, green, blue = colors[out_index]
+        struct.pack_into(
+            "<ffffBBBB",
+            payload,
+            offset,
+            float(x[source_index]),
+            float(y[source_index]),
+            float(z[source_index]),
+            packed_rgb_float(red, green, blue),
+            int(red),
+            int(green),
+            int(blue),
+            0,
+        )
+    return np.frombuffer(bytes(payload), dtype=np.uint8), len(kept_indices), point_step
+
+
+def colorized_point_fields(store):
+    pointfield_cls = store.types["sensor_msgs/msg/PointField"]
+    return [
+        pointfield_cls(name="x", offset=0, datatype=POINT_FIELD_FLOAT32, count=1),
+        pointfield_cls(name="y", offset=4, datatype=POINT_FIELD_FLOAT32, count=1),
+        pointfield_cls(name="z", offset=8, datatype=POINT_FIELD_FLOAT32, count=1),
+        pointfield_cls(name="rgb", offset=12, datatype=POINT_FIELD_FLOAT32, count=1),
+        pointfield_cls(name="r", offset=16, datatype=POINT_FIELD_UINT8, count=1),
+        pointfield_cls(name="g", offset=17, datatype=POINT_FIELD_UINT8, count=1),
+        pointfield_cls(name="b", offset=18, datatype=POINT_FIELD_UINT8, count=1),
+    ]
+
+
+def filtered_pointcloud_payload(np, source_msg, args, image_rgb):
     fields = field_map(source_msg)
     if not {"x", "y", "z"}.issubset(fields):
         raise ValueError("PointCloud2 is missing x/y/z fields")
@@ -228,21 +348,29 @@ def filtered_pointcloud_payload(np, source_msg, args):
     mask = np.isfinite(x) & np.isfinite(y) & np.isfinite(z) & (z > float(args.min_z))
     if args.max_z > 0.0:
         mask &= z <= float(args.max_z)
+    if args.colorize_pointcloud:
+        filtered, kept_points, point_step = colorized_pointcloud_payload(
+            np, point_bytes, fields, x, y, z, mask, image_rgb, args, endian)
+        return filtered, int(point_bytes.shape[0]), kept_points, point_step
+
     filtered = np.ascontiguousarray(point_bytes[mask]).reshape(-1)
-    return filtered, int(point_bytes.shape[0]), int(mask.sum())
+    return filtered, int(point_bytes.shape[0]), int(mask.sum()), int(source_msg.point_step)
 
 
-def make_ros1_pointcloud(store, np, source_msg, frame_id, seq, args):
-    filtered_data, raw_points, kept_points = filtered_pointcloud_payload(np, source_msg, args)
+def make_ros1_pointcloud(store, np, source_msg, frame_id, seq, args, image_rgb):
+    filtered_data, raw_points, kept_points, point_step = filtered_pointcloud_payload(
+        np, source_msg, args, image_rgb)
+    fields = colorized_point_fields(store) if args.colorize_pointcloud else convert_point_fields(
+        store, source_msg.fields)
     pointcloud_cls = store.types["sensor_msgs/msg/PointCloud2"]
     cloud = pointcloud_cls(
         header=make_ros1_header(store, source_msg.header, frame_id, seq),
         height=1,
         width=kept_points,
-        fields=convert_point_fields(store, source_msg.fields),
-        is_bigendian=bool(source_msg.is_bigendian),
-        point_step=int(source_msg.point_step),
-        row_step=kept_points * int(source_msg.point_step),
+        fields=fields,
+        is_bigendian=False if args.colorize_pointcloud else bool(source_msg.is_bigendian),
+        point_step=point_step,
+        row_step=kept_points * point_step,
         data=filtered_data,
         is_dense=True,
     )
@@ -348,6 +476,7 @@ def convert(args):
         "orientation": (1.0, 0.0, 0.0, 0.0),
         "last_imu_stamp_nsec": None,
     }
+    latest_image_rgb = None
 
     with AnyReader([input_path], default_typestore=ros2_store) as reader, Writer(output_path) as writer:
         image_conn = writer.add_connection(args.output_image_topic, "sensor_msgs/msg/Image", typestore=ros1_store)
@@ -386,12 +515,15 @@ def convert(args):
             msg = reader.deserialize(rawdata, connection.msgtype)
             seq += 1
             if connection.topic == args.input_image_topic:
+                if args.colorize_pointcloud:
+                    latest_image_rgb = image_msg_to_rgb_float(np, msg)
                 image = make_ros1_image(ros1_store, np, msg, args.camera_frame, seq)
                 timestamp = stamp_to_nsec(image.header.stamp)
                 writer.write(image_conn, timestamp, ros1_store.serialize_ros1(image, "sensor_msgs/msg/Image"))
                 counts["images"] += 1
             elif connection.topic == args.input_pointcloud_topic:
-                cloud, raw_points, kept_points = make_ros1_pointcloud(ros1_store, np, msg, args.lidar_frame, seq, args)
+                cloud, raw_points, kept_points = make_ros1_pointcloud(
+                    ros1_store, np, msg, args.lidar_frame, seq, args, latest_image_rgb)
                 counts["raw_point_samples"] += raw_points
                 counts["written_point_samples"] += kept_points
                 if kept_points < args.min_points_per_cloud:
@@ -430,6 +562,7 @@ def convert(args):
         "cy": args.cy,
         "pointcloud_transform_profile": args.pointcloud_transform_profile,
         "imu_pose_fallback": args.imu_pose_fallback,
+        "colorize_pointcloud": args.colorize_pointcloud,
     }
 
 
@@ -476,6 +609,11 @@ def main(argv=None):
         default=0.05,
         help="Maximum IMU sample interval integrated by --imu-pose-fallback.",
     )
+    parser.add_argument(
+        "--colorize-pointcloud",
+        action="store_true",
+        help="Write packed rgb/r/g/b fields from image projection with intensity fallback.",
+    )
     parser.add_argument("--min-points-per-cloud", type=int, default=1)
     parser.add_argument("--max-depth-points", type=int, default=200000)
     parser.add_argument("--max-duration-sec", type=float, default=0.0)
@@ -501,6 +639,7 @@ def main(argv=None):
         f"imu={report['counts']['imu']} "
         f"imu_integrations={report['counts']['imu_integrations']} "
         f"imu_pose_fallback={report['imu_pose_fallback']} "
+        f"colorized={report['colorize_pointcloud']} "
         f"pointcloud_transform={report['pointcloud_transform_profile']} "
         f"size={report['width']}x{report['height']}"
     )

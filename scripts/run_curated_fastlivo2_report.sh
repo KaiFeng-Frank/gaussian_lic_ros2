@@ -31,6 +31,7 @@ SKIP_BUILD=false
 REBUILD=false
 CHECK_ONLY=false
 DERIVE_GAUSSIAN_RGB=false
+COLORIZE_POINTCLOUD=false
 MAPPER_BAG_SET=false
 SEQUENCE_SET=false
 CURRENT_RECORD_SEC_SET=false
@@ -75,6 +76,7 @@ Options:
                            not overridden, this selects the validated transformed
                            Bright_Screen_Wall defaults.
   --derive-gaussian-rgb    Derive Gaussian PLY RGB from f_dc_0..2 during the point-cloud gate.
+  --colorize-pointcloud    Write RGB fields into the ROS1 mapper-contract point cloud from image projection.
   --render-mode MODE       Current render mode. Default: debug_cpu.
   --skip-convert           Reuse an existing mapper-contract bag.
   --skip-current           Reuse an existing ROS2 current artifact directory.
@@ -157,6 +159,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --derive-gaussian-rgb)
       DERIVE_GAUSSIAN_RGB=true
+      shift
+      ;;
+    --colorize-pointcloud)
+      COLORIZE_POINTCLOUD=true
       shift
       ;;
     --render-mode)
@@ -299,6 +305,9 @@ if [[ "${SKIP_CONVERT}" != "true" ]]; then
   fi
   if [[ "${IMU_POSE_FALLBACK}" == "true" ]]; then
     convert_args+=(--imu-pose-fallback)
+  fi
+  if [[ "${COLORIZE_POINTCLOUD}" == "true" ]]; then
+    convert_args+=(--colorize-pointcloud)
   fi
   run_rosbags_python "${convert_args[@]}"
 fi
