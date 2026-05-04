@@ -235,7 +235,7 @@ CBD_Building_01.bag
 
 Status:
 
-- Official FAST-LIVO2 Google Drive discovery works and resolves `CBD_Building_01.bag` to a 5,218,555,727 byte file, but the current download attempt is blocked by Google Drive quota.
+- Official FAST-LIVO2 Google Drive discovery works and resolves `CBD_Building_01.bag` to a 5,218,555,727 byte file; the current download is in progress locally.
 - The official SharePoint source currently returns HTTP 404 from the readiness probe.
 - `Bright_Screen_Wall.bag` has been downloaded from the same official FAST-LIVO2 Google Drive mirror and converted to `/home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw`.
 - The converted `Bright_Screen_Wall_frontend_raw` bag passes `frontend_sensor_raw` and has replayed through the ROS2 LIC2 contract adapter, forwarding camera images, CameraInfo, LiDAR PointCloud2, and IMU data.

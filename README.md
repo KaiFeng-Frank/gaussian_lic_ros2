@@ -8,9 +8,9 @@ This repository is **not a ROS1 bridge wrapper**. It is a clean ROS2 workspace t
 
 ## Current Release State
 
-This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper-scaffold, optional Torch Gaussian tensor plumbing, artifact extraction, and baseline comparison tooling, plus an official FAST-LIVO2 Bright substitute proof chain.
+This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper, CUDA/Torch Gaussian backend plumbing, initial native tracking factors, artifact extraction, strict replay/readiness tooling, and an official FAST-LIVO2 Bright substitute proof chain.
 
-It is **not yet** the strict full-paper Gaussian-LIC2 ROS2 port: the native LIC2 tracking executable and the full upstream CUDA rasterizer/optimizer/densification backend are still pending, and the strict `CBD_Building_01` data gate is blocked by the upstream data source.
+It is **not yet** the strict full-paper Gaussian-LIC2 ROS2 port: the native tracker still needs full Coco-LIC2-grade sliding-window joint optimization, TensorRT/SPNet needs a runtime engine artifact, and the strict `CBD_Building_01` baseline/current report still has to be produced from the official bag now being fetched locally.
 
 Available now:
 
@@ -20,18 +20,18 @@ Available now:
 - ROS2 synchronization/conversion for the Gaussian-LIC mapper input contract:
   `/points_for_gs`, `/pose_for_gs`, `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/imu_for_gs`.
 - Odometry, path, TF, debug map cloud, rendered debug preview, status, GaussianArray, and SaveMap interfaces.
-- Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, incremental foreground insertion, opacity/count pruning, CPU splat preview, and photometric DC-color/opacity updates.
+- Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, incremental foreground insertion, CUDA rasterizer preview/loss, fused SSIM, SparseGaussianAdam, gradient-aware densification, multi-criteria pruning, opacity reset, and optional TensorRT/SPNet depth-completion wrapper.
+- Native tracking package with signed-nanosecond trajectory and IMU primitives, LiDAR residual correction, visual residual comparison against mapper renders, GaussianMap snapshot subscription, odometry/path/optional TF publication, and deterministic probes.
 - Dataset profile YAMLs derived from upstream Gaussian-LIC: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - `gaussian_lic_offline` CLI for rosbag2 artifact extraction without launching ROS nodes.
-- FAST-LIVO2 ROS1-to-ROS2 raw frontend conversion, ROS1 mapper-contract conversion, upstream ROS1 baseline runner, baseline manifest/readiness gates, and combined reproduction reports.
+- FAST-LIVO2 ROS1-to-ROS2 raw frontend conversion, ROS1 mapper-contract conversion, upstream ROS1 baseline runner, strict rosbag2 replay wrapper, baseline manifest/readiness gates, and combined reproduction reports.
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 
 Still pending:
 
-- Native Gaussian-LIC2 frontend/tracking algorithm port.
-- Full upstream CUDA Gaussian rasterizer, optimizer/loss schedule, gradient-aware densification, and real rendered output.
-- TensorRT depth completion as an optional backend.
-- Strict FAST-LIVO2 `CBD_Building_01` paper gate once the official bag is available locally. Current Google Drive attempts are quota-blocked and the SharePoint mirror returns 404 as of 2026-05-04.
+- Full Coco-LIC2-grade frontend/tracking algorithm: deskew, LIO/VIO factors, and sliding-window joint optimization.
+- Runtime SPNet TensorRT `.engine` artifact and real depth-completion benchmark.
+- Strict FAST-LIVO2 `CBD_Building_01` paper gate after the current official Google Drive download, upstream baseline run, ROS2 current run, and PSNR/SSIM/LPIPS/Chamfer report complete.
 
 ## Progress Ledger
 
@@ -39,8 +39,8 @@ Still pending:
 | --- | --- |
 | ROS2 workspace, messages, launch, composable node, profiles, bag checks, artifact gates | Complete for the current porting surface |
 | FAST-LIVO2 Bright substitute evidence chain | Complete and executable with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` passing |
-| Strict `CBD_Building_01` paper-data gate | Blocked by official data availability on this machine |
-| Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Not complete; core CUDA rendering, full loss/optimizer/densification, native tracker, and TensorRT depth completion remain |
+| Strict `CBD_Building_01` paper-data gate | Official bag download is in progress; strict pipeline entrypoint is available |
+| Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend is ported; full Coco-LIC2 tracking BA, SPNet engine, and strict metrics remain |
 
 The Bright substitute report is a regression/evidence chain for current ROS2 plumbing and Torch Gaussian tensor boundaries. It is not a claim that the full paper algorithm has been ported.
 
@@ -84,15 +84,12 @@ The latest local report has Torch Gaussian mean RGB drift `11.657 < 40.0`.
 
 ## Algorithmic Gaps
 
-The current Torch backend is an executable placeholder for the future Gaussian core, not the final paper backend.
+The mapper backend now has the major CUDA/Torch surfaces in tree, but the full paper system is not finished.
 
-- CUDA rasterizer stack is not ported into `src/`: there are no in-tree `.cu` sources for upstream `forward.cu`, `backward.cu`, `rasterizer_impl.cu`, SparseGaussianAdam, simple-knn, or fused-ssim.
-- The current Torch update path optimizes a small DC-color/opacity surface from projected keyframe samples. It does not run differentiable image rendering, DSSIM, depth loss, or the full upstream Gaussian loss schedule.
-- The current optimizer is not upstream SparseGaussianAdam and does not train the full Gaussian parameter set (`xyz`, scale, rotation, SH coefficients, opacity) as the paper backend does.
-- Gradient-aware densification is not ported: upstream split/clone/prune scheduling remains a future CUDA/Gaussian-core task.
-- `lic2_contract_adapter` is a ROS2 input boundary for raw sensors plus pose/odometry. It is not the full continuous-time Gaussian-LIC/Coco-LIC tracker.
-- TensorRT/SPNet depth completion is optional at the ROS2 boundary, but upstream `depth_completer` is not yet integrated as a native backend.
-- Strict paper reproduction still needs `CBD_Building_01`, a native algorithm path with the CUDA backend, and baseline-vs-current paper metrics against the upstream ROS1 run.
+- The native tracker has timestamp-safe trajectory/IMU primitives plus initial LiDAR/visual/Gaussian snapshot factors, but it is not yet the full continuous-time Coco-LIC2 sliding-window optimizer.
+- LiDAR deskew, VIO residual Jacobians, IMU bias optimization, and joint BA remain to be ported.
+- TensorRT/SPNet depth completion has a native optional wrapper, but no SPNet `.engine` artifact is checked in or benchmarked locally.
+- Strict paper reproduction still needs the completed `CBD_Building_01` bag, ROS1 upstream baseline artifacts, ROS2 current artifacts, and a strict report with PSNR/SSIM/LPIPS/Chamfer within the 5% gate.
 
 ## Platform
 
@@ -529,6 +526,7 @@ Check real FAST-LIVO2 baseline readiness:
   --baseline-dir baseline/fastlivo2/CBD_Building_01 \
   --current-results-dir results/fastlivo2/current \
   --sequence CBD_Building_01 \
+  --strict \
   --markdown baseline_readiness.md
 ```
 
@@ -539,6 +537,18 @@ Fetch the official FAST-LIVO2 quick-start bag when the data gate reports missing
   --sequence CBD_Building_01 \
   --output-dir /home/frank/data/fast_livo
 ```
+
+After `/home/frank/data/fast_livo/CBD_Building_01.bag` exists, run the
+resumable strict chain:
+
+```bash
+./scripts/run_strict_cbd_pipeline.sh --overwrite
+```
+
+That command converts the official ROS1 bag to a sqlite-backed ROS2
+`frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
+runs the upstream ROS1 baseline container, collects ROS2 current artifacts, and
+emits strict readiness and reproduction reports.
 
 ## Release Roadmap
 
@@ -551,11 +561,9 @@ v0.3.0  Gaussian Mapping Full Backend
 v0.4.0  Strict FAST-LIVO2 Reproduction
 ```
 
-Strict paper-data action:
-
-```text
-Fetch FAST-LIVO2 CBD_Building_01 and run the upstream Gaussian-LIC/Gaussian-LIC2 baseline once the official data source is available.
-```
+Strict paper-data action: finish the FAST-LIVO2 `CBD_Building_01` download, run
+`scripts/run_strict_cbd_pipeline.sh`, and fix any report failures until the 5%
+gate passes.
 
 The data fetch is executable:
 
