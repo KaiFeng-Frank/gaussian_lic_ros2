@@ -1,6 +1,6 @@
 # Gaussian-LIC ROS2
 
-Native ROS2 engineering port for [Gaussian-LIC](https://github.com/APRIL-ZJU/Gaussian-LIC) and its Coco-LIC tracking dependency.
+Native ROS2 engineering port for [Gaussian-LIC/Gaussian-LIC2](https://github.com/APRIL-ZJU/Gaussian-LIC).
 
 The long-term target is a paper-level ROS2 reproduction of LiDAR-Inertial-Camera Gaussian Splatting SLAM: native ROS2 tracking, native Gaussian mapping, rosbag2 replay, offline reproducibility tooling, and strict comparison against the ROS1 upstream baseline.
 
@@ -8,7 +8,7 @@ This repository is **not a ROS1 bridge wrapper**. It is a clean ROS2 workspace t
 
 ## Current Release State
 
-This checkpoint is the M1 infrastructure slice. It is useful today for ROS2 interface validation, synthetic rosbag2 smoke tests, profile/schema work, and offline artifact extraction. It is **not yet** the full Gaussian-LIC/Coco-LIC algorithm port.
+This checkpoint is the M1 infrastructure slice. It is useful today for ROS2 interface validation, synthetic rosbag2 smoke tests, profile/schema work, and offline artifact extraction. It is **not yet** the full Gaussian-LIC2 algorithm port.
 
 Available now:
 
@@ -23,7 +23,7 @@ Available now:
 
 Still pending:
 
-- Native Coco-LIC tracking port.
+- Native Gaussian-LIC2 frontend/tracking port.
 - Full Gaussian rasterizer, optimizer, densification, pruning, and real rendered output.
 - TensorRT depth completion as an optional backend.
 - Strict FAST-LIVO2 reproduction against archived ROS1 upstream baseline artifacts.
@@ -124,7 +124,7 @@ point_cloud_debug.ply
 metrics.json
 ```
 
-This is the seed for the future `gaussian_lic_offline` reproduction binary. The current implementation reads mapper contract topics, preserves PointCloud2 `rgb`/`rgba` or `r/g/b` colors in the debug PLY when available, and writes metrics for topic rates, trajectory path length, point-cloud bounds, and color coverage. It does not yet run the full Coco-LIC/Gaussian-LIC algorithm offline.
+This is the seed for the future `gaussian_lic_offline` reproduction binary. The current implementation reads mapper contract topics, preserves PointCloud2 `rgb`/`rgba` or `r/g/b` colors in the debug PLY when available, and writes metrics for topic rates, trajectory path length, point-cloud bounds, and color coverage. It does not yet run the full Gaussian-LIC2 algorithm offline.
 
 The same artifact extractor can read ROS1 `.bag` inputs directly when the optional `rosbags` package is installed in that Python environment:
 
@@ -288,7 +288,7 @@ Validate profile schema:
 ./scripts/check_profiles.py
 ```
 
-These profiles currently cover the native mapper surface: topic names, QoS, synchronization, upstream camera intrinsics, image size, depth-completion toggles, Gaussian initialization/map-growth parameters, upstream optimizer/loss/exposure parameter names, output topics, and active profile labels. Full real-dataset replay still needs the native Coco-LIC tracking port, real bag/topic adapters, and the CUDA rasterizer/optimizer port.
+These profiles currently cover the native mapper surface: topic names, QoS, synchronization, upstream camera intrinsics, image size, depth-completion toggles, Gaussian initialization/map-growth parameters, upstream optimizer/loss/exposure parameter names, output topics, and active profile labels. Full real-dataset replay still needs the native Gaussian-LIC2 frontend/tracking port, real bag/topic adapters, and the CUDA rasterizer/optimizer port.
 
 ## Performance Regression
 
@@ -362,7 +362,7 @@ The public plan is release-driven:
 
 ```text
 v0.1.0  Baseline & Infrastructure
-v0.2.0  Coco-LIC ROS2 Native Tracking
+v0.2.0  Gaussian-LIC2 ROS2 Native Frontend
 v0.3.0  Gaussian Mapping Full Backend
 v0.4.0  Strict FAST-LIVO2 Reproduction
 ```
@@ -374,7 +374,7 @@ Prepare ROS1 upstream baseline environment:
 docker pull ros:noetic-ros-base-focal
 ```
 
-Then run the original Gaussian-LIC/Coco-LIC on FAST-LIVO2 and archive artifacts under:
+Then run the original Gaussian-LIC/Gaussian-LIC2 upstream on FAST-LIVO2 and archive artifacts under:
 
 ```text
 baseline/fastlivo2/<sequence>/
@@ -421,11 +421,22 @@ This clones:
 
 ```text
 external/Gaussian-LIC
+```
+
+`external/Gaussian-LIC` is the primary upstream and now carries the Gaussian-LIC2 release path. To also fetch the historical Coco-LIC ROS1 reference, run:
+
+```bash
+./scripts/fetch_upstreams.sh --with-legacy-cocolic
+```
+
+That adds:
+
+```text
 external/Coco-LIC
 ```
 
-Those directories are ignored by git. Both upstream projects are GPL-3.0.
+Those directories are ignored by git. The upstream Gaussian-LIC/Gaussian-LIC2 project is GPL-3.0; Coco-LIC is treated as an optional legacy GPL-3.0 reference.
 
 ## License
 
-This repository is GPL-3.0-or-later compatible because Gaussian-LIC and Coco-LIC are GPL-3.0 upstream projects. Do not copy upstream source into this repository under a different license.
+This repository is GPL-3.0-or-later compatible because Gaussian-LIC/Gaussian-LIC2 is a GPL-3.0 upstream project. Do not copy upstream source into this repository under a different license.

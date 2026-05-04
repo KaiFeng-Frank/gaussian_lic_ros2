@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Pivoted the upstream porting plan to the now-public Gaussian-LIC2 code path in `APRIL-ZJU/Gaussian-LIC`; Coco-LIC is now documented as an optional legacy reference.
 - Added keyframe-gated Torch Gaussian initialization and incremental foreground insertion for the ROS2 mapping node.
 - Added optional skybox tensor seeding, Gaussian map republishing after extension, and mapping latency/mean iteration status fields.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
@@ -60,7 +61,7 @@ ros2 run gaussian_lic_mapping torch_backend_probe
 
 Known limitations:
 
-- Native Coco-LIC tracking is not ported yet.
+- Native Gaussian-LIC2 frontend/tracking is not ported yet.
 - Full Gaussian rasterizer/optimizer/densification/pruning are not ported yet.
 - `/gaussian_lic/rendered_image` currently uses `render_mode:=debug_cpu`, not the paper rasterizer.
 - `/home/frank/data/fast_livo/` is empty on the current machine; strict FAST-LIVO2 baseline reproduction is blocked on data.

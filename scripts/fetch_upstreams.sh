@@ -4,6 +4,39 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTERNAL_DIR="${ROOT_DIR}/external"
+WITH_LEGACY_COCOLIC=0
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/fetch_upstreams.sh [--with-legacy-cocolic]
+
+Fetch upstream sources used for the ROS2 port.
+
+Default:
+  external/Gaussian-LIC   APRIL-ZJU Gaussian-LIC/Gaussian-LIC2 upstream
+
+Optional:
+  --with-legacy-cocolic   also fetch APRIL-ZJU/Coco-LIC for legacy ROS1 reference
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --with-legacy-cocolic)
+            WITH_LEGACY_COCOLIC=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "[fetch] unknown argument: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
 
 clone_or_fetch() {
     local name="$1"
@@ -20,8 +53,14 @@ clone_or_fetch() {
 }
 
 mkdir -p "${EXTERNAL_DIR}"
+echo "[fetch] primary upstream: Gaussian-LIC/Gaussian-LIC2"
 clone_or_fetch "Gaussian-LIC" "https://github.com/APRIL-ZJU/Gaussian-LIC.git"
-clone_or_fetch "Coco-LIC" "https://github.com/APRIL-ZJU/Coco-LIC.git"
+
+if [[ "${WITH_LEGACY_COCOLIC}" -eq 1 ]]; then
+    echo "[fetch] legacy reference upstream: Coco-LIC"
+    clone_or_fetch "Coco-LIC" "https://github.com/APRIL-ZJU/Coco-LIC.git"
+else
+    echo "[fetch] skipping legacy Coco-LIC; pass --with-legacy-cocolic to fetch it"
+fi
 
 echo "[fetch] done"
-

@@ -2,8 +2,24 @@
 
 Fetched upstream revisions:
 
-- Gaussian-LIC: `cd4c122`
-- Coco-LIC: `4ead7e4`
+- Gaussian-LIC/Gaussian-LIC2 primary upstream: `cd4c122`
+- Coco-LIC legacy reference, only fetched with `scripts/fetch_upstreams.sh --with-legacy-cocolic`: `4ead7e4`
+
+## Gaussian-LIC2 Status
+
+Gaussian-LIC2 is now public in the same upstream repository used by Gaussian-LIC:
+
+```text
+https://github.com/APRIL-ZJU/Gaussian-LIC
+```
+
+The upstream project page is:
+
+```text
+https://xingxingzuo.github.io/gaussian_lic2/
+```
+
+The upstream README announces the Gaussian-LIC2 release on 2026-02-21 and includes the Gaussian-LIC2 citation. The public repository currently exposes only the `master` branch at `cd4c122`, with no separate LIC2 tag or branch. The checked tree includes LIC2-labeled depth-completion sources and the updated Gaussian backend surface, while its run instructions still reference Coco-LIC for odometry input. This ROS2 port therefore treats `external/Gaussian-LIC` as the primary upstream for all released Gaussian-LIC/Gaussian-LIC2 code, and treats Coco-LIC only as historical ROS1 reference material unless a specific compatibility issue requires it.
 
 ## Gaussian-LIC ROS Surface
 
@@ -51,9 +67,9 @@ tf / tf_conversions / eigen_conversions
 
 The first native mapping port should copy only this surface into a new ROS2 package and keep CUDA/Gaussian internals close to upstream.
 
-## Coco-LIC ROS Surface
+## Legacy Coco-LIC ROS Surface
 
-Coco-LIC is the larger porting target. It owns bag reading, sensor synchronization, Livox parsing, feature extraction, odometry publication, and the four topics that Gaussian-LIC consumes.
+Coco-LIC used to be the larger porting target because the original Gaussian-LIC runtime depended on its ROS1 tracking outputs. With Gaussian-LIC2 now released in `APRIL-ZJU/Gaussian-LIC`, the main porting target moves to the Gaussian-LIC2 frontend/tracking surface in that primary upstream. Coco-LIC still documents useful legacy behavior for bag reading, sensor synchronization, Livox parsing, feature extraction, odometry publication, and the mapper topics consumed by the Gaussian backend.
 
 ROS-facing files include:
 
@@ -84,7 +100,7 @@ Important porting issues:
 
 - `MsgManager` reads ROS1 bags directly via `rosbag::Bag`; native ROS2 needs either `rosbag2_cpp`/`rosbag2_py` or live subscriptions.
 - Livox handling depends on `livox_ros_driver::CustomMsg`; ROS2 should support `livox_ros_driver2` and a PointCloud2 fallback.
-- Coco-LIC custom messages need ROS2 versions if still used externally.
+- Coco-LIC custom messages need ROS2 versions only if a legacy compatibility mode exposes them externally.
 - Many visualization publishers can be deferred; the minimal port only needs odometry/path plus the four `*_for_gs` mapper inputs.
 
 ## Proposed Port Order
@@ -92,8 +108,8 @@ Important porting issues:
 1. Create `gaussian_lic_mapping` as a ROS2 C++ package with a placeholder executable and CMake dependency skeleton. Done.
 2. Port Gaussian-LIC `mapping.cpp/.h` middleware synchronization surface from ROS1 to `rclcpp`. Done for the four mapper input topics.
 3. Keep input topics compatible with `/image_for_gs`, `/depth_for_gs`, `/pose_for_gs`, `/points_for_gs` first. Done.
-4. Add a `gaussian_lic_cocolic_bridge` or native `cocolic_odometry` package after mapping compiles.
-5. Replace Coco-LIC bag reading with rosbag2/live subscriptions instead of relying on ROS1 bridge.
+4. Inventory the released Gaussian-LIC2 code surface in `external/Gaussian-LIC`, prioritizing depth completion, rasterization, optimization, and any frontend/tracking code that appears in future upstream commits.
+5. Replace upstream ROS1 bag reading or launch assumptions with rosbag2/live subscriptions instead of relying on ROS1 bridge.
 
 ## Current Native Mapping Behavior
 

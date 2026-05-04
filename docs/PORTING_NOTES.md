@@ -38,7 +38,7 @@ Outputs:
 
 ## Known Hard Part
 
-Gaussian-LIC depends on Coco-LIC for tracking, and Coco-LIC is also ROS1. A true port needs to handle both. A bridge-only solution should not be marketed as the main ROS2 port.
+Gaussian-LIC2 is now public in the primary `APRIL-ZJU/Gaussian-LIC` upstream, so the native frontend/tracking port should be based on that code path first. Coco-LIC remains useful as legacy ROS1 reference material for the original mapper-topic contract, but it is no longer the main implementation target. A bridge-only solution should not be marketed as the main ROS2 port.
 
 ## Current Native Slice
 
@@ -89,7 +89,7 @@ Imu -> native ROS2 subscription/counting for the LIC input contract
 PoseStamped -> optional TF map -> camera when publish_tf:=true
 ```
 
-The CUDA rasterizer, Gaussian optimizer, and Coco-LIC IMU fusion are not ported yet. `/gaussian_lic/rendered_image` currently projects accumulated debug map points back into the current camera with a CPU z-buffer, not the differentiable splat rasterizer. The current torch boundary covers `TorchCamera`, foreground Gaussian initialization, chunked Gaussian map publication, and PLY export.
+The CUDA rasterizer, Gaussian optimizer, and Gaussian-LIC2 frontend/IMU fusion are not ported yet. `/gaussian_lic/rendered_image` currently projects accumulated debug map points back into the current camera with a CPU z-buffer, not the differentiable splat rasterizer. The current torch boundary covers `TorchCamera`, foreground Gaussian initialization, chunked Gaussian map publication, and PLY export.
 
 ## Dataset Profiles
 
@@ -103,7 +103,7 @@ mcd.yaml
 r3live.yaml
 ```
 
-These files currently cover the ROS2 native mapper surface: topic names, synchronization/QoS settings, upstream camera intrinsics, image size, `select_every_k_frame`, depth-completion toggles, SH degree, Gaussian scaling seed, upstream optimizer/loss/exposure parameter names, output topics, and save-map service name. They are not complete tracking configs; upstream dataset rosbag paths, LiDAR/IMU/camera extrinsics, and LIC optimization weights still belong to Coco-LIC and need a native ROS2 tracking adapter before real bags can be launched as a full end-to-end Gaussian-LIC system.
+These files currently cover the ROS2 native mapper surface: topic names, synchronization/QoS settings, upstream camera intrinsics, image size, `select_every_k_frame`, depth-completion toggles, SH degree, Gaussian scaling seed, upstream optimizer/loss/exposure parameter names, output topics, and save-map service name. They are not complete tracking configs; upstream dataset rosbag paths, LiDAR/IMU/camera extrinsics, and LIC optimization weights still need a native Gaussian-LIC2 ROS2 frontend/tracking adapter before real bags can be launched as a full end-to-end system.
 
 For parameter-file smoke testing with the synthetic `1x1` demo bag, skip the red-pixel preview assertion:
 

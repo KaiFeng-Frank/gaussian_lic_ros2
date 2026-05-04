@@ -6,7 +6,7 @@
 
 ```text
 state            Aggregate node state.
-tracking_state  Coco-LIC frontend state, or STATE_UNCONFIGURED when absent.
+tracking_state  Gaussian-LIC2 frontend state, or STATE_UNCONFIGURED when absent.
 mapping_state   Gaussian-LIC backend state.
 render_mode     One of RENDER_MODE_OFF, DEBUG_CPU, RASTERIZER, DEBUG_INPUT.
 status_text     Human-readable diagnostic summary.

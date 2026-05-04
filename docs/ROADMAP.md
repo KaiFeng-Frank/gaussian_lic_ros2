@@ -3,7 +3,7 @@
 The public release plan is milestone-based:
 
 - `v0.1.0` Baseline & Infrastructure
-- `v0.2.0` Coco-LIC ROS2 Native Tracking
+- `v0.2.0` Gaussian-LIC2 ROS2 Native Frontend
 - `v0.3.0` Gaussian Mapping Full Backend
 - `v0.4.0` Strict FAST-LIVO2 Reproduction
 
@@ -23,7 +23,7 @@ First concrete action:
 docker pull ros:noetic-ros-base-focal
 ```
 
-Then bring up Ubuntu 20.04 + ROS1 Noetic, run the upstream Gaussian-LIC/Coco-LIC baseline on FAST-LIVO2, and archive outputs under:
+Then bring up the upstream baseline environment, run Gaussian-LIC/Gaussian-LIC2 on FAST-LIVO2, and archive outputs under:
 
 ```text
 baseline/fastlivo2/<sequence>/
@@ -56,7 +56,7 @@ baseline_manifest.json
 - [x] Add rosbag2 smoke-test instructions.
 - [x] Add calibration file schema.
 - [x] Add dataset-specific ROS2 mapping profiles for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
-- [ ] Add full real-dataset topic remaps/adapters once the native Coco-LIC tracking port is in place.
+- [ ] Add full real-dataset topic remaps/adapters once the native Gaussian-LIC2 frontend/tracking port is in place.
 
 ## Milestone 2: Gaussian-LIC Mapping Port
 
@@ -86,12 +86,12 @@ baseline_manifest.json
 - [x] Publish mapper status.
 - [ ] Replace rendered-image preview with Gaussian rasterizer output.
 
-## Milestone 3: Coco-LIC Tracking Port
+## Milestone 3: Gaussian-LIC2 Frontend/Tracking Port
 
-- [ ] Inventory ROS1 APIs used by Coco-LIC.
+- [ ] Inventory the released Gaussian-LIC2 surface in `external/Gaussian-LIC`, including depth completion, rasterizer/optimizer changes, and any frontend/tracking code available in upstream commits.
 - [ ] Port Livox/custom point handling to ROS2.
 - [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
-- [ ] Publish odometry, path, and TF natively.
+- [ ] Publish odometry, path, TF, and Gaussian mapper input topics natively.
 - [ ] Keep any ROS1 bridge mode clearly marked as temporary.
 
 ## Milestone 4: Usability

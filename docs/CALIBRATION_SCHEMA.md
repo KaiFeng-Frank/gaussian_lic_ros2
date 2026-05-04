@@ -1,6 +1,6 @@
 # Calibration Schema
 
-Gaussian-LIC ROS2 currently consumes camera intrinsics through `sensor_msgs/msg/CameraInfo` and falls back to the mapper parameters `fx`, `fy`, `cx`, and `cy`. The schema below is the repository convention for real robot and dataset calibration files while the native Coco-LIC tracking port is being completed.
+Gaussian-LIC ROS2 currently consumes camera intrinsics through `sensor_msgs/msg/CameraInfo` and falls back to the mapper parameters `fx`, `fy`, `cx`, and `cy`. The schema below is the repository convention for real robot and dataset calibration files while the native Gaussian-LIC2 frontend/tracking port is being completed.
 
 ## File Layout
 
@@ -53,7 +53,7 @@ calibration:
 - `T_parent_child` maps a point from the child frame into the parent frame.
 - Quaternions are stored as `rotation_xyzw`, matching ROS message order.
 - Intrinsics use pixels and should match the published `CameraInfo.k`.
-- Time offsets use the same sign as upstream Coco-LIC comments: `camera_to_imu` is camera timestamp minus IMU timestamp.
+- Time offsets use the same sign as the legacy upstream Coco-LIC comments: `camera_to_imu` is camera timestamp minus IMU timestamp.
 - Dataset-specific ROS2 mapper profiles live in `src/gaussian_lic_bringup/config/*.yaml`; full tracking calibration should use this schema or a converter into this schema.
 
 ## Current Runtime Use
@@ -66,4 +66,4 @@ PoseStamped  -> world-to-camera pose already estimated by the tracking frontend
 PointCloud2  -> world points already prepared for Gaussian initialization
 ```
 
-That means extrinsics and IMU noise parameters are documented now but will be consumed by the native Coco-LIC tracking port, not by the current mapping-only slice.
+That means extrinsics and IMU noise parameters are documented now but will be consumed by the native Gaussian-LIC2 frontend/tracking port, not by the current mapping-only slice.
