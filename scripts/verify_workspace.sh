@@ -67,6 +67,7 @@ paths = [
     Path("scripts/check_profiles.py"),
     Path("scripts/convert_ros1_bag_to_rosbag2.py"),
     Path("scripts/perf_regression.py"),
+    Path("scripts/pointcloud_compare.py"),
     Path("scripts/trajectory_compare.py"),
     Path("src/gaussian_lic_bringup/launch/run_bag.launch.py"),
     Path("src/gaussian_lic_bringup/setup.py"),
@@ -144,6 +145,49 @@ EOF
   --max-mean-m 0.01 \
   --max-error-m 0.01
 rg -q '"ok": true' /tmp/gaussian_lic_trajectory_compare.json
+
+echo "[verify] point cloud comparison"
+cat >/tmp/gaussian_lic_baseline.ply <<'EOF'
+ply
+format ascii 1.0
+element vertex 3
+property float x
+property float y
+property float z
+property uchar red
+property uchar green
+property uchar blue
+end_header
+0.000000000 0.000000000 0.000000000 255 32 16
+1.000000000 0.000000000 0.000000000 255 32 16
+2.000000000 0.000000000 0.000000000 255 32 16
+EOF
+cat >/tmp/gaussian_lic_current.ply <<'EOF'
+ply
+format ascii 1.0
+element vertex 3
+property float x
+property float y
+property float z
+property uchar red
+property uchar green
+property uchar blue
+end_header
+0.001000000 0.000000000 0.000000000 255 32 16
+1.002000000 0.000000000 0.000000000 255 32 16
+2.003000000 0.000000000 0.000000000 255 32 16
+EOF
+./scripts/pointcloud_compare.py \
+  --baseline /tmp/gaussian_lic_baseline.ply \
+  --current /tmp/gaussian_lic_current.ply \
+  --output /tmp/gaussian_lic_pointcloud_compare.json \
+  --voxel-size 0 \
+  --max-nearest-m 0.01 \
+  --max-centroid-drift-m 0.01 \
+  --max-chamfer-rmse-m 0.01 \
+  --max-chamfer-mean-m 0.01 \
+  --max-chamfer-max-m 0.01
+rg -q '"ok": true' /tmp/gaussian_lic_pointcloud_compare.json
 
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf

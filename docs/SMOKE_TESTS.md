@@ -208,6 +208,8 @@ The offline artifact extraction check writes `point_cloud_debug.ply`, verifies t
 
 `gaussian_lic_offline` also accepts `--bag-format ros1` for direct ROS1 `.bag` artifact extraction when the optional `rosbags` package is available. This path writes the same artifact files as rosbag2 extraction and records `bag_format: ros1` plus `storage_identifier: rosbag1` in `metrics.json`.
 
+The workspace verification script also exercises `scripts/trajectory_compare.py` and `scripts/pointcloud_compare.py` with tiny synthetic artifacts. These are the CI-ready drift gates for archived ROS1 baseline trajectories and PLY maps once real sequence artifacts are available.
+
 Reliable input-QoS rosbag2 check:
 
 ```bash

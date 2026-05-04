@@ -11,6 +11,7 @@ Goal: make strict reproduction measurable before the native algorithm port grows
 - Freeze `/gaussian_lic/status` and `metrics.json` schemas for later CI comparison.
 - Add performance regression gates for tracking FPS, mapping FPS, and iteration time.
 - Add a trajectory regression gate for timestamp-associated TUM trajectory drift.
+- Add a point-cloud regression gate for ASCII PLY map drift.
 
 Release artifacts:
 
@@ -30,6 +31,7 @@ Goal: Coco-LIC runs natively in ROS2 without the Gaussian backend.
 - Publish `/cocolic/odometry`, `/cocolic/path`, TF, and the four mapper bridge topics:
   `/image_for_gs`, `/depth_for_gs`, `/pose_for_gs`, `/points_for_gs`.
 - Compare trajectory against the ROS1 baseline with `scripts/trajectory_compare.py` and fail CI when drift exceeds the accepted threshold.
+- Compare saved PLY maps against the ROS1 baseline with `scripts/pointcloud_compare.py` once the native map backend is active.
 
 ## v0.3.0 - Gaussian Mapping Full Backend
 

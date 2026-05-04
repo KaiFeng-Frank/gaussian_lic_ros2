@@ -314,6 +314,19 @@ Compare a current TUM trajectory against an archived ROS1 baseline:
 
 The trajectory gate associates poses by timestamp, reports translation RMSE/mean/max plus path-length drift, and exits non-zero when any threshold fails. Use `--align first` only for datasets whose baseline and current trajectories differ by a known initial translation offset.
 
+Compare a current PLY map against an archived ROS1 baseline:
+
+```bash
+./scripts/pointcloud_compare.py \
+  --baseline baseline/fastlivo2/CBD_Building_01/point_cloud.ply \
+  --current results/fastlivo2/current/point_cloud.ply \
+  --output results/fastlivo2/current/pointcloud_compare.json \
+  --voxel-size 0.05 \
+  --max-chamfer-rmse-m 0.15
+```
+
+The point-cloud gate supports ASCII PLY files with standard `x/y/z` vertex properties. It reports point-count ratio, centroid drift, bidirectional nearest-neighbor RMSE/mean/max, unmatched ratio, and RGB mean drift when both PLY files include `red/green/blue`.
+
 ## Release Roadmap
 
 The public plan is release-driven:
