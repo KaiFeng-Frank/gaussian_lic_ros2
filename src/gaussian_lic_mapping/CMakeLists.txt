@@ -112,6 +112,7 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
     add_library(gaussian_lic_cuda_ops
       cuda/simple_knn/simple_knn.cu
       cuda/simple_knn/spatial.cu
+      cuda/sparse_adam/sparse_adam.cu
     )
     set_target_properties(gaussian_lic_cuda_ops PROPERTIES
       POSITION_INDEPENDENT_CODE ON
@@ -153,6 +154,15 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
       ${TORCH_LIBRARIES}
       CUDA::cudart
     )
+
+    add_executable(sparse_adam_probe src/sparse_adam_probe.cpp)
+    target_include_directories(sparse_adam_probe PRIVATE include)
+    target_compile_options(sparse_adam_probe PRIVATE ${TORCH_CXX_FLAGS})
+    target_link_libraries(sparse_adam_probe
+      gaussian_lic_cuda_ops
+      ${TORCH_LIBRARIES}
+      CUDA::cudart
+    )
   endif()
 
   target_compile_definitions(mapping_node PRIVATE GAUSSIAN_LIC_ENABLE_TORCH=1)
@@ -180,6 +190,9 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
       RUNTIME DESTINATION bin
     )
     install(TARGETS simple_knn_probe
+      RUNTIME DESTINATION lib/${PROJECT_NAME}
+    )
+    install(TARGETS sparse_adam_probe
       RUNTIME DESTINATION lib/${PROJECT_NAME}
     )
   endif()

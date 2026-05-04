@@ -56,11 +56,16 @@ src/rasterizer/cuda_rasterizer/backward.cu
 src/rasterizer/cuda_rasterizer/rasterizer_impl.cu
 ```
 
-The first migrated CUDA module is `simple-knn`, exposed by
-`gaussian_lic_mapping/cuda/simple_knn.hpp` as `dist_cuda2(points[N,3])`. The
-remaining rasterizer, fused-ssim, and SparseGaussianAdam modules still need to be
-ported as native ROS2/ament CMake CUDA targets rather than calling into the ROS1
-catkin target.
+The first migrated CUDA modules are:
+
+```text
+gaussian_lic_mapping/cuda/simple_knn.hpp  dist_cuda2(points[N,3])
+gaussian_lic_mapping/cuda/sparse_adam.hpp sparse_adam_step(...)
+```
+
+The remaining rasterizer and fused-ssim modules still need to be ported as
+native ROS2/ament CMake CUDA targets rather than calling into the ROS1 catkin
+target.
 
 ## Densification Scope
 
