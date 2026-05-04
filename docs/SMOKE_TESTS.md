@@ -461,6 +461,18 @@ gaussian_opt_supervised=4096 gaussian_opt_errors=0
 transform_errors=0
 ```
 
+The matching ROS1 mapper-contract converter supports the same profile:
+
+```bash
+PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages \
+  /usr/bin/python3 scripts/frontend_raw_to_ros1_mapper_contract.py \
+  --input /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --output /home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_extrinsic_8s.bag \
+  --max-duration-sec 8 \
+  --pointcloud-transform-profile fastlivo2 \
+  --overwrite
+```
+
 ## Current Reproduction Artifacts
 
 To create current ROS2 artifacts from actual mapper output topics:

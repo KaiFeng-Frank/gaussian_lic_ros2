@@ -257,12 +257,17 @@ fi
 if [[ "${SKIP_CONVERT}" != "true" ]]; then
   echo "[curated] converting frontend raw bag to ROS1 mapper-contract bag"
   mkdir -p "$(dirname "${MAPPER_BAG}")"
-  run_rosbags_python \
+  convert_args=(
     scripts/frontend_raw_to_ros1_mapper_contract.py \
     --input "${FRONTEND_RAW}" \
     --output "${MAPPER_BAG}" \
     --max-duration-sec "${MAX_DURATION_SEC}" \
     --overwrite
+  )
+  if [[ "${POINTCLOUD_TRANSFORM_PROFILE}" != "identity" ]]; then
+    convert_args+=(--pointcloud-transform-profile "${POINTCLOUD_TRANSFORM_PROFILE}")
+  fi
+  run_rosbags_python "${convert_args[@]}"
 fi
 
 if [[ "${SKIP_CURRENT}" != "true" ]]; then

@@ -18,6 +18,12 @@ DEFAULT_INTRINSICS = {
 }
 
 POINT_FIELD_FLOAT32 = 7
+FASTLIVO2_CAMERA_LIDAR_R = (
+    0.006101930, -0.999863000, -0.015417200,
+    -0.006154490, 0.015379600, -0.999863000,
+    0.999962000, 0.006195980, -0.006059800,
+)
+FASTLIVO2_CAMERA_LIDAR_T = (0.019438453, 0.104689079, -0.025195139)
 
 
 def load_runtime_modules():
@@ -116,6 +122,29 @@ def float32_column(np, point_bytes, offset, endian):
     return np.ascontiguousarray(point_bytes[:, offset : offset + 4]).view(dtype).reshape(-1)
 
 
+def write_float32_column(np, point_bytes, offset, values, endian):
+    dtype = np.dtype(f"{endian}f4")
+    packed = np.asarray(values, dtype=dtype).reshape(-1, 1).view(np.uint8).reshape(-1, 4)
+    point_bytes[:, offset : offset + 4] = packed
+
+
+def transform_xyz(np, x, y, z, args):
+    if args.pointcloud_transform_profile == "identity":
+        return x, y, z
+    if args.pointcloud_transform_profile != "fastlivo2":
+        raise ValueError(f"unsupported pointcloud transform profile: {args.pointcloud_transform_profile}")
+
+    r = np.asarray(FASTLIVO2_CAMERA_LIDAR_R, dtype=np.float64).reshape(3, 3)
+    t = np.asarray(FASTLIVO2_CAMERA_LIDAR_T, dtype=np.float64).reshape(3, 1)
+    xyz = np.vstack([
+        np.asarray(x, dtype=np.float64),
+        np.asarray(y, dtype=np.float64),
+        np.asarray(z, dtype=np.float64),
+    ])
+    transformed = r @ xyz + t
+    return transformed[0], transformed[1], transformed[2]
+
+
 def filtered_pointcloud_payload(np, source_msg, args):
     fields = field_map(source_msg)
     if not {"x", "y", "z"}.issubset(fields):
@@ -131,6 +160,11 @@ def filtered_pointcloud_payload(np, source_msg, args):
     x = float32_column(np, point_bytes, int(fields["x"].offset), endian)
     y = float32_column(np, point_bytes, int(fields["y"].offset), endian)
     z = float32_column(np, point_bytes, int(fields["z"].offset), endian)
+    x, y, z = transform_xyz(np, x, y, z, args)
+    if args.pointcloud_transform_profile != "identity":
+        write_float32_column(np, point_bytes, int(fields["x"].offset), x, endian)
+        write_float32_column(np, point_bytes, int(fields["y"].offset), y, endian)
+        write_float32_column(np, point_bytes, int(fields["z"].offset), z, endian)
     mask = np.isfinite(x) & np.isfinite(y) & np.isfinite(z) & (z > float(args.min_z))
     if args.max_z > 0.0:
         mask &= z <= float(args.max_z)
@@ -315,6 +349,7 @@ def convert(args):
         "fy": args.fy,
         "cx": args.cx,
         "cy": args.cy,
+        "pointcloud_transform_profile": args.pointcloud_transform_profile,
     }
 
 
@@ -343,6 +378,12 @@ def main(argv=None):
     parser.add_argument("--cy", type=float, default=DEFAULT_INTRINSICS["cy"])
     parser.add_argument("--min-z", type=float, default=1e-3, help="Drop points with z <= this value before ROS1 export")
     parser.add_argument("--max-z", type=float, default=0.0, help="Drop points with z > this value; 0 disables the cap")
+    parser.add_argument(
+        "--pointcloud-transform-profile",
+        choices=("identity", "fastlivo2"),
+        default="identity",
+        help="Optional static pointcloud transform before z filtering/depth projection.",
+    )
     parser.add_argument("--min-points-per-cloud", type=int, default=1)
     parser.add_argument("--max-depth-points", type=int, default=200000)
     parser.add_argument("--max-duration-sec", type=float, default=0.0)
@@ -365,6 +406,7 @@ def main(argv=None):
         f"raw_points={report['counts']['raw_point_samples']} "
         f"written_points={report['counts']['written_point_samples']} "
         f"dropped_clouds={report['counts']['dropped_clouds']} "
+        f"pointcloud_transform={report['pointcloud_transform_profile']} "
         f"size={report['width']}x{report['height']}"
     )
     return 0

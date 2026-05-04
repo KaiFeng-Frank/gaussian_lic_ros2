@@ -90,6 +90,18 @@ PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site
   --overwrite
 ```
 
+For a camera-frame mapper-contract bag using the released FAST-LIVO2 camera-LiDAR extrinsics:
+
+```bash
+PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages \
+  /usr/bin/python3 scripts/frontend_raw_to_ros1_mapper_contract.py \
+  --input /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --output /home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_extrinsic_8s.bag \
+  --max-duration-sec 8 \
+  --pointcloud-transform-profile fastlivo2 \
+  --overwrite
+```
+
 Run the ROS1 upstream baseline on that shared mapper-contract input:
 
 ```bash
@@ -161,6 +173,7 @@ Status:
 - The curated official substitute `Bright_Screen_Wall_curated_8s` has produced a ROS1 upstream baseline archive at `baseline/fastlivo2/Bright_Screen_Wall_curated_8s`.
 - The curated report at `results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.json` passes metrics, trajectory, and point-cloud gates. The metrics gate is limited to the shared `debug_points` artifact count because this substitute uses identity-pose fallback and is not the strict `CBD_Building_01` paper gate.
 - `scripts/run_curated_fastlivo2_report.sh` now replays that executable chain end to end, including report-only refresh mode for already archived artifacts.
+- The transformed FAST-LIVO2 extrinsic path has produced `/home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_extrinsic_8s.bag` and a ROS1 upstream baseline at `baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_extrinsic_8s`; this path validates camera-frame color/photometric supervision, but it is still not a strict paper gate until native frontend odometry replaces pose fallback.
 
 Current ROS1 upstream build status:
 
