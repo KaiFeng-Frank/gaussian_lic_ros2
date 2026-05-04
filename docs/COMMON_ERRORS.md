@@ -142,3 +142,9 @@ Then rerun:
 ```
 
 The Jazzy build and smoke-test path intentionally does not depend on ROS1 or `rosbags`.
+
+The bag contract checker uses the same optional dependency when inspecting ROS1 `.bag` files:
+
+```bash
+gaussian_lic_bag_check --bag /path/to/input.bag --bag-format ros1 --json
+```

@@ -125,6 +125,16 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json
 ```
 
+The same checker can inspect ROS1 `.bag` metadata before conversion when the optional `rosbags` package is installed:
+
+```bash
+/usr/bin/python3 -m pip install --user rosbags
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag /path/to/input.bag \
+  --bag-format ros1 \
+  --json
+```
+
 ## ROS1 Bag Conversion
 
 Convert an archived ROS1 `.bag` into a ROS2 bag directory for replay:

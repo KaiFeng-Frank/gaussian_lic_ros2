@@ -7,6 +7,7 @@
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
 - Implemented the dependency-gated ROS1 `.bag` to rosbag2 converter backend using `rosbags`.
 - Added `gaussian_lic_bag_check` to validate rosbag2 mapper-contract topics before replay.
+- Extended `gaussian_lic_bag_check` to inspect ROS1 `.bag` metadata before conversion.
 
 ## v0.1.0-m1-infra - 2026-05-03
 

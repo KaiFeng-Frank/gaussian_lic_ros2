@@ -5,8 +5,6 @@ import json
 from pathlib import Path
 import sys
 
-import yaml
-
 
 DEFAULT_CONTRACT = {
     "/points_for_gs": "sensor_msgs/msg/PointCloud2",
@@ -18,7 +16,9 @@ DEFAULT_CONTRACT = {
 }
 
 
-def load_metadata(bag_path):
+def load_ros2_metadata(bag_path):
+    import yaml
+
     metadata_path = Path(bag_path).expanduser().resolve() / "metadata.yaml"
     if not metadata_path.exists():
         raise FileNotFoundError(f"metadata.yaml not found under {metadata_path.parent}")
@@ -30,7 +30,35 @@ def load_metadata(bag_path):
     return info
 
 
-def metadata_topics(info):
+def load_ros1_info(bag_path):
+    try:
+        from rosbags.rosbag1 import Reader
+    except ImportError as exc:
+        raise RuntimeError(
+            "ROS1 bag contract checks require the optional Python package 'rosbags'. "
+            "Install it in the conversion environment with "
+            "`/usr/bin/python3 -m pip install --user rosbags`."
+        ) from exc
+
+    with Reader(Path(bag_path).expanduser().resolve()) as reader:
+        topics = {
+            name: {
+                "type": info.msgtype,
+                "serialization_format": "ros1",
+                "message_count": int(info.msgcount),
+            }
+            for name, info in reader.topics.items()
+        }
+        return {
+            "storage_identifier": "rosbag1",
+            "ros_distro": "ros1",
+            "duration": {"nanoseconds": int(reader.duration)},
+            "message_count": int(reader.message_count),
+            "topics": topics,
+        }
+
+
+def ros2_metadata_topics(info):
     topics = {}
     for item in info.get("topics_with_message_count", []):
         topic_metadata = item.get("topic_metadata", {})
@@ -43,6 +71,27 @@ def metadata_topics(info):
             "message_count": int(item.get("message_count", 0)),
         }
     return topics
+
+
+def load_bag_info(bag_path, bag_format):
+    path = Path(bag_path).expanduser().resolve()
+    if bag_format == "auto":
+        if path.is_dir():
+            bag_format = "ros2"
+        elif path.suffix == ".bag":
+            bag_format = "ros1"
+        else:
+            raise ValueError("cannot auto-detect bag format; use --bag-format ros1 or ros2")
+
+    if bag_format == "ros2":
+        info = load_ros2_metadata(path)
+        topics = ros2_metadata_topics(info)
+    elif bag_format == "ros1":
+        info = load_ros1_info(path)
+        topics = info["topics"]
+    else:
+        raise ValueError(f"unsupported bag format: {bag_format}")
+    return info, topics, bag_format
 
 
 def load_contract(args):
@@ -63,8 +112,7 @@ def load_contract(args):
     return contract
 
 
-def check_contract(info, contract):
-    topics = metadata_topics(info)
+def check_contract(topics, contract):
     checks = {}
     errors = []
     for topic, expected_type in contract.items():
@@ -98,16 +146,17 @@ def check_contract(info, contract):
         }
         errors.extend(f"{topic}: {error}" for error in topic_errors)
 
-    return checks, topics, errors
+    return checks, errors
 
 
 def build_report(args):
-    info = load_metadata(args.bag)
+    info, topics, detected_format = load_bag_info(args.bag, args.bag_format)
     contract = load_contract(args)
-    checks, topics, errors = check_contract(info, contract)
+    checks, errors = check_contract(topics, contract)
     duration_nsec = int(info.get("duration", {}).get("nanoseconds", 0))
     return {
         "bag": str(Path(args.bag).expanduser().resolve()),
+        "bag_format": detected_format,
         "storage_identifier": info.get("storage_identifier", ""),
         "ros_distro": info.get("ros_distro", ""),
         "duration_sec": duration_nsec * 1e-9,
@@ -121,9 +170,10 @@ def build_report(args):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Validate that a rosbag2 directory contains the Gaussian-LIC mapper topic contract."
+        description="Validate that a ROS1 or ROS2 bag contains the Gaussian-LIC mapper topic contract."
     )
-    parser.add_argument("--bag", required=True, help="rosbag2 directory")
+    parser.add_argument("--bag", required=True, help="ROS2 bag directory or ROS1 .bag")
+    parser.add_argument("--bag-format", choices=("auto", "ros1", "ros2"), default="auto")
     parser.add_argument("--pointcloud-topic", default="/points_for_gs")
     parser.add_argument("--pose-topic", default="/pose_for_gs")
     parser.add_argument("--image-topic", default="/image_for_gs")
@@ -135,6 +185,9 @@ def main(argv=None):
 
     try:
         report = build_report(args)
+    except RuntimeError as exc:
+        print(f"bag contract check failed: {exc}", file=sys.stderr)
+        return 3
     except Exception as exc:  # noqa: BLE001 - CLI reports any metadata failure uniformly.
         print(f"bag contract check failed: {exc}", file=sys.stderr)
         return 2

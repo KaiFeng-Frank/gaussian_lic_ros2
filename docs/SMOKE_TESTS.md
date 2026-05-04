@@ -164,6 +164,8 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json
 ```
 
+The same command accepts `--bag-format ros1` for a ROS1 `.bag` when the optional `rosbags` package is available in that Python environment. This is useful before converting archived upstream bags to rosbag2.
+
 Run the same mapper checks from rosbag2 playback:
 
 ```bash
