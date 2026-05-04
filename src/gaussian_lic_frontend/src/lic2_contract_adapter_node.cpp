@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -18,6 +21,7 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/point_field.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 
 namespace
@@ -86,6 +90,61 @@ UnitQuaternion delta_quaternion(
   return dq;
 }
 
+const sensor_msgs::msg::PointField * find_field(
+  const sensor_msgs::msg::PointCloud2 & cloud,
+  const char * name)
+{
+  const auto it = std::find_if(
+    cloud.fields.begin(), cloud.fields.end(),
+    [name](const sensor_msgs::msg::PointField & field) {
+      return field.name == name;
+    });
+  return it == cloud.fields.end() ? nullptr : &(*it);
+}
+
+template<typename T>
+T read_value(const uint8_t * ptr)
+{
+  T value{};
+  std::memcpy(&value, ptr, sizeof(T));
+  return value;
+}
+
+template<typename T>
+void write_value(uint8_t * ptr, const T value)
+{
+  std::memcpy(ptr, &value, sizeof(T));
+}
+
+double read_float_field(const uint8_t * base, const sensor_msgs::msg::PointField & field)
+{
+  const uint8_t * ptr = base + field.offset;
+  if (field.datatype == sensor_msgs::msg::PointField::FLOAT32) {
+    return static_cast<double>(read_value<float>(ptr));
+  }
+  if (field.datatype == sensor_msgs::msg::PointField::FLOAT64) {
+    return read_value<double>(ptr);
+  }
+  throw std::runtime_error("pointcloud transform requires FLOAT32 or FLOAT64 x/y/z fields");
+}
+
+void write_float_field(
+  uint8_t * base,
+  const sensor_msgs::msg::PointField & field,
+  const double value)
+{
+  uint8_t * ptr = base + field.offset;
+  if (field.datatype == sensor_msgs::msg::PointField::FLOAT32) {
+    write_value<float>(ptr, static_cast<float>(value));
+    return;
+  }
+  if (field.datatype == sensor_msgs::msg::PointField::FLOAT64) {
+    write_value<double>(ptr, value);
+    return;
+  }
+  throw std::runtime_error("pointcloud transform requires FLOAT32 or FLOAT64 x/y/z fields");
+}
+
 }  // namespace
 
 class Lic2ContractAdapter final : public rclcpp::Node
@@ -122,6 +181,13 @@ public:
     identity_pose_fallback_ = declare_parameter<bool>("identity_pose_fallback", false);
     imu_pose_fallback_ = declare_parameter<bool>("imu_pose_fallback", false);
     imu_integration_max_dt_sec_ = declare_parameter<double>("imu_integration_max_dt_sec", 0.05);
+    pointcloud_transform_profile_ =
+      lowercase(declare_parameter<std::string>("pointcloud_transform_profile", "identity"));
+    transform_pointcloud_to_camera_frame_ =
+      declare_parameter<bool>("transform_pointcloud_to_camera_frame", false);
+    pointcloud_transform_target_frame_ =
+      declare_parameter<std::string>("pointcloud_transform_target_frame", "camera");
+    configure_pointcloud_transform();
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
     frontend_child_frame_ = declare_parameter<std::string>("frontend_child_frame", "base_link");
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
@@ -163,7 +229,20 @@ public:
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       raw_pointcloud_topic_, qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
-        pointcloud_pub_->publish(*msg);
+        if (transform_pointcloud_to_camera_frame_) {
+          try {
+            pointcloud_pub_->publish(transform_pointcloud(*msg));
+            ++transformed_pointcloud_count_;
+          } catch (const std::exception & ex) {
+            ++pointcloud_transform_error_count_;
+            RCLCPP_WARN_THROTTLE(
+              get_logger(), *get_clock(), 2000,
+              "failed to transform pointcloud; forwarding original cloud: %s", ex.what());
+            pointcloud_pub_->publish(*msg);
+          }
+        } else {
+          pointcloud_pub_->publish(*msg);
+        }
         ++pointcloud_count_;
         if (imu_pose_fallback_) {
           publish_imu_pose_fallback(msg->header.stamp);
@@ -216,14 +295,45 @@ public:
     RCLCPP_INFO(
       get_logger(),
       "LIC2 contract adapter: raw image=%s pointcloud=%s pose=%s raw_odom=%s -> mapper "
-      "image=%s pointcloud=%s pose=%s frontend_odom=%s frontend_path=%s fallback(identity=%s imu=%s)",
+      "image=%s pointcloud=%s pose=%s frontend_odom=%s frontend_path=%s "
+      "fallback(identity=%s imu=%s) pointcloud_transform=%s profile=%s",
       raw_image_topic_.c_str(), raw_pointcloud_topic_.c_str(), pose_stamped_topic_.c_str(),
       raw_odometry_topic_.c_str(), image_topic_.c_str(), pointcloud_topic_.c_str(),
       pose_topic_.c_str(), frontend_odometry_topic_.c_str(), frontend_path_topic_.c_str(),
-      identity_pose_fallback_ ? "true" : "false", imu_pose_fallback_ ? "true" : "false");
+      identity_pose_fallback_ ? "true" : "false", imu_pose_fallback_ ? "true" : "false",
+      transform_pointcloud_to_camera_frame_ ? "true" : "false",
+      pointcloud_transform_profile_.c_str());
   }
 
 private:
+  void configure_pointcloud_transform()
+  {
+    pointcloud_transform_rotation_ = declare_parameter<std::vector<double>>(
+      "pointcloud_transform_rotation",
+      std::vector<double>{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
+    pointcloud_transform_translation_ = declare_parameter<std::vector<double>>(
+      "pointcloud_transform_translation",
+      std::vector<double>{0.0, 0.0, 0.0});
+
+    if (pointcloud_transform_profile_ == "fastlivo2" ||
+      pointcloud_transform_profile_ == "fastlivo2cameralidar")
+    {
+      transform_pointcloud_to_camera_frame_ = true;
+      pointcloud_transform_rotation_ = {
+        0.006101930, -0.999863000, -0.015417200,
+        -0.006154490, 0.015379600, -0.999863000,
+        0.999962000, 0.006195980, -0.006059800};
+      pointcloud_transform_translation_ = {0.019438453, 0.104689079, -0.025195139};
+    }
+
+    if (pointcloud_transform_rotation_.size() != 9U) {
+      throw std::runtime_error("pointcloud_transform_rotation must contain 9 row-major values");
+    }
+    if (pointcloud_transform_translation_.size() != 3U) {
+      throw std::runtime_error("pointcloud_transform_translation must contain 3 values");
+    }
+  }
+
   rclcpp::QoS make_sensor_qos()
   {
     int depth = declare_parameter<int>("sensor_qos_depth", 5);
@@ -256,6 +366,38 @@ private:
 
     qos.durability_volatile();
     return qos;
+  }
+
+  sensor_msgs::msg::PointCloud2 transform_pointcloud(const sensor_msgs::msg::PointCloud2 & cloud)
+  {
+    sensor_msgs::msg::PointCloud2 out = cloud;
+    if (!pointcloud_transform_target_frame_.empty()) {
+      out.header.frame_id = pointcloud_transform_target_frame_;
+    }
+
+    const auto * x_field = find_field(out, "x");
+    const auto * y_field = find_field(out, "y");
+    const auto * z_field = find_field(out, "z");
+    if (!x_field || !y_field || !z_field) {
+      throw std::runtime_error("PointCloud2 must contain x/y/z fields");
+    }
+
+    const size_t point_count = static_cast<size_t>(out.width) * static_cast<size_t>(out.height);
+    for (size_t i = 0; i < point_count; ++i) {
+      uint8_t * base = out.data.data() + i * out.point_step;
+      const double x = read_float_field(base, *x_field);
+      const double y = read_float_field(base, *y_field);
+      const double z = read_float_field(base, *z_field);
+      const auto & r = pointcloud_transform_rotation_;
+      const auto & t = pointcloud_transform_translation_;
+      const double tx = r[0] * x + r[1] * y + r[2] * z + t[0];
+      const double ty = r[3] * x + r[4] * y + r[5] * z + t[1];
+      const double tz = r[6] * x + r[7] * y + r[8] * z + t[2];
+      write_float_field(base, *x_field, tx);
+      write_float_field(base, *y_field, ty);
+      write_float_field(base, *z_field, tz);
+    }
+    return out;
   }
 
   void publish_identity_pose(const builtin_interfaces::msg::Time & stamp)
@@ -348,10 +490,12 @@ private:
     RCLCPP_INFO(
       get_logger(),
       "forwarded image=%zu camera_info=%zu depth=%zu points=%zu pose=%zu pose_input=%zu odom=%zu "
-      "identity_pose=%zu imu_pose=%zu imu=%zu imu_integrations=%zu",
+      "identity_pose=%zu imu_pose=%zu imu=%zu imu_integrations=%zu transformed_points=%zu "
+      "transform_errors=%zu",
       image_count_, camera_info_count_, depth_count_, pointcloud_count_, pose_count_,
       pose_stamped_count_, odometry_count_, identity_pose_count_, imu_pose_fallback_count_,
-      imu_count_, imu_integration_count_);
+      imu_count_, imu_integration_count_, transformed_pointcloud_count_,
+      pointcloud_transform_error_count_);
   }
 
   std::string raw_image_topic_;
@@ -375,10 +519,15 @@ private:
   bool enable_imu_passthrough_{true};
   bool identity_pose_fallback_{false};
   bool imu_pose_fallback_{false};
+  bool transform_pointcloud_to_camera_frame_{false};
   bool publish_tf_{false};
   int max_path_length_{5000};
   double report_period_sec_{2.0};
   double imu_integration_max_dt_sec_{0.05};
+  std::string pointcloud_transform_profile_{"identity"};
+  std::string pointcloud_transform_target_frame_{"camera"};
+  std::vector<double> pointcloud_transform_rotation_{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+  std::vector<double> pointcloud_transform_translation_{0.0, 0.0, 0.0};
   bool have_last_imu_stamp_{false};
   double last_imu_stamp_sec_{0.0};
   UnitQuaternion imu_orientation_;
@@ -393,6 +542,8 @@ private:
   size_t identity_pose_count_{0};
   size_t imu_pose_fallback_count_{0};
   size_t imu_integration_count_{0};
+  size_t transformed_pointcloud_count_{0};
+  size_t pointcloud_transform_error_count_{0};
   size_t imu_count_{0};
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;

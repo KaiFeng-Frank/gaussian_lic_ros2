@@ -435,6 +435,32 @@ fallback(identity=false imu=true)
 identity_pose=0 imu_pose=... imu_integrations=...
 ```
 
+To exercise the FAST-LIVO2 camera-LiDAR transform and Torch image supervision on the official Bright bag:
+
+```bash
+./scripts/collect_current_results.sh \
+  --bag /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --frontend-adapter \
+  --identity-pose-fallback \
+  --fastlivo2-camera-lidar-transform \
+  --optional-depth \
+  --torch \
+  --torch-optimization-steps 1 \
+  --torch-max-foreground 200000 \
+  --render-mode rasterizer \
+  --output results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch \
+  --record-sec 8 \
+  --timeout 30
+```
+
+Expected log:
+
+```text
+pointcloud_transform=true profile=fastlivo2
+gaussian_opt_supervised=4096 gaussian_opt_errors=0
+transform_errors=0
+```
+
 ## Current Reproduction Artifacts
 
 To create current ROS2 artifacts from actual mapper output topics:

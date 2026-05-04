@@ -53,6 +53,11 @@ lic2_contract_adapter:
     identity_pose_fallback: false
     imu_pose_fallback: false
     imu_integration_max_dt_sec: 0.05
+    transform_pointcloud_to_camera_frame: false
+    pointcloud_transform_profile: identity
+    pointcloud_transform_target_frame: camera
+    pointcloud_transform_rotation: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    pointcloud_transform_translation: [0.0, 0.0, 0.0]
     world_frame: map
     frontend_child_frame: base_link
     publish_tf: false

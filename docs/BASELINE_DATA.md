@@ -34,7 +34,8 @@ Collect ROS2 current artifacts from a rosbag2 replay after the mapper is built:
 ./scripts/collect_current_results.sh \
   --bag /home/frank/data/fast_livo/<sequence>_frontend_raw \
   --frontend-adapter \
-  --imu-pose-fallback \
+  --identity-pose-fallback \
+  --fastlivo2-camera-lidar-transform \
   --optional-depth \
   --output results/fastlivo2/current
 ```
@@ -45,6 +46,8 @@ For the current Torch Gaussian preview path:
 ./scripts/collect_current_results.sh \
   --bag /home/frank/data/fast_livo/<sequence>_frontend_raw \
   --frontend-adapter \
+  --identity-pose-fallback \
+  --fastlivo2-camera-lidar-transform \
   --optional-depth \
   --torch \
   --render-mode rasterizer \

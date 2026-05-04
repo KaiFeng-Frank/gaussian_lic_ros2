@@ -14,6 +14,7 @@ TORCH_PRUNE_MIN_OPACITY=0.005
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
+POINTCLOUD_TRANSFORM_PROFILE="identity"
 PUBLISH_TF=false
 REQUIRE_DEPTH_TOPIC=true
 RENDER_MODE="debug_cpu"
@@ -46,6 +47,8 @@ Options:
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
+  --fastlivo2-camera-lidar-transform
+                               Transform raw FAST-LIVO2 LiDAR points into camera frame in the adapter.
   --optional-depth             Allow mapper replay without a depth image topic.
   --tf                         Enable TF publication.
   --render-mode MODE           debug_cpu, debug_input, rasterizer, or off. Default: debug_cpu.
@@ -98,6 +101,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --imu-pose-fallback)
       IMU_POSE_FALLBACK=true
+      shift
+      ;;
+    --fastlivo2-camera-lidar-transform)
+      POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
       shift
       ;;
     --optional-depth)
@@ -168,6 +175,7 @@ launch_args=(
   frontend_adapter:="${FRONTEND_ADAPTER}"
   adapter_identity_pose_fallback:="${IDENTITY_POSE_FALLBACK}"
   adapter_imu_pose_fallback:="${IMU_POSE_FALLBACK}"
+  adapter_pointcloud_transform_profile:="${POINTCLOUD_TRANSFORM_PROFILE}"
   publish_tf:="${PUBLISH_TF}"
   require_depth_topic:="${REQUIRE_DEPTH_TOPIC}"
   render_mode:="${RENDER_MODE}"
@@ -286,7 +294,7 @@ ros2 run gaussian_lic_tools gaussian_lic_offline \
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -307,6 +315,7 @@ metrics.update(
         "imu_pose_fallback": sys.argv[8] == "true",
         "torch_max_foreground": int(sys.argv[9]),
         "torch_prune_min_opacity": float(sys.argv[10]),
+        "pointcloud_transform_profile": sys.argv[11],
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {
             **metrics.get("outputs", {}),

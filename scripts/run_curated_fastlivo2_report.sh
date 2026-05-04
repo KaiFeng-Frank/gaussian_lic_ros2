@@ -21,6 +21,7 @@ TORCH_OPTIMIZATION_STEPS=0
 TORCH_MAX_FOREGROUND=0
 TORCH_PRUNE_MIN_OPACITY=0.005
 IMU_POSE_FALLBACK=false
+POINTCLOUD_TRANSFORM_PROFILE="identity"
 BASELINE_DIR_SET=false
 CURRENT_DIR_SET=false
 SKIP_CONVERT=false
@@ -64,6 +65,8 @@ Options:
   --torch-prune-min-opacity X
                            Drop current Torch foreground Gaussians below opacity X.
   --imu-pose-fallback      Use IMU gyro orientation fallback for current ROS2 collection.
+  --fastlivo2-camera-lidar-transform
+                           Transform raw FAST-LIVO2 LiDAR points into camera frame.
   --render-mode MODE       Current render mode. Default: debug_cpu.
   --skip-convert           Reuse an existing mapper-contract bag.
   --skip-current           Reuse an existing ROS2 current artifact directory.
@@ -135,6 +138,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --imu-pose-fallback)
       IMU_POSE_FALLBACK=true
+      shift
+      ;;
+    --fastlivo2-camera-lidar-transform)
+      POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
       shift
       ;;
     --render-mode)
@@ -285,6 +292,9 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
   fi
   if [[ "${IMU_POSE_FALLBACK}" == "true" ]]; then
     current_args+=(--imu-pose-fallback)
+  fi
+  if [[ "${POINTCLOUD_TRANSFORM_PROFILE}" != "identity" ]]; then
+    current_args+=(--fastlivo2-camera-lidar-transform)
   fi
   "${current_args[@]}"
 fi

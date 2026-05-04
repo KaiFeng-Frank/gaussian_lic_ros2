@@ -67,6 +67,8 @@ and republishes into the mapper contract:
 
 Odometry messages are converted into `PoseStamped` for `/pose_for_gs`. The adapter also publishes `/gaussian_lic/frontend/odometry`, `/gaussian_lic/frontend/path`, and optional TF from any incoming pose or odometry so downstream visualization and regression tools can use the same frontend surface before the full continuous-time odometry algorithm is ported. For raw bags without odometry, `imu_pose_fallback:=true` integrates IMU angular velocity into a non-identity orientation fallback at point-cloud timestamps; this is an executable fallback for current artifact generation, not a replacement for the full Gaussian-LIC2 continuous-time frontend.
 
+For FAST-LIVO2 raw bags, `pointcloud_transform_profile:=fastlivo2` applies the released camera-LiDAR extrinsic profile before publishing `/points_for_gs`. This turns `/livox/lidar` points into the camera frame using the Coco-LIC/FAST-LIVO2 calibration (`R_cl`, `P_cl`) and lets image-projection color and the Torch photometric optimizer receive visible camera-frame supervision even when the strict frontend odometry is not available.
+
 `gaussian_lic_mapping/mapping_node` now ports the ROS-facing frame synchronization and frame-conversion surface from upstream Gaussian-LIC. It buffers:
 
 ```text

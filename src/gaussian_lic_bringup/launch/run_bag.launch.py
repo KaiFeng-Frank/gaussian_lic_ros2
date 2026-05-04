@@ -20,6 +20,7 @@ def generate_launch_description():
     frontend_adapter = LaunchConfiguration("frontend_adapter")
     adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
     adapter_imu_pose_fallback = LaunchConfiguration("adapter_imu_pose_fallback")
+    adapter_pointcloud_transform_profile = LaunchConfiguration("adapter_pointcloud_transform_profile")
     synthetic_pose_output_mode = LaunchConfiguration("synthetic_pose_output_mode")
     synthetic_pointcloud_color_mode = LaunchConfiguration("synthetic_pointcloud_color_mode")
     synthetic_point_color_rgb = LaunchConfiguration("synthetic_point_color_rgb")
@@ -118,6 +119,7 @@ def generate_launch_description():
             "sensor_qos_depth": sensor_qos_depth,
             "identity_pose_fallback": adapter_identity_pose_fallback,
             "imu_pose_fallback": adapter_imu_pose_fallback,
+            "pointcloud_transform_profile": adapter_pointcloud_transform_profile,
             "publish_tf": publish_tf,
         },
     ]
@@ -162,6 +164,11 @@ def generate_launch_description():
             "adapter_imu_pose_fallback",
             default_value="false",
             description="Let the adapter integrate IMU gyro orientation for pose fallback when no odometry is available",
+        ),
+        DeclareLaunchArgument(
+            "adapter_pointcloud_transform_profile",
+            default_value="identity",
+            description="Static adapter pointcloud transform profile: identity or fastlivo2",
         ),
         DeclareLaunchArgument(
             "synthetic_pose_output_mode",
