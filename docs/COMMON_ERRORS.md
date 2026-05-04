@@ -107,9 +107,17 @@ ros2 run gaussian_lic_mapping torch_backend_probe
 
 This warning is known for the `v0.1.0-m1-infra` checkpoint and should not be treated as a new regression unless the torch probe or torch smoke test fails.
 
-## TensorRT Not Found
+## TensorRT Not Found In Upstream Baseline Builds
 
-TensorRT is not installed on the tested machine. Depth completion must stay optional until the full Gaussian-LIC backend is ported.
+The upstream ROS1 baseline build requires the TensorRT SDK libraries and headers under `~/Software/TensorRT-8.6.1.6`. On the current machine this SDK is installed and the OpenCV 4.10 fallback build reaches `Built target gs_mapping`.
+
+If a different machine reports missing `NvInfer.h`, `libnvinfer.so`, `libnvonnxparser.so`, `libnvparsers.so`, or `libnvinfer_plugin.so`, install the matching TensorRT SDK before running:
+
+```bash
+./scripts/upstream_baseline_build_attempt.sh \
+  --opencv-dir /home/frank/Software/opencv/opencv-4.10.0/build \
+  --log log/noetic_gaussian_lic_build_attempt_opencv410_tensorrt.log
+```
 
 Current mapper smoke tests do not require TensorRT:
 

@@ -89,13 +89,14 @@ Status:
 - The official SharePoint source currently returns HTTP 404 from the readiness probe.
 - `Bright_Screen_Wall.bag` has been downloaded from the same official FAST-LIVO2 Google Drive mirror and converted to `/home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw`.
 - The converted `Bright_Screen_Wall_frontend_raw` bag passes `frontend_sensor_raw` and has replayed through the ROS2 LIC2 contract adapter, forwarding camera images, CameraInfo, LiDAR PointCloud2, and IMU data.
-- The upstream ROS1 Gaussian-LIC/Gaussian-LIC2 Noetic build has been executed inside Docker and reaches CUDA/C++ compilation, but the local baseline environment is not yet build-complete.
+- The upstream ROS1 Gaussian-LIC/Gaussian-LIC2 Noetic build is build-complete in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6 SDK.
+- `Bright_Screen_Wall_frontend_raw` has produced a ROS2 current artifact directory at `results/fastlivo2/Bright_Screen_Wall_current`; this is not a substitute for the strict `CBD_Building_01` baseline.
 
 Current ROS1 upstream build status:
 
-- Missing TensorRT SDK at `~/Software/TensorRT-8.6.1.6`: `NvInfer.h`, `libnvinfer.so`, `libnvonnxparser.so`, `libnvparsers.so`, and `libnvinfer_plugin.so` are required by upstream CMake.
+- TensorRT SDK is installed at `/home/frank/Software/TensorRT-8.6.1.6`; `NvInfer.h`, `libnvinfer.so`, `libnvonnxparser.so`, `libnvparsers.so`, and `libnvinfer_plugin.so` are present.
 - The strict local OpenCV 4.7.0 build under `/home/frank/Software/opencv/opencv-4.7.0/build` is incomplete for upstream linking; the generated OpenCV config references `libopencv_gapi.so.4.7.0`, but that library is absent. A direct rebuild attempt of the 4.7 targets currently fails in the host Conda/CMake linker environment on `/lib64/libm.so.6` and `/lib64/libmvec.so.1`.
-- The existing OpenCV 4.10 CUDA build under `/home/frank/Software/opencv/opencv-4.10.0/build` removes the OpenCV link blocker when passed with `--opencv-dir`; the build then fails only on missing TensorRT headers/libraries.
+- The existing OpenCV 4.10 CUDA build under `/home/frank/Software/opencv/opencv-4.10.0/build` removes the OpenCV link blocker when passed with `--opencv-dir`; with TensorRT installed, the upstream `gs_mapping` target builds successfully.
 - Current CUDA/compiler pairing needs a compatibility include for `FLT_MAX` in copied upstream CUDA files. `scripts/upstream_baseline_build_attempt.sh` applies that include only inside `/tmp/catkin_gaussian`, leaving `external/Gaussian-LIC` unchanged.
 
 Re-run the upstream build attempt:
@@ -109,13 +110,13 @@ Re-run the build attempt with the local OpenCV 4.10 CUDA fallback:
 ```bash
 ./scripts/upstream_baseline_build_attempt.sh \
   --opencv-dir /home/frank/Software/opencv/opencv-4.10.0/build \
-  --log log/noetic_gaussian_lic_build_attempt_opencv410.log
+  --log log/noetic_gaussian_lic_build_attempt_opencv410_tensorrt.log
 ```
 
-The build log is written to:
+The successful OpenCV 4.10 + TensorRT build log is written to:
 
 ```text
-log/noetic_gaussian_lic_build_attempt.log
+log/noetic_gaussian_lic_build_attempt_opencv410_tensorrt.log
 ```
 
 No `baseline/fastlivo2/CBD_Building_01` archive should be created until the upstream run actually emits `trajectory.tum`, `point_cloud.ply`, `metrics.json`, `run.log`, and renders. The comparison gate must remain blocked until both ROS1 baseline artifacts and ROS2 current artifacts exist.

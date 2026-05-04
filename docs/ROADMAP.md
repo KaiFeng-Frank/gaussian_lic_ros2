@@ -36,7 +36,7 @@ Current execution gate:
   --sequence CBD_Building_01
 ```
 
-As of 2026-05-04, `CBD_Building_01` download is blocked by Google Drive quota. The upstream ROS1 build is blocked on TensorRT SDK. Strict OpenCV 4.7.0 is still incomplete locally, but the existing OpenCV 4.10 CUDA build removes the OpenCV blocker in a fallback build attempt. `Bright_Screen_Wall` is the first official FAST-LIVO2 bag that has passed the ROS2 raw-sensor adapter replay.
+As of 2026-05-04, `CBD_Building_01` download is blocked by Google Drive quota. The upstream ROS1 `gs_mapping` target builds successfully in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6. Strict OpenCV 4.7.0 is still incomplete locally. `Bright_Screen_Wall` is the first official FAST-LIVO2 bag that has passed the ROS2 raw-sensor adapter replay and produced a ROS2 current artifact directory.
 
 Then bring up the upstream baseline environment, run Gaussian-LIC/Gaussian-LIC2 on FAST-LIVO2, and archive outputs under:
 
