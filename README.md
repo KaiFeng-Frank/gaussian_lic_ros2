@@ -8,26 +8,68 @@ This repository is **not a ROS1 bridge wrapper**. It is a clean ROS2 workspace t
 
 ## Current Release State
 
-This checkpoint is the M1 infrastructure slice. It is useful today for ROS2 interface validation, synthetic rosbag2 smoke tests, profile/schema work, and offline artifact extraction. It is **not yet** the full Gaussian-LIC2 algorithm port.
+This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper-scaffold, optional Torch Gaussian, artifact extraction, and baseline comparison tooling, plus an official FAST-LIVO2 Bright substitute proof chain.
+
+It is **not yet** the strict full-paper Gaussian-LIC2 ROS2 port: the native LIC2 tracking executable and the full upstream CUDA rasterizer/optimizer/densification backend are still pending, and the strict `CBD_Building_01` data gate is blocked by the upstream data source.
 
 Available now:
 
 - Native ROS2 packages for messages, launch/config, mapping scaffold, and test tools.
 - `gaussian_lic_frontend/lic2_contract_adapter` for routing raw ROS2 camera/LiDAR/IMU/pose topics into the mapper contract.
+- Optional Livox `CustomMsg` to `PointCloud2` bridge for raw Livox driver packets.
 - ROS2 synchronization/conversion for the Gaussian-LIC mapper input contract:
   `/points_for_gs`, `/pose_for_gs`, `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/imu_for_gs`.
 - Odometry, path, TF, debug map cloud, rendered debug preview, status, GaussianArray, and SaveMap interfaces.
-- Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, and incremental foreground insertion.
+- Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, incremental foreground insertion, opacity/count pruning, CPU splat preview, and photometric DC-color/opacity updates.
 - Dataset profile YAMLs derived from upstream Gaussian-LIC: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - `gaussian_lic_offline` CLI for rosbag2 artifact extraction without launching ROS nodes.
-- M1 release docs, status schema, performance regression script, and Jazzy/Humble build-only CI skeleton.
+- FAST-LIVO2 ROS1-to-ROS2 raw frontend conversion, ROS1 mapper-contract conversion, upstream ROS1 baseline runner, baseline manifest/readiness gates, and combined reproduction reports.
+- Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 
 Still pending:
 
 - Native Gaussian-LIC2 frontend/tracking algorithm port.
-- Full Gaussian rasterizer, optimizer, densification, pruning, and real rendered output.
+- Full upstream CUDA Gaussian rasterizer, optimizer/loss schedule, gradient-aware densification, and real rendered output.
 - TensorRT depth completion as an optional backend.
-- Strict FAST-LIVO2 reproduction against archived ROS1 upstream baseline artifacts.
+- Strict FAST-LIVO2 `CBD_Building_01` paper gate once the official bag is available locally. Current Google Drive attempts are quota-blocked and the SharePoint mirror returns 404 as of 2026-05-04.
+
+## Current Executable Proof Chain
+
+The current 100% executable proof chain uses the official FAST-LIVO2 `Bright_Screen_Wall` bag as a substitute while `CBD_Building_01` is unavailable. It compares ROS2 current artifacts against an upstream ROS1 Gaussian-LIC/Gaussian-LIC2 baseline and adds a Torch Gaussian color gate in the same report.
+
+Validated artifacts:
+
+```text
+/home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_color_8s.bag
+baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/
+results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/reproduction_report.json
+results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch/point_cloud.ply
+```
+
+Refresh the combined report from existing artifacts:
+
+```bash
+./scripts/run_curated_fastlivo2_report.sh \
+  --fastlivo2-camera-lidar-transform \
+  --colorize-pointcloud \
+  --sequence Bright_Screen_Wall_fastlivo2_color_8s \
+  --mapper-bag /home/frank/data/fast_livo/Bright_Screen_Wall_mapper_contract_fastlivo2_color_8s.bag \
+  --baseline-dir baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s \
+  --current-dir results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq \
+  --skip-convert \
+  --skip-current \
+  --skip-baseline \
+  --skip-build \
+  --gaussian-color-current-point-cloud results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch/point_cloud.ply
+```
+
+Expected output:
+
+```text
+reproduction report OK: sequence=Bright_Screen_Wall_fastlivo2_color_8s metrics=PASS trajectory=PASS point_cloud=PASS gaussian_color=PASS
+```
+
+The latest local report has Torch Gaussian mean RGB drift `11.657 < 40.0`.
 
 ## Platform
 
@@ -267,7 +309,7 @@ appended_count=1
 gaussian_count=2
 ```
 
-On the tested machine, CUDA is available. TensorRT is not installed and must remain optional.
+On the tested machine, CUDA is available. TensorRT is optional for the ROS2 porting surface; the local upstream ROS1 baseline Docker path has also been validated with TensorRT 8.6.1.6.
 
 ## ROS2 Interfaces
 
@@ -406,7 +448,7 @@ Compare a current PLY map against an archived ROS1 baseline:
   --max-chamfer-rmse-m 0.15
 ```
 
-The point-cloud gate supports ASCII PLY files with standard `x/y/z` vertex properties. It reports point-count ratio, centroid drift, bidirectional nearest-neighbor RMSE/mean/max, unmatched ratio, and RGB mean drift when both PLY files include `red/green/blue`.
+The point-cloud gate supports ASCII and binary little-endian PLY files with standard `x/y/z` vertex properties. It reports point-count ratio, centroid drift, bidirectional nearest-neighbor RMSE/mean/max, unmatched ratio, and RGB mean drift when both PLY files include `red/green/blue`. Add `--derive-gaussian-rgb` when the PLY stores Gaussian color in upstream `f_dc_0..2` coefficients instead of explicit RGB fields.
 
 Generate one combined reproduction report:
 
@@ -419,6 +461,34 @@ Generate one combined reproduction report:
 ```
 
 The combined report validates the baseline manifest and runs metrics, trajectory, and PLY map drift gates in one command. It exits non-zero when any gate fails and is intended as the future CI comparison artifact.
+
+For the current Bright substitute proof chain, add a dedicated Torch Gaussian color gate:
+
+```bash
+./scripts/reproduction_report.py \
+  --baseline-dir baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s \
+  --current-dir results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq \
+  --sequence Bright_Screen_Wall_fastlivo2_color_8s \
+  --metric-key debug_points \
+  --trajectory-align first \
+  --min-trajectory-coverage 0.4 \
+  --max-association-dt 0.2 \
+  --pointcloud-align centroid \
+  --max-pointcloud-points 50000 \
+  --max-nearest-m 0.5 \
+  --max-chamfer-rmse-m 0.5 \
+  --max-chamfer-mean-m 0.5 \
+  --max-chamfer-max-m 0.5 \
+  --max-unmatched-ratio 0.25 \
+  --min-point-count-ratio 0.5 \
+  --max-point-count-ratio 5.0 \
+  --max-centroid-drift-m 0.5 \
+  --gaussian-color-current-point-cloud results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch/point_cloud.ply \
+  --output results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/reproduction_report.json \
+  --markdown results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/reproduction_report.md
+```
+
+That report includes five gates: `baseline_manifest`, `metrics`, `trajectory`, `point_cloud`, and `gaussian_color`.
 
 Run the same Python-only artifact gates used by GitHub Actions locally:
 
@@ -458,10 +528,10 @@ v0.3.0  Gaussian Mapping Full Backend
 v0.4.0  Strict FAST-LIVO2 Reproduction
 ```
 
-Immediate next action:
+Strict paper-data action:
 
 ```text
-Fetch FAST-LIVO2 CBD_Building_01 and run the upstream Gaussian-LIC/Gaussian-LIC2 baseline.
+Fetch FAST-LIVO2 CBD_Building_01 and run the upstream Gaussian-LIC/Gaussian-LIC2 baseline once the official data source is available.
 ```
 
 The data fetch is executable:
