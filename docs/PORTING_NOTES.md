@@ -131,7 +131,7 @@ The ROS2 parameter contract now accepts `depth_completion`, `patch_size`, `max_d
 The optional torch backend can be built with:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
 ```
 
 It currently provides:

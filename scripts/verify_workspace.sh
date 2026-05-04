@@ -56,7 +56,7 @@ done
 cd "${ROOT_DIR}"
 
 echo "[verify] bash syntax"
-bash -n scripts/build_jazzy.sh scripts/create_synthetic_bag.sh scripts/fetch_upstreams.sh \
+bash -n scripts/build_jazzy.sh scripts/build_ros2.sh scripts/create_synthetic_bag.sh scripts/fetch_upstreams.sh \
   scripts/smoke_test.sh scripts/verify_artifact_gates.sh scripts/verify_workspace.sh
 
 echo "[verify] python syntax"
@@ -86,7 +86,7 @@ echo "[verify] profile yaml"
 
 if [[ "${SKIP_BUILD}" != "true" ]]; then
   echo "[verify] build"
-  ./scripts/build_jazzy.sh
+  ./scripts/build_ros2.sh
 fi
 
 if [[ ! -f "${BAG_PATH}/metadata.yaml" ]]; then
@@ -155,7 +155,7 @@ fi
 
 if [[ "${CHECK_TORCH}" == "true" ]]; then
   echo "[verify] torch build"
-  GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
+  GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
   set +u
   source "/opt/ros/${ROS_DISTRO}/setup.bash"
   source install/setup.bash

@@ -11,7 +11,7 @@ ModuleNotFoundError: No module named 'rosidl_adapter'
 Use the build wrapper:
 
 ```bash
-./scripts/build_jazzy.sh
+./scripts/build_ros2.sh
 ```
 
 It pins ROS2 interface generation to `/usr/bin/python3`.
@@ -100,7 +100,7 @@ Cannot find NVTX3, find old NVTX instead
 On the tested local machine these are warnings from the libtorch CMake package and do not block the torch backend. Verify with:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
 source install/setup.bash
 ros2 run gaussian_lic_mapping torch_backend_probe
 ```

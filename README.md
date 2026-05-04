@@ -55,7 +55,7 @@ Build and run the default synthetic smoke test:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-./scripts/build_jazzy.sh
+./scripts/build_ros2.sh
 source install/setup.bash
 ./scripts/smoke_test.sh --tf
 ```
@@ -66,7 +66,7 @@ Run the full local verification wrapper:
 ./scripts/verify_workspace.sh --full-profiles
 ```
 
-The build wrapper pins ROS2 interface generation to `/usr/bin/python3` so conda Python does not get selected by CMake.
+The build wrapper pins ROS2 interface generation to `/usr/bin/python3` so conda Python does not get selected by CMake. `scripts/build_jazzy.sh` remains as a compatibility wrapper around `scripts/build_ros2.sh`.
 
 ## Synthetic Rosbag2 Demo
 
@@ -189,7 +189,7 @@ Use repeated `--topic` or `--include-topic` arguments to convert only the mapper
 Build the optional libtorch/CUDA path:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
 source install/setup.bash
 ros2 run gaussian_lic_mapping torch_backend_probe
 ```

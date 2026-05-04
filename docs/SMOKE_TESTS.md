@@ -4,7 +4,7 @@
 
 ```bash
 cd /home/frank/gaussian_lic_ros2
-./scripts/build_jazzy.sh
+./scripts/build_ros2.sh
 ```
 
 Expected result:
@@ -34,7 +34,7 @@ Run the local verification wrapper:
 
 Add `--torch` to include the optional libtorch build, backend probe, Gaussian map topic, and Gaussian PLY save checks.
 
-`scripts/create_synthetic_bag.sh`, `scripts/smoke_test.sh`, and `scripts/verify_workspace.sh` default to `ROS_DISTRO=jazzy` when sourcing `/opt/ros/<distro>/setup.bash`. Export `ROS_DISTRO` first to run those helpers against another installed distro.
+`scripts/build_ros2.sh`, `scripts/create_synthetic_bag.sh`, `scripts/smoke_test.sh`, and `scripts/verify_workspace.sh` default to `ROS_DISTRO=jazzy` when sourcing `/opt/ros/<distro>/setup.bash`. Export `ROS_DISTRO` first to run those helpers against another installed distro. `scripts/build_jazzy.sh` remains as a compatibility wrapper.
 
 ## Native Mapping Synchronization
 
@@ -42,7 +42,7 @@ The shortest local check is:
 
 ```bash
 cd /home/frank/gaussian_lic_ros2
-./scripts/build_jazzy.sh
+./scripts/build_ros2.sh
 ./scripts/smoke_test.sh --tf
 ```
 
@@ -252,15 +252,15 @@ Composable-node rosbag2 check:
 Torch-enabled rosbag2 check:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
-./scripts/build_jazzy.sh --packages-select gaussian_lic_bringup
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
+./scripts/build_ros2.sh --packages-select gaussian_lic_bringup
 ./scripts/smoke_test.sh --bag bags/synthetic_gs_demo --torch --tf
 ```
 
 ## Optional Torch Backend Probe
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 run gaussian_lic_mapping torch_backend_probe
@@ -288,16 +288,16 @@ gaussian_count=2
 The shortest local torch-enabled check is:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
-./scripts/build_jazzy.sh --packages-select gaussian_lic_bringup
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
+./scripts/build_ros2.sh --packages-select gaussian_lic_bringup
 ./scripts/smoke_test.sh --torch --tf
 ```
 
 Build mapping with torch enabled:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
-./scripts/build_jazzy.sh --packages-select gaussian_lic_bringup
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
+./scripts/build_ros2.sh --packages-select gaussian_lic_bringup
 ```
 
 Run the live node with synthetic input and torch conversion enabled:

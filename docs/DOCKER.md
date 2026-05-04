@@ -50,13 +50,13 @@ docker run --rm -it \
   --gpus all \
   -v "$PWD":/ws \
   gaussian_lic_ros2:jazzy \
-  bash -lc "./scripts/build_jazzy.sh && ./scripts/smoke_test.sh --tf"
+  bash -lc "./scripts/build_ros2.sh && ./scripts/smoke_test.sh --tf"
 ```
 
 This runs:
 
 ```bash
-./scripts/build_jazzy.sh
+./scripts/build_ros2.sh
 ./scripts/smoke_test.sh --tf
 ```
 
@@ -74,7 +74,7 @@ To generate and replay a synthetic rosbag2 inside the container:
 On the local machine with libtorch installed:
 
 ```bash
-GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_jazzy.sh --packages-select gaussian_lic_mapping
-./scripts/build_jazzy.sh --packages-select gaussian_lic_bringup
+GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
+./scripts/build_ros2.sh --packages-select gaussian_lic_bringup
 ./scripts/smoke_test.sh --torch --tf
 ```
