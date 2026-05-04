@@ -14,6 +14,7 @@ TORCH_PRUNE_MIN_OPACITY=0.005
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
+SYNC_IMAGE_TO_POINTCLOUD=false
 POINTCLOUD_TRANSFORM_PROFILE="identity"
 LIVOX_CUSTOM_BRIDGE=false
 LIVOX_CUSTOM_TOPIC="/livox/lidar"
@@ -24,6 +25,9 @@ RENDER_MODE="debug_cpu"
 RECORD_SEC=12
 TIMEOUT_SEC=20
 SENSOR_QOS_RELIABILITY=""
+PLAY_RATE="1"
+LOOP_PLAYBACK=false
+POST_PLAY_SETTLE_SEC=8
 
 usage() {
   cat <<'EOF'
@@ -50,6 +54,7 @@ Options:
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
+  --sync-image-to-pointcloud   Re-stamp latest raw image/camera_info to each point-cloud stamp in the adapter.
   --fastlivo2-camera-lidar-transform
                                Transform raw FAST-LIVO2 LiDAR points into camera frame in the adapter.
   --livox-custom-bridge        Bridge Livox CustomMsg input to PointCloud2 before the adapter.
@@ -57,6 +62,9 @@ Options:
   --tf                         Enable TF publication.
   --render-mode MODE           debug_cpu, debug_input, rasterizer, or off. Default: debug_cpu.
   --sensor-qos RELIABILITY     Override input sensor QoS reliability: best_effort or reliable.
+  --play-rate RATE             rosbag2 playback rate when --bag is used. Default: 1.
+  --loop-playback              Loop rosbag2 playback during recording.
+  --post-play-settle SEC       Seconds to keep mapper alive after finite playback. Default: 8.
   --record-sec SEC             Output recording duration. Default: 12.
   --timeout SEC                Topic/service wait timeout. Default: 20.
 EOF
@@ -107,6 +115,10 @@ while [[ $# -gt 0 ]]; do
       IMU_POSE_FALLBACK=true
       shift
       ;;
+    --sync-image-to-pointcloud)
+      SYNC_IMAGE_TO_POINTCLOUD=true
+      shift
+      ;;
     --fastlivo2-camera-lidar-transform)
       POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
       shift
@@ -129,6 +141,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sensor-qos)
       SENSOR_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --play-rate)
+      PLAY_RATE="$2"
+      shift 2
+      ;;
+    --loop-playback)
+      LOOP_PLAYBACK=true
+      shift
+      ;;
+    --post-play-settle)
+      POST_PLAY_SETTLE_SEC="$2"
       shift 2
       ;;
     --record-sec)
@@ -183,6 +207,7 @@ launch_args=(
   frontend_adapter:="${FRONTEND_ADAPTER}"
   adapter_identity_pose_fallback:="${IDENTITY_POSE_FALLBACK}"
   adapter_imu_pose_fallback:="${IMU_POSE_FALLBACK}"
+  adapter_sync_image_to_pointcloud:="${SYNC_IMAGE_TO_POINTCLOUD}"
   adapter_pointcloud_transform_profile:="${POINTCLOUD_TRANSFORM_PROFILE}"
   livox_custom_bridge:="${LIVOX_CUSTOM_BRIDGE}"
   livox_custom_topic:="${LIVOX_CUSTOM_TOPIC}"
@@ -304,6 +329,12 @@ start_recording() {
   RECORD_PID=$!
 }
 
+stop_recording() {
+  if [[ -n "${RECORD_PID}" ]]; then
+    kill -INT "${RECORD_PID}" >/dev/null 2>&1 || true
+  fi
+}
+
 wait_for_recording() {
   local record_status=0
   set +e
@@ -317,6 +348,23 @@ wait_for_recording() {
   fi
 }
 
+wait_for_playback() {
+  if [[ -z "${PLAY_PID}" ]]; then
+    return 0
+  fi
+
+  local play_status=0
+  set +e
+  wait "${PLAY_PID}"
+  play_status=$?
+  set -e
+  PLAY_PID=""
+  if [[ ${play_status} -ne 0 && ${play_status} -ne 130 ]]; then
+    echo "rosbag2 playback failed with status ${play_status}; see ${OUTPUT_DIR}/play.log" >&2
+    exit "${play_status}"
+  fi
+}
+
 if [[ -n "${BAG_PATH}" ]]; then
   echo "[current] waiting for mapper nodes"
   wait_for_node "/mapping_node"
@@ -326,13 +374,27 @@ if [[ -n "${BAG_PATH}" ]]; then
   start_recording
   sleep 0.5
   echo "[current] replaying input bag: ${BAG_PATH}"
-  setsid ./scripts/strict_rosbag2_play.sh --loop "${BAG_PATH}" >"${OUTPUT_DIR}/play.log" 2>&1 &
+  play_args=(--rate "${PLAY_RATE}")
+  if [[ "${LOOP_PLAYBACK}" == "true" ]]; then
+    play_args+=(--loop)
+  fi
+  setsid ./scripts/strict_rosbag2_play.sh "${play_args[@]}" "${BAG_PATH}" >"${OUTPUT_DIR}/play.log" 2>&1 &
   PLAY_PID=$!
   echo "[current] waiting for mapper status"
   ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
     /gaussian_lic/status gaussian_lic_msgs/msg/MappingStatus \
     >"${OUTPUT_DIR}/status.txt"
-  wait_for_recording
+  if [[ "${LOOP_PLAYBACK}" == "true" ]]; then
+    wait_for_recording
+  else
+    wait_for_playback
+    if [[ "${POST_PLAY_SETTLE_SEC}" != "0" && "${POST_PLAY_SETTLE_SEC}" != "0.0" ]]; then
+      echo "[current] settling mapper after playback for ${POST_PLAY_SETTLE_SEC}s"
+      sleep "${POST_PLAY_SETTLE_SEC}"
+    fi
+    stop_recording
+    wait_for_recording
+  fi
 else
   echo "[current] waiting for mapper status"
   ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
@@ -361,10 +423,19 @@ ros2 run gaussian_lic_tools gaussian_lic_offline \
   --pointcloud-topic /gaussian_lic/map_points \
   >"${OUTPUT_DIR}/offline_stdout.json"
 
+echo "[current] extracting rendered image pairs"
+/usr/bin/python3 "${ROOT_DIR}/scripts/extract_ros2_rendered_images.py" \
+  --bag "${RECORDED_BAG}" \
+  --output "${OUTPUT_DIR}/renders" \
+  --topic /gaussian_lic/rendered_image \
+  --first-name train_0004.jpg \
+  --max-images 1 \
+  >"${OUTPUT_DIR}/render_extract.json"
+
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -373,6 +444,10 @@ output = Path(sys.argv[1]).resolve()
 bag = sys.argv[2]
 metrics_path = output / "offline" / "metrics.json"
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+render_extract_path = output / "render_extract.json"
+render_extract = {}
+if render_extract_path.is_file():
+    render_extract = json.loads(render_extract_path.read_text(encoding="utf-8"))
 metrics.update(
     {
         "schema": "gaussian_lic_current_results/v1",
@@ -386,12 +461,18 @@ metrics.update(
         "torch_max_foreground": int(sys.argv[9]),
         "torch_prune_min_opacity": float(sys.argv[10]),
         "pointcloud_transform_profile": sys.argv[11],
+        "sync_image_to_pointcloud": sys.argv[12] == "true",
+        "play_rate": float(sys.argv[13]),
+        "loop_playback": sys.argv[14] == "true",
+        "post_play_settle_sec": float(sys.argv[15]),
+        "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {
             **metrics.get("outputs", {}),
             "trajectory_tum": str((output / "trajectory.tum").resolve()),
             "point_cloud_ply": str((output / "point_cloud.ply").resolve()),
             "ros2_output_bag": str((output / "ros2_output_bag").resolve()),
+            "renders": str((output / "renders").resolve()),
             "run_log": str((output / "run.log").resolve()),
         },
     }

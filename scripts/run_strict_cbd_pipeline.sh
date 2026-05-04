@@ -13,6 +13,8 @@ CURRENT_DIR=""
 RENDER_MODE="debug_cpu"
 UPSTREAM_RUNTIME_SEC=0
 CURRENT_RECORD_SEC=12
+CURRENT_PLAY_RATE=1
+CURRENT_POST_PLAY_SETTLE=8
 TIMEOUT_SEC=30
 OVERWRITE=false
 SKIP_CONVERT=false
@@ -39,6 +41,9 @@ Options:
   --render-mode MODE       debug_cpu, debug_input, rasterizer, or off. Default: debug_cpu
   --upstream-runtime-sec N Pass to run_upstream_baseline.sh. Default: 0
   --current-record-sec N   Pass to collect_current_results.sh. Default: 12
+  --current-play-rate R    Pass to collect_current_results.sh. Default: 1
+  --current-post-play-settle SEC
+                            Pass to collect_current_results.sh. Default: 8
   --timeout N              Current-result wait timeout. Default: 30
   --overwrite              Recreate converted frontend/mapper-contract outputs.
   --skip-convert           Reuse existing converted bags.
@@ -88,6 +93,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-record-sec)
       CURRENT_RECORD_SEC="$2"
+      shift 2
+      ;;
+    --current-play-rate)
+      CURRENT_PLAY_RATE="$2"
+      shift 2
+      ;;
+    --current-post-play-settle)
+      CURRENT_POST_PLAY_SETTLE="$2"
       shift 2
       ;;
     --timeout)
@@ -192,8 +205,12 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
     --output "${CURRENT_DIR}" \
     --frontend-adapter \
     --imu-pose-fallback \
+    --sync-image-to-pointcloud \
     --fastlivo2-camera-lidar-transform \
     --optional-depth \
+    --sensor-qos reliable \
+    --play-rate "${CURRENT_PLAY_RATE}" \
+    --post-play-settle "${CURRENT_POST_PLAY_SETTLE}" \
     --render-mode "${RENDER_MODE}" \
     --record-sec "${CURRENT_RECORD_SEC}" \
     --timeout "${TIMEOUT_SEC}"
@@ -201,6 +218,8 @@ fi
 
 if [[ "${SKIP_REPORT}" != "true" ]]; then
   echo "[strict-cbd] running strict readiness and reproduction report"
+  report_status=0
+  set +e
   ./scripts/baseline_readiness.py \
     --dataset-root "${DATASET_ROOT}" \
     --baseline-dir "${BASELINE_DIR}" \
@@ -209,6 +228,7 @@ if [[ "${SKIP_REPORT}" != "true" ]]; then
     --strict \
     --output "${CURRENT_DIR}/baseline_readiness_strict.json" \
     --markdown "${CURRENT_DIR}/baseline_readiness_strict.md"
+  readiness_status=$?
 
   ./scripts/reproduction_report.py \
     --baseline-dir "${BASELINE_DIR}" \
@@ -217,6 +237,15 @@ if [[ "${SKIP_REPORT}" != "true" ]]; then
     --strict \
     --output "${CURRENT_DIR}/reproduction_report_strict.json" \
     --markdown "${CURRENT_DIR}/reproduction_report_strict.md"
+  reproduction_status=$?
+  set -e
+  if [[ ${readiness_status} -ne 0 || ${reproduction_status} -ne 0 ]]; then
+    report_status=1
+  fi
+  if [[ ${report_status} -ne 0 ]]; then
+    echo "[strict-cbd] strict report failed; JSON/Markdown artifacts were still written" >&2
+    exit "${report_status}"
+  fi
 fi
 
 echo "[strict-cbd] done"

@@ -34,9 +34,14 @@ Collect ROS2 current artifacts from a rosbag2 replay after the mapper is built:
 ./scripts/collect_current_results.sh \
   --bag /home/frank/data/fast_livo/<sequence>_frontend_raw \
   --frontend-adapter \
-  --identity-pose-fallback \
+  --imu-pose-fallback \
+  --sync-image-to-pointcloud \
   --fastlivo2-camera-lidar-transform \
   --optional-depth \
+  --sensor-qos reliable \
+  --play-rate 0.2 \
+  --post-play-settle 30 \
+  --record-sec 650 \
   --output results/fastlivo2/current
 ```
 
@@ -46,15 +51,20 @@ For the current Torch Gaussian preview path:
 ./scripts/collect_current_results.sh \
   --bag /home/frank/data/fast_livo/<sequence>_frontend_raw \
   --frontend-adapter \
-  --identity-pose-fallback \
+  --imu-pose-fallback \
+  --sync-image-to-pointcloud \
   --fastlivo2-camera-lidar-transform \
   --optional-depth \
+  --sensor-qos reliable \
+  --play-rate 0.2 \
+  --post-play-settle 30 \
+  --record-sec 650 \
   --torch \
   --render-mode rasterizer \
   --output results/fastlivo2/current
 ```
 
-The output directory is intentionally shaped for `scripts/reproduction_report.py` and `scripts/baseline_readiness.py`: `trajectory.tum`, `point_cloud.ply`, and `metrics.json` are required.
+The output directory is intentionally shaped for `scripts/reproduction_report.py` and `scripts/baseline_readiness.py`: `trajectory.tum`, `point_cloud.ply`, `metrics.json`, and strict render-pair images under `renders/` are produced when `/gaussian_lic/rendered_image` is available.
 
 Convert a downloaded official FAST-LIVO2 ROS1 bag into the ROS2 raw-sensor frontend contract:
 
@@ -235,7 +245,7 @@ CBD_Building_01.bag
 
 Status:
 
-- Official FAST-LIVO2 Google Drive discovery works and resolves `CBD_Building_01.bag` to a 5,218,555,727 byte file; the current download is in progress locally.
+- Official FAST-LIVO2 Google Drive discovery works and resolves `CBD_Building_01.bag` to a 5,218,555,727 byte file; `/home/frank/data/fast_livo/CBD_Building_01.bag` is now present locally and has produced a ROS1 upstream baseline archive.
 - The official SharePoint source currently returns HTTP 404 from the readiness probe.
 - `Bright_Screen_Wall.bag` has been downloaded from the same official FAST-LIVO2 Google Drive mirror and converted to `/home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw`.
 - The converted `Bright_Screen_Wall_frontend_raw` bag passes `frontend_sensor_raw` and has replayed through the ROS2 LIC2 contract adapter, forwarding camera images, CameraInfo, LiDAR PointCloud2, and IMU data.

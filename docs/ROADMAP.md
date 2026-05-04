@@ -25,7 +25,7 @@ Incomplete paper-algorithm scope:
 - `lic2_contract_adapter` is not the native continuous-time Gaussian-LIC/Coco-LIC tracker.
 - TensorRT/SPNet depth completion requires a generated SPNet TensorRT engine path at runtime; no `.engine` artifact is checked into this repository.
 - The public LIC2 upstream surface does not currently expose separate 2D Gaussian primitive or skybox patches beyond the checked mapper backend.
-- Strict `CBD_Building_01` paper reproduction is blocked until the official bag is available locally and the native algorithm path is complete.
+- Strict `CBD_Building_01` paper reproduction is unblocked at the data/baseline level: the official bag is local and the ROS1 upstream baseline artifacts are archived. The remaining blocker is algorithmic parity in the native ROS2 current path.
 
 ## Immediate Next Step
 
@@ -55,11 +55,12 @@ Current execution gate:
   --strict
 ```
 
-As of 2026-05-04, `CBD_Building_01` is being fetched from the official Google
-Drive file ID discovered by `scripts/fetch_fastlivo2_sequence.py`. The upstream
-ROS1 `gs_mapping` target builds successfully in Docker with the local OpenCV
-4.10 CUDA fallback and TensorRT 8.6.1.6. Strict OpenCV 4.7.0 is still incomplete
-locally.
+As of 2026-05-04, `/home/frank/data/fast_livo/CBD_Building_01.bag` is present
+locally, the upstream ROS1 `gs_mapping` target builds in Docker with the local
+OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6, and
+`baseline/fastlivo2/CBD_Building_01/` contains the archived ROS1 upstream
+baseline (`trajectory.tum`, `point_cloud.ply`, `renders/`, `metrics.json`, and
+`run.log`). Strict OpenCV 4.7.0 is still incomplete locally.
 
 To avoid waiting on the quota-blocked strict sequence, the current executable substitute is the official FAST-LIVO2 `Bright_Screen_Wall` bag, curated to the first 8 seconds. The latest colorized combined proof chain has:
 
@@ -182,4 +183,5 @@ baseline_manifest.json
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
 - [x] PR comparison report on real or curated mini-sequence artifacts.
 - [x] Resumable strict `CBD_Building_01` pipeline entrypoint from official bag to strict report.
-- [ ] Strict `CBD_Building_01` ROS1 upstream baseline archive and report after the official data source becomes downloadable.
+- [x] Strict `CBD_Building_01` ROS1 upstream baseline archive from the official local bag.
+- [ ] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.

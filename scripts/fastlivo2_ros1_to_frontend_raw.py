@@ -67,6 +67,66 @@ def make_camera_info(store, np, header, width, height, fx, fy, cx, cy):
     )
 
 
+def raw_image_to_bgr(cv2, np, source_msg):
+    height = int(source_msg.height)
+    width = int(source_msg.width)
+    step = int(source_msg.step)
+    encoding = str(source_msg.encoding).lower()
+    data = np.asarray(source_msg.data, dtype=np.uint8).reshape(-1)
+    if height <= 0 or width <= 0 or step <= 0:
+        raise ValueError(f"invalid raw image shape: {width}x{height} step={step}")
+    if data.size < height * step:
+        raise ValueError(
+            f"raw image payload is shorter than height*step: data={data.size} expected={height * step}"
+        )
+
+    rows = data[: height * step].reshape(height, step)
+    if encoding == "bgr8":
+        return np.ascontiguousarray(rows[:, : width * 3].reshape(height, width, 3))
+    if encoding == "rgb8":
+        rgb = rows[:, : width * 3].reshape(height, width, 3)
+        return np.ascontiguousarray(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    if encoding == "mono8":
+        mono = rows[:, :width].reshape(height, width)
+        return np.ascontiguousarray(cv2.cvtColor(mono, cv2.COLOR_GRAY2BGR))
+    if encoding == "bgra8":
+        bgra = rows[:, : width * 4].reshape(height, width, 4)
+        return np.ascontiguousarray(cv2.cvtColor(bgra, cv2.COLOR_BGRA2BGR))
+    if encoding == "rgba8":
+        rgba = rows[:, : width * 4].reshape(height, width, 4)
+        return np.ascontiguousarray(cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR))
+    raise ValueError(f"unsupported raw image encoding: {source_msg.encoding}")
+
+
+def make_bgr_image_and_info(store, cv2, np, header, bgr, args):
+    image_cls = store.types["sensor_msgs/msg/Image"]
+    if args.image_width > 0 and args.image_height > 0:
+        bgr = cv2.resize(bgr, (args.image_width, args.image_height), interpolation=cv2.INTER_AREA)
+    height, width = bgr.shape[:2]
+    contiguous = np.ascontiguousarray(bgr)
+    image = image_cls(
+        header=header,
+        height=int(height),
+        width=int(width),
+        encoding="bgr8",
+        is_bigendian=0,
+        step=int(width) * 3,
+        data=contiguous.reshape(-1).astype(np.uint8, copy=False),
+    )
+    camera_info = make_camera_info(
+        store,
+        np,
+        header,
+        width,
+        height,
+        args.fx,
+        args.fy,
+        args.cx,
+        args.cy,
+    )
+    return image, camera_info
+
+
 def make_pointcloud2(store, np, livox_msg, frame_id):
     pointfield_cls = store.types["sensor_msgs/msg/PointField"]
     pointcloud_cls = store.types["sensor_msgs/msg/PointCloud2"]
@@ -112,63 +172,15 @@ def make_pointcloud2(store, np, livox_msg, frame_id):
 
 
 def make_image_and_info(store, cv2, np, source_msg, args):
-    image_cls = store.types["sensor_msgs/msg/Image"]
     header = make_header(store, source_msg.header, args.camera_frame)
     if hasattr(source_msg, "height") and hasattr(source_msg, "width") and hasattr(source_msg, "encoding"):
-        height = int(source_msg.height)
-        width = int(source_msg.width)
-        data = np.asarray(source_msg.data, dtype=np.uint8)
-        image = image_cls(
-            header=header,
-            height=height,
-            width=width,
-            encoding=str(source_msg.encoding),
-            is_bigendian=int(source_msg.is_bigendian),
-            step=int(source_msg.step),
-            data=data.astype(np.uint8, copy=False),
-        )
-        camera_info = make_camera_info(
-            store,
-            np,
-            header,
-            width,
-            height,
-            args.fx,
-            args.fy,
-            args.cx,
-            args.cy,
-        )
-        return image, camera_info
+        return make_bgr_image_and_info(store, cv2, np, header, raw_image_to_bgr(cv2, np, source_msg), args)
 
     encoded = np.asarray(source_msg.data, dtype=np.uint8)
     decoded = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
     if decoded is None:
         raise ValueError("OpenCV could not decode compressed image")
-    if args.image_width > 0 and args.image_height > 0:
-        decoded = cv2.resize(decoded, (args.image_width, args.image_height), interpolation=cv2.INTER_AREA)
-    height, width = decoded.shape[:2]
-    contiguous = np.ascontiguousarray(decoded)
-    image = image_cls(
-        header=header,
-        height=int(height),
-        width=int(width),
-        encoding="bgr8",
-        is_bigendian=0,
-        step=int(width) * 3,
-        data=contiguous.reshape(-1).astype(np.uint8, copy=False),
-    )
-    camera_info = make_camera_info(
-        store,
-        np,
-        header,
-        width,
-        height,
-        args.fx,
-        args.fy,
-        args.cx,
-        args.cy,
-    )
-    return image, camera_info
+    return make_bgr_image_and_info(store, cv2, np, header, decoded, args)
 
 
 def make_storage_plugin(StoragePlugin, name):

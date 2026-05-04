@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <mutex>
 #include <memory>
 #include <string>
 #include <vector>
@@ -184,6 +185,7 @@ public:
     enable_imu_passthrough_ = declare_parameter<bool>("enable_imu_passthrough", true);
     identity_pose_fallback_ = declare_parameter<bool>("identity_pose_fallback", false);
     imu_pose_fallback_ = declare_parameter<bool>("imu_pose_fallback", false);
+    sync_image_to_pointcloud_ = declare_parameter<bool>("sync_image_to_pointcloud", false);
     imu_integration_max_dt_sec_ = declare_parameter<double>("imu_integration_max_dt_sec", 0.05);
     pointcloud_transform_profile_ =
       lowercase(declare_parameter<std::string>("pointcloud_transform_profile", "identity"));
@@ -221,32 +223,45 @@ public:
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
       raw_image_topic_, qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        image_pub_->publish(*msg);
-        ++image_count_;
+        if (sync_image_to_pointcloud_) {
+          std::lock_guard<std::mutex> lock(latest_visual_mutex_);
+          latest_image_ = std::make_shared<sensor_msgs::msg::Image>(*msg);
+        } else {
+          image_pub_->publish(*msg);
+          ++image_count_;
+        }
       });
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
       raw_camera_info_topic_, qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
-        camera_info_pub_->publish(*msg);
-        ++camera_info_count_;
+        if (sync_image_to_pointcloud_) {
+          std::lock_guard<std::mutex> lock(latest_visual_mutex_);
+          latest_camera_info_ = std::make_shared<sensor_msgs::msg::CameraInfo>(*msg);
+        } else {
+          camera_info_pub_->publish(*msg);
+          ++camera_info_count_;
+        }
       });
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       raw_pointcloud_topic_, qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
+        sensor_msgs::msg::PointCloud2 cloud;
         if (transform_pointcloud_to_camera_frame_) {
           try {
-            pointcloud_pub_->publish(transform_pointcloud(*msg));
+            cloud = transform_pointcloud(*msg);
             ++transformed_pointcloud_count_;
           } catch (const std::exception & ex) {
             ++pointcloud_transform_error_count_;
             RCLCPP_WARN_THROTTLE(
               get_logger(), *get_clock(), 2000,
               "failed to transform pointcloud; forwarding original cloud: %s", ex.what());
-            pointcloud_pub_->publish(*msg);
+            cloud = *msg;
           }
         } else {
-          pointcloud_pub_->publish(*msg);
+          cloud = *msg;
         }
+        publish_synced_visuals(msg->header.stamp);
+        pointcloud_pub_->publish(cloud);
         ++pointcloud_count_;
         if (imu_pose_fallback_) {
           publish_imu_pose_fallback(msg->header.stamp);
@@ -300,16 +315,47 @@ public:
       get_logger(),
       "LIC2 contract adapter: raw image=%s pointcloud=%s pose=%s raw_odom=%s -> mapper "
       "image=%s pointcloud=%s pose=%s frontend_odom=%s frontend_path=%s "
-      "fallback(identity=%s imu=%s) pointcloud_transform=%s profile=%s",
+      "fallback(identity=%s imu=%s) image_sync=%s pointcloud_transform=%s profile=%s",
       raw_image_topic_.c_str(), raw_pointcloud_topic_.c_str(), pose_stamped_topic_.c_str(),
       raw_odometry_topic_.c_str(), image_topic_.c_str(), pointcloud_topic_.c_str(),
       pose_topic_.c_str(), frontend_odometry_topic_.c_str(), frontend_path_topic_.c_str(),
       identity_pose_fallback_ ? "true" : "false", imu_pose_fallback_ ? "true" : "false",
+      sync_image_to_pointcloud_ ? "true" : "false",
       transform_pointcloud_to_camera_frame_ ? "true" : "false",
       pointcloud_transform_profile_.c_str());
   }
 
 private:
+  void publish_synced_visuals(const builtin_interfaces::msg::Time & stamp)
+  {
+    if (!sync_image_to_pointcloud_) {
+      return;
+    }
+
+    std::shared_ptr<sensor_msgs::msg::Image> image;
+    std::shared_ptr<sensor_msgs::msg::CameraInfo> camera_info;
+    {
+      std::lock_guard<std::mutex> lock(latest_visual_mutex_);
+      if (latest_image_) {
+        image = std::make_shared<sensor_msgs::msg::Image>(*latest_image_);
+      }
+      if (latest_camera_info_) {
+        camera_info = std::make_shared<sensor_msgs::msg::CameraInfo>(*latest_camera_info_);
+      }
+    }
+
+    if (image) {
+      image->header.stamp = stamp;
+      image_pub_->publish(*image);
+      ++image_count_;
+    }
+    if (camera_info) {
+      camera_info->header.stamp = stamp;
+      camera_info_pub_->publish(*camera_info);
+      ++camera_info_count_;
+    }
+  }
+
   void configure_pointcloud_transform()
   {
     pointcloud_transform_rotation_ = declare_parameter<std::vector<double>>(
@@ -524,6 +570,7 @@ private:
   bool enable_imu_passthrough_{true};
   bool identity_pose_fallback_{false};
   bool imu_pose_fallback_{false};
+  bool sync_image_to_pointcloud_{false};
   bool transform_pointcloud_to_camera_frame_{false};
   bool publish_tf_{false};
   int max_path_length_{5000};
@@ -536,6 +583,9 @@ private:
   bool have_last_imu_stamp_{false};
   int64_t last_imu_stamp_nsec_{0};
   UnitQuaternion imu_orientation_;
+  std::mutex latest_visual_mutex_;
+  std::shared_ptr<sensor_msgs::msg::Image> latest_image_;
+  std::shared_ptr<sensor_msgs::msg::CameraInfo> latest_camera_info_;
 
   size_t image_count_{0};
   size_t camera_info_count_{0};

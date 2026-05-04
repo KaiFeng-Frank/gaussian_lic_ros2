@@ -76,8 +76,8 @@ def main() -> int:
         errors.append("run_bag.launch.py does not use the single-threaded component_container")
     if '"--clock"' not in launch_text:
         errors.append("run_bag.launch.py rosbag2 replay must publish /clock")
-    if '"--read-ahead-queue-size", "1"' not in launch_text:
-        errors.append("run_bag.launch.py strict replay must use read-ahead queue size 1")
+    if '"--read-ahead-queue-size", "100"' not in launch_text:
+        errors.append("run_bag.launch.py strict replay must use bounded read-ahead queue size 100")
     if '"use_sim_time", default_value="true"' not in launch_text:
         errors.append("run_bag.launch.py must default use_sim_time to true")
     if "global_time_regressions" not in timing_audit_text or "strict-storage" not in timing_audit_text:

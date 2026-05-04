@@ -281,7 +281,8 @@ def check_strict_reproduction(args, baseline_dir, current_results):
 
 
 def load_fetch_attempt(dataset_root, sequence):
-    path = dataset_root.expanduser().resolve() / f"{sequence}.fetch.json"
+    root = dataset_root.expanduser().resolve()
+    path = root / f"{sequence}.fetch.json"
     report = {
         "path": str(path),
         "exists": path.is_file(),
@@ -298,6 +299,20 @@ def load_fetch_attempt(dataset_root, sequence):
     report["manifest"] = data
     report["ok"] = bool(data.get("ok"))
     report["error"] = data.get("error")
+    output_path = Path(data.get("output_path") or root / f"{sequence}.bag").expanduser()
+    if not output_path.is_absolute():
+        output_path = root / output_path
+    expected_bytes = data.get("entry", {}).get("bytes")
+    if output_path.is_file():
+        actual_bytes = output_path.stat().st_size
+        size_matches = expected_bytes is None or int(expected_bytes) == actual_bytes
+        report["local_artifact"] = path_entry(output_path)
+        report["local_artifact"]["expected_bytes"] = expected_bytes
+        report["local_artifact"]["size_matches"] = size_matches
+        if size_matches:
+            report["ok"] = True
+            report["previous_error"] = report["error"]
+            report["error"] = None
     return report
 
 

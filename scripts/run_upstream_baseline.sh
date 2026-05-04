@@ -16,6 +16,8 @@ OUTPUT_DIR=""
 CONFIG_NAME="fastlivo2.yaml"
 RUN_TIMEOUT_SEC=0
 PLAY_DELAY_SEC=3
+POST_PLAY_SETTLE_SEC="${GAUSSIAN_LIC_BASELINE_POST_PLAY_SETTLE_SEC:-8}"
+MAPPER_EXIT_TIMEOUT_SEC="${GAUSSIAN_LIC_BASELINE_MAPPER_EXIT_TIMEOUT_SEC:-900}"
 REBUILD=false
 SKIP_BUILD=false
 CHECK_ONLY=false
@@ -40,6 +42,12 @@ Options:
                           /home/frank/.cache/gaussian_lic_ros2/noetic_catkin_gaussian.
   --opencv-dir DIR        OpenCV build directory. Default: OpenCV 4.10 fallback.
   --runtime-sec SEC       Stop runtime after SEC seconds. Default: wait for bag/end.
+  --post-play-settle SEC  Seconds to let upstream queues drain after rosbag play.
+                          Default: ${GAUSSIAN_LIC_BASELINE_POST_PLAY_SETTLE_SEC:-8}.
+  --mapper-exit-timeout SEC
+                          Seconds to wait for upstream evaluation/save after
+                          graceful mapper shutdown. Default:
+                          ${GAUSSIAN_LIC_BASELINE_MAPPER_EXIT_TIMEOUT_SEC:-900}.
   --rebuild               Recreate the persistent upstream workspace before running.
   --skip-build            Require an existing built workspace.
   --check-only            Validate local prerequisites and exit.
@@ -71,6 +79,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --runtime-sec)
       RUN_TIMEOUT_SEC="$2"
+      shift 2
+      ;;
+    --post-play-settle)
+      POST_PLAY_SETTLE_SEC="$2"
+      shift 2
+      ;;
+    --mapper-exit-timeout)
+      MAPPER_EXIT_TIMEOUT_SEC="$2"
       shift 2
       ;;
     --rebuild)
@@ -293,7 +309,7 @@ rosbag record -O '${OUTPUT_IN_CONTAINER}/input_contract.bag' \
   >'${OUTPUT_IN_CONTAINER}/record.log' 2>&1 &
 record_pid=\$!
 
-rosrun gaussian_lic gs_mapping \
+stdbuf -oL -eL rosrun gaussian_lic gs_mapping \
   _config_path:='${OUTPUT_IN_CONTAINER}/runtime_config.yaml' \
   _result_path:='${OUTPUT_IN_CONTAINER}/upstream_result' \
   _lpips_path:=/baseline_ws/src/Gaussian-LIC/src/lpips \
@@ -308,19 +324,40 @@ if [[ -n '${BAG_IN_CONTAINER}' ]]; then
   player_pid=''
 fi
 
-wait_limit='${RUN_TIMEOUT_SEC}'
-if [[ \"\${wait_limit}\" == '0' ]]; then
-  wait_limit=120
+if [[ -n '${BAG_IN_CONTAINER}' ]]; then
+  sleep '${POST_PLAY_SETTLE_SEC}'
+  if kill -0 \${mapper_pid} >/dev/null 2>&1; then
+    kill -INT \${mapper_pid} >/dev/null 2>&1 || true
+  fi
+  mapper_exit_limit='${MAPPER_EXIT_TIMEOUT_SEC}'
+  for _ in \$(seq 1 \"\${mapper_exit_limit}\"); do
+    if ! kill -0 \${mapper_pid} >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  if kill -0 \${mapper_pid} >/dev/null 2>&1; then
+    echo 'Timed out waiting for upstream mapper to finish evaluation/save' >&2
+    kill -TERM \${mapper_pid} >/dev/null 2>&1 || true
+  else
+    wait \${mapper_pid} || true
+    mapper_pid=''
+  fi
+else
+  wait_limit='${RUN_TIMEOUT_SEC}'
+  if [[ \"\${wait_limit}\" == '0' ]]; then
+    wait_limit=120
+  fi
+  for _ in \$(seq 1 \"\${wait_limit}\"); do
+    if [[ -f '${OUTPUT_IN_CONTAINER}/upstream_result/point_cloud.ply' ]]; then
+      break
+    fi
+    if ! kill -0 \${mapper_pid} >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
 fi
-for _ in \$(seq 1 \"\${wait_limit}\"); do
-  if [[ -f '${OUTPUT_IN_CONTAINER}/upstream_result/point_cloud.ply' ]]; then
-    break
-  fi
-  if ! kill -0 \${mapper_pid} >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
 if [[ ! -f '${OUTPUT_IN_CONTAINER}/upstream_result/point_cloud.ply' ]]; then
   echo 'Timed out waiting for upstream point_cloud.ply' >&2
 fi

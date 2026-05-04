@@ -42,8 +42,14 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
 
 ## Rosbag Replay
 
-- Launch replay uses `ros2 bag play ... --clock --read-ahead-queue-size 1`
-  and `use_sim_time:=true`.
+- Launch replay uses `ros2 bag play ... --clock --read-ahead-queue-size 100`
+  and `use_sim_time:=true`. The queue stays bounded for deterministic pressure
+  while still large enough for Jazzy rosbag2 to deliver mixed high-rate sensor
+  topics.
+- Strict current collection replays finite datasets without `--loop` by default,
+  waits for playback completion, then keeps the mapper alive for a configurable
+  settle window before saving outputs. `--loop-playback` is reserved for smoke
+  and soak tests where repeated frames are intentional.
 - Strict baseline comparison still needs the same topic stamps and start order as
   the ROS1 run. If rosbag2 playback ordering is not enough for a target sequence,
   add a deterministic sequential replay helper instead of tuning estimator code.

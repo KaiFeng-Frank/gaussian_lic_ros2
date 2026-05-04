@@ -7,7 +7,7 @@ LOOP=false
 AUDIT=true
 STRICT_STORAGE=false
 DRY_RUN=false
-READ_AHEAD_QUEUE_SIZE=1
+READ_AHEAD_QUEUE_SIZE=100
 RATE=""
 START_OFFSET=""
 REQUIRED_TOPICS=()
@@ -22,7 +22,7 @@ Options:
   --loop                         Loop playback.
   --rate VALUE                   Pass a ros2 bag playback rate.
   --start-offset SEC             Pass a ros2 bag start offset.
-  --read-ahead-queue-size N      Queue size for ros2 bag play. Default: 1.
+  --read-ahead-queue-size N      Queue size for ros2 bag play. Default: 100.
   --required-topic TOPIC         Require a topic in metadata before playback.
   --strict-storage               Require sqlite3 storage for timestamp-order audit.
   --disable-audit                Skip rosbag2_timing_audit.py.

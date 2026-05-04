@@ -66,6 +66,29 @@ def normalize_quaternion(q):
     return tuple(value / norm for value in q)
 
 
+def quaternion_matrix(np, q):
+    qw, qx, qy, qz = normalize_quaternion(q)
+    return np.asarray(
+        [
+            [1.0 - 2.0 * (qy * qy + qz * qz), 2.0 * (qx * qy - qz * qw), 2.0 * (qx * qz + qy * qw)],
+            [2.0 * (qx * qy + qz * qw), 1.0 - 2.0 * (qx * qx + qz * qz), 2.0 * (qy * qz - qx * qw)],
+            [2.0 * (qx * qz - qy * qw), 2.0 * (qy * qz + qx * qw), 1.0 - 2.0 * (qx * qx + qy * qy)],
+        ],
+        dtype=np.float64,
+    )
+
+
+def rotate_xyz(np, x, y, z, q):
+    rotation = quaternion_matrix(np, q)
+    xyz = np.vstack([
+        np.asarray(x, dtype=np.float64),
+        np.asarray(y, dtype=np.float64),
+        np.asarray(z, dtype=np.float64),
+    ])
+    rotated = rotation @ xyz
+    return rotated[0], rotated[1], rotated[2]
+
+
 def multiply_quaternion(lhs, rhs):
     lw, lx, ly, lz = lhs
     rw, rx, ry, rz = rhs
@@ -166,10 +189,10 @@ def image_msg_to_rgb_float(np, source_msg):
     raise ValueError(f"unsupported image encoding for pointcloud colorization: {source_msg.encoding}")
 
 
-def make_ros1_image(store, np, source_msg, frame_id, seq):
+def make_ros1_image(store, np, source_msg, frame_id, seq, stamp_header=None):
     image_cls = store.types["sensor_msgs/msg/Image"]
     return image_cls(
-        header=make_ros1_header(store, source_msg.header, frame_id, seq),
+        header=make_ros1_header(store, stamp_header if stamp_header is not None else source_msg.header, frame_id, seq),
         height=int(source_msg.height),
         width=int(source_msg.width),
         encoding=source_msg.encoding,
@@ -286,10 +309,11 @@ def packed_rgb_float(red, green, blue):
     return struct.unpack("<f", struct.pack("<I", rgb))[0]
 
 
-def colorized_pointcloud_payload(np, point_bytes, fields, x, y, z, mask, image_rgb, args, endian):
+def colorized_pointcloud_payload(np, point_bytes, fields, x, y, z, mask, image_rgb, args, endian, output_xyz=None):
     kept_indices = np.nonzero(mask)[0]
     fallback = intensity_rgb(np, point_bytes, fields, kept_indices, endian)
     colors = projected_rgb(np, x, y, z, kept_indices, image_rgb, args, fallback)
+    out_x, out_y, out_z = output_xyz if output_xyz is not None else (x, y, z)
 
     point_step = 20
     payload = bytearray(len(kept_indices) * point_step)
@@ -300,9 +324,9 @@ def colorized_pointcloud_payload(np, point_bytes, fields, x, y, z, mask, image_r
             "<ffffBBBB",
             payload,
             offset,
-            float(x[source_index]),
-            float(y[source_index]),
-            float(z[source_index]),
+            float(out_x[source_index]),
+            float(out_y[source_index]),
+            float(out_z[source_index]),
             packed_rgb_float(red, green, blue),
             int(red),
             int(green),
@@ -325,7 +349,7 @@ def colorized_point_fields(store):
     ]
 
 
-def filtered_pointcloud_payload(np, source_msg, args, image_rgb):
+def filtered_pointcloud_payload(np, source_msg, args, image_rgb, world_orientation=None):
     fields = field_map(source_msg)
     if not {"x", "y", "z"}.issubset(fields):
         raise ValueError("PointCloud2 is missing x/y/z fields")
@@ -341,25 +365,41 @@ def filtered_pointcloud_payload(np, source_msg, args, image_rgb):
     y = float32_column(np, point_bytes, int(fields["y"].offset), endian)
     z = float32_column(np, point_bytes, int(fields["z"].offset), endian)
     x, y, z = transform_xyz(np, x, y, z, args)
-    if args.pointcloud_transform_profile != "identity":
-        write_float32_column(np, point_bytes, int(fields["x"].offset), x, endian)
-        write_float32_column(np, point_bytes, int(fields["y"].offset), y, endian)
-        write_float32_column(np, point_bytes, int(fields["z"].offset), z, endian)
     mask = np.isfinite(x) & np.isfinite(y) & np.isfinite(z) & (z > float(args.min_z))
     if args.max_z > 0.0:
         mask &= z <= float(args.max_z)
+
+    out_x, out_y, out_z = x, y, z
+    if world_orientation is not None:
+        out_x, out_y, out_z = rotate_xyz(np, x, y, z, world_orientation)
+
+    if args.pointcloud_transform_profile != "identity" or world_orientation is not None:
+        write_float32_column(np, point_bytes, int(fields["x"].offset), out_x, endian)
+        write_float32_column(np, point_bytes, int(fields["y"].offset), out_y, endian)
+        write_float32_column(np, point_bytes, int(fields["z"].offset), out_z, endian)
     if args.colorize_pointcloud:
         filtered, kept_points, point_step = colorized_pointcloud_payload(
-            np, point_bytes, fields, x, y, z, mask, image_rgb, args, endian)
+            np,
+            point_bytes,
+            fields,
+            x,
+            y,
+            z,
+            mask,
+            image_rgb,
+            args,
+            endian,
+            output_xyz=(out_x, out_y, out_z),
+        )
         return filtered, int(point_bytes.shape[0]), kept_points, point_step
 
     filtered = np.ascontiguousarray(point_bytes[mask]).reshape(-1)
     return filtered, int(point_bytes.shape[0]), int(mask.sum()), int(source_msg.point_step)
 
 
-def make_ros1_pointcloud(store, np, source_msg, frame_id, seq, args, image_rgb):
+def make_ros1_pointcloud(store, np, source_msg, frame_id, seq, args, image_rgb, world_orientation=None):
     filtered_data, raw_points, kept_points, point_step = filtered_pointcloud_payload(
-        np, source_msg, args, image_rgb)
+        np, source_msg, args, image_rgb, world_orientation)
     fields = colorized_point_fields(store) if args.colorize_pointcloud else convert_point_fields(
         store, source_msg.fields)
     pointcloud_cls = store.types["sensor_msgs/msg/PointCloud2"]
@@ -412,10 +452,15 @@ def iter_xyz(cloud_msg, max_points):
             count += 1
 
 
-def make_projected_depth(store, np, cloud_msg, args, seq):
+def make_projected_depth(store, np, cloud_msg, args, seq, world_orientation=None):
     image_cls = store.types["sensor_msgs/msg/Image"]
     depth = np.zeros((args.height, args.width), dtype=np.float32)
+    world_to_camera = None
+    if world_orientation is not None:
+        world_to_camera = quaternion_matrix(np, world_orientation).transpose()
     for x, y, z in iter_xyz(cloud_msg, args.max_depth_points):
+        if world_to_camera is not None:
+            x, y, z = world_to_camera @ np.asarray([x, y, z], dtype=np.float64)
         if not (z > 0.0):
             continue
         u = int(round(args.fx * x / z + args.cx))
@@ -460,6 +505,7 @@ def convert(args):
     first_time = None
     seq = 0
     counts = {
+        "input_images": 0,
         "images": 0,
         "points": 0,
         "poses": 0,
@@ -476,6 +522,7 @@ def convert(args):
         "orientation": (1.0, 0.0, 0.0, 0.0),
         "last_imu_stamp_nsec": None,
     }
+    latest_image_msg = None
     latest_image_rgb = None
 
     with AnyReader([input_path], default_typestore=ros2_store) as reader, Writer(output_path) as writer:
@@ -515,15 +562,25 @@ def convert(args):
             msg = reader.deserialize(rawdata, connection.msgtype)
             seq += 1
             if connection.topic == args.input_image_topic:
+                latest_image_msg = msg
                 if args.colorize_pointcloud:
                     latest_image_rgb = image_msg_to_rgb_float(np, msg)
-                image = make_ros1_image(ros1_store, np, msg, args.camera_frame, seq)
-                timestamp = stamp_to_nsec(image.header.stamp)
-                writer.write(image_conn, timestamp, ros1_store.serialize_ros1(image, "sensor_msgs/msg/Image"))
-                counts["images"] += 1
+                counts["input_images"] += 1
+                if not args.sync_image_to_pointcloud:
+                    image = make_ros1_image(ros1_store, np, msg, args.camera_frame, seq)
+                    timestamp = stamp_to_nsec(image.header.stamp)
+                    writer.write(image_conn, timestamp, ros1_store.serialize_ros1(image, "sensor_msgs/msg/Image"))
+                    counts["images"] += 1
             elif connection.topic == args.input_pointcloud_topic:
+                if args.sync_image_to_pointcloud and latest_image_msg is None:
+                    counts["dropped_clouds"] += 1
+                    continue
+                orientation = (
+                    imu_state["orientation"] if args.imu_pose_fallback else (1.0, 0.0, 0.0, 0.0)
+                )
+                world_orientation = orientation if args.imu_pose_fallback else None
                 cloud, raw_points, kept_points = make_ros1_pointcloud(
-                    ros1_store, np, msg, args.lidar_frame, seq, args, latest_image_rgb)
+                    ros1_store, np, msg, args.lidar_frame, seq, args, latest_image_rgb, world_orientation)
                 counts["raw_point_samples"] += raw_points
                 counts["written_point_samples"] += kept_points
                 if kept_points < args.min_points_per_cloud:
@@ -535,13 +592,25 @@ def convert(args):
                     args.world_frame,
                     args.camera_frame,
                     seq,
-                    imu_state["orientation"] if args.imu_pose_fallback else (1.0, 0.0, 0.0, 0.0),
+                    orientation,
                 )
-                depth = make_projected_depth(ros1_store, np, cloud, args, seq)
+                depth = make_projected_depth(ros1_store, np, cloud, args, seq, world_orientation)
                 timestamp = stamp_to_nsec(cloud.header.stamp)
+                if args.sync_image_to_pointcloud:
+                    image = make_ros1_image(
+                        ros1_store,
+                        np,
+                        latest_image_msg,
+                        args.camera_frame,
+                        seq,
+                        stamp_header=msg.header,
+                    )
+                    writer.write(image_conn, timestamp, ros1_store.serialize_ros1(image, "sensor_msgs/msg/Image"))
                 writer.write(point_conn, timestamp, ros1_store.serialize_ros1(cloud, "sensor_msgs/msg/PointCloud2"))
                 writer.write(pose_conn, timestamp, ros1_store.serialize_ros1(pose, "geometry_msgs/msg/PoseStamped"))
                 writer.write(depth_conn, timestamp, ros1_store.serialize_ros1(depth, "sensor_msgs/msg/Image"))
+                if args.sync_image_to_pointcloud:
+                    counts["images"] += 1
                 counts["points"] += 1
                 counts["poses"] += 1
                 counts["depths"] += 1
@@ -614,6 +683,13 @@ def main(argv=None):
         action="store_true",
         help="Write packed rgb/r/g/b fields from image projection with intensity fallback.",
     )
+    parser.add_argument(
+        "--no-sync-image-to-pointcloud",
+        action="store_false",
+        dest="sync_image_to_pointcloud",
+        help="Keep /image_for_gs at source camera stamps instead of re-stamping each image to the matched cloud.",
+    )
+    parser.set_defaults(sync_image_to_pointcloud=True)
     parser.add_argument("--min-points-per-cloud", type=int, default=1)
     parser.add_argument("--max-depth-points", type=int, default=200000)
     parser.add_argument("--max-duration-sec", type=float, default=0.0)

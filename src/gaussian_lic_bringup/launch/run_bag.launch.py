@@ -20,6 +20,7 @@ def generate_launch_description():
     frontend_adapter = LaunchConfiguration("frontend_adapter")
     adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
     adapter_imu_pose_fallback = LaunchConfiguration("adapter_imu_pose_fallback")
+    adapter_sync_image_to_pointcloud = LaunchConfiguration("adapter_sync_image_to_pointcloud")
     adapter_pointcloud_transform_profile = LaunchConfiguration("adapter_pointcloud_transform_profile")
     adapter_raw_pointcloud_topic = LaunchConfiguration("adapter_raw_pointcloud_topic")
     livox_custom_bridge = LaunchConfiguration("livox_custom_bridge")
@@ -124,6 +125,7 @@ def generate_launch_description():
             "raw_pointcloud_topic": adapter_raw_pointcloud_topic,
             "identity_pose_fallback": adapter_identity_pose_fallback,
             "imu_pose_fallback": adapter_imu_pose_fallback,
+            "sync_image_to_pointcloud": adapter_sync_image_to_pointcloud,
             "pointcloud_transform_profile": adapter_pointcloud_transform_profile,
             "publish_tf": publish_tf,
         },
@@ -169,6 +171,11 @@ def generate_launch_description():
             "adapter_imu_pose_fallback",
             default_value="false",
             description="Let the adapter integrate IMU gyro orientation for pose fallback when no odometry is available",
+        ),
+        DeclareLaunchArgument(
+            "adapter_sync_image_to_pointcloud",
+            default_value="false",
+            description="Re-stamp the latest raw image/camera_info to each point-cloud stamp before mapper output",
         ),
         DeclareLaunchArgument(
             "adapter_pointcloud_transform_profile",
@@ -315,13 +322,13 @@ def generate_launch_description():
         DeclareLaunchArgument("rviz_config", default_value=default_rviz_config, description="RViz2 config file"),
 
         ExecuteProcess(
-            cmd=["ros2", "bag", "play", bag, "--clock", "--read-ahead-queue-size", "1"],
+            cmd=["ros2", "bag", "play", bag, "--clock", "--read-ahead-queue-size", "100"],
             output="screen",
             condition=play_bag_once_condition,
         ),
 
         ExecuteProcess(
-            cmd=["ros2", "bag", "play", bag, "--clock", "--read-ahead-queue-size", "1", "--loop"],
+            cmd=["ros2", "bag", "play", bag, "--clock", "--read-ahead-queue-size", "100", "--loop"],
             output="screen",
             condition=play_bag_loop_condition,
         ),
