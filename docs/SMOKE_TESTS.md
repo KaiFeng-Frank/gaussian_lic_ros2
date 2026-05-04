@@ -208,7 +208,7 @@ The offline artifact extraction check writes `point_cloud_debug.ply`, verifies t
 
 `gaussian_lic_offline` also accepts `--bag-format ros1` for direct ROS1 `.bag` artifact extraction when the optional `rosbags` package is available. This path writes the same artifact files as rosbag2 extraction and records `bag_format: ros1` plus `storage_identifier: rosbag1` in `metrics.json`.
 
-The workspace verification script also exercises `scripts/trajectory_compare.py`, `scripts/pointcloud_compare.py`, `scripts/baseline_manifest.py`, and `scripts/reproduction_report.py` with tiny synthetic artifacts. These are the CI-ready archive and drift gates for archived ROS1 baseline trajectories and PLY maps once real sequence artifacts are available.
+The workspace verification script calls `scripts/verify_artifact_gates.sh`, which exercises `scripts/trajectory_compare.py`, `scripts/pointcloud_compare.py`, `scripts/baseline_manifest.py`, and `scripts/reproduction_report.py` with tiny synthetic artifacts. GitHub Actions runs the same Python-only gate before the ROS build matrix, so archive/report regressions do not need a ROS runtime to fail fast.
 
 Reliable input-QoS rosbag2 check:
 

@@ -6,6 +6,33 @@ on:
     branches: [main]
 
 jobs:
+  artifact-gates:
+    name: artifact-gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ripgrep
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/*.sh
+          /usr/bin/python3 -m py_compile scripts/*.py
+          ./scripts/check_profiles.py
+
+      - name: Artifact comparison gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/verify_artifact_gates.sh
+
   build:
     name: build-${{ matrix.ros_distro }}
     runs-on: ubuntu-latest
@@ -45,9 +72,7 @@ jobs:
           set -u
           bash -n scripts/*.sh
           /usr/bin/python3 -m py_compile \
-            scripts/check_profiles.py \
-            scripts/convert_ros1_bag_to_rosbag2.py \
-            scripts/perf_regression.py \
+            scripts/*.py \
             src/gaussian_lic_bringup/launch/run_bag.launch.py \
             src/gaussian_lic_tools/gaussian_lic_tools/*.py
           ./scripts/check_profiles.py

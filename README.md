@@ -339,6 +339,12 @@ Generate one combined reproduction report:
 
 The combined report validates the baseline manifest and runs metrics, trajectory, and PLY map drift gates in one command. It exits non-zero when any gate fails and is intended as the future CI comparison artifact.
 
+Run the same Python-only artifact gates used by GitHub Actions locally:
+
+```bash
+./scripts/verify_artifact_gates.sh
+```
+
 ## Release Roadmap
 
 The public plan is release-driven:

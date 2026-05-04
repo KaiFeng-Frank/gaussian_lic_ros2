@@ -56,7 +56,7 @@ cd "${ROOT_DIR}"
 
 echo "[verify] bash syntax"
 bash -n scripts/build_jazzy.sh scripts/create_synthetic_bag.sh scripts/fetch_upstreams.sh \
-  scripts/smoke_test.sh scripts/verify_workspace.sh
+  scripts/smoke_test.sh scripts/verify_artifact_gates.sh scripts/verify_workspace.sh
 
 echo "[verify] python syntax"
 /usr/bin/python3 - <<'PY'
@@ -128,112 +128,8 @@ rg -q '"topic_hz"' /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q '"path_length_m"' /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q '"points_with_color": [1-9]' /tmp/gaussian_lic_offline_verify/metrics.json
 
-echo "[verify] trajectory comparison"
-cat >/tmp/gaussian_lic_baseline.tum <<'EOF'
-0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
-0.100000000 1.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
-0.200000000 2.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
-EOF
-cat >/tmp/gaussian_lic_current.tum <<'EOF'
-0.000000000 0.002000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
-0.100000000 1.003000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
-0.200000000 2.004000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
-EOF
-./scripts/trajectory_compare.py \
-  --baseline /tmp/gaussian_lic_baseline.tum \
-  --current /tmp/gaussian_lic_current.tum \
-  --output /tmp/gaussian_lic_trajectory_compare.json \
-  --max-rmse-m 0.01 \
-  --max-mean-m 0.01 \
-  --max-error-m 0.01
-rg -q '"ok": true' /tmp/gaussian_lic_trajectory_compare.json
-
-echo "[verify] point cloud comparison"
-cat >/tmp/gaussian_lic_baseline.ply <<'EOF'
-ply
-format ascii 1.0
-element vertex 3
-property float x
-property float y
-property float z
-property uchar red
-property uchar green
-property uchar blue
-end_header
-0.000000000 0.000000000 0.000000000 255 32 16
-1.000000000 0.000000000 0.000000000 255 32 16
-2.000000000 0.000000000 0.000000000 255 32 16
-EOF
-cat >/tmp/gaussian_lic_current.ply <<'EOF'
-ply
-format ascii 1.0
-element vertex 3
-property float x
-property float y
-property float z
-property uchar red
-property uchar green
-property uchar blue
-end_header
-0.001000000 0.000000000 0.000000000 255 32 16
-1.002000000 0.000000000 0.000000000 255 32 16
-2.003000000 0.000000000 0.000000000 255 32 16
-EOF
-./scripts/pointcloud_compare.py \
-  --baseline /tmp/gaussian_lic_baseline.ply \
-  --current /tmp/gaussian_lic_current.ply \
-  --output /tmp/gaussian_lic_pointcloud_compare.json \
-  --voxel-size 0 \
-  --max-nearest-m 0.01 \
-  --max-centroid-drift-m 0.01 \
-  --max-chamfer-rmse-m 0.01 \
-  --max-chamfer-mean-m 0.01 \
-  --max-chamfer-max-m 0.01
-rg -q '"ok": true' /tmp/gaussian_lic_pointcloud_compare.json
-
-echo "[verify] baseline manifest"
-rm -rf /tmp/gaussian_lic_baseline_manifest
-mkdir -p /tmp/gaussian_lic_baseline_manifest/renders
-cp /tmp/gaussian_lic_baseline.tum /tmp/gaussian_lic_baseline_manifest/trajectory.tum
-cp /tmp/gaussian_lic_baseline.ply /tmp/gaussian_lic_baseline_manifest/point_cloud.ply
-printf '{"tracking_hz": 10.0, "mapping_hz": 10.0, "mean_iteration_ms": 1.0}\n' \
-  >/tmp/gaussian_lic_baseline_manifest/metrics.json
-printf 'synthetic baseline run\n' >/tmp/gaussian_lic_baseline_manifest/run.log
-printf 'synthetic render placeholder\n' >/tmp/gaussian_lic_baseline_manifest/renders/frame_000001.txt
-./scripts/baseline_manifest.py \
-  --baseline /tmp/gaussian_lic_baseline_manifest \
-  --sequence synthetic_verify \
-  --write \
-  --json \
-  >/tmp/gaussian_lic_baseline_manifest.json
-rg -q '"ok": true' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
-rg -q '"trajectory_poses": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
-rg -q '"point_cloud_vertices": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
-
-echo "[verify] reproduction report"
-rm -rf /tmp/gaussian_lic_current_report
-mkdir -p /tmp/gaussian_lic_current_report
-cp /tmp/gaussian_lic_current.tum /tmp/gaussian_lic_current_report/trajectory.tum
-cp /tmp/gaussian_lic_current.ply /tmp/gaussian_lic_current_report/point_cloud.ply
-printf '{"tracking_hz": 9.8, "mapping_hz": 9.7, "mean_iteration_ms": 1.05}\n' \
-  >/tmp/gaussian_lic_current_report/metrics.json
-./scripts/reproduction_report.py \
-  --baseline-dir /tmp/gaussian_lic_baseline_manifest \
-  --current-dir /tmp/gaussian_lic_current_report \
-  --sequence synthetic_verify \
-  --output /tmp/gaussian_lic_reproduction_report.json \
-  --markdown /tmp/gaussian_lic_reproduction_report.md \
-  --max-trajectory-rmse-m 0.01 \
-  --max-trajectory-mean-m 0.01 \
-  --max-trajectory-error-m 0.01 \
-  --pointcloud-voxel-size 0 \
-  --max-nearest-m 0.01 \
-  --max-centroid-drift-m 0.01 \
-  --max-chamfer-rmse-m 0.01 \
-  --max-chamfer-mean-m 0.01 \
-  --max-chamfer-max-m 0.01
-rg -q '"ok": true' /tmp/gaussian_lic_reproduction_report.json
-rg -q '| metrics | PASS |' /tmp/gaussian_lic_reproduction_report.md
+echo "[verify] artifact gates"
+./scripts/verify_artifact_gates.sh
 
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf
