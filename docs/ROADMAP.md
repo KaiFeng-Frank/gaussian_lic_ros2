@@ -66,7 +66,8 @@ run.log
 - [x] Accumulate converted frames into a non-torch `MapperDataset`.
 - [x] Publish ROS2 odometry, path, and accumulated map-point topics from the native mapper.
 - [x] Add optional `map -> camera` TF broadcasting.
-- [ ] Replace remaining ROS1 parameters, node handles, publishers, and launch files.
+- [x] Port upstream Gaussian-LIC backend parameter names into ROS2 profiles.
+- [ ] Replace remaining ROS1 node handles, publishers, and launch files.
 - [ ] Isolate CUDA/Gaussian map code from ROS middleware code.
 - [x] Add optional libtorch/CUDA build path.
 - [x] Add live `MapperDataset -> TorchCamera` conversion behind a build flag.

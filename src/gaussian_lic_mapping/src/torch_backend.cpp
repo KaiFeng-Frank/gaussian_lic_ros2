@@ -360,6 +360,24 @@ TorchGaussianMap initialize_gaussian_map(
   return map;
 }
 
+TorchGaussianMap initialize_gaussian_map(
+  const MapperDataset & dataset,
+  const GaussianBackendConfig & config,
+  const double fx,
+  const double fy,
+  torch::Device device)
+{
+  return initialize_gaussian_map(
+    dataset,
+    config.sh_degree,
+    config.scaling_scale,
+    fx,
+    fy,
+    device,
+    config.skybox_points_num,
+    config.skybox_radius);
+}
+
 size_t append_pending_points_to_gaussian_map(
   TorchGaussianMap & map,
   const MapperDataset & dataset,
@@ -393,6 +411,18 @@ size_t append_pending_points_to_gaussian_map(
   require_grad_for_map(map);
   map.foreground_count += foreground.foreground_count;
   return foreground.foreground_count;
+}
+
+size_t append_pending_points_to_gaussian_map(
+  TorchGaussianMap & map,
+  const MapperDataset & dataset,
+  const GaussianBackendConfig & config,
+  const double fx,
+  const double fy,
+  torch::Device device)
+{
+  return append_pending_points_to_gaussian_map(
+    map, dataset, config.sh_degree, config.scaling_scale, fx, fy, device);
 }
 
 }  // namespace gaussian_lic_mapping

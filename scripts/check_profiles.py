@@ -31,8 +31,29 @@ REQUIRED_PARAMS = {
     "fy": (int, float),
     "cx": (int, float),
     "cy": (int, float),
+    "width": int,
+    "height": int,
+    "depth_completion": bool,
+    "patch_size": int,
+    "max_depth": (int, float),
     "sh_degree": int,
+    "white_background": bool,
+    "random_background": bool,
+    "convert_SHs_python": bool,
+    "compute_cov3D_python": bool,
+    "lambda_erank": (int, float),
     "scaling_scale": (int, float),
+    "position_lr": (int, float),
+    "feature_lr": (int, float),
+    "opacity_lr": (int, float),
+    "scaling_lr": (int, float),
+    "rotation_lr": (int, float),
+    "lambda_dssim": (int, float),
+    "optimize_depth": bool,
+    "lambda_depth": (int, float),
+    "iteration_decay": bool,
+    "apply_exposure": bool,
+    "exposure_lr": (int, float),
     "gaussian_init_min_points": int,
     "gaussian_init_min_keyframes": int,
     "enable_torch_gaussian_extend": bool,
@@ -116,16 +137,36 @@ def check_profile(path: Path) -> list[str]:
     if "rendered_image_mode" in params:
         errors.append("rendered_image_mode is deprecated; use render_mode")
 
-    for key in ("fx", "fy", "sync_tolerance_sec", "scaling_scale"):
+    for key in (
+        "fx",
+        "fy",
+        "sync_tolerance_sec",
+        "max_depth",
+        "scaling_scale",
+        "position_lr",
+        "feature_lr",
+        "opacity_lr",
+        "scaling_lr",
+        "rotation_lr",
+        "exposure_lr",
+    ):
         value = params.get(key)
         if isinstance(value, (int, float)) and value <= 0:
             errors.append(f"{key} must be positive")
+
+    for key in ("lambda_erank", "lambda_dssim", "lambda_depth"):
+        value = params.get(key)
+        if isinstance(value, (int, float)) and value < 0:
+            errors.append(f"{key} must be non-negative")
 
     for key in (
         "max_queue_size",
         "sensor_qos_depth",
         "process_period_ms",
         "select_every_k_frame",
+        "width",
+        "height",
+        "patch_size",
         "gaussian_init_min_points",
         "gaussian_init_min_keyframes",
         "gaussian_map_chunk_size",

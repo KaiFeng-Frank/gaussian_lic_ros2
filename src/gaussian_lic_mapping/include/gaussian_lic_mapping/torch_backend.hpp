@@ -8,6 +8,7 @@
 #include <opencv2/core.hpp>
 #include <torch/torch.h>
 
+#include <gaussian_lic_mapping/backend_config.hpp>
 #include <gaussian_lic_mapping/mapper_dataset.hpp>
 
 namespace gaussian_lic_mapping
@@ -69,11 +70,26 @@ TorchGaussianMap initialize_gaussian_map(
   int skybox_points_num = 0,
   double skybox_radius = 1000.0);
 
+TorchGaussianMap initialize_gaussian_map(
+  const MapperDataset & dataset,
+  const GaussianBackendConfig & config,
+  double fx,
+  double fy,
+  torch::Device device = torch::kCPU);
+
 size_t append_pending_points_to_gaussian_map(
   TorchGaussianMap & map,
   const MapperDataset & dataset,
   int sh_degree,
   double scaling_scale,
+  double fx,
+  double fy,
+  torch::Device device = torch::kCPU);
+
+size_t append_pending_points_to_gaussian_map(
+  TorchGaussianMap & map,
+  const MapperDataset & dataset,
+  const GaussianBackendConfig & config,
   double fx,
   double fy,
   torch::Device device = torch::kCPU);

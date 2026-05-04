@@ -206,7 +206,7 @@ Validate profile schema:
 ./scripts/check_profiles.py
 ```
 
-These profiles currently cover the native mapper surface: topic names, QoS, synchronization, upstream camera intrinsics, Gaussian initialization parameters, output topics, and active profile labels. Full real-dataset replay still needs the native Coco-LIC tracking port and real bag/topic adapters.
+These profiles currently cover the native mapper surface: topic names, QoS, synchronization, upstream camera intrinsics, image size, depth-completion toggles, Gaussian initialization/map-growth parameters, upstream optimizer/loss/exposure parameter names, output topics, and active profile labels. Full real-dataset replay still needs the native Coco-LIC tracking port, real bag/topic adapters, and the CUDA rasterizer/optimizer port.
 
 ## Performance Regression
 

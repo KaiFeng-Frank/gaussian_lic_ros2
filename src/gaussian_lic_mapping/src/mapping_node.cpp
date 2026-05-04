@@ -23,6 +23,7 @@
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
 #include <gaussian_lic_msgs/msg/mapping_status.hpp>
 #include <gaussian_lic_msgs/srv/save_map.hpp>
+#include <gaussian_lic_mapping/backend_config.hpp>
 #include <gaussian_lic_mapping/frame_data.hpp>
 #include <gaussian_lic_mapping/mapper_dataset.hpp>
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
@@ -82,6 +83,11 @@ public:
     fy_ = declare_parameter<double>("fy", 1.0);
     cx_ = declare_parameter<double>("cx", 0.5);
     cy_ = declare_parameter<double>("cy", 0.5);
+    backend_config_.width = declare_parameter<int>("width", 0);
+    backend_config_.height = declare_parameter<int>("height", 0);
+    backend_config_.depth_completion = declare_parameter<bool>("depth_completion", false);
+    backend_config_.patch_size = declare_parameter<int>("patch_size", 10);
+    backend_config_.max_depth = declare_parameter<double>("max_depth", 20.0);
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     enable_torch_camera_conversion_ = declare_parameter<bool>("enable_torch_camera_conversion", false);
     enable_torch_gaussian_init_ = declare_parameter<bool>("enable_torch_gaussian_init", false);
@@ -93,10 +99,26 @@ public:
 #endif
     gaussian_init_min_points_ = declare_parameter<int>("gaussian_init_min_points", 1);
     gaussian_init_min_keyframes_ = declare_parameter<int>("gaussian_init_min_keyframes", 1);
-    sh_degree_ = declare_parameter<int>("sh_degree", 3);
-    scaling_scale_ = declare_parameter<double>("scaling_scale", 1.0);
-    skybox_points_num_ = declare_parameter<int>("skybox_points_num", 0);
-    skybox_radius_ = declare_parameter<double>("skybox_radius", 1000.0);
+    backend_config_.sh_degree = declare_parameter<int>("sh_degree", 3);
+    backend_config_.white_background = declare_parameter<bool>("white_background", false);
+    backend_config_.random_background = declare_parameter<bool>("random_background", false);
+    backend_config_.convert_shs_python = declare_parameter<bool>("convert_SHs_python", false);
+    backend_config_.compute_cov3d_python = declare_parameter<bool>("compute_cov3D_python", false);
+    backend_config_.lambda_erank = declare_parameter<double>("lambda_erank", 0.0);
+    backend_config_.scaling_scale = declare_parameter<double>("scaling_scale", 1.0);
+    backend_config_.position_lr = declare_parameter<double>("position_lr", 0.00016);
+    backend_config_.feature_lr = declare_parameter<double>("feature_lr", 0.005);
+    backend_config_.opacity_lr = declare_parameter<double>("opacity_lr", 0.05);
+    backend_config_.scaling_lr = declare_parameter<double>("scaling_lr", 0.005);
+    backend_config_.rotation_lr = declare_parameter<double>("rotation_lr", 0.001);
+    backend_config_.lambda_dssim = declare_parameter<double>("lambda_dssim", 0.2);
+    backend_config_.optimize_depth = declare_parameter<bool>("optimize_depth", true);
+    backend_config_.lambda_depth = declare_parameter<double>("lambda_depth", 0.005);
+    backend_config_.iteration_decay = declare_parameter<bool>("iteration_decay", false);
+    backend_config_.apply_exposure = declare_parameter<bool>("apply_exposure", false);
+    backend_config_.exposure_lr = declare_parameter<double>("exposure_lr", 0.001);
+    backend_config_.skybox_points_num = declare_parameter<int>("skybox_points_num", 0);
+    backend_config_.skybox_radius = declare_parameter<double>("skybox_radius", 1000.0);
     torch_gaussian_device_name_ = declare_parameter<std::string>("torch_gaussian_device", "cpu");
     gaussian_map_chunk_size_ = declare_parameter<int>("gaussian_map_chunk_size", 1024);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
@@ -233,11 +255,27 @@ public:
       gaussian_init_min_points_, torch_gaussian_device_name_.c_str());
     RCLCPP_INFO(get_logger(), "Torch Gaussian extension %s, min keyframes %d, skybox points %d",
       enable_torch_gaussian_extend_ ? "enabled" : "disabled",
-      gaussian_init_min_keyframes_, skybox_points_num_);
+      gaussian_init_min_keyframes_, backend_config_.skybox_points_num);
 #else
     RCLCPP_INFO(get_logger(), "Torch camera conversion unavailable in this build");
     RCLCPP_INFO(get_logger(), "Torch Gaussian initialization unavailable in this build");
 #endif
+    RCLCPP_INFO(
+      get_logger(),
+      "Gaussian backend profile: size=%dx%d sh=%d scaling=%.3f depth_completion=%s "
+      "patch=%d max_depth=%.2f optimize_depth=%s lr(pos=%.6f feat=%.6f opacity=%.6f scale=%.6f rot=%.6f)",
+      backend_config_.width, backend_config_.height, backend_config_.sh_degree,
+      backend_config_.scaling_scale, backend_config_.depth_completion ? "true" : "false",
+      backend_config_.patch_size, backend_config_.max_depth,
+      backend_config_.optimize_depth ? "true" : "false",
+      backend_config_.position_lr, backend_config_.feature_lr, backend_config_.opacity_lr,
+      backend_config_.scaling_lr, backend_config_.rotation_lr);
+    if (backend_config_.depth_completion) {
+      RCLCPP_WARN(
+        get_logger(),
+        "depth_completion is configured but the TensorRT/SPNet backend is not ported in this ROS2 "
+        "slice; using the provided depth topic only");
+    }
   }
 
 private:
@@ -567,8 +605,7 @@ private:
       const auto device = resolve_torch_gaussian_device();
       if (!torch_gaussian_initialized_) {
         torch_gaussian_map_ = gaussian_lic_mapping::initialize_gaussian_map(
-          dataset_, sh_degree_, scaling_scale_, intrinsics.fx, intrinsics.fy, device,
-          skybox_points_num_, skybox_radius_);
+          dataset_, backend_config_, intrinsics.fx, intrinsics.fy, device);
         torch_gaussian_initialized_ = true;
         last_torch_gaussian_inserted_ = torch_gaussian_map_.foreground_count;
         ++torch_gaussian_init_count_;
@@ -591,7 +628,7 @@ private:
       }
 
       last_torch_gaussian_inserted_ = gaussian_lic_mapping::append_pending_points_to_gaussian_map(
-        torch_gaussian_map_, dataset_, sh_degree_, scaling_scale_, intrinsics.fx, intrinsics.fy, device);
+        torch_gaussian_map_, dataset_, backend_config_, intrinsics.fx, intrinsics.fy, device);
       ++torch_gaussian_extend_count_;
       refresh_torch_gaussian_status(device);
       dataset_.clear_pending_points();
@@ -1215,10 +1252,7 @@ private:
   std::string rendered_image_mode_;
   int gaussian_init_min_points_{1};
   int gaussian_init_min_keyframes_{1};
-  int sh_degree_{3};
-  double scaling_scale_{1.0};
-  int skybox_points_num_{0};
-  double skybox_radius_{1000.0};
+  gaussian_lic_mapping::GaussianBackendConfig backend_config_;
   std::string torch_gaussian_device_name_{"cpu"};
   int gaussian_map_chunk_size_{1024};
   int max_path_length_{5000};

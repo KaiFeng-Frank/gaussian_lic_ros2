@@ -99,7 +99,7 @@ mcd.yaml
 r3live.yaml
 ```
 
-These files currently cover the ROS2 native mapper surface: topic names, synchronization/QoS settings, upstream camera intrinsics, `select_every_k_frame`, SH degree, Gaussian scaling seed, output topics, and save-map service name. They are not complete tracking configs; upstream dataset rosbag paths, LiDAR/IMU/camera extrinsics, and LIC optimization weights still belong to Coco-LIC and need a native ROS2 tracking adapter before real bags can be launched as a full end-to-end Gaussian-LIC system.
+These files currently cover the ROS2 native mapper surface: topic names, synchronization/QoS settings, upstream camera intrinsics, image size, `select_every_k_frame`, depth-completion toggles, SH degree, Gaussian scaling seed, upstream optimizer/loss/exposure parameter names, output topics, and save-map service name. They are not complete tracking configs; upstream dataset rosbag paths, LiDAR/IMU/camera extrinsics, and LIC optimization weights still belong to Coco-LIC and need a native ROS2 tracking adapter before real bags can be launched as a full end-to-end Gaussian-LIC system.
 
 For parameter-file smoke testing with the synthetic `1x1` demo bag, skip the red-pixel preview assertion:
 
@@ -122,7 +122,7 @@ CUDA:      /usr/local/cuda-12.8
 TensorRT:  not found
 ```
 
-This means the next build slice should make TensorRT/depth-completion optional. Upstream Gaussian-LIC links TensorRT unconditionally, but the ROS2 port should not require it when `depth_completion:=false`.
+The ROS2 parameter contract now accepts `depth_completion`, `patch_size`, and `max_depth`, but TensorRT/SPNet depth completion is still inactive in this slice. Upstream Gaussian-LIC links TensorRT unconditionally; the ROS2 port keeps that dependency optional and consumes the provided depth topic until the backend is ported.
 
 The optional torch backend can be built with:
 
