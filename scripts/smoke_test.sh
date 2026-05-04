@@ -8,6 +8,7 @@ ENABLE_TORCH=false
 PUBLISH_TF=false
 USE_COMPOSITION=false
 FRONTEND_ADAPTER=false
+FRONTEND_ODOMETRY_INPUT=false
 SENSOR_QOS_RELIABILITY=""
 TIMEOUT_SEC=8
 SAVE_DIR="/tmp/gaussian_lic_smoke_map"
@@ -21,7 +22,7 @@ MINIMAL_INPUTS=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--frontend-adapter] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--optional-depth-check] [--minimal-inputs] [--bag DIR] [--timeout SEC] [--save-dir DIR]
+Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--frontend-adapter] [--frontend-odometry-input] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--optional-depth-check] [--minimal-inputs] [--bag DIR] [--timeout SEC] [--save-dir DIR]
 
 Runs the synthetic ROS2 mapping smoke test and verifies published outputs.
 
@@ -31,6 +32,8 @@ Options:
   --composition   Load mapping_node as a composable rclcpp component.
   --frontend-adapter
                   Publish synthetic raw sensor topics and route them through lic2_contract_adapter.
+  --frontend-odometry-input
+                  With --frontend-adapter live input, publish raw odometry instead of PoseStamped.
   --sensor-qos    Override input sensor QoS reliability: best_effort or reliable.
   --config FILE   Override the bringup parameter YAML.
   --render-mode MODE
@@ -67,6 +70,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --frontend-adapter)
       FRONTEND_ADAPTER=true
+      shift
+      ;;
+    --frontend-odometry-input)
+      FRONTEND_ODOMETRY_INPUT=true
       shift
       ;;
     --sensor-qos)
@@ -158,6 +165,11 @@ if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" && -n "${BAG_PATH}" ]]; then
   exit 2
 fi
 
+if [[ "${FRONTEND_ODOMETRY_INPUT}" == "true" && "${FRONTEND_ADAPTER}" != "true" ]]; then
+  echo "--frontend-odometry-input requires --frontend-adapter" >&2
+  exit 2
+fi
+
 if [[ "${OPTIONAL_DEPTH_CHECK}" == "true" && -n "${BAG_PATH}" ]]; then
   echo "--optional-depth-check requires live synthetic input, not --bag" >&2
   exit 2
@@ -225,6 +237,11 @@ else
     launch_args+=(
       require_depth_topic:=false
       synthetic_publish_depth:=false
+    )
+  fi
+  if [[ "${FRONTEND_ODOMETRY_INPUT}" == "true" ]]; then
+    launch_args+=(
+      synthetic_pose_output_mode:=odometry
     )
   fi
 fi

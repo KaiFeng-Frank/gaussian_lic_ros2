@@ -4,6 +4,7 @@ import struct
 
 import rclpy
 from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Odometry
 from rclpy._rclpy_pybind11 import RCLError
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
@@ -29,6 +30,7 @@ class SyntheticGsFramePublisher(Node):
         super().__init__("synthetic_gs_frame_pub")
         self.declare_parameter("pointcloud_topic", "/points_for_gs")
         self.declare_parameter("pose_topic", "/pose_for_gs")
+        self.declare_parameter("odometry_topic", "/gaussian_lic/frontend/input_odometry")
         self.declare_parameter("image_topic", "/image_for_gs")
         self.declare_parameter("camera_info_topic", "/camera_info_for_gs")
         self.declare_parameter("depth_topic", "/depth_for_gs")
@@ -38,6 +40,8 @@ class SyntheticGsFramePublisher(Node):
         self.declare_parameter("point_color_rgb", "255,32,16")
         self.declare_parameter("image_color_rgb", "0,0,0")
         self.declare_parameter("publish_depth", True)
+        self.declare_parameter("pose_output_mode", "pose_stamped")
+        self.declare_parameter("child_frame_id", "base_link")
 
         self.pointcloud_color_mode = str(
             self.get_parameter("pointcloud_color_mode").value).strip().lower()
@@ -47,11 +51,23 @@ class SyntheticGsFramePublisher(Node):
         self.point_rgb = parse_rgb(self.get_parameter("point_color_rgb").value)
         self.image_rgb = parse_rgb(self.get_parameter("image_color_rgb").value)
         self.publish_depth = bool(self.get_parameter("publish_depth").value)
+        self.pose_output_mode = str(
+            self.get_parameter("pose_output_mode").value).strip().lower()
+        if self.pose_output_mode not in {"pose_stamped", "odometry", "both", "none"}:
+            raise ValueError(
+                "pose_output_mode must be pose_stamped, odometry, both, or none")
+        self.child_frame_id = str(self.get_parameter("child_frame_id").value)
 
         self.points_pub = self.create_publisher(
             PointCloud2, self.get_parameter("pointcloud_topic").value, 10)
-        self.pose_pub = self.create_publisher(
-            PoseStamped, self.get_parameter("pose_topic").value, 10)
+        self.pose_pub = None
+        if self.pose_output_mode in {"pose_stamped", "both"}:
+            self.pose_pub = self.create_publisher(
+                PoseStamped, self.get_parameter("pose_topic").value, 10)
+        self.odometry_pub = None
+        if self.pose_output_mode in {"odometry", "both"}:
+            self.odometry_pub = self.create_publisher(
+                Odometry, self.get_parameter("odometry_topic").value, 10)
         self.image_pub = self.create_publisher(
             Image, self.get_parameter("image_topic").value, 10)
         self.camera_info_pub = self.create_publisher(
@@ -69,7 +85,8 @@ class SyntheticGsFramePublisher(Node):
         self.get_logger().info(
             "Publishing synthetic synchronized GS input frames "
             f"(pointcloud_color_mode={self.pointcloud_color_mode}, "
-            f"publish_depth={self.publish_depth})")
+            f"publish_depth={self.publish_depth}, "
+            f"pose_output_mode={self.pose_output_mode})")
 
     def make_pointcloud_data(self):
         if self.pointcloud_color_mode == "none":
@@ -138,7 +155,14 @@ class SyntheticGsFramePublisher(Node):
         pose.header.stamp = stamp
         pose.header.frame_id = "map"
         pose.pose.orientation.w = 1.0
-        self.pose_pub.publish(pose)
+        if self.pose_pub is not None:
+            self.pose_pub.publish(pose)
+        if self.odometry_pub is not None:
+            odometry = Odometry()
+            odometry.header = pose.header
+            odometry.child_frame_id = self.child_frame_id
+            odometry.pose.pose = pose.pose
+            self.odometry_pub.publish(odometry)
 
         image = Image()
         image.header.stamp = stamp

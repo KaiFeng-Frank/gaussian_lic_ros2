@@ -19,6 +19,7 @@ def generate_launch_description():
     synthetic_input = LaunchConfiguration("synthetic_input")
     frontend_adapter = LaunchConfiguration("frontend_adapter")
     adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
+    synthetic_pose_output_mode = LaunchConfiguration("synthetic_pose_output_mode")
     synthetic_pointcloud_color_mode = LaunchConfiguration("synthetic_pointcloud_color_mode")
     synthetic_point_color_rgb = LaunchConfiguration("synthetic_point_color_rgb")
     synthetic_image_color_rgb = LaunchConfiguration("synthetic_image_color_rgb")
@@ -74,6 +75,7 @@ def generate_launch_description():
             "point_color_rgb": synthetic_point_color_rgb,
             "image_color_rgb": synthetic_image_color_rgb,
             "publish_depth": synthetic_publish_depth,
+            "pose_output_mode": synthetic_pose_output_mode,
         },
     ]
     synthetic_raw_parameters = [
@@ -82,6 +84,7 @@ def generate_launch_description():
             "use_sim_time": use_sim_time,
             "pointcloud_topic": "/livox/lidar",
             "pose_topic": "/gaussian_lic/frontend/pose",
+            "odometry_topic": "/gaussian_lic/frontend/input_odometry",
             "image_topic": "/camera/image",
             "camera_info_topic": "/camera/camera_info",
             "depth_topic": "/camera/depth",
@@ -90,6 +93,7 @@ def generate_launch_description():
             "point_color_rgb": synthetic_point_color_rgb,
             "image_color_rgb": synthetic_image_color_rgb,
             "publish_depth": synthetic_publish_depth,
+            "pose_output_mode": synthetic_pose_output_mode,
         },
     ]
     adapter_parameters = [
@@ -139,6 +143,11 @@ def generate_launch_description():
             "adapter_identity_pose_fallback",
             default_value="false",
             description="Let the adapter publish identity poses from point-cloud stamps when no odometry is available",
+        ),
+        DeclareLaunchArgument(
+            "synthetic_pose_output_mode",
+            default_value="pose_stamped",
+            description="Synthetic pose output mode: pose_stamped, odometry, both, or none",
         ),
         DeclareLaunchArgument(
             "synthetic_pointcloud_color_mode",

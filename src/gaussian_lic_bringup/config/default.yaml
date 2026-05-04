@@ -17,6 +17,7 @@ synthetic_gs_frame_pub:
     camera_info_topic: /camera_info_for_gs
     depth_topic: /depth_for_gs
     pose_topic: /pose_for_gs
+    odometry_topic: /gaussian_lic/frontend/input_odometry
     pointcloud_topic: /points_for_gs
     imu_topic: /imu_for_gs
     publish_rate_hz: 10.0
@@ -24,6 +25,8 @@ synthetic_gs_frame_pub:
     point_color_rgb: "255,32,16"
     image_color_rgb: "0,0,0"
     publish_depth: true
+    pose_output_mode: pose_stamped
+    child_frame_id: base_link
 
 lic2_contract_adapter:
   ros__parameters:

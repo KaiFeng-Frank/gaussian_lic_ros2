@@ -97,6 +97,7 @@ To exercise the native LIC2 frontend contract boundary:
 ```
 
 That check publishes synthetic raw sensor topics (`/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`) plus `/gaussian_lic/frontend/pose`, runs `gaussian_lic_frontend/lic2_contract_adapter`, and verifies the mapper receives the forwarded `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/pose_for_gs`, and `/imu_for_gs` contract. It also verifies `/gaussian_lic/frontend/odometry` and `/gaussian_lic/frontend/path`.
+Use `./scripts/smoke_test.sh --frontend-adapter --frontend-odometry-input --tf` to exercise the raw odometry input branch.
 
 When `rviz:=true`, RViz2 opens the packaged `gaussian_lic.rviz` view with odometry, path, accumulated map points, rendered-image preview, and TF displays.
 
@@ -205,6 +206,7 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
 ```
 
 The `frontend_raw` contract requires `/camera/image`, `/camera/camera_info`, `/livox/lidar`, `/imu`, and one valid pose source from `/gaussian_lic/frontend/pose` or `/gaussian_lic/frontend/input_odometry`. `/camera/depth` is optional.
+Pass `--frontend-raw-odometry` to record the odometry alternative instead of PoseStamped.
 
 Run the same mapper checks from rosbag2 playback:
 
@@ -234,7 +236,7 @@ The offline artifact extraction check writes `point_cloud_debug.ply`, verifies t
 
 The workspace verification script calls `scripts/verify_artifact_gates.sh`, which exercises `scripts/trajectory_compare.py`, `scripts/pointcloud_compare.py`, `scripts/baseline_manifest.py`, and `scripts/reproduction_report.py` with tiny synthetic artifacts. GitHub Actions runs the same Python-only gate before the ROS build matrix, so archive/report regressions do not need a ROS runtime to fail fast. Set `GAUSSIAN_LIC_ARTIFACT_DIR` to choose where the JSON/Markdown reports are written; CI uploads that directory as `artifact-gate-reports`.
 
-The Jazzy CI leg also builds the workspace, records short synthetic mapper and raw frontend rosbag2 sequences, replays the mapper bag through the non-torch mapper smoke path in both full-contract and `--minimal-inputs` modes, and replays the raw frontend bag through `lic2_contract_adapter`. Humble remains build-only until the replay smoke path is validated there.
+The Jazzy CI leg also builds the workspace, records short synthetic mapper and raw frontend rosbag2 sequences, replays the mapper bag through the non-torch mapper smoke path in both full-contract and `--minimal-inputs` modes, and replays the raw frontend odometry bag through `lic2_contract_adapter`. Humble remains build-only until the replay smoke path is validated there.
 
 Run the same mini replay smoke locally with:
 

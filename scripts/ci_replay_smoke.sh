@@ -81,6 +81,7 @@ echo "[ci-smoke] recording synthetic bag: ${BAG_PATH}"
 echo "[ci-smoke] recording frontend raw synthetic bag: ${FRONTEND_BAG_PATH}"
 ./scripts/create_synthetic_bag.sh \
   --frontend-raw \
+  --frontend-raw-odometry \
   --output "${FRONTEND_BAG_PATH}" \
   --duration "${DURATION_SEC}"
 

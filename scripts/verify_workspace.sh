@@ -95,13 +95,12 @@ if [[ ! -f "${BAG_PATH}/metadata.yaml" ]]; then
   ./scripts/create_synthetic_bag.sh --output "${BAG_PATH}" --duration 4
 fi
 
-if [[ ! -f "${FRONTEND_RAW_BAG_PATH}/metadata.yaml" ]]; then
-  echo "[verify] creating frontend raw synthetic bag at ${FRONTEND_RAW_BAG_PATH}"
-  ./scripts/create_synthetic_bag.sh \
-    --frontend-raw \
-    --output "${FRONTEND_RAW_BAG_PATH}" \
-    --duration 4
-fi
+echo "[verify] creating frontend raw synthetic bag at ${FRONTEND_RAW_BAG_PATH}"
+./scripts/create_synthetic_bag.sh \
+  --frontend-raw \
+  --frontend-raw-odometry \
+  --output "${FRONTEND_RAW_BAG_PATH}" \
+  --duration 4
 
 echo "[verify] bag smoke"
 ./scripts/smoke_test.sh --bag "${BAG_PATH}" --tf

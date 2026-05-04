@@ -85,6 +85,8 @@ Generate a synthetic raw frontend bag for the LIC2 adapter boundary:
   --output bags/synthetic_frontend_raw_demo
 ```
 
+Use `--frontend-raw-odometry` to record `/gaussian_lic/frontend/input_odometry` instead of `/gaussian_lic/frontend/pose`.
+
 Replay it through the native mapper:
 
 ```bash
@@ -121,6 +123,7 @@ Exercise the native LIC2 frontend contract adapter with synthetic raw sensor top
 ```
 
 This publishes `/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`, and `/gaussian_lic/frontend/pose`, then lets `lic2_contract_adapter` forward them into `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/imu_for_gs`, and `/pose_for_gs`. The adapter also publishes `/gaussian_lic/frontend/odometry` and `/gaussian_lic/frontend/path` from incoming pose/odometry. It is a ROS2 boundary adapter, not the finished LIC2 odometry algorithm.
+Add `--frontend-odometry-input` to publish synthetic `/gaussian_lic/frontend/input_odometry` instead of PoseStamped.
 
 ## Offline Mode
 

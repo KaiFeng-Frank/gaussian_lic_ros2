@@ -7,6 +7,7 @@
 - Extended the LIC2 contract adapter with frontend odometry/path outputs and optional TF.
 - Added a `frontend_raw` bag contract and synthetic raw frontend bag recording mode for LIC2 adapter input validation.
 - Extended CI replay smoke to replay raw frontend bags through the LIC2 adapter and report the `frontend_raw` contract.
+- Added synthetic raw odometry input coverage for the LIC2 adapter and `frontend_raw` bag contract.
 - Added keyframe-gated Torch Gaussian initialization and incremental foreground insertion for the ROS2 mapping node.
 - Added optional skybox tensor seeding, Gaussian map republishing after extension, and mapping latency/mean iteration status fields.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.

@@ -7,15 +7,18 @@ ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 OUTPUT="${ROOT_DIR}/bags/synthetic_gs_demo"
 DURATION_SEC=6
 FRONTEND_RAW=false
+FRONTEND_RAW_ODOMETRY=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/create_synthetic_bag.sh [--output DIR] [--duration SEC] [--frontend-raw]
+Usage: scripts/create_synthetic_bag.sh [--output DIR] [--duration SEC] [--frontend-raw] [--frontend-raw-odometry]
 
 Records a small rosbag2 from synthetic Gaussian-LIC mapper inputs.
 
 Options:
   --frontend-raw  Record raw LIC2 frontend adapter inputs instead of mapper topics.
+  --frontend-raw-odometry
+                  In frontend raw mode, record raw Odometry instead of PoseStamped.
 EOF
 }
 
@@ -31,6 +34,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --frontend-raw)
       FRONTEND_RAW=true
+      shift
+      ;;
+    --frontend-raw-odometry)
+      FRONTEND_RAW=true
+      FRONTEND_RAW_ODOMETRY=true
       shift
       ;;
     -h|--help)
@@ -61,17 +69,33 @@ if [[ "${FRONTEND_RAW}" == "true" ]]; then
     /camera/depth
     /livox/lidar
     /imu
-    /gaussian_lic/frontend/pose
   )
+  if [[ "${FRONTEND_RAW_ODOMETRY}" == "true" ]]; then
+    topics+=(
+      /gaussian_lic/frontend/input_odometry
+    )
+    pose_output_args=(
+      -p pose_output_mode:=odometry
+      -p odometry_topic:=/gaussian_lic/frontend/input_odometry
+    )
+  else
+    topics+=(
+      /gaussian_lic/frontend/pose
+    )
+    pose_output_args=(
+      -p pose_output_mode:=pose_stamped
+      -p pose_topic:=/gaussian_lic/frontend/pose
+    )
+  fi
   publisher_args=(
     --ros-args
     --params-file "${ROOT_DIR}/src/gaussian_lic_bringup/config/default.yaml"
     -p pointcloud_topic:=/livox/lidar
-    -p pose_topic:=/gaussian_lic/frontend/pose
     -p image_topic:=/camera/image
     -p camera_info_topic:=/camera/camera_info
     -p depth_topic:=/camera/depth
     -p imu_topic:=/imu
+    "${pose_output_args[@]}"
   )
 else
   topics=(
