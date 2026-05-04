@@ -40,6 +40,8 @@ PLY_SCALAR_TYPES = {
     "float64": "d",
 }
 
+SH_C0 = 0.28209479177387814
+
 
 def parse_ply_header(stream, path):
     first_line = stream.readline()
@@ -94,7 +96,22 @@ def parse_ply_header(stream, path):
     return vertex_count, vertex_properties, ply_format
 
 
-def load_ascii_vertices(stream, path, vertex_count, properties, property_index, has_color, stride):
+def gaussian_dc_to_rgb(values):
+    return tuple(
+        max(0.0, min(255.0, (float(value) * SH_C0 + 0.5) * 255.0))
+        for value in values
+    )
+
+
+def load_ascii_vertices(
+    stream,
+    path,
+    vertex_count,
+    properties,
+    property_index,
+    color_mode,
+    stride,
+):
     points = []
     colors = []
     for row in range(vertex_count):
@@ -117,7 +134,7 @@ def load_ascii_vertices(stream, path, vertex_count, properties, property_index, 
             if not all(math.isfinite(value) for value in point):
                 continue
             points.append(point)
-            if has_color:
+            if color_mode == "rgb":
                 colors.append(
                     (
                         float(parts[property_index["red"]]),
@@ -125,12 +142,30 @@ def load_ascii_vertices(stream, path, vertex_count, properties, property_index, 
                         float(parts[property_index["blue"]]),
                     )
                 )
+            elif color_mode == "gaussian_dc":
+                colors.append(
+                    gaussian_dc_to_rgb(
+                        (
+                            parts[property_index["f_dc_0"]],
+                            parts[property_index["f_dc_1"]],
+                            parts[property_index["f_dc_2"]],
+                        )
+                    )
+                )
         except ValueError as exc:
             raise ValueError(f"{path}: non-numeric vertex row {row + 1}") from exc
     return points, colors
 
 
-def load_binary_little_endian_vertices(stream, path, vertex_count, properties, property_index, has_color, stride):
+def load_binary_little_endian_vertices(
+    stream,
+    path,
+    vertex_count,
+    properties,
+    property_index,
+    color_mode,
+    stride,
+):
     points = []
     colors = []
     unpacker = struct.Struct("<" + "".join(PLY_SCALAR_TYPES[property_type] for _, property_type in properties))
@@ -149,7 +184,7 @@ def load_binary_little_endian_vertices(stream, path, vertex_count, properties, p
         if not all(math.isfinite(value) for value in point):
             continue
         points.append(point)
-        if has_color:
+        if color_mode == "rgb":
             colors.append(
                 (
                     float(values[property_index["red"]]),
@@ -157,18 +192,31 @@ def load_binary_little_endian_vertices(stream, path, vertex_count, properties, p
                     float(values[property_index["blue"]]),
                 )
             )
+        elif color_mode == "gaussian_dc":
+            colors.append(
+                gaussian_dc_to_rgb(
+                    (
+                        values[property_index["f_dc_0"]],
+                        values[property_index["f_dc_1"]],
+                        values[property_index["f_dc_2"]],
+                    )
+                )
+            )
     return points, colors
 
 
-def load_ply(path, max_points):
+def load_ply(path, max_points, derive_gaussian_rgb=False):
     resolved_path = Path(path).expanduser().resolve()
     resolved = str(resolved_path)
     with resolved_path.open("rb") as stream:
         vertex_count, properties, ply_format = parse_ply_header(stream, path)
         property_names = [name for name, _ in properties]
         property_index = {name: index for index, name in enumerate(property_names)}
-        color_properties = ("red", "green", "blue")
-        has_color = all(name in property_index for name in color_properties)
+        color_mode = None
+        if all(name in property_index for name in ("red", "green", "blue")):
+            color_mode = "rgb"
+        elif derive_gaussian_rgb and all(name in property_index for name in ("f_dc_0", "f_dc_1", "f_dc_2")):
+            color_mode = "gaussian_dc"
         stride = 1
         if max_points > 0 and vertex_count > max_points:
             stride = math.ceil(vertex_count / max_points)
@@ -180,7 +228,7 @@ def load_ply(path, max_points):
                 vertex_count,
                 properties,
                 property_index,
-                has_color,
+                color_mode,
                 stride,
             )
         else:
@@ -190,7 +238,7 @@ def load_ply(path, max_points):
                 vertex_count,
                 properties,
                 property_index,
-                has_color,
+                color_mode,
                 stride,
             )
 
@@ -330,8 +378,9 @@ def translated(points, offset):
 
 
 def compute_report(args):
-    baseline = load_ply(args.baseline, args.max_points)
-    current = load_ply(args.current, args.max_points)
+    derive_gaussian_rgb = getattr(args, "derive_gaussian_rgb", False)
+    baseline = load_ply(args.baseline, args.max_points, derive_gaussian_rgb)
+    current = load_ply(args.current, args.max_points, derive_gaussian_rgb)
     baseline_centroid = centroid(baseline.points)
     current_centroid = centroid(current.points)
 
@@ -476,6 +525,11 @@ def main(argv=None):
     parser.add_argument("--max-chamfer-max-m", type=float, default=0.5)
     parser.add_argument("--max-unmatched-ratio", type=float, default=0.05)
     parser.add_argument("--max-mean-rgb-drift", type=float, default=40.0)
+    parser.add_argument(
+        "--derive-gaussian-rgb",
+        action="store_true",
+        help="Derive RGB means from Gaussian PLY f_dc_0..2 coefficients when explicit RGB is absent",
+    )
     parser.add_argument("--json", action="store_true", help="Print the full JSON report")
     args = parser.parse_args(argv)
 

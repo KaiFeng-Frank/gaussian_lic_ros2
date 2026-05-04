@@ -141,6 +141,7 @@ def run_pointcloud_compare(args, baseline_dir, current_dir):
         max_chamfer_max_m=args.max_chamfer_max_m,
         max_unmatched_ratio=args.max_unmatched_ratio,
         max_mean_rgb_drift=args.max_mean_rgb_drift,
+        derive_gaussian_rgb=args.derive_gaussian_rgb,
     )
     try:
         return compute_pointcloud_report(compare_args)
@@ -289,6 +290,11 @@ def main(argv=None):
     parser.add_argument("--max-chamfer-max-m", type=float, default=0.5)
     parser.add_argument("--max-unmatched-ratio", type=float, default=0.05)
     parser.add_argument("--max-mean-rgb-drift", type=float, default=40.0)
+    parser.add_argument(
+        "--derive-gaussian-rgb",
+        action="store_true",
+        help="Derive RGB means from Gaussian PLY f_dc_0..2 coefficients when explicit RGB is absent",
+    )
     args = parser.parse_args(argv)
 
     try:

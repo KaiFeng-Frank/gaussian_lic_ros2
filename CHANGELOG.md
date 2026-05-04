@@ -22,6 +22,7 @@
 - Extended the ROS1 mapper-contract converter with the same FAST-LIVO2 camera-LiDAR transform profile used by the ROS2 adapter.
 - Added `scripts/run_upstream_baseline.sh` and `scripts/patch_upstream_baseline.py` to run the upstream ROS1 Gaussian-LIC/Gaussian-LIC2 mapper in Docker, archive baseline artifacts, and guard local TensorRT/libtorch runtime issues.
 - Extended baseline and point-cloud artifact gates to read binary little-endian Gaussian PLY files from upstream.
+- Extended point-cloud drift reports with an explicit Gaussian PLY `f_dc_0..2` RGB derivation option, enabling opt-in baseline-vs-current color checks for Gaussian artifacts.
 - Produced a curated official FAST-LIVO2 `Bright_Screen_Wall_curated_8s` baseline-vs-current report with metrics, trajectory, and point-cloud gates passing while strict `CBD_Building_01` data remains quota-blocked.
 - Added `scripts/run_curated_fastlivo2_report.sh` as a one-command curated FAST-LIVO2 reproduction chain for conversion, ROS2 current collection, ROS1 upstream baseline execution, and report generation.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
