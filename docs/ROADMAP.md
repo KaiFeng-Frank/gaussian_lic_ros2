@@ -147,6 +147,7 @@ baseline_manifest.json
 - [x] Port Livox/custom point handling to ROS2.
 - [x] Add a native timestamp-safe cubic B-spline trajectory manager foundation with a constant-velocity probe.
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.
+- [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
 - [ ] Publish odometry, path, TF, and Gaussian mapper input topics natively.
 - [ ] Keep any ROS1 bridge mode clearly marked as temporary.

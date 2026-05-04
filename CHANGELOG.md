@@ -50,6 +50,8 @@
 - Documented the public LIC2-vs-v1 surface audit, including the absence of a released 2D Gaussian primitive or skybox patch in `cd4c122`.
 - Added the `gaussian_lic_tracking` ROS2 package with a signed-nanosecond cubic B-spline trajectory manager foundation and constant-velocity/negative-time probe.
 - Added a signed-nanosecond IMU propagation foundation with deterministic gyro/acceleration probe coverage.
+- Added a native ROS2 `tracking_node` surface that forwards raw camera/LiDAR/depth topics to mapper inputs and publishes IMU-propagated odometry, path, pose, and optional TF with explicit QoS.
+- Added a single-node ROS2 launch entrypoint for the native tracking surface.
 - Added a Coco-LIC frontend inventory for the remaining native tracker port.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
 - Implemented the dependency-gated ROS1 `.bag` to rosbag2 converter backend using `rosbags`.

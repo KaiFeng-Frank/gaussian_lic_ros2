@@ -7,6 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_library(trajectory_manager
   src/imu_propagator.cpp
@@ -41,7 +46,23 @@ target_link_libraries(imu_propagator_probe
 )
 ament_target_dependencies(imu_propagator_probe builtin_interfaces)
 
-install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe
+add_executable(tracking_node
+  src/tracking_node.cpp
+)
+target_include_directories(tracking_node PRIVATE include)
+target_link_libraries(tracking_node
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(tracking_node
+  geometry_msgs
+  nav_msgs
+  rclcpp
+  sensor_msgs
+  tf2_ros
+)
+
+install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

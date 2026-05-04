@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    publish_tf = LaunchConfiguration("publish_tf")
+    raw_image_topic = LaunchConfiguration("raw_image_topic")
+    raw_camera_info_topic = LaunchConfiguration("raw_camera_info_topic")
+    raw_depth_topic = LaunchConfiguration("raw_depth_topic")
+    raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
+    raw_imu_topic = LaunchConfiguration("raw_imu_topic")
+
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("publish_tf", default_value="false"),
+            DeclareLaunchArgument("raw_image_topic", default_value="/camera/image"),
+            DeclareLaunchArgument("raw_camera_info_topic", default_value="/camera/camera_info"),
+            DeclareLaunchArgument("raw_depth_topic", default_value="/camera/depth"),
+            DeclareLaunchArgument("raw_pointcloud_topic", default_value="/livox/lidar"),
+            DeclareLaunchArgument("raw_imu_topic", default_value="/imu"),
+            Node(
+                package="gaussian_lic_tracking",
+                executable="tracking_node",
+                name="tracking_node",
+                output="screen",
+                parameters=[
+                    {
+                        "publish_tf": publish_tf,
+                        "sensor_qos_reliability": "best_effort",
+                        "sensor_qos_depth": 5,
+                        "world_frame": "map",
+                        "child_frame": "base_link",
+                        "raw_image_topic": raw_image_topic,
+                        "raw_camera_info_topic": raw_camera_info_topic,
+                        "raw_depth_topic": raw_depth_topic,
+                        "raw_pointcloud_topic": raw_pointcloud_topic,
+                        "raw_imu_topic": raw_imu_topic,
+                    }
+                ],
+            ),
+        ]
+    )
