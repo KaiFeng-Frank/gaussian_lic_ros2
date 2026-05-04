@@ -107,6 +107,7 @@ baseline_manifest.json
 - [x] Performance regression comparison script.
 - [x] Jazzy/Humble build-only CI skeleton.
 - [x] Python-only CI artifact gates for baseline manifests and reproduction reports.
+- [x] Jazzy CI smoke tests with a generated mini rosbag2 sequence.
 - [ ] ROS1 upstream baseline archive for FAST-LIVO2.
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
-- [ ] CI smoke tests with mini sequence and PR comparison report.
+- [ ] PR comparison report on real or curated mini-sequence artifacts.

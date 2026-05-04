@@ -68,7 +68,10 @@ jobs:
             ripgrep \
             ros-${ROS_DISTRO}-cv-bridge \
             ros-${ROS_DISTRO}-rclcpp-components \
+            ros-${ROS_DISTRO}-ros2bag \
             ros-${ROS_DISTRO}-rosbag2-py \
+            ros-${ROS_DISTRO}-rosbag2-storage-mcap \
+            ros-${ROS_DISTRO}-rosbag2-transport \
             ros-${ROS_DISTRO}-sensor-msgs-py \
             ros-${ROS_DISTRO}-tf2-ros
 
@@ -94,3 +97,32 @@ jobs:
           source /opt/ros/${ROS_DISTRO}/setup.bash
           set -u
           colcon build --event-handlers console_direct+
+
+      - name: Jazzy synthetic replay smoke
+        if: matrix.ros_distro == 'jazzy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +u
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          source install/setup.bash
+          set -u
+          ./scripts/create_synthetic_bag.sh \
+            --output bags/ci_synthetic_gs_demo \
+            --duration 4
+          ./scripts/smoke_test.sh \
+            --bag bags/ci_synthetic_gs_demo \
+            --tf \
+            --timeout 20
+          ./scripts/smoke_test.sh \
+            --bag bags/ci_synthetic_gs_demo \
+            --minimal-inputs \
+            --timeout 20
+
+      - name: Upload Jazzy smoke logs
+        if: always() && matrix.ros_distro == 'jazzy'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jazzy-smoke-logs
+          path: log/*.log
+          if-no-files-found: ignore
