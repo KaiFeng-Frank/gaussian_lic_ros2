@@ -108,7 +108,7 @@ Important porting issues:
 1. Create `gaussian_lic_mapping` as a ROS2 C++ package with a placeholder executable and CMake dependency skeleton. Done.
 2. Port Gaussian-LIC `mapping.cpp/.h` middleware synchronization surface from ROS1 to `rclcpp`. Done for the four mapper input topics.
 3. Keep input topics compatible with `/image_for_gs`, `/depth_for_gs`, `/pose_for_gs`, `/points_for_gs` first. Done.
-4. Add a native raw-topic to mapper-contract adapter for camera, LiDAR, IMU, pose, and odometry. Done in `gaussian_lic_frontend/lic2_contract_adapter`.
+4. Add a native raw-topic to mapper-contract adapter for camera, LiDAR, IMU, pose, and odometry. Done in `gaussian_lic_frontend/lic2_contract_adapter`; it also publishes frontend odometry/path and optional TF from incoming pose/odometry.
 5. Inventory the released Gaussian-LIC2 code surface in `external/Gaussian-LIC`, prioritizing depth completion, rasterization, optimization, and any frontend/tracking code that appears in future upstream commits.
 6. Replace upstream ROS1 bag reading or launch assumptions with rosbag2/live subscriptions instead of relying on ROS1 bridge.
 

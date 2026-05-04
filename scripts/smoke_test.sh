@@ -325,6 +325,23 @@ rg -q "render_mode: 1" /tmp/gaussian_lic_smoke_status.txt
 rg -q "num_mapping_frames: [1-9]" /tmp/gaussian_lic_smoke_status.txt
 rg -q "num_errors: 0" /tmp/gaussian_lic_smoke_status.txt
 
+if [[ "${FRONTEND_ADAPTER}" == "true" ]]; then
+  run_check "frontend_odometry" \
+    ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
+      /gaussian_lic/frontend/odometry nav_msgs/msg/Odometry \
+      >/tmp/gaussian_lic_smoke_frontend_odom.txt
+
+  run_check "frontend_path" \
+    ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
+      --qos-profile default \
+      --qos-reliability reliable \
+      --qos-durability transient_local \
+      --qos-depth 1 \
+      --field poses \
+      /gaussian_lic/frontend/path nav_msgs/msg/Path \
+      >/tmp/gaussian_lic_smoke_frontend_path.txt
+fi
+
 if [[ "${PUBLISH_TF}" == "true" ]]; then
   run_check "tf" \
     ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \

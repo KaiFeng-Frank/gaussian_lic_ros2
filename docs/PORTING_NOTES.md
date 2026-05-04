@@ -51,7 +51,7 @@ Gaussian-LIC2 is now public in the primary `APRIL-ZJU/Gaussian-LIC` upstream, so
 /livox/lidar
 /imu
 /gaussian_lic/frontend/pose
-/gaussian_lic/frontend/odometry
+/gaussian_lic/frontend/input_odometry
 ```
 
 and republishes into the mapper contract:
@@ -65,7 +65,7 @@ and republishes into the mapper contract:
 /imu_for_gs
 ```
 
-Odometry messages are converted into `PoseStamped` for `/pose_for_gs`. This adapter is intentionally a boundary node; it does not replace the full Gaussian-LIC2 continuous-time odometry/frontend algorithm.
+Odometry messages are converted into `PoseStamped` for `/pose_for_gs`. The adapter also publishes `/gaussian_lic/frontend/odometry`, `/gaussian_lic/frontend/path`, and optional TF from any incoming pose or odometry so downstream visualization and regression tools can use the same frontend surface before the full continuous-time odometry algorithm is ported. This adapter is intentionally a boundary node; it does not replace the full Gaussian-LIC2 continuous-time odometry/frontend algorithm.
 
 `gaussian_lic_mapping/mapping_node` now ports the ROS-facing frame synchronization and frame-conversion surface from upstream Gaussian-LIC. It buffers:
 

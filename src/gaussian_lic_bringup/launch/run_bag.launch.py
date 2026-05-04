@@ -100,6 +100,7 @@ def generate_launch_description():
             "sensor_qos_history": sensor_qos_history,
             "sensor_qos_depth": sensor_qos_depth,
             "identity_pose_fallback": adapter_identity_pose_fallback,
+            "publish_tf": publish_tf,
         },
     ]
     native_node_condition = IfCondition(PythonExpression([

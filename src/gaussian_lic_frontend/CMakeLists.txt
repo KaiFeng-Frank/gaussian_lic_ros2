@@ -9,6 +9,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 add_executable(lic2_contract_adapter
   src/lic2_contract_adapter_node.cpp
@@ -18,6 +19,7 @@ ament_target_dependencies(lic2_contract_adapter
   nav_msgs
   rclcpp
   sensor_msgs
+  tf2_ros
 )
 
 install(TARGETS lic2_contract_adapter

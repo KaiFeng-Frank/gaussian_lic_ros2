@@ -96,7 +96,7 @@ To exercise the native LIC2 frontend contract boundary:
 ./scripts/smoke_test.sh --frontend-adapter --tf
 ```
 
-That check publishes synthetic raw sensor topics (`/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`) plus `/gaussian_lic/frontend/pose`, runs `gaussian_lic_frontend/lic2_contract_adapter`, and verifies the mapper receives the forwarded `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/pose_for_gs`, and `/imu_for_gs` contract.
+That check publishes synthetic raw sensor topics (`/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`) plus `/gaussian_lic/frontend/pose`, runs `gaussian_lic_frontend/lic2_contract_adapter`, and verifies the mapper receives the forwarded `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/pose_for_gs`, and `/imu_for_gs` contract. It also verifies `/gaussian_lic/frontend/odometry` and `/gaussian_lic/frontend/path`.
 
 When `rviz:=true`, RViz2 opens the packaged `gaussian_lic.rviz` view with odometry, path, accumulated map points, rendered-image preview, and TF displays.
 

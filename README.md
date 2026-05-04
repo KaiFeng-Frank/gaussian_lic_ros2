@@ -111,7 +111,7 @@ Exercise the native LIC2 frontend contract adapter with synthetic raw sensor top
 ./scripts/smoke_test.sh --frontend-adapter --tf
 ```
 
-This publishes `/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`, and `/gaussian_lic/frontend/pose`, then lets `lic2_contract_adapter` forward them into `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/imu_for_gs`, and `/pose_for_gs`. It is a ROS2 boundary adapter, not the finished LIC2 odometry algorithm.
+This publishes `/camera/image`, `/camera/camera_info`, `/camera/depth`, `/livox/lidar`, `/imu`, and `/gaussian_lic/frontend/pose`, then lets `lic2_contract_adapter` forward them into `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/points_for_gs`, `/imu_for_gs`, and `/pose_for_gs`. The adapter also publishes `/gaussian_lic/frontend/odometry` and `/gaussian_lic/frontend/path` from incoming pose/odometry. It is a ROS2 boundary adapter, not the finished LIC2 odometry algorithm.
 
 ## Offline Mode
 
@@ -260,10 +260,17 @@ Current mapper contract:
 /livox/lidar
 /imu
 /gaussian_lic/frontend/pose
-/gaussian_lic/frontend/odometry
+/gaussian_lic/frontend/input_odometry
 ```
 
-It republishes raw sensor and pose/odometry outputs into the mapper contract above. If only odometry is available, it converts `nav_msgs/msg/Odometry` into `/pose_for_gs`.
+It republishes raw sensor and pose/odometry inputs into the mapper contract above. It also publishes:
+
+```text
+/gaussian_lic/frontend/odometry
+/gaussian_lic/frontend/path
+```
+
+If only odometry is available, set `raw_odometry_topic` and it converts `nav_msgs/msg/Odometry` into `/pose_for_gs` while keeping the stable frontend output topics separate from the raw odometry input.
 
 When `/points_for_gs` has no `rgb`, `rgba`, or `r/g/b` fields, the mapper projects each valid camera-frame point into `/image_for_gs` using the active `CameraInfo` intrinsics and samples RGB from the image. Points outside the image keep the white fallback color.
 
