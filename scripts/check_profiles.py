@@ -35,6 +35,7 @@ REQUIRED_PARAMS = {
     "width": int,
     "height": int,
     "depth_completion": bool,
+    "depth_completion_engine_path": str,
     "patch_size": int,
     "max_depth": (int, float),
     "sh_degree": int,

@@ -24,6 +24,9 @@
 #include <gaussian_lic_msgs/msg/mapping_status.hpp>
 #include <gaussian_lic_msgs/srv/save_map.hpp>
 #include <gaussian_lic_mapping/backend_config.hpp>
+#ifdef GAUSSIAN_LIC_ENABLE_TENSORRT
+#include <gaussian_lic_mapping/depth_completer.hpp>
+#endif
 #include <gaussian_lic_mapping/frame_data.hpp>
 #include <gaussian_lic_mapping/mapper_dataset.hpp>
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
@@ -88,6 +91,7 @@ public:
     backend_config_.width = declare_parameter<int>("width", 0);
     backend_config_.height = declare_parameter<int>("height", 0);
     backend_config_.depth_completion = declare_parameter<bool>("depth_completion", false);
+    depth_completion_engine_path_ = declare_parameter<std::string>("depth_completion_engine_path", "");
     backend_config_.patch_size = declare_parameter<int>("patch_size", 10);
     backend_config_.max_depth = declare_parameter<double>("max_depth", 20.0);
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
@@ -329,10 +333,23 @@ public:
       backend_config_.position_lr, backend_config_.feature_lr, backend_config_.opacity_lr,
       backend_config_.scaling_lr, backend_config_.rotation_lr);
     if (backend_config_.depth_completion) {
+#ifdef GAUSSIAN_LIC_ENABLE_TENSORRT
+      if (depth_completion_engine_path_.empty()) {
+        RCLCPP_WARN(
+          get_logger(),
+          "depth_completion is enabled but depth_completion_engine_path is empty; using sparse/provided depth until an SPNet TensorRT engine is configured");
+      } else {
+        RCLCPP_INFO(
+          get_logger(),
+          "TensorRT/SPNet depth completion enabled with engine=%s",
+          depth_completion_engine_path_.c_str());
+      }
+#else
       RCLCPP_WARN(
         get_logger(),
-        "depth_completion is configured but the TensorRT/SPNet backend is not ported in this ROS2 "
-        "slice; using the provided depth topic only");
+        "depth_completion is configured but this build was not compiled with TensorRT/SPNet support; "
+        "using the provided or sparse-projected depth image");
+#endif
     }
   }
 
@@ -621,6 +638,7 @@ private:
 
   void record_converted_frame(MapperFrameData && frame_data)
   {
+    maybe_complete_depth(frame_data);
     ++converted_frame_count_;
     last_image_width_ = frame_data.width;
     last_image_height_ = frame_data.height;
@@ -666,6 +684,51 @@ private:
       }
     }
     maybe_update_torch_gaussians(record);
+#endif
+  }
+
+  void maybe_complete_depth(MapperFrameData & frame_data)
+  {
+    if (!backend_config_.depth_completion) {
+      return;
+    }
+#ifdef GAUSSIAN_LIC_ENABLE_TENSORRT
+    if (depth_completion_engine_path_.empty()) {
+      if (!depth_completion_missing_engine_warned_) {
+        depth_completion_missing_engine_warned_ = true;
+        RCLCPP_WARN(
+          get_logger(),
+          "TensorRT depth completion requested without depth_completion_engine_path; keeping sparse/provided depth");
+      }
+      return;
+    }
+    try {
+      if (
+        !depth_completer_ ||
+        depth_completer_width_ != frame_data.width ||
+        depth_completer_height_ != frame_data.height)
+      {
+        depth_completer_ = std::make_unique<gaussian_lic_mapping::DepthCompleter>(
+          depth_completion_engine_path_, frame_data.width, frame_data.height);
+        depth_completer_width_ = frame_data.width;
+        depth_completer_height_ = frame_data.height;
+      }
+      frame_data.depth_m_float = depth_completer_->complete(
+        frame_data.image_rgb_float, frame_data.depth_m_float);
+      ++depth_completion_count_;
+    } catch (const std::exception & ex) {
+      ++depth_completion_error_count_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "TensorRT depth completion failed: %s", ex.what());
+    }
+#else
+    if (!depth_completion_missing_engine_warned_) {
+      depth_completion_missing_engine_warned_ = true;
+      RCLCPP_WARN(
+        get_logger(),
+        "TensorRT depth completion requested, but this build was not compiled with GAUSSIAN_LIC_ENABLE_TENSORRT=ON");
+    }
 #endif
   }
 
@@ -1487,7 +1550,7 @@ private:
       return make_torch_gaussian_preview_message(stamp);
 #else
       throw std::runtime_error(
-        "render_mode=rasterizer requested, but the Gaussian rasterizer backend is not ported yet");
+        "render_mode=rasterizer requested, but this build was not compiled with the Torch/CUDA Gaussian backend");
 #endif
     }
     throw std::runtime_error(
@@ -1598,7 +1661,7 @@ private:
       conversion_error_count_ + torch_camera_error_count_ + torch_gaussian_init_error_count_ +
       torch_gaussian_extend_error_count_ + torch_gaussian_optimization_error_count_ +
       torch_gaussian_densify_error_count_ + torch_gaussian_prune_error_count_ +
-      torch_gaussian_opacity_reset_error_count_ + render_error_count_;
+      torch_gaussian_opacity_reset_error_count_ + depth_completion_error_count_ + render_error_count_;
     msg.tracking_hz = last_tracking_hz_;
     msg.mapping_hz = last_mapping_hz_;
     msg.tracking_latency_ms = 0.0F;
@@ -1615,6 +1678,7 @@ private:
       "converted=%lu train=%zu test=%zu dataset_frames=%zu last_image=%dx%d "
       "last_points=%zu pending_points=%zu map_points=%zu total_points=%zu | "
       "rate tracking=%.2fHz mapping=%.2fHz | "
+      "depth_completion=%lu depth_completion_errors=%lu | "
       "torch_cameras=%lu torch_errors=%lu torch_image=%s torch_depth=%s | "
       "torch_gaussians=%zu gaussian_inits=%lu gaussian_extends=%lu last_inserted=%zu "
       "gaussian_init_errors=%lu gaussian_extend_errors=%lu gaussian_xyz=%s gaussian_features=%s "
@@ -1633,6 +1697,7 @@ private:
       last_points_in_frame_, dataset_.pending_point_count(), dataset_.map_point_count(),
       dataset_.total_point_count(),
       last_tracking_hz_, last_mapping_hz_,
+      depth_completion_count_, depth_completion_error_count_,
       torch_camera_count_, torch_camera_error_count_, last_torch_image_dims_.c_str(),
       last_torch_depth_dims_.c_str(),
       torch_gaussian_count_, torch_gaussian_init_count_, torch_gaussian_extend_count_,
@@ -1668,6 +1733,7 @@ private:
   std::string rendered_image_topic_;
   std::string gaussian_map_topic_;
   std::string save_map_service_;
+  std::string depth_completion_engine_path_;
   std::string world_frame_{"map"};
   std::string camera_frame_{"camera"};
   bool publish_tf_{false};
@@ -1746,6 +1812,8 @@ private:
   uint64_t camera_info_count_{0};
   uint64_t depth_count_{0};
   uint64_t imu_count_{0};
+  uint64_t depth_completion_count_{0};
+  uint64_t depth_completion_error_count_{0};
   uint64_t aligned_frame_count_{0};
   uint64_t converted_frame_count_{0};
   uint64_t torch_camera_count_{0};
@@ -1777,6 +1845,12 @@ private:
   int last_image_height_{0};
   cv::Mat last_image_rgb_float_;
   cv::Mat last_depth_m_float_;
+  bool depth_completion_missing_engine_warned_{false};
+#ifdef GAUSSIAN_LIC_ENABLE_TENSORRT
+  std::unique_ptr<gaussian_lic_mapping::DepthCompleter> depth_completer_;
+  int depth_completer_width_{0};
+  int depth_completer_height_{0};
+#endif
   Eigen::Quaterniond last_q_wc_{Eigen::Quaterniond::Identity()};
   Eigen::Vector3d last_t_wc_{Eigen::Vector3d::Zero()};
   size_t last_points_in_frame_{0};

@@ -24,6 +24,7 @@ mapping_node:
     width: 640
     height: 480
     depth_completion: true
+    depth_completion_engine_path: ""
     patch_size: 10
     max_depth: 20.0
     sh_degree: 3

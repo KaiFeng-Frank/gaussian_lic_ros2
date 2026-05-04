@@ -119,7 +119,7 @@ Imu -> native ROS2 subscription/counting for the LIC input contract
 PoseStamped -> optional TF map -> camera when publish_tf:=true
 ```
 
-The CUDA rasterizer, Gaussian optimizer, and Gaussian-LIC2 frontend/IMU fusion are not ported yet. `/gaussian_lic/rendered_image` currently projects accumulated debug map points back into the current camera with a CPU z-buffer, not the differentiable splat rasterizer. The current torch boundary covers `TorchCamera`, foreground Gaussian initialization, chunked Gaussian map publication, and PLY export.
+The CUDA rasterizer, fused SSIM loss, visibility-masked SparseGaussianAdam, densification/pruning, and strict CUDA rendered preview are ported behind the Torch/CUDA build profile. Gaussian-LIC2 frontend/IMU fusion is still separate from this mapper backend work; until the native tracker lands, the mapper consumes the ROS2 frontend contract topics.
 
 ## Dataset Profiles
 
@@ -156,7 +156,7 @@ CUDA:      /usr/local/cuda-12.8
 TensorRT:  not found
 ```
 
-The ROS2 parameter contract now accepts `depth_completion`, `patch_size`, `max_depth`, and `require_depth_topic`, but TensorRT/SPNet depth completion is still inactive in this slice. Upstream Gaussian-LIC links TensorRT unconditionally; the ROS2 port keeps that dependency optional and can either consume a provided depth topic or use sparse point-projected depth until the backend is ported.
+The ROS2 parameter contract accepts `depth_completion`, `depth_completion_engine_path`, `patch_size`, `max_depth`, and `require_depth_topic`. The native TensorRT/SPNet wrapper is available when built with `GAUSSIAN_LIC_ENABLE_TENSORRT=ON`; without a configured SPNet `.engine` file, the mapper keeps using the provided depth topic or sparse point-projected depth.
 
 The optional torch backend can be built with:
 

@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(GAUSSIAN_LIC_ENABLE_TORCH "Build optional libtorch/CUDA mapper backend probes" OFF)
 option(GAUSSIAN_LIC_ENABLE_CUDA "Enable strict CUDA/Torch Gaussian backend build plumbing" OFF)
+option(GAUSSIAN_LIC_ENABLE_TENSORRT "Build optional TensorRT/SPNet depth completion backend" OFF)
 
 if(GAUSSIAN_LIC_ENABLE_CUDA AND NOT GAUSSIAN_LIC_ENABLE_TORCH)
   message(FATAL_ERROR "GAUSSIAN_LIC_ENABLE_CUDA requires GAUSSIAN_LIC_ENABLE_TORCH=ON")
@@ -17,6 +18,9 @@ if(GAUSSIAN_LIC_ENABLE_CUDA)
   endif()
   set(CMAKE_CUDA_STANDARD 17)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+endif()
+
+if(GAUSSIAN_LIC_ENABLE_CUDA OR GAUSSIAN_LIC_ENABLE_TENSORRT)
   find_package(CUDAToolkit REQUIRED)
 endif()
 
@@ -87,6 +91,45 @@ install(TARGETS mapping_node_component
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
+if(GAUSSIAN_LIC_ENABLE_TENSORRT)
+  set(TENSORRT_ROOT "$ENV{TENSORRT_ROOT}" CACHE PATH "TensorRT SDK root")
+  if(NOT TENSORRT_ROOT AND EXISTS "$ENV{HOME}/Software/TensorRT-8.6.1.6")
+    set(TENSORRT_ROOT "$ENV{HOME}/Software/TensorRT-8.6.1.6" CACHE PATH "TensorRT SDK root" FORCE)
+  endif()
+  find_path(TENSORRT_INCLUDE_DIR NvInfer.h
+    HINTS ${TENSORRT_ROOT}
+    PATH_SUFFIXES include
+  )
+  find_library(TENSORRT_NVINFER_LIBRARY nvinfer
+    HINTS ${TENSORRT_ROOT}
+    PATH_SUFFIXES lib lib64
+  )
+  if(NOT TENSORRT_INCLUDE_DIR OR NOT TENSORRT_NVINFER_LIBRARY)
+    message(FATAL_ERROR "GAUSSIAN_LIC_ENABLE_TENSORRT=ON requires NvInfer.h and libnvinfer")
+  endif()
+
+  add_library(depth_completer src/depth_completer.cpp)
+  set_target_properties(depth_completer PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(depth_completer PUBLIC
+    include
+    ${TENSORRT_INCLUDE_DIR}
+  )
+  target_link_libraries(depth_completer
+    ${OpenCV_LIBS}
+    ${TENSORRT_NVINFER_LIBRARY}
+    CUDA::cudart
+  )
+  target_compile_definitions(mapping_node PRIVATE GAUSSIAN_LIC_ENABLE_TENSORRT=1)
+  target_compile_definitions(mapping_node_component PRIVATE GAUSSIAN_LIC_ENABLE_TENSORRT=1)
+  target_link_libraries(mapping_node depth_completer)
+  target_link_libraries(mapping_node_component depth_completer)
+  install(TARGETS depth_completer
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
+endif()
 
 if(GAUSSIAN_LIC_ENABLE_TORCH)
   if(NOT Torch_DIR AND EXISTS "$ENV{HOME}/Software/libtorch/share/cmake/Torch")

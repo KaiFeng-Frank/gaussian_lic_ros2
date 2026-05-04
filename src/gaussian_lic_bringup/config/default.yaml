@@ -87,6 +87,7 @@ mapping_node:
     width: 1
     height: 1
     depth_completion: false
+    depth_completion_engine_path: ""
     patch_size: 10
     max_depth: 20.0
     enable_torch_camera_conversion: false

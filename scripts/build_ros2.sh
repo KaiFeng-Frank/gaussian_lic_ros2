@@ -17,10 +17,23 @@ cmake_args=(
   -DPYTHON_EXECUTABLE=/usr/bin/python3
   -DGAUSSIAN_LIC_ENABLE_TORCH="${GAUSSIAN_LIC_ENABLE_TORCH:-OFF}"
   -DGAUSSIAN_LIC_ENABLE_CUDA="${GAUSSIAN_LIC_ENABLE_CUDA:-OFF}"
+  -DGAUSSIAN_LIC_ENABLE_TENSORRT="${GAUSSIAN_LIC_ENABLE_TENSORRT:-OFF}"
 )
 
-if [[ "${GAUSSIAN_LIC_ENABLE_TORCH:-OFF}" == "ON" || "${GAUSSIAN_LIC_ENABLE_CUDA:-OFF}" == "ON" ]]; then
+if [[ "${GAUSSIAN_LIC_ENABLE_TORCH:-OFF}" == "ON" || "${GAUSSIAN_LIC_ENABLE_CUDA:-OFF}" == "ON" || "${GAUSSIAN_LIC_ENABLE_TENSORRT:-OFF}" == "ON" ]]; then
   export PATH="${CUDA_HOME}/bin:/usr/local/cuda/bin:${PATH}"
+  cmake_args+=(
+    -DCUDAToolkit_ROOT="${CUDA_HOME}"
+  )
+fi
+
+if [[ "${GAUSSIAN_LIC_ENABLE_TENSORRT:-OFF}" == "ON" ]]; then
+  cmake_args+=(
+    -DTENSORRT_ROOT="${TENSORRT_ROOT:-${HOME}/Software/TensorRT-8.6.1.6}"
+  )
+fi
+
+if [[ "${GAUSSIAN_LIC_ENABLE_TORCH:-OFF}" == "ON" || "${GAUSSIAN_LIC_ENABLE_CUDA:-OFF}" == "ON" ]]; then
   torch_dir="${TORCH_DIR:-${HOME}/Software/libtorch/share/cmake/Torch}"
   cuda_arch="${CMAKE_CUDA_ARCHITECTURES:-}"
   if [[ -z "${cuda_arch}" ]] && command -v nvidia-smi >/dev/null 2>&1; then
@@ -33,7 +46,6 @@ if [[ "${GAUSSIAN_LIC_ENABLE_TORCH:-OFF}" == "ON" || "${GAUSSIAN_LIC_ENABLE_CUDA
     -DGAUSSIAN_LIC_ENABLE_TORCH=ON
     -DGAUSSIAN_LIC_ENABLE_CUDA="${GAUSSIAN_LIC_ENABLE_CUDA:-OFF}"
     -DTorch_DIR="${torch_dir}"
-    -DCUDAToolkit_ROOT="${CUDA_HOME}"
     -DCMAKE_CUDA_COMPILER="${cuda_compiler}"
     -DCMAKE_CUDA_ARCHITECTURES="${cuda_arch}"
   )
