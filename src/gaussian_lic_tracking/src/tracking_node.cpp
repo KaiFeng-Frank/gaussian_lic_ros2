@@ -11,6 +11,7 @@
 #include <gaussian_lic_tracking/lidar_factor.hpp>
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
+#include <gaussian_lic_msgs/msg/gaussian_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -42,6 +43,7 @@ public:
     odometry_topic_ = declare_parameter<std::string>("odometry_topic", "/gaussian_lic/frontend/odometry");
     path_topic_ = declare_parameter<std::string>("path_topic", "/gaussian_lic/frontend/path");
     rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
+    gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
     child_frame_ = declare_parameter<std::string>("child_frame", "base_link");
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
@@ -49,6 +51,7 @@ public:
     sensor_qos_depth_ = declare_parameter<int>("sensor_qos_depth", 5);
     sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
     enable_visual_factor_ = declare_parameter<bool>("enable_visual_factor", true);
+    enable_gaussian_snapshot_ = declare_parameter<bool>("enable_gaussian_snapshot", true);
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
     lidar_min_points_ = declare_parameter<int>("lidar_min_points", 32);
@@ -108,6 +111,13 @@ public:
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
         handle_rendered_image(*msg);
       });
+    if (enable_gaussian_snapshot_) {
+      gaussian_map_sub_ = create_subscription<gaussian_lic_msgs::msg::GaussianArray>(
+        gaussian_map_topic_, rclcpp::QoS(1).transient_local().reliable(),
+        [this](gaussian_lic_msgs::msg::GaussianArray::ConstSharedPtr msg) {
+          handle_gaussian_snapshot(*msg);
+        });
+    }
     if (publish_tf_) {
       tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     }
@@ -181,6 +191,22 @@ private:
       latest_rendered_frame_ = std::move(rendered);
       has_rendered_frame_ = true;
     }
+  }
+
+  void handle_gaussian_snapshot(const gaussian_lic_msgs::msg::GaussianArray & msg)
+  {
+    last_gaussian_snapshot_stamp_ns_ = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+    last_gaussian_total_count_ = msg.total_count;
+    last_gaussian_chunk_count_ = msg.chunk_count;
+    if (msg.chunk_index == 0U || gaussian_snapshot_chunks_received_ >= msg.chunk_count) {
+      gaussian_snapshot_chunks_received_ = 0U;
+    }
+    ++gaussian_snapshot_chunks_received_;
+    last_gaussian_chunk_size_ = msg.gaussians.size();
+    RCLCPP_DEBUG_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "received Gaussian snapshot chunk %u/%u total=%u chunk_size=%zu",
+      msg.chunk_index + 1U, msg.chunk_count, msg.total_count, msg.gaussians.size());
   }
 
   void handle_pointcloud(const sensor_msgs::msg::PointCloud2 & msg)
@@ -411,6 +437,7 @@ private:
   std::string odometry_topic_;
   std::string path_topic_;
   std::string rendered_image_topic_;
+  std::string gaussian_map_topic_;
   std::string world_frame_;
   std::string child_frame_;
   bool publish_tf_{false};
@@ -418,6 +445,7 @@ private:
   int sensor_qos_depth_{5};
   std::string sensor_qos_reliability_{"best_effort"};
   bool enable_visual_factor_{true};
+  bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
   bool enable_lio_factor_{true};
   int lidar_min_points_{32};
@@ -434,6 +462,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rendered_image_sub_;
+  rclcpp::Subscription<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr gaussian_map_sub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_pub_;
@@ -450,6 +479,11 @@ private:
   gaussian_lic_tracking::VisualFrame latest_rendered_frame_;
   gaussian_lic_tracking::VisualResidual last_visual_residual_;
   bool has_rendered_frame_{false};
+  int64_t last_gaussian_snapshot_stamp_ns_{0};
+  uint32_t last_gaussian_total_count_{0};
+  uint32_t last_gaussian_chunk_count_{0};
+  uint32_t gaussian_snapshot_chunks_received_{0};
+  size_t last_gaussian_chunk_size_{0};
   nav_msgs::msg::Path path_;
 };
 

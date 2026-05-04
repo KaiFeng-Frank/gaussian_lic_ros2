@@ -59,5 +59,8 @@ Current ROS2 implementation status:
   residual foundation, and `tracking_node` subscribes to
   `/gaussian_lic/rendered_image` so mapper Gaussian renders can be compared
   against incoming camera frames.
+- `tracking_node` also subscribes to `/gaussian_lic/gaussian_map`
+  `GaussianArray` chunks, giving the frontend a native Gaussian-map snapshot
+  channel for later joint optimization.
 - Full sliding-window BA and Coco-LIC2-grade IMU/LiDAR/camera joint
   optimization still need to be ported from the audited Coco-LIC modules.

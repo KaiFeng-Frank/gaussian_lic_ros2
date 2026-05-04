@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(gaussian_lic_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -76,6 +77,7 @@ target_link_libraries(tracking_node
   Eigen3::Eigen
 )
 ament_target_dependencies(tracking_node
+  gaussian_lic_msgs
   geometry_msgs
   nav_msgs
   rclcpp

@@ -14,8 +14,10 @@ def generate_launch_description():
     raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
     raw_imu_topic = LaunchConfiguration("raw_imu_topic")
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
+    gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
+    enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
 
     return LaunchDescription(
         [
@@ -26,8 +28,10 @@ def generate_launch_description():
             DeclareLaunchArgument("raw_pointcloud_topic", default_value="/livox/lidar"),
             DeclareLaunchArgument("raw_imu_topic", default_value="/imu"),
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
+            DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
+            DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             Node(
                 package="gaussian_lic_tracking",
                 executable="tracking_node",
@@ -46,8 +50,10 @@ def generate_launch_description():
                         "raw_pointcloud_topic": raw_pointcloud_topic,
                         "raw_imu_topic": raw_imu_topic,
                         "rendered_image_topic": rendered_image_topic,
+                        "gaussian_map_topic": gaussian_map_topic,
                         "enable_lio_factor": enable_lio_factor,
                         "enable_visual_factor": enable_visual_factor,
+                        "enable_gaussian_snapshot": enable_gaussian_snapshot,
                     }
                 ],
             ),
