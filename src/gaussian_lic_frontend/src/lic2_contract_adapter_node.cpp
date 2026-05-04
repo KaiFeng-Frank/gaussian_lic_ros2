@@ -5,6 +5,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -35,9 +36,12 @@ std::string lowercase(std::string value)
   return value;
 }
 
-double stamp_to_sec(const builtin_interfaces::msg::Time & stamp)
+constexpr int64_t kNanosecondsPerSecond = 1000000000LL;
+
+int64_t stamp_to_nsec(const builtin_interfaces::msg::Time & stamp)
 {
-  return static_cast<double>(stamp.sec) + static_cast<double>(stamp.nanosec) * 1.0e-9;
+  return static_cast<int64_t>(stamp.sec) * kNanosecondsPerSecond +
+    static_cast<int64_t>(stamp.nanosec);
 }
 
 struct UnitQuaternion
@@ -425,15 +429,16 @@ private:
 
   void integrate_imu_orientation(const sensor_msgs::msg::Imu & imu)
   {
-    const double stamp_sec = stamp_to_sec(imu.header.stamp);
+    const int64_t stamp_nsec = stamp_to_nsec(imu.header.stamp);
     if (!have_last_imu_stamp_) {
-      last_imu_stamp_sec_ = stamp_sec;
+      last_imu_stamp_nsec_ = stamp_nsec;
       have_last_imu_stamp_ = true;
       return;
     }
 
-    const double dt = stamp_sec - last_imu_stamp_sec_;
-    last_imu_stamp_sec_ = stamp_sec;
+    const int64_t dt_nsec = stamp_nsec - last_imu_stamp_nsec_;
+    last_imu_stamp_nsec_ = stamp_nsec;
+    const double dt = static_cast<double>(dt_nsec) / static_cast<double>(kNanosecondsPerSecond);
     if (dt <= 0.0 || dt > imu_integration_max_dt_sec_) {
       return;
     }
@@ -529,7 +534,7 @@ private:
   std::vector<double> pointcloud_transform_rotation_{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
   std::vector<double> pointcloud_transform_translation_{0.0, 0.0, 0.0};
   bool have_last_imu_stamp_{false};
-  double last_imu_stamp_sec_{0.0};
+  int64_t last_imu_stamp_nsec_{0};
   UnitQuaternion imu_orientation_;
 
   size_t image_count_{0};

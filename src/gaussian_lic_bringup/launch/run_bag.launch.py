@@ -309,7 +309,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "use_composition",
             default_value="false",
-            description="Load mapping_node as an rclcpp component in a component_container_mt",
+            description="Load mapping_node as an rclcpp component in a single-threaded component_container",
         ),
         DeclareLaunchArgument("rviz", default_value="false", description="Start RViz2 with Gaussian-LIC displays"),
         DeclareLaunchArgument("rviz_config", default_value=default_rviz_config, description="RViz2 config file"),
@@ -381,7 +381,7 @@ def generate_launch_description():
 
         ComposableNodeContainer(
             package="rclcpp_components",
-            executable="component_container_mt",
+            executable="component_container",
             name="gaussian_lic_container",
             namespace="",
             output="screen",

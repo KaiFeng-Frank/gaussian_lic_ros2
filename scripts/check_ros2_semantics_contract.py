@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+from pathlib import Path
+import sys
+
+try:
+    import yaml
+except ImportError as exc:
+    raise SystemExit("PyYAML is required; run with the ROS2 system Python") from exc
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG_DIR = ROOT / "src" / "gaussian_lic_bringup" / "config"
+MAPPING_NODE = ROOT / "src" / "gaussian_lic_mapping" / "src" / "mapping_node.cpp"
+FRONTEND_ADAPTER = ROOT / "src" / "gaussian_lic_frontend" / "src" / "lic2_contract_adapter_node.cpp"
+RUN_BAG_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "run_bag.launch.py"
+SEMANTICS_DOC = ROOT / "docs" / "ROS2_SEMANTICS.md"
+
+
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def mapping_params(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as stream:
+        data = yaml.safe_load(stream)
+    return data.get("mapping_node", {}).get("ros__parameters", {})
+
+
+def source_files() -> list[Path]:
+    roots = [
+        ROOT / "src" / "gaussian_lic_mapping",
+        ROOT / "src" / "gaussian_lic_frontend",
+    ]
+    paths: list[Path] = []
+    for root in roots:
+        paths.extend(root.rglob("*.cpp"))
+        paths.extend(root.rglob("*.hpp"))
+        paths.extend(root.rglob("*.h"))
+    return paths
+
+
+def main() -> int:
+    errors: list[str] = []
+
+    if not SEMANTICS_DOC.is_file():
+        errors.append("docs/ROS2_SEMANTICS.md is missing")
+
+    mapping_text = read(MAPPING_NODE)
+    frontend_text = read(FRONTEND_ADAPTER)
+    launch_text = read(RUN_BAG_LAUNCH)
+
+    if "stamp_to_sec" in mapping_text:
+        errors.append("mapping_node still exposes stamp_to_sec; use int64 nanoseconds for sync math")
+    if "sync_tolerance_nsec_" not in mapping_text:
+        errors.append("mapping_node does not retain a nanosecond sync tolerance")
+    if "const double frame_time" in mapping_text:
+        errors.append("mapping_node frame synchronization regressed to double seconds")
+
+    if "stamp_to_sec" in frontend_text:
+        errors.append("lic2_contract_adapter still exposes stamp_to_sec; use int64 nanoseconds")
+    if "last_imu_stamp_sec_" in frontend_text:
+        errors.append("lic2_contract_adapter IMU integration still stores double-second stamps")
+    if "last_imu_stamp_nsec_" not in frontend_text:
+        errors.append("lic2_contract_adapter does not store IMU stamps in nanoseconds")
+
+    if 'executable="component_container_mt"' in launch_text or "component_container_mt" in launch_text:
+        errors.append("run_bag.launch.py must default strict composition to single-threaded component_container")
+    if 'executable="component_container"' not in launch_text:
+        errors.append("run_bag.launch.py does not use the single-threaded component_container")
+    if '"--clock"' not in launch_text:
+        errors.append("run_bag.launch.py rosbag2 replay must publish /clock")
+    if '"use_sim_time", default_value="true"' not in launch_text:
+        errors.append("run_bag.launch.py must default use_sim_time to true")
+
+    for path in sorted(CONFIG_DIR.glob("*.yaml")):
+        params = mapping_params(path)
+        if params.get("sensor_qos_reliability") != "best_effort":
+            errors.append(f"{path.name}: sensor_qos_reliability must default to best_effort")
+        if params.get("sensor_qos_history") != "keep_last":
+            errors.append(f"{path.name}: sensor_qos_history must default to keep_last")
+        if params.get("sensor_qos_depth") != 5:
+            errors.append(f"{path.name}: sensor_qos_depth must default to 5")
+
+    for path in source_files():
+        text = read(path)
+        if "rclcpp::MultiThreadedExecutor" in text:
+            errors.append(f"{path.relative_to(ROOT)} uses MultiThreadedExecutor in strict estimator code")
+        if "lookupTransform" in text:
+            errors.append(f"{path.relative_to(ROOT)} consumes tf2 lookupTransform without a semantic wrapper")
+
+    if errors:
+        print("[ros2-semantics] FAIL", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return 1
+
+    print("[ros2-semantics] OK")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

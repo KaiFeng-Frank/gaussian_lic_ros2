@@ -80,6 +80,9 @@ PY
 echo "[verify] profile yaml"
 ./scripts/check_profiles.py
 
+echo "[verify] ros2 semantic contract"
+./scripts/check_ros2_semantics_contract.py
+
 if [[ "${SKIP_BUILD}" != "true" ]]; then
   echo "[verify] build"
   ./scripts/build_ros2.sh

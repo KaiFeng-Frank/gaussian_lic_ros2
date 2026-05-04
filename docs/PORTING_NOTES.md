@@ -31,10 +31,13 @@ Outputs:
 ## ROS2 Design Rules
 
 - Use configurable sensor-data QoS for image, point cloud, pose, camera info, depth, and IMU subscriptions. Defaults are `best_effort`, `keep_last`, depth `5`; `sensor_qos_reliability:=reliable` is available for reliable rosbag2 or driver outputs.
+- Keep estimator timestamp math in signed `int64_t` nanoseconds. Do not replace ROS1 `ros::Time` math with `rclcpp::Time` or double seconds inside B-spline, IMU, LiDAR deskew, or frame-sync code.
+- Strict replay and component launch must use a single-threaded executor until the frontend has deterministic stamp-ordered queues around every estimator update.
 - Use lifecycle nodes for long-running mapping/tracking components.
 - Keep GPU/CUDA code isolated from middleware glue.
-- `mapping_node` is available as both a standalone executable and an `rclcpp_components` plugin; launch with `use_composition:=true` to load it in `component_container_mt`.
+- `mapping_node` is available as both a standalone executable and an `rclcpp_components` plugin; launch with `use_composition:=true` to load it in the single-threaded `component_container`.
 - Keep launch files dataset-agnostic; put dataset paths and remaps in config.
+- See `docs/ROS2_SEMANTICS.md` for the enforced time, QoS, executor, tf2, and rosbag replay contract.
 
 ## Known Hard Part
 
@@ -79,7 +82,7 @@ For FAST-LIVO2 raw bags, `pointcloud_transform_profile:=fastlivo2` applies the r
 /depth_for_gs
 ```
 
-and aligns frames using `/points_for_gs` as the reference timestamp with `sync_tolerance_sec` defaulting to `0.01`, matching upstream's 10 ms tolerance. `CameraInfo` is not part of the synchronized set; the latest valid message updates the active `fx/fy/cx/cy` intrinsics, and parameter values remain the fallback.
+and aligns frames using `/points_for_gs` as the reference timestamp with `sync_tolerance_sec` defaulting to `0.01`, matching upstream's 10 ms tolerance. Internally the public seconds parameter is converted once to signed nanoseconds, and all queue trimming/comparison uses integer nanosecond stamps to avoid silent ROS1-to-ROS2 epoch and floating-point drift. `CameraInfo` is not part of the synchronized set; the latest valid message updates the active `fx/fy/cx/cy` intrinsics, and parameter values remain the fallback.
 
 After alignment, the node converts ROS2 messages into `MapperFrameData`:
 

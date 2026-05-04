@@ -73,6 +73,7 @@ public:
     camera_frame_ = declare_parameter<std::string>("camera_frame", "camera");
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
     sync_tolerance_sec_ = declare_parameter<double>("sync_tolerance_sec", 0.01);
+    sync_tolerance_nsec_ = seconds_to_nsec(sync_tolerance_sec_, "sync_tolerance_sec");
     max_queue_size_ = declare_parameter<int>("max_queue_size", 10000);
     sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
     sensor_qos_history_ = declare_parameter<std::string>("sensor_qos_history", "keep_last");
@@ -399,9 +400,24 @@ private:
     }
   }
 
-  static double stamp_to_sec(const builtin_interfaces::msg::Time & stamp)
+  static constexpr int64_t kNanosecondsPerSecond = 1000000000LL;
+
+  static int64_t stamp_to_nsec(const builtin_interfaces::msg::Time & stamp)
   {
-    return static_cast<double>(stamp.sec) + static_cast<double>(stamp.nanosec) * 1e-9;
+    return static_cast<int64_t>(stamp.sec) * kNanosecondsPerSecond +
+      static_cast<int64_t>(stamp.nanosec);
+  }
+
+  static int64_t seconds_to_nsec(const double seconds, const char * parameter_name)
+  {
+    if (!std::isfinite(seconds) || seconds < 0.0) {
+      throw std::runtime_error(std::string(parameter_name) + " must be finite and non-negative");
+    }
+    const double nsec = seconds * static_cast<double>(kNanosecondsPerSecond);
+    if (nsec > static_cast<double>(std::numeric_limits<int64_t>::max())) {
+      throw std::runtime_error(std::string(parameter_name) + " is too large for int64 nanoseconds");
+    }
+    return static_cast<int64_t>(std::llround(nsec));
   }
 
   static uint8_t color_channel_to_u8(const float value)
@@ -443,10 +459,12 @@ private:
   template<typename PtrT>
   bool trim_until_near(
     std::deque<PtrT> & queue,
-    const double frame_time,
+    const int64_t frame_time_nsec,
     uint64_t & dropped_count)
   {
-    while (!queue.empty() && stamp_to_sec(queue.front()->header.stamp) < frame_time - sync_tolerance_sec_) {
+    while (!queue.empty() &&
+      stamp_to_nsec(queue.front()->header.stamp) < frame_time_nsec - sync_tolerance_nsec_)
+    {
       queue.pop_front();
       ++dropped_count;
     }
@@ -468,21 +486,21 @@ private:
       return AlignResult::kNoData;
     }
 
-    const double frame_time = stamp_to_sec(point_buf_.front()->header.stamp);
+    const int64_t frame_time_nsec = stamp_to_nsec(point_buf_.front()->header.stamp);
 
-    if (!trim_until_near(pose_buf_, frame_time, dropped_pose_count_) ||
-      !trim_until_near(image_buf_, frame_time, dropped_image_count_))
+    if (!trim_until_near(pose_buf_, frame_time_nsec, dropped_pose_count_) ||
+      !trim_until_near(image_buf_, frame_time_nsec, dropped_image_count_))
     {
       return AlignResult::kNoData;
     }
 
     sensor_msgs::msg::Image::ConstSharedPtr aligned_depth;
     if (!depth_buf_.empty()) {
-      (void)trim_until_near(depth_buf_, frame_time, dropped_depth_count_);
+      (void)trim_until_near(depth_buf_, frame_time_nsec, dropped_depth_count_);
     }
     if (!depth_buf_.empty()) {
       const bool depth_too_new =
-        stamp_to_sec(depth_buf_.front()->header.stamp) > frame_time + sync_tolerance_sec_;
+        stamp_to_nsec(depth_buf_.front()->header.stamp) > frame_time_nsec + sync_tolerance_nsec_;
       if (!depth_too_new) {
         aligned_depth = depth_buf_.front();
       } else if (require_depth_topic_) {
@@ -495,9 +513,9 @@ private:
     }
 
     const bool pose_too_new =
-      stamp_to_sec(pose_buf_.front()->header.stamp) > frame_time + sync_tolerance_sec_;
+      stamp_to_nsec(pose_buf_.front()->header.stamp) > frame_time_nsec + sync_tolerance_nsec_;
     const bool image_too_new =
-      stamp_to_sec(image_buf_.front()->header.stamp) > frame_time + sync_tolerance_sec_;
+      stamp_to_nsec(image_buf_.front()->header.stamp) > frame_time_nsec + sync_tolerance_nsec_;
 
     if (pose_too_new || image_too_new) {
       point_buf_.pop_front();
@@ -1474,6 +1492,7 @@ private:
   std::string camera_frame_{"camera"};
   bool publish_tf_{false};
   double sync_tolerance_sec_{0.01};
+  int64_t sync_tolerance_nsec_{10000000LL};
   int max_queue_size_{10000};
   std::string sensor_qos_reliability_{"best_effort"};
   std::string sensor_qos_history_{"keep_last"};
