@@ -112,6 +112,12 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
     add_library(gaussian_lic_cuda_ops
       cuda/fused_ssim/fused_ssim.cu
       cuda/fused_ssim/fused_ssim_autograd.cpp
+      cuda/rasterizer/cuda_rasterizer/adam.cu
+      cuda/rasterizer/cuda_rasterizer/backward.cu
+      cuda/rasterizer/cuda_rasterizer/forward.cu
+      cuda/rasterizer/cuda_rasterizer/rasterizer_impl.cu
+      cuda/rasterizer/rasterize_points.cu
+      cuda/rasterizer/rasterizer.cpp
       cuda/simple_knn/simple_knn.cu
       cuda/simple_knn/spatial.cu
       cuda/sparse_adam/sparse_adam.cu
@@ -119,10 +125,13 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
     set_target_properties(gaussian_lic_cuda_ops PROPERTIES
       POSITION_INDEPENDENT_CODE ON
       CUDA_SEPARABLE_COMPILATION ON
+      CUDA_RESOLVE_DEVICE_SYMBOLS ON
     )
     target_include_directories(gaussian_lic_cuda_ops PUBLIC
       include
       cuda/fused_ssim
+      cuda/rasterizer
+      cuda/rasterizer/cuda_rasterizer
       cuda/simple_knn
     )
     target_compile_options(gaussian_lic_cuda_ops PRIVATE ${TORCH_CXX_FLAGS})
@@ -175,6 +184,18 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
       ${TORCH_LIBRARIES}
       CUDA::cudart
     )
+
+    add_executable(rasterizer_probe src/rasterizer_probe.cpp)
+    target_include_directories(rasterizer_probe PRIVATE
+      include
+      cuda/rasterizer
+    )
+    target_compile_options(rasterizer_probe PRIVATE ${TORCH_CXX_FLAGS})
+    target_link_libraries(rasterizer_probe
+      gaussian_lic_cuda_ops
+      ${TORCH_LIBRARIES}
+      CUDA::cudart
+    )
   endif()
 
   target_compile_definitions(mapping_node PRIVATE GAUSSIAN_LIC_ENABLE_TORCH=1)
@@ -208,6 +229,9 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
       RUNTIME DESTINATION lib/${PROJECT_NAME}
     )
     install(TARGETS fused_ssim_probe
+      RUNTIME DESTINATION lib/${PROJECT_NAME}
+    )
+    install(TARGETS rasterizer_probe
       RUNTIME DESTINATION lib/${PROJECT_NAME}
     )
   endif()

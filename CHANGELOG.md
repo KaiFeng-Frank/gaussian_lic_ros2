@@ -37,6 +37,7 @@
 - Ported the upstream simple-knn CUDA `distCUDA2` operator into the strict CUDA build profile with a brute-force CPU reference probe.
 - Ported the upstream SparseGaussianAdam visibility-masked CUDA update into the strict CUDA build profile with a CPU reference/performance probe.
 - Ported the upstream fused-ssim CUDA forward/backward operator into the strict CUDA build profile with scalar and gradient reference probes.
+- Ported the upstream CUDA Gaussian rasterizer forward/backward operator into the strict CUDA build profile with a nonblank render/depth and finite-gradient probe.
 - Added an enforced ROS2 semantic contract for timestamp math, sensor QoS, executor choice, tf2 usage, and rosbag2 replay before the continuous-time frontend port proceeds.
 - Switched mapper frame synchronization and LIC2 adapter IMU fallback from double-second stamp deltas to signed int64 nanosecond arithmetic.
 - Made composable strict replay use the single-threaded ROS2 component container by default to preserve ROS1 callback ordering assumptions.

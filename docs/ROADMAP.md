@@ -131,8 +131,9 @@ baseline_manifest.json
 - [x] Make TensorRT depth completion optional at the ROS2 mapper input boundary.
 - [x] Port upstream CUDA simple-knn `distCUDA2` with a strict probe.
 - [x] Port upstream fused-ssim CUDA forward/backward with scalar and gradient probes.
+- [x] Port upstream CUDA Gaussian rasterizer forward/backward operator with a strict smoke probe.
 - [x] Port upstream visibility-masked SparseGaussianAdam CUDA update with a strict probe.
-- [ ] Port upstream CUDA Gaussian rasterization, full loss schedule, and gradient-aware densification.
+- [ ] Wire the CUDA rasterizer into the ROS2 Torch backend full loss schedule and gradient-aware densification.
 - [x] Publish mapper status.
 - [ ] Replace CPU Gaussian splat preview with upstream CUDA Gaussian rasterizer output.
 
