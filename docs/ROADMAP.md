@@ -106,5 +106,5 @@ run.log
 - [x] Performance regression comparison script.
 - [x] Jazzy/Humble build-only CI skeleton.
 - [ ] ROS1 upstream baseline archive for FAST-LIVO2.
-- [ ] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
+- [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.
 - [ ] CI smoke tests with mini sequence and PR comparison report.

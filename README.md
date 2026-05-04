@@ -117,6 +117,21 @@ metrics.json
 
 This is the seed for the future `gaussian_lic_offline` reproduction binary. The current implementation reads mapper contract topics and writes debug artifacts; it does not yet run the full Coco-LIC/Gaussian-LIC algorithm offline.
 
+## ROS1 Bag Conversion
+
+Convert an archived ROS1 `.bag` into a ROS2 bag directory for replay:
+
+```bash
+/usr/bin/python3 -m pip install --user rosbags
+./scripts/convert_ros1_bag_to_rosbag2.py \
+  --input /path/to/input.bag \
+  --output bags/input_ros2 \
+  --storage mcap \
+  --dst-typestore ros2_jazzy
+```
+
+Use repeated `--topic` or `--include-topic` arguments to convert only the mapper contract topics when preparing focused reproduction bags.
+
 ## Torch Backend Probe
 
 Build the optional libtorch/CUDA path:

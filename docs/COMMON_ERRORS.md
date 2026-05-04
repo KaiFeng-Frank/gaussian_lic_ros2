@@ -116,3 +116,29 @@ Current mapper smoke tests do not require TensorRT:
 ```bash
 ./scripts/smoke_test.sh --tf
 ```
+
+## ROS1 Bag Converter Missing `rosbags`
+
+Symptom:
+
+```text
+ROS1 bag conversion requires the optional Python package 'rosbags'.
+```
+
+Install it only in the conversion environment:
+
+```bash
+/usr/bin/python3 -m pip install --user rosbags
+```
+
+Then rerun:
+
+```bash
+./scripts/convert_ros1_bag_to_rosbag2.py \
+  --input /path/to/input.bag \
+  --output bags/input_ros2 \
+  --storage mcap \
+  --dst-typestore ros2_jazzy
+```
+
+The Jazzy build and smoke-test path intentionally does not depend on ROS1 or `rosbags`.

@@ -5,6 +5,7 @@
 - Added keyframe-gated Torch Gaussian initialization and incremental foreground insertion for the ROS2 mapping node.
 - Added optional skybox tensor seeding, Gaussian map republishing after extension, and mapping latency/mean iteration status fields.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
+- Implemented the dependency-gated ROS1 `.bag` to rosbag2 converter backend using `rosbags`.
 
 ## v0.1.0-m1-infra - 2026-05-03
 
