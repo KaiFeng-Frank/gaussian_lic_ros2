@@ -188,8 +188,8 @@ fi
 if [[ -n "${BAG_PATH}" ]]; then
   launch_args+=(
     bag:="${BAG_PATH}"
-    play_bag:=true
-    loop_bag:=true
+    play_bag:=false
+    loop_bag:=false
     synthetic_input:=false
     use_sim_time:=true
   )
@@ -228,8 +228,21 @@ fi
 setsid ros2 launch gaussian_lic_bringup run_bag.launch.py "${launch_args[@]}" \
   >"${RUN_LOG}" 2>&1 &
 LAUNCH_PID=$!
+PLAY_PID=""
+RECORD_PID=""
 
 cleanup() {
+  if [[ -n "${RECORD_PID}" ]]; then
+    kill -INT "${RECORD_PID}" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "${PLAY_PID}" ]]; then
+    local play_pgid="-${PLAY_PID}"
+    kill -INT "${play_pgid}" >/dev/null 2>&1 || true
+    sleep 1
+    kill -TERM "${play_pgid}" >/dev/null 2>&1 || true
+    sleep 1
+    kill -KILL "${play_pgid}" >/dev/null 2>&1 || true
+  fi
   local pgid="-${LAUNCH_PID}"
   kill -INT "${pgid}" >/dev/null 2>&1 || true
   sleep 1
@@ -240,12 +253,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "[current] waiting for mapper status"
-ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
-  /gaussian_lic/status gaussian_lic_msgs/msg/MappingStatus \
-  >"${OUTPUT_DIR}/status.txt"
-
-echo "[current] recording ROS2 mapper outputs: ${RECORDED_BAG}"
 record_topics=(
   /gaussian_lic/odometry
   /gaussian_lic/path
@@ -259,17 +266,66 @@ fi
 if [[ "${PUBLISH_TF}" == "true" ]]; then
   record_topics+=(/tf)
 fi
-set +e
-timeout --signal=INT --kill-after=5 "${RECORD_SEC}" \
-  ros2 bag record \
-    -o "${RECORDED_BAG}" \
-    "${record_topics[@]}" \
-    >"${OUTPUT_DIR}/record.log" 2>&1
-record_status=$?
-set -e
-if [[ ${record_status} -ne 0 && ${record_status} -ne 124 && ${record_status} -ne 130 ]]; then
-  echo "ros2 bag record failed with status ${record_status}; see ${OUTPUT_DIR}/record.log" >&2
-  exit "${record_status}"
+
+wait_for_node() {
+  local node_name="$1"
+  local deadline=$((SECONDS + TIMEOUT_SEC))
+  while (( SECONDS < deadline )); do
+    if ros2 node list 2>/dev/null | grep -Fxq "${node_name}"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "Timed out waiting for ROS2 node ${node_name}" >&2
+  return 1
+}
+
+start_recording() {
+  echo "[current] recording ROS2 mapper outputs: ${RECORDED_BAG}"
+  timeout --signal=INT --kill-after=5 "${RECORD_SEC}" \
+    ros2 bag record \
+      -o "${RECORDED_BAG}" \
+      "${record_topics[@]}" \
+      >"${OUTPUT_DIR}/record.log" 2>&1 &
+  RECORD_PID=$!
+}
+
+wait_for_recording() {
+  local record_status=0
+  set +e
+  wait "${RECORD_PID}"
+  record_status=$?
+  set -e
+  RECORD_PID=""
+  if [[ ${record_status} -ne 0 && ${record_status} -ne 124 && ${record_status} -ne 130 ]]; then
+    echo "ros2 bag record failed with status ${record_status}; see ${OUTPUT_DIR}/record.log" >&2
+    exit "${record_status}"
+  fi
+}
+
+if [[ -n "${BAG_PATH}" ]]; then
+  echo "[current] waiting for mapper nodes"
+  wait_for_node "/mapping_node"
+  if [[ "${FRONTEND_ADAPTER}" == "true" ]]; then
+    wait_for_node "/lic2_contract_adapter"
+  fi
+  start_recording
+  sleep 0.5
+  echo "[current] replaying input bag: ${BAG_PATH}"
+  setsid ros2 bag play "${BAG_PATH}" --clock --loop >"${OUTPUT_DIR}/play.log" 2>&1 &
+  PLAY_PID=$!
+  echo "[current] waiting for mapper status"
+  ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
+    /gaussian_lic/status gaussian_lic_msgs/msg/MappingStatus \
+    >"${OUTPUT_DIR}/status.txt"
+  wait_for_recording
+else
+  echo "[current] waiting for mapper status"
+  ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
+    /gaussian_lic/status gaussian_lic_msgs/msg/MappingStatus \
+    >"${OUTPUT_DIR}/status.txt"
+  start_recording
+  wait_for_recording
 fi
 
 echo "[current] saving mapper point cloud"

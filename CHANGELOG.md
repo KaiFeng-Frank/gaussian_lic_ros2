@@ -17,6 +17,7 @@
 - Added an optional Torch photometric Gaussian tensor optimizer that backpropagates keyframe image supervision into DC color and opacity tensors, with launch/profile/script controls and probe coverage.
 - Added optional Torch Gaussian pruning by opacity and foreground count cap to keep ROS2 Gaussian maps bounded during long current runs.
 - Added `scripts/collect_current_results.sh` to record ROS2 mapper outputs and write current reproduction artifacts for baseline-vs-current reports.
+- Made `scripts/collect_current_results.sh` start mapper output recording before rosbag playback for deterministic full-sequence current artifacts.
 - Confirmed the ROS1 upstream `gs_mapping` baseline target builds in Docker with OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6.
 - Added `scripts/frontend_raw_to_ros1_mapper_contract.py` to convert official FAST-LIVO2 ROS2 frontend raw bags into a ROS1 mapper-contract bag for shared upstream/current replay.
 - Extended the ROS1 mapper-contract converter with the same FAST-LIVO2 camera-LiDAR transform profile used by the ROS2 adapter.
