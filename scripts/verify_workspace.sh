@@ -64,6 +64,7 @@ from pathlib import Path
 import ast
 
 paths = [
+    Path("scripts/baseline_manifest.py"),
     Path("scripts/check_profiles.py"),
     Path("scripts/convert_ros1_bag_to_rosbag2.py"),
     Path("scripts/perf_regression.py"),
@@ -188,6 +189,25 @@ EOF
   --max-chamfer-mean-m 0.01 \
   --max-chamfer-max-m 0.01
 rg -q '"ok": true' /tmp/gaussian_lic_pointcloud_compare.json
+
+echo "[verify] baseline manifest"
+rm -rf /tmp/gaussian_lic_baseline_manifest
+mkdir -p /tmp/gaussian_lic_baseline_manifest/renders
+cp /tmp/gaussian_lic_baseline.tum /tmp/gaussian_lic_baseline_manifest/trajectory.tum
+cp /tmp/gaussian_lic_baseline.ply /tmp/gaussian_lic_baseline_manifest/point_cloud.ply
+printf '{"tracking_hz": 10.0, "mapping_hz": 10.0, "mean_iteration_ms": 1.0}\n' \
+  >/tmp/gaussian_lic_baseline_manifest/metrics.json
+printf 'synthetic baseline run\n' >/tmp/gaussian_lic_baseline_manifest/run.log
+printf 'synthetic render placeholder\n' >/tmp/gaussian_lic_baseline_manifest/renders/frame_000001.txt
+./scripts/baseline_manifest.py \
+  --baseline /tmp/gaussian_lic_baseline_manifest \
+  --sequence synthetic_verify \
+  --write \
+  --json \
+  >/tmp/gaussian_lic_baseline_manifest.json
+rg -q '"ok": true' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
+rg -q '"trajectory_poses": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
+rg -q '"point_cloud_vertices": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
 
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf

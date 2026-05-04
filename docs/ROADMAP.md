@@ -37,6 +37,7 @@ point_cloud.ply
 renders/
 metrics.json
 run.log
+baseline_manifest.json
 ```
 
 ## Milestone 0: ROS2 Foundation

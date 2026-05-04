@@ -351,6 +351,17 @@ Then run the original Gaussian-LIC/Coco-LIC on FAST-LIVO2 and archive artifacts 
 baseline/fastlivo2/<sequence>/
 ```
 
+Validate and fingerprint the archived baseline before comparing ROS2 results:
+
+```bash
+./scripts/baseline_manifest.py \
+  --baseline baseline/fastlivo2/CBD_Building_01 \
+  --sequence CBD_Building_01 \
+  --write
+```
+
+The baseline manifest checks `trajectory.tum`, `point_cloud.ply`, `metrics.json`, `run.log`, and `renders/`, then writes artifact sizes, SHA-256 hashes, pose count, PLY vertex count, and render count to `baseline_manifest.json`.
+
 Current blocker:
 
 ```text

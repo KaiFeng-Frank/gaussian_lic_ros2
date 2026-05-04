@@ -12,6 +12,7 @@ Goal: make strict reproduction measurable before the native algorithm port grows
 - Add performance regression gates for tracking FPS, mapping FPS, and iteration time.
 - Add a trajectory regression gate for timestamp-associated TUM trajectory drift.
 - Add a point-cloud regression gate for ASCII PLY map drift.
+- Add a baseline manifest generator for archived ROS1 artifact fingerprinting.
 
 Release artifacts:
 
@@ -20,6 +21,8 @@ baseline/fastlivo2/<sequence>/trajectory.tum
 baseline/fastlivo2/<sequence>/point_cloud.ply
 baseline/fastlivo2/<sequence>/renders/
 baseline/fastlivo2/<sequence>/metrics.json
+baseline/fastlivo2/<sequence>/run.log
+baseline/fastlivo2/<sequence>/baseline_manifest.json
 ```
 
 ## v0.2.0 - Coco-LIC ROS2 Native Tracking

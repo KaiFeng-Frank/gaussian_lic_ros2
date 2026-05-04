@@ -18,6 +18,7 @@
 - Added direct ROS1 `.bag` support to `gaussian_lic_offline` for dependency-gated baseline artifact extraction.
 - Added `scripts/trajectory_compare.py` for timestamp-associated TUM trajectory drift gates.
 - Added `scripts/pointcloud_compare.py` for ASCII PLY map drift gates.
+- Added `scripts/baseline_manifest.py` for ROS1 baseline artifact validation and fingerprinting.
 
 ## v0.1.0-m1-infra - 2026-05-03
 
