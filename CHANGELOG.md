@@ -16,6 +16,7 @@
 - Preserved PointCloud2 RGB fields in `gaussian_lic_offline` debug PLY artifacts.
 - Added offline artifact metrics for topic rates, trajectory path length, point-cloud bounds, and color coverage.
 - Added direct ROS1 `.bag` support to `gaussian_lic_offline` for dependency-gated baseline artifact extraction.
+- Added `scripts/trajectory_compare.py` for timestamp-associated TUM trajectory drift gates.
 
 ## v0.1.0-m1-infra - 2026-05-03
 

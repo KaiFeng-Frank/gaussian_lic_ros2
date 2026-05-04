@@ -301,6 +301,19 @@ mean_iteration_ms
 
 A regression greater than 15% fails by default.
 
+Compare a current TUM trajectory against an archived ROS1 baseline:
+
+```bash
+./scripts/trajectory_compare.py \
+  --baseline baseline/fastlivo2/CBD_Building_01/trajectory.tum \
+  --current results/fastlivo2/current/trajectory.tum \
+  --output results/fastlivo2/current/trajectory_compare.json \
+  --max-rmse-m 0.05 \
+  --max-path-drift 0.05
+```
+
+The trajectory gate associates poses by timestamp, reports translation RMSE/mean/max plus path-length drift, and exits non-zero when any threshold fails. Use `--align first` only for datasets whose baseline and current trajectories differ by a known initial translation offset.
+
 ## Release Roadmap
 
 The public plan is release-driven:

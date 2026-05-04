@@ -67,6 +67,7 @@ paths = [
     Path("scripts/check_profiles.py"),
     Path("scripts/convert_ros1_bag_to_rosbag2.py"),
     Path("scripts/perf_regression.py"),
+    Path("scripts/trajectory_compare.py"),
     Path("src/gaussian_lic_bringup/launch/run_bag.launch.py"),
     Path("src/gaussian_lic_bringup/setup.py"),
 ]
@@ -123,6 +124,26 @@ rg -q " 255 32 16$" /tmp/gaussian_lic_offline_verify/point_cloud_debug.ply
 rg -q '"topic_hz"' /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q '"path_length_m"' /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q '"points_with_color": [1-9]' /tmp/gaussian_lic_offline_verify/metrics.json
+
+echo "[verify] trajectory comparison"
+cat >/tmp/gaussian_lic_baseline.tum <<'EOF'
+0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.100000000 1.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.200000000 2.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+EOF
+cat >/tmp/gaussian_lic_current.tum <<'EOF'
+0.000000000 0.002000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.100000000 1.003000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.200000000 2.004000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+EOF
+./scripts/trajectory_compare.py \
+  --baseline /tmp/gaussian_lic_baseline.tum \
+  --current /tmp/gaussian_lic_current.tum \
+  --output /tmp/gaussian_lic_trajectory_compare.json \
+  --max-rmse-m 0.01 \
+  --max-mean-m 0.01 \
+  --max-error-m 0.01
+rg -q '"ok": true' /tmp/gaussian_lic_trajectory_compare.json
 
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf
