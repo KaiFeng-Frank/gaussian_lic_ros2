@@ -51,6 +51,10 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
   message timestamp ordering and required topic counts before a replay is used
   as baseline evidence. MCAP bags are reported as metadata-only unless an MCAP
   parser is available in the local environment.
+- `scripts/fastlivo2_ros1_to_frontend_raw.py` writes converted rosbag2 messages
+  through a stable header-stamp sort buffer (`--sort-buffer-sec`, default 5s) so
+  ROS1 bag connection ordering does not leak timestamp regressions into rosbag2
+  playback.
 - `scripts/strict_rosbag2_play.sh` wraps audit plus the fixed replay command for
   current-result collection scripts, keeping strict replay options in one place.
 

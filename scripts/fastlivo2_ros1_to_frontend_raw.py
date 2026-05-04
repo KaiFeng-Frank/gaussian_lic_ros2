@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import argparse
+import heapq
 from pathlib import Path
 import shutil
 import struct
@@ -171,6 +172,24 @@ def convert(args):
         "skipped": 0,
     }
     first_time = None
+    pending = []
+    sequence = 0
+    sort_buffer_nsec = int(max(args.sort_buffer_sec, 0.0) * 1e9)
+
+    def queue_write(connection, timestamp, payload):
+        nonlocal sequence
+        heapq.heappush(pending, (int(timestamp), sequence, connection, payload))
+        sequence += 1
+
+    def flush_until(watermark_nsec):
+        while pending and pending[0][0] <= watermark_nsec:
+            timestamp, _, connection, payload = heapq.heappop(pending)
+            writer.write(connection, timestamp, payload)
+
+    def flush_all():
+        while pending:
+            timestamp, _, connection, payload = heapq.heappop(pending)
+            writer.write(connection, timestamp, payload)
 
     with AnyReader([input_path]) as reader, Writer(
         output_path,
@@ -189,7 +208,8 @@ def convert(args):
                 first_time = int(bag_time)
             if args.max_duration_sec > 0 and int(bag_time) - first_time > int(args.max_duration_sec * 1e9):
                 break
-            if args.max_written_messages > 0 and sum(counts.values()) >= args.max_written_messages:
+            written = counts["images"] + counts["camera_infos"] + counts["lidar"] + counts["imu"]
+            if args.max_written_messages > 0 and written >= args.max_written_messages:
                 break
 
             if connection.topic not in (args.input_image_topic, args.input_lidar_topic, args.input_imu_topic):
@@ -200,8 +220,8 @@ def convert(args):
             if connection.topic == args.input_image_topic:
                 image, camera_info = make_image_and_info(store, cv2, np, msg, args)
                 timestamp = stamp_to_nsec(image.header.stamp)
-                writer.write(image_conn, timestamp, store.serialize_cdr(image, "sensor_msgs/msg/Image"))
-                writer.write(
+                queue_write(image_conn, timestamp, store.serialize_cdr(image, "sensor_msgs/msg/Image"))
+                queue_write(
                     camera_info_conn,
                     timestamp,
                     store.serialize_cdr(camera_info, "sensor_msgs/msg/CameraInfo"),
@@ -211,12 +231,15 @@ def convert(args):
             elif connection.topic == args.input_lidar_topic:
                 cloud = make_pointcloud2(store, np, msg, args.lidar_frame)
                 timestamp = stamp_to_nsec(cloud.header.stamp)
-                writer.write(lidar_conn, timestamp, store.serialize_cdr(cloud, "sensor_msgs/msg/PointCloud2"))
+                queue_write(lidar_conn, timestamp, store.serialize_cdr(cloud, "sensor_msgs/msg/PointCloud2"))
                 counts["lidar"] += 1
             elif connection.topic == args.input_imu_topic:
                 timestamp = stamp_to_nsec(msg.header.stamp)
-                writer.write(imu_conn, timestamp, store.serialize_cdr(msg, "sensor_msgs/msg/Imu"))
+                queue_write(imu_conn, timestamp, store.serialize_cdr(msg, "sensor_msgs/msg/Imu"))
                 counts["imu"] += 1
+            flush_until(int(bag_time) - sort_buffer_nsec)
+
+        flush_all()
 
     return {
         "input": str(input_path),
@@ -251,6 +274,12 @@ def main(argv=None):
     parser.add_argument("--cy", type=float, default=DEFAULT_INTRINSICS["cy"])
     parser.add_argument("--max-duration-sec", type=float, default=0.0)
     parser.add_argument("--max-written-messages", type=int, default=0)
+    parser.add_argument(
+        "--sort-buffer-sec",
+        type=float,
+        default=5.0,
+        help="Stable-sort converted rosbag2 writes by header stamp within this bag-time horizon.",
+    )
     args = parser.parse_args(argv)
 
     try:

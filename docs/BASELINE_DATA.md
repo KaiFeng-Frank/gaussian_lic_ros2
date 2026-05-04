@@ -175,10 +175,10 @@ local strict chain can be run from one resumable entrypoint:
 ```
 
 The script converts the official ROS1 bag into a sqlite-backed ROS2
-`frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
-runs the upstream ROS1 baseline container, collects ROS2 current artifacts, and
-emits strict readiness/report JSON and Markdown files under the current-results
-directory.
+`frontend_raw` bag using header-stamp-sorted writes, audits replay timing, writes
+the ROS1 mapper-contract bag, runs the upstream ROS1 baseline container,
+collects ROS2 current artifacts, and emits strict readiness/report JSON and
+Markdown files under the current-results directory.
 
 The validated curated chain can also be re-run from one entrypoint:
 
