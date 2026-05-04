@@ -10,6 +10,20 @@ from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo, Image, Imu, PointCloud2, PointField
 
 
+def parse_rgb(value):
+    if isinstance(value, str):
+        parts = value.replace(" ", "").split(",")
+    else:
+        parts = list(value)
+    if len(parts) != 3:
+        raise ValueError("RGB parameters must contain exactly three channels")
+    channels = []
+    for part in parts:
+        channel = int(part)
+        channels.append(max(0, min(255, channel)))
+    return tuple(channels)
+
+
 class SyntheticGsFramePublisher(Node):
     def __init__(self):
         super().__init__("synthetic_gs_frame_pub")
@@ -20,6 +34,17 @@ class SyntheticGsFramePublisher(Node):
         self.declare_parameter("depth_topic", "/depth_for_gs")
         self.declare_parameter("imu_topic", "/imu_for_gs")
         self.declare_parameter("publish_rate_hz", 5.0)
+        self.declare_parameter("pointcloud_color_mode", "packed_rgb")
+        self.declare_parameter("point_color_rgb", "255,32,16")
+        self.declare_parameter("image_color_rgb", "0,0,0")
+
+        self.pointcloud_color_mode = str(
+            self.get_parameter("pointcloud_color_mode").value).strip().lower()
+        if self.pointcloud_color_mode not in {"packed_rgb", "rgb_fields", "none"}:
+            raise ValueError(
+                "pointcloud_color_mode must be packed_rgb, rgb_fields, or none")
+        self.point_rgb = parse_rgb(self.get_parameter("point_color_rgb").value)
+        self.image_rgb = parse_rgb(self.get_parameter("image_color_rgb").value)
 
         self.points_pub = self.create_publisher(
             PointCloud2, self.get_parameter("pointcloud_topic").value, 10)
@@ -37,29 +62,71 @@ class SyntheticGsFramePublisher(Node):
         rate = float(self.get_parameter("publish_rate_hz").value)
         self.timer = self.create_timer(1.0 / rate, self.publish_frame)
         self.frame_id = 0
-        self.get_logger().info("Publishing synthetic synchronized GS input frames")
+        self.get_logger().info(
+            "Publishing synthetic synchronized GS input frames "
+            f"(pointcloud_color_mode={self.pointcloud_color_mode})")
+
+    def make_pointcloud_data(self):
+        if self.pointcloud_color_mode == "none":
+            return (
+                [
+                    PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+                    PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+                    PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+                ],
+                12,
+                struct.pack("fff", 0.0, 0.0, 1.0),
+            )
+
+        data = bytearray(16)
+        struct.pack_into("fff", data, 0, 0.0, 0.0, 1.0)
+        red, green, blue = self.point_rgb
+        if self.pointcloud_color_mode == "rgb_fields":
+            data[12] = red
+            data[13] = green
+            data[14] = blue
+            return (
+                [
+                    PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+                    PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+                    PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+                    PointField(name="r", offset=12, datatype=PointField.UINT8, count=1),
+                    PointField(name="g", offset=13, datatype=PointField.UINT8, count=1),
+                    PointField(name="b", offset=14, datatype=PointField.UINT8, count=1),
+                ],
+                16,
+                bytes(data),
+            )
+
+        rgb_bits = (red << 16) | (green << 8) | blue
+        rgb_float = struct.unpack("f", struct.pack("I", rgb_bits))[0]
+        struct.pack_into("f", data, 12, rgb_float)
+        return (
+            [
+                PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+                PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+                PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+                PointField(name="rgb", offset=12, datatype=PointField.FLOAT32, count=1),
+            ],
+            16,
+            bytes(data),
+        )
 
     def publish_frame(self):
         stamp = self.get_clock().now().to_msg()
 
+        point_fields, point_step, point_data = self.make_pointcloud_data()
         points = PointCloud2()
         points.header.stamp = stamp
         points.header.frame_id = "map"
         points.height = 1
         points.width = 1
-        points.fields = [
-            PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
-            PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
-            PointField(name="rgb", offset=12, datatype=PointField.FLOAT32, count=1),
-        ]
+        points.fields = point_fields
         points.is_bigendian = False
-        points.point_step = 16
-        points.row_step = points.point_step
+        points.point_step = point_step
+        points.row_step = points.point_step * points.width
         points.is_dense = True
-        rgb_bits = (255 << 16) | (32 << 8) | 16
-        rgb_float = struct.unpack("f", struct.pack("I", rgb_bits))[0]
-        points.data = struct.pack("ffff", 0.0, 0.0, 1.0, rgb_float)
+        points.data = point_data
         self.points_pub.publish(points)
 
         pose = PoseStamped()
@@ -75,7 +142,8 @@ class SyntheticGsFramePublisher(Node):
         image.width = 1
         image.encoding = "bgr8"
         image.step = 3
-        image.data = bytes([0, 0, 0])
+        red, green, blue = self.image_rgb
+        image.data = bytes([blue, green, red])
         self.image_pub.publish(image)
 
         camera_info = CameraInfo()

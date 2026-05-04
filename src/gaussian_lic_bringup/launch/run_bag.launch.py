@@ -17,6 +17,9 @@ def generate_launch_description():
     loop_bag = LaunchConfiguration("loop_bag")
     stub_mode = LaunchConfiguration("stub_mode")
     synthetic_input = LaunchConfiguration("synthetic_input")
+    synthetic_pointcloud_color_mode = LaunchConfiguration("synthetic_pointcloud_color_mode")
+    synthetic_point_color_rgb = LaunchConfiguration("synthetic_point_color_rgb")
+    synthetic_image_color_rgb = LaunchConfiguration("synthetic_image_color_rgb")
     enable_torch_camera_conversion = LaunchConfiguration("enable_torch_camera_conversion")
     enable_torch_gaussian_init = LaunchConfiguration("enable_torch_gaussian_init")
     enable_torch_gaussian_extend = LaunchConfiguration("enable_torch_gaussian_extend")
@@ -58,6 +61,15 @@ def generate_launch_description():
             "publish_tf": publish_tf,
         },
     ]
+    synthetic_parameters = [
+        config,
+        {
+            "use_sim_time": use_sim_time,
+            "pointcloud_color_mode": synthetic_pointcloud_color_mode,
+            "point_color_rgb": synthetic_point_color_rgb,
+            "image_color_rgb": synthetic_image_color_rgb,
+        },
+    ]
     native_node_condition = IfCondition(PythonExpression([
         "'", stub_mode, "'.lower() == 'false' and '", use_composition, "'.lower() == 'false'",
     ]))
@@ -78,6 +90,21 @@ def generate_launch_description():
         DeclareLaunchArgument("loop_bag", default_value="false", description="Loop rosbag2 playback until launch shutdown"),
         DeclareLaunchArgument("stub_mode", default_value="true", description="Run smoke-test nodes instead of native mapper"),
         DeclareLaunchArgument("synthetic_input", default_value="false", description="Publish synthetic synchronized mapper inputs"),
+        DeclareLaunchArgument(
+            "synthetic_pointcloud_color_mode",
+            default_value="packed_rgb",
+            description="Synthetic PointCloud2 color mode: packed_rgb, rgb_fields, or none",
+        ),
+        DeclareLaunchArgument(
+            "synthetic_point_color_rgb",
+            default_value="255,32,16",
+            description="Synthetic point RGB as red,green,blue",
+        ),
+        DeclareLaunchArgument(
+            "synthetic_image_color_rgb",
+            default_value="0,0,0",
+            description="Synthetic image RGB as red,green,blue",
+        ),
         DeclareLaunchArgument(
             "enable_torch_camera_conversion",
             default_value="false",
@@ -198,7 +225,7 @@ def generate_launch_description():
             executable="synthetic_gs_frame_pub",
             name="synthetic_gs_frame_pub",
             output="screen",
-            parameters=[config, {"use_sim_time": use_sim_time}],
+            parameters=synthetic_parameters,
             condition=IfCondition(synthetic_input),
         ),
 

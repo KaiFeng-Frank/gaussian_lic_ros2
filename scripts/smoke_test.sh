@@ -13,10 +13,11 @@ BAG_PATH=""
 CONFIG_PATH=""
 RENDER_MODE="debug_cpu"
 CHECK_RENDERED_DATA=true
+IMAGE_COLOR_FALLBACK_CHECK=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--bag DIR] [--timeout SEC] [--save-dir DIR]
+Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--bag DIR] [--timeout SEC] [--save-dir DIR]
 
 Runs the synthetic ROS2 mapping smoke test and verifies published outputs.
 
@@ -32,6 +33,8 @@ Options:
                   Deprecated alias: projected_map, input, or auto.
   --skip-rendered-data-check
                   Only verify rendered-image metadata, not synthetic red pixel data.
+  --image-color-fallback-check
+                  Publish an uncolored synthetic cloud and verify image-projected RGB in SaveMap output.
   --bag DIR       Replay a rosbag2 directory instead of live synthetic input.
   --timeout SEC   Per-topic wait timeout. Default: 8.
   --save-dir DIR  SaveMap target directory for --torch. Default: /tmp/gaussian_lic_smoke_map.
@@ -82,6 +85,10 @@ while [[ $# -gt 0 ]]; do
       CHECK_RENDERED_DATA=false
       shift
       ;;
+    --image-color-fallback-check)
+      IMAGE_COLOR_FALLBACK_CHECK=true
+      shift
+      ;;
     --bag)
       BAG_PATH="$2"
       shift 2
@@ -120,6 +127,16 @@ if [[ "${RENDER_MODE}" != "debug_cpu" ]]; then
   CHECK_RENDERED_DATA=false
 fi
 
+if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" && -n "${BAG_PATH}" ]]; then
+  echo "--image-color-fallback-check requires live synthetic input, not --bag" >&2
+  exit 2
+fi
+
+if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" && "${ENABLE_TORCH}" == "true" ]]; then
+  echo "--image-color-fallback-check verifies the non-torch debug PLY SaveMap path" >&2
+  exit 2
+fi
+
 set +u
 source /opt/ros/jazzy/setup.bash
 source "${ROOT_DIR}/install/setup.bash"
@@ -156,6 +173,12 @@ else
     synthetic_input:=true
     use_sim_time:=false
   )
+  if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" ]]; then
+    launch_args+=(
+      synthetic_pointcloud_color_mode:=none
+      synthetic_image_color_rgb:=255,32,16
+    )
+  fi
 fi
 
 if [[ "${ENABLE_TORCH}" == "true" ]]; then
@@ -285,6 +308,10 @@ else
 
   test -f "${SAVE_DIR}/point_cloud.ply"
   rg -q "property uchar red" "${SAVE_DIR}/point_cloud.ply"
+  if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" ]]; then
+    rg -q "^[-+0-9.eE]+ [-+0-9.eE]+ [-+0-9.eE]+ 255 32 16$" \
+      "${SAVE_DIR}/point_cloud.ply"
+  fi
 fi
 
 echo "[smoke] passed"

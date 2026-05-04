@@ -9,6 +9,7 @@
 - Added `gaussian_lic_bag_check` to validate rosbag2 mapper-contract topics before replay.
 - Extended `gaussian_lic_bag_check` to inspect ROS1 `.bag` metadata before conversion.
 - Added image-projection color fallback for PointCloud2 mapper inputs that do not carry RGB fields.
+- Added synthetic smoke coverage for image-projected point coloring from uncolored PointCloud2 input.
 
 ## v0.1.0-m1-infra - 2026-05-03
 

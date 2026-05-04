@@ -20,6 +20,9 @@ synthetic_gs_frame_pub:
     pointcloud_topic: /points_for_gs
     imu_topic: /imu_for_gs
     publish_rate_hz: 10.0
+    pointcloud_color_mode: packed_rgb
+    point_color_rgb: "255,32,16"
+    image_color_rgb: "0,0,0"
 
 mapping_node:
   ros__parameters:

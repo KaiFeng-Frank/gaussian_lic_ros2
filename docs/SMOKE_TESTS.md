@@ -72,6 +72,13 @@ last_points=1 pending_points=... total_points=...
 ```
 
 confirms the PointCloud2 `x/y/z/rgb` fields were converted and accumulated into `MapperDataset`.
+To exercise the image-projection color fallback used for uncolored clouds:
+
+```bash
+./scripts/smoke_test.sh --image-color-fallback-check
+```
+
+That check publishes `/points_for_gs` with only `x/y/z`, colors the synthetic image red/orange, calls `/gaussian_lic/save_map`, and verifies the saved debug PLY contains the sampled RGB value.
 When `rviz:=true`, RViz2 opens the packaged `gaussian_lic.rviz` view with odometry, path, accumulated map points, rendered-image preview, and TF displays.
 
 Verify the ROS2 tracking/map-point outputs from another shell:

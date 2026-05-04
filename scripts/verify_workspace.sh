@@ -114,6 +114,9 @@ test -f /tmp/gaussian_lic_offline_verify/metrics.json
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf
 
+echo "[verify] image color fallback smoke"
+./scripts/smoke_test.sh --image-color-fallback-check
+
 if [[ "${FULL_PROFILES}" == "true" ]]; then
   for profile in fastlivo fastlivo2 m2dgr mcd r3live; do
     echo "[verify] profile smoke: ${profile}"
