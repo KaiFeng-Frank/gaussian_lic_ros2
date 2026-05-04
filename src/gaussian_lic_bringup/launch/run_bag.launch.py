@@ -31,6 +31,9 @@ def generate_launch_description():
     enable_torch_gaussian_optimization = LaunchConfiguration("enable_torch_gaussian_optimization")
     torch_gaussian_optimization_steps = LaunchConfiguration("torch_gaussian_optimization_steps")
     torch_gaussian_optimization_max_samples = LaunchConfiguration("torch_gaussian_optimization_max_samples")
+    enable_torch_gaussian_pruning = LaunchConfiguration("enable_torch_gaussian_pruning")
+    torch_gaussian_prune_min_opacity = LaunchConfiguration("torch_gaussian_prune_min_opacity")
+    torch_gaussian_max_foreground = LaunchConfiguration("torch_gaussian_max_foreground")
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
     sensor_qos_history = LaunchConfiguration("sensor_qos_history")
@@ -64,6 +67,9 @@ def generate_launch_description():
             "enable_torch_gaussian_optimization": enable_torch_gaussian_optimization,
             "torch_gaussian_optimization_steps": torch_gaussian_optimization_steps,
             "torch_gaussian_optimization_max_samples": torch_gaussian_optimization_max_samples,
+            "enable_torch_gaussian_pruning": enable_torch_gaussian_pruning,
+            "torch_gaussian_prune_min_opacity": torch_gaussian_prune_min_opacity,
+            "torch_gaussian_max_foreground": torch_gaussian_max_foreground,
             "torch_gaussian_device": torch_gaussian_device,
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
@@ -211,6 +217,21 @@ def generate_launch_description():
             "torch_gaussian_optimization_max_samples",
             default_value="4096",
             description="Maximum visible foreground Gaussians supervised per keyframe optimization",
+        ),
+        DeclareLaunchArgument(
+            "enable_torch_gaussian_pruning",
+            default_value="false",
+            description="Prune low-opacity or excess foreground Gaussians after keyframe updates",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_prune_min_opacity",
+            default_value="0.005",
+            description="Minimum sigmoid opacity retained by Torch Gaussian pruning",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_max_foreground",
+            default_value="0",
+            description="Maximum foreground Gaussians retained by pruning; 0 disables count cap",
         ),
         DeclareLaunchArgument(
             "torch_gaussian_device",

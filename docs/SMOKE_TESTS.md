@@ -348,6 +348,8 @@ ros2 launch gaussian_lic_bringup run_bag.launch.py \
   enable_torch_gaussian_extend:=true \
   enable_torch_gaussian_optimization:=true \
   torch_gaussian_optimization_steps:=2 \
+  enable_torch_gaussian_pruning:=true \
+  torch_gaussian_max_foreground:=1024 \
   torch_gaussian_device:=cpu
 ```
 
@@ -356,10 +358,11 @@ Expected log:
 ```text
 Torch camera conversion enabled
 Torch Gaussian photometric optimization enabled, steps/keyframe=2
+Torch Gaussian pruning enabled, min_opacity=0.005000 max_foreground=1024
 torch_cameras=... torch_errors=0 torch_image=[3, 1, 1] torch_depth=[1, 1]
 Initialized Torch Gaussian map: foreground=... skybox=0 xyz=[..., 3] features_dc=[..., 1, 3] device=cpu opt_steps=...
 Extended Torch Gaussian map: inserted=... foreground=... skybox=0 xyz=[..., 3] device=cpu opt_steps=...
-torch_gaussians=... gaussian_inits=1 gaussian_extends=... gaussian_opt_steps=... gaussian_init_errors=0 gaussian_extend_errors=0 gaussian_opt_errors=0
+torch_gaussians=... gaussian_inits=1 gaussian_extends=... gaussian_opt_steps=... gaussian_pruned_total=... gaussian_init_errors=0 gaussian_extend_errors=0 gaussian_opt_errors=0 gaussian_prune_errors=0
 ```
 
 Verify the transient-local Gaussian map output from another shell:
@@ -410,7 +413,7 @@ sed -n '1,12p' /tmp/gaussian_lic_save_test/point_cloud.ply
 tail -n 1 /tmp/gaussian_lic_save_test/point_cloud.ply
 ```
 
-This initializes foreground Gaussian tensors from keyframe-gated `MapperDataset` pending points, appends later pending keyframe points into the same tensor map, and can run a small photometric Torch backward pass on visible foreground Gaussians. The behavior matches the upstream initialize/extend/optimize lifecycle at the tensor boundary. Upstream CUDA rasterization, full loss scheduling, pruning, and gradient-aware densification are still later porting slices.
+This initializes foreground Gaussian tensors from keyframe-gated `MapperDataset` pending points, appends later pending keyframe points into the same tensor map, can run a small photometric Torch backward pass on visible foreground Gaussians, and can prune low-opacity or excess foreground tensors. The behavior matches the upstream initialize/extend/optimize/prune lifecycle at the tensor boundary. Upstream CUDA rasterization, full loss scheduling, and gradient-aware densification are still later porting slices.
 
 To exercise the raw frontend IMU orientation fallback on a real `frontend_sensor_raw` bag:
 

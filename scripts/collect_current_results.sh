@@ -9,6 +9,8 @@ OUTPUT_DIR="${ROOT_DIR}/results/fastlivo2/current"
 CONFIG_PATH=""
 ENABLE_TORCH=false
 TORCH_OPTIMIZATION_STEPS=0
+TORCH_MAX_FOREGROUND=0
+TORCH_PRUNE_MIN_OPACITY=0.005
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
@@ -39,6 +41,8 @@ Options:
   --config FILE                Override bringup parameter YAML.
   --torch                      Enable Torch Gaussian map init/extend and save Gaussian PLY output.
   --torch-optimization-steps N Enable Torch photometric Gaussian tensor updates with N steps per keyframe.
+  --torch-max-foreground N     Enable Torch pruning and retain at most N foreground Gaussians.
+  --torch-prune-min-opacity X  Enable Torch pruning and drop foreground Gaussians below opacity X.
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
@@ -72,6 +76,16 @@ while [[ $# -gt 0 ]]; do
     --torch-optimization-steps)
       ENABLE_TORCH=true
       TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --torch-max-foreground)
+      ENABLE_TORCH=true
+      TORCH_MAX_FOREGROUND="$2"
+      shift 2
+      ;;
+    --torch-prune-min-opacity)
+      ENABLE_TORCH=true
+      TORCH_PRUNE_MIN_OPACITY="$2"
       shift 2
       ;;
     --frontend-adapter)
@@ -183,11 +197,18 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
   if [[ "${TORCH_OPTIMIZATION_STEPS}" -gt 0 ]]; then
     torch_opt_enabled=true
   fi
+  torch_prune_enabled=false
+  if [[ "${TORCH_MAX_FOREGROUND}" -gt 0 || "${TORCH_PRUNE_MIN_OPACITY}" != "0.005" ]]; then
+    torch_prune_enabled=true
+  fi
   launch_args+=(
     enable_torch_camera_conversion:=true
     enable_torch_gaussian_init:=true
     enable_torch_gaussian_optimization:="${torch_opt_enabled}"
     torch_gaussian_optimization_steps:="${TORCH_OPTIMIZATION_STEPS}"
+    enable_torch_gaussian_pruning:="${torch_prune_enabled}"
+    torch_gaussian_prune_min_opacity:="${TORCH_PRUNE_MIN_OPACITY}"
+    torch_gaussian_max_foreground:="${TORCH_MAX_FOREGROUND}"
     torch_gaussian_device:=cpu
   )
 fi
@@ -265,7 +286,7 @@ ros2 run gaussian_lic_tools gaussian_lic_offline \
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -284,6 +305,8 @@ metrics.update(
         "record_sec": float(sys.argv[6]),
         "torch_optimization_steps": int(sys.argv[7]),
         "imu_pose_fallback": sys.argv[8] == "true",
+        "torch_max_foreground": int(sys.argv[9]),
+        "torch_prune_min_opacity": float(sys.argv[10]),
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {
             **metrics.get("outputs", {}),

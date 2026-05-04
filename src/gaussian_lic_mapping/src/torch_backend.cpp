@@ -7,6 +7,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace gaussian_lic_mapping
@@ -609,6 +610,75 @@ TorchOptimizationResult optimize_gaussian_map_from_camera(
 
   zero_gaussian_gradients(map);
   require_grad_for_map(map);
+  return result;
+}
+
+TorchPruneResult prune_gaussian_map(
+  TorchGaussianMap & map,
+  const GaussianBackendConfig & config)
+{
+  TorchPruneResult result;
+  result.before_count = map.foreground_count + map.skybox_count;
+  if (!config.enable_density_control) {
+    result.after_count = result.before_count;
+    return result;
+  }
+  validate_gaussian_map_for_optimization(map);
+  const int64_t total_count = map.xyz.size(0);
+  const int64_t skybox_count = static_cast<int64_t>(map.skybox_count);
+  const int64_t foreground_count = total_count - skybox_count;
+  if (foreground_count <= 0) {
+    result.after_count = result.before_count;
+    return result;
+  }
+
+  const auto device = map.xyz.device();
+  const auto long_options = torch::TensorOptions().dtype(torch::kLong).device(device);
+  const auto foreground_slice = torch::indexing::Slice(skybox_count, torch::indexing::None);
+  const auto opacity = torch::sigmoid(map.opacity.index({foreground_slice}).detach()).flatten();
+
+  torch::Tensor keep_foreground;
+  if (config.prune_min_opacity > 0.0) {
+    keep_foreground = torch::nonzero(opacity.ge(config.prune_min_opacity)).flatten().to(long_options);
+  } else {
+    keep_foreground = torch::arange(foreground_count, long_options);
+  }
+
+  const int max_foreground = std::max(config.max_foreground_gaussians, 0);
+  if (max_foreground > 0 && keep_foreground.size(0) > max_foreground) {
+    const auto kept_scores = opacity.index_select(0, keep_foreground);
+    const auto topk = kept_scores.topk(static_cast<int64_t>(max_foreground), 0, true, true);
+    keep_foreground = keep_foreground.index_select(0, std::get<1>(topk));
+    keep_foreground = std::get<0>(keep_foreground.sort());
+  }
+
+  torch::Tensor keep_indices;
+  if (skybox_count > 0) {
+    const auto keep_skybox = torch::arange(skybox_count, long_options);
+    keep_indices = torch::cat({keep_skybox, keep_foreground + skybox_count}, 0);
+  } else {
+    keep_indices = keep_foreground;
+  }
+
+  const size_t kept_foreground = static_cast<size_t>(keep_foreground.size(0));
+  if (kept_foreground == map.foreground_count && keep_indices.size(0) == total_count) {
+    result.after_count = result.before_count;
+    return result;
+  }
+
+  torch::NoGradGuard no_grad;
+  map.xyz = map.xyz.index_select(0, keep_indices).contiguous();
+  map.features_dc = map.features_dc.index_select(0, keep_indices).contiguous();
+  map.features_rest = map.features_rest.index_select(0, keep_indices).contiguous();
+  map.scaling = map.scaling.index_select(0, keep_indices).contiguous();
+  map.rotation = map.rotation.index_select(0, keep_indices).contiguous();
+  map.opacity = map.opacity.index_select(0, keep_indices).contiguous();
+  map.foreground_count = kept_foreground;
+  require_grad_for_map(map);
+
+  result.after_count = map.foreground_count + map.skybox_count;
+  result.removed_count = result.before_count > result.after_count ?
+    result.before_count - result.after_count : 0U;
   return result;
 }
 

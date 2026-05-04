@@ -66,6 +66,11 @@ int main()
   dataset.add_frame(std::move(second_frame_data));
   const auto appended_count = gaussian_lic_mapping::append_pending_points_to_gaussian_map(
     gaussian_map, dataset, 3, 1.0, 1.0, 1.0, torch::kCPU);
+  gaussian_lic_mapping::GaussianBackendConfig prune_config;
+  prune_config.enable_density_control = true;
+  prune_config.max_foreground_gaussians = 1;
+  prune_config.prune_min_opacity = 0.0;
+  const auto prune_result = gaussian_lic_mapping::prune_gaussian_map(gaussian_map, prune_config);
 
   std::cout << "torch_version=" << TORCH_VERSION << "\n";
   std::cout << "cuda_available=" << (torch::cuda::is_available() ? "true" : "false") << "\n";
@@ -81,6 +86,7 @@ int main()
   std::cout << "optimization_supervised=" << optimization_result.supervised_count << "\n";
   std::cout << "optimization_l1=" << optimization_result.photometric_l1 << "\n";
   std::cout << "appended_count=" << appended_count << "\n";
+  std::cout << "pruned_count=" << prune_result.removed_count << "\n";
   std::cout << "gaussian_count=" << gaussian_map.foreground_count + gaussian_map.skybox_count << "\n";
   return 0;
 }

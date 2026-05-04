@@ -40,6 +40,10 @@ struct GaussianBackendConfig
   bool enable_photometric_optimization{false};
   int optimization_steps_per_keyframe{0};
   int optimization_max_samples{4096};
+
+  bool enable_density_control{false};
+  double prune_min_opacity{0.005};
+  int max_foreground_gaussians{0};
 };
 
 }  // namespace gaussian_lic_mapping

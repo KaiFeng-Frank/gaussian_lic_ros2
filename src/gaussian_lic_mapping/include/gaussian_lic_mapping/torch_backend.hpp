@@ -53,6 +53,13 @@ struct TorchOptimizationResult
   float photometric_l1{0.0F};
 };
 
+struct TorchPruneResult
+{
+  size_t before_count{0};
+  size_t after_count{0};
+  size_t removed_count{0};
+};
+
 torch::Tensor cv_mat_to_torch_tensor_float32(
   const cv::Mat & mat,
   torch::Device device,
@@ -107,5 +114,9 @@ TorchOptimizationResult optimize_gaussian_map_from_camera(
   const GaussianBackendConfig & config,
   int steps,
   torch::Device device = torch::kCPU);
+
+TorchPruneResult prune_gaussian_map(
+  TorchGaussianMap & map,
+  const GaussianBackendConfig & config);
 
 }  // namespace gaussian_lic_mapping

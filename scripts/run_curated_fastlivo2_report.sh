@@ -18,6 +18,8 @@ CURRENT_TIMEOUT_SEC=30
 RENDER_MODE="debug_cpu"
 RUN_TORCH_CURRENT=false
 TORCH_OPTIMIZATION_STEPS=0
+TORCH_MAX_FOREGROUND=0
+TORCH_PRUNE_MIN_OPACITY=0.005
 IMU_POSE_FALLBACK=false
 BASELINE_DIR_SET=false
 CURRENT_DIR_SET=false
@@ -58,6 +60,9 @@ Options:
   --torch-current          Enable the current Torch Gaussian preview path.
   --torch-optimization-steps N
                            Enable current Torch photometric update steps per keyframe.
+  --torch-max-foreground N Retain at most N foreground Gaussians in current Torch collection.
+  --torch-prune-min-opacity X
+                           Drop current Torch foreground Gaussians below opacity X.
   --imu-pose-fallback      Use IMU gyro orientation fallback for current ROS2 collection.
   --render-mode MODE       Current render mode. Default: debug_cpu.
   --skip-convert           Reuse an existing mapper-contract bag.
@@ -116,6 +121,16 @@ while [[ $# -gt 0 ]]; do
     --torch-optimization-steps)
       RUN_TORCH_CURRENT=true
       TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --torch-max-foreground)
+      RUN_TORCH_CURRENT=true
+      TORCH_MAX_FOREGROUND="$2"
+      shift 2
+      ;;
+    --torch-prune-min-opacity)
+      RUN_TORCH_CURRENT=true
+      TORCH_PRUNE_MIN_OPACITY="$2"
       shift 2
       ;;
     --imu-pose-fallback)
@@ -261,6 +276,12 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
   fi
   if [[ "${TORCH_OPTIMIZATION_STEPS}" -gt 0 ]]; then
     current_args+=(--torch-optimization-steps "${TORCH_OPTIMIZATION_STEPS}")
+  fi
+  if [[ "${TORCH_MAX_FOREGROUND}" -gt 0 ]]; then
+    current_args+=(--torch-max-foreground "${TORCH_MAX_FOREGROUND}")
+  fi
+  if [[ "${TORCH_PRUNE_MIN_OPACITY}" != "0.005" ]]; then
+    current_args+=(--torch-prune-min-opacity "${TORCH_PRUNE_MIN_OPACITY}")
   fi
   if [[ "${IMU_POSE_FALLBACK}" == "true" ]]; then
     current_args+=(--imu-pose-fallback)
