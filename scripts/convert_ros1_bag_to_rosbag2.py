@@ -2,9 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import argparse
+import json
 from pathlib import Path
 import shutil
+from types import SimpleNamespace
 import sys
+
+from rosbag2_timing_audit import build_report as build_timing_report
 
 
 def load_rosbags_backend():
@@ -76,6 +80,12 @@ def main(argv=None):
     parser.add_argument("--compress", choices=("none", "zstd"), default="none")
     parser.add_argument("--compress-mode", choices=("file", "message", "storage"), default="file")
     parser.add_argument("--force", action="store_true", help="Remove an existing output directory first")
+    parser.add_argument("--skip-timing-audit", action="store_true")
+    parser.add_argument(
+        "--strict-timing-audit",
+        action="store_true",
+        help="Fail when converted storage cannot be inspected for timestamp order.",
+    )
     args = parser.parse_args(argv)
 
     input_paths = [Path(item).expanduser() for item in args.input]
@@ -121,6 +131,19 @@ def main(argv=None):
     if not metadata_path.exists():
         print(f"conversion finished but metadata.yaml was not created in {output_path}", file=sys.stderr)
         return 5
+
+    if not args.skip_timing_audit:
+        timing_report = build_timing_report(
+            SimpleNamespace(
+                bag=str(output_path),
+                required_topic=[],
+                max_time_regression_ns=0,
+                strict_storage=args.strict_timing_audit,
+            )
+        )
+        if not timing_report["ok"]:
+            print(json.dumps(timing_report, indent=2, sort_keys=True), file=sys.stderr)
+            return 6
 
     print(f"converted {len(input_paths)} ROS1 bag(s) to rosbag2: {output_path}")
     print(f"storage={args.storage} typestore={args.dst_typestore} topics={args.include_topics or 'all'}")

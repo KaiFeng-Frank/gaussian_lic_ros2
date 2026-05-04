@@ -55,6 +55,8 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
   through a stable header-stamp sort buffer (`--sort-buffer-sec`, default 5s) so
   ROS1 bag connection ordering does not leak timestamp regressions into rosbag2
   playback.
+- `scripts/convert_ros1_bag_to_rosbag2.py` runs the timing audit after generic
+  ROS1-to-rosbag2 conversion unless `--skip-timing-audit` is explicitly used.
 - `scripts/strict_rosbag2_play.sh` wraps audit plus the fixed replay command for
   current-result collection scripts, keeping strict replay options in one place.
 
