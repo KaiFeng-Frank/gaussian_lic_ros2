@@ -5,6 +5,7 @@
 - Pivoted the upstream porting plan to the now-public Gaussian-LIC2 code path in `APRIL-ZJU/Gaussian-LIC`; Coco-LIC is now documented as an optional legacy reference.
 - Added `gaussian_lic_frontend/lic2_contract_adapter` to route raw ROS2 camera/LiDAR/IMU/pose topics into the Gaussian mapper contract.
 - Extended the LIC2 contract adapter with frontend odometry/path outputs and optional TF.
+- Added a `frontend_raw` bag contract and synthetic raw frontend bag recording mode for LIC2 adapter input validation.
 - Added keyframe-gated Torch Gaussian initialization and incremental foreground insertion for the ROS2 mapping node.
 - Added optional skybox tensor seeding, Gaussian map republishing after extension, and mapping latency/mean iteration status fields.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.

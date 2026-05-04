@@ -57,6 +57,7 @@ baseline_manifest.json
 - [x] Add calibration file schema.
 - [x] Add dataset-specific ROS2 mapping profiles for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - [x] Add a native ROS2 frontend contract adapter from raw sensor/pose topics to mapper topics.
+- [x] Add a `frontend_raw` bag contract for raw camera/LiDAR/IMU/pose validation before adapter replay.
 - [ ] Add full real-dataset topic remaps/adapters once the native Gaussian-LIC2 frontend/tracking port is in place.
 
 ## Milestone 2: Gaussian-LIC Mapping Port

@@ -6,12 +6,16 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 OUTPUT="${ROOT_DIR}/bags/synthetic_gs_demo"
 DURATION_SEC=6
+FRONTEND_RAW=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/create_synthetic_bag.sh [--output DIR] [--duration SEC]
+Usage: scripts/create_synthetic_bag.sh [--output DIR] [--duration SEC] [--frontend-raw]
 
 Records a small rosbag2 from synthetic Gaussian-LIC mapper inputs.
+
+Options:
+  --frontend-raw  Record raw LIC2 frontend adapter inputs instead of mapper topics.
 EOF
 }
 
@@ -24,6 +28,10 @@ while [[ $# -gt 0 ]]; do
     --duration)
       DURATION_SEC="$2"
       shift 2
+      ;;
+    --frontend-raw)
+      FRONTEND_RAW=true
+      shift
       ;;
     -h|--help)
       usage
@@ -46,14 +54,39 @@ cd "${ROOT_DIR}"
 mkdir -p "$(dirname "${OUTPUT}")" "${ROOT_DIR}/log"
 rm -rf "${OUTPUT}"
 
-topics=(
-  /points_for_gs
-  /pose_for_gs
-  /image_for_gs
-  /camera_info_for_gs
-  /depth_for_gs
-  /imu_for_gs
-)
+if [[ "${FRONTEND_RAW}" == "true" ]]; then
+  topics=(
+    /camera/image
+    /camera/camera_info
+    /camera/depth
+    /livox/lidar
+    /imu
+    /gaussian_lic/frontend/pose
+  )
+  publisher_args=(
+    --ros-args
+    --params-file "${ROOT_DIR}/src/gaussian_lic_bringup/config/default.yaml"
+    -p pointcloud_topic:=/livox/lidar
+    -p pose_topic:=/gaussian_lic/frontend/pose
+    -p image_topic:=/camera/image
+    -p camera_info_topic:=/camera/camera_info
+    -p depth_topic:=/camera/depth
+    -p imu_topic:=/imu
+  )
+else
+  topics=(
+    /points_for_gs
+    /pose_for_gs
+    /image_for_gs
+    /camera_info_for_gs
+    /depth_for_gs
+    /imu_for_gs
+  )
+  publisher_args=(
+    --ros-args
+    --params-file "${ROOT_DIR}/src/gaussian_lic_bringup/config/default.yaml"
+  )
+fi
 
 REC_LOG="${ROOT_DIR}/log/create_synthetic_bag_record.log"
 PUB_LOG="${ROOT_DIR}/log/create_synthetic_bag_publish.log"
@@ -63,7 +96,7 @@ setsid ros2 bag record -o "${OUTPUT}" "${topics[@]}" >"${REC_LOG}" 2>&1 &
 REC_PID=$!
 
 setsid ros2 run gaussian_lic_tools synthetic_gs_frame_pub \
-  --ros-args --params-file "${ROOT_DIR}/src/gaussian_lic_bringup/config/default.yaml" \
+  "${publisher_args[@]}" \
   >"${PUB_LOG}" 2>&1 &
 PUB_PID=$!
 

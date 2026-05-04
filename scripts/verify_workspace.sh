@@ -8,6 +8,7 @@ SKIP_BUILD=false
 CHECK_TORCH=false
 FULL_PROFILES=false
 BAG_PATH="${ROOT_DIR}/bags/synthetic_gs_demo"
+FRONTEND_RAW_BAG_PATH="${ROOT_DIR}/bags/synthetic_frontend_raw_demo"
 
 usage() {
   cat <<'EOF'
@@ -94,6 +95,14 @@ if [[ ! -f "${BAG_PATH}/metadata.yaml" ]]; then
   ./scripts/create_synthetic_bag.sh --output "${BAG_PATH}" --duration 4
 fi
 
+if [[ ! -f "${FRONTEND_RAW_BAG_PATH}/metadata.yaml" ]]; then
+  echo "[verify] creating frontend raw synthetic bag at ${FRONTEND_RAW_BAG_PATH}"
+  ./scripts/create_synthetic_bag.sh \
+    --frontend-raw \
+    --output "${FRONTEND_RAW_BAG_PATH}" \
+    --duration 4
+fi
+
 echo "[verify] bag smoke"
 ./scripts/smoke_test.sh --bag "${BAG_PATH}" --tf
 
@@ -116,6 +125,13 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json \
   >/tmp/gaussian_lic_bag_minimal_contract_verify.json
 rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_minimal_contract_verify.json
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag "${FRONTEND_RAW_BAG_PATH}" \
+  --contract frontend_raw \
+  --json \
+  >/tmp/gaussian_lic_bag_frontend_raw_contract_verify.json
+rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_frontend_raw_contract_verify.json
+rg -q '"frontend_pose_source"' /tmp/gaussian_lic_bag_frontend_raw_contract_verify.json
 rm -rf /tmp/gaussian_lic_offline_verify
 ros2 run gaussian_lic_tools gaussian_lic_offline \
   --bag "${BAG_PATH}" \

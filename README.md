@@ -77,6 +77,14 @@ Generate a small synthetic bag:
 ./scripts/create_synthetic_bag.sh --output bags/synthetic_gs_demo
 ```
 
+Generate a synthetic raw frontend bag for the LIC2 adapter boundary:
+
+```bash
+./scripts/create_synthetic_bag.sh \
+  --frontend-raw \
+  --output bags/synthetic_frontend_raw_demo
+```
+
 Replay it through the native mapper:
 
 ```bash
@@ -166,6 +174,17 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
 ```
 
 `mapper_minimal` requires `/points_for_gs`, `/pose_for_gs`, and `/image_for_gs`. It still reports `/camera_info_for_gs`, `/depth_for_gs`, and `/imu_for_gs` when present, but missing optional topics do not fail the check. Use it with `require_depth_topic:=false` and profile intrinsics when replaying bags that do not carry depth or CameraInfo.
+
+Validate a raw sensor bag before feeding it through `lic2_contract_adapter`:
+
+```bash
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag bags/synthetic_frontend_raw_demo \
+  --contract frontend_raw \
+  --json
+```
+
+`frontend_raw` requires raw image, CameraInfo, PointCloud2 LiDAR, and IMU topics, requires at least one pose source from `/gaussian_lic/frontend/pose` or `/gaussian_lic/frontend/input_odometry`, and treats `/camera/depth` as optional.
 
 Replay a minimal rosbag2 mapper bag with:
 

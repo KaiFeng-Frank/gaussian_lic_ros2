@@ -21,6 +21,22 @@ MINIMAL_REQUIRED_TOPICS = {
     "/image_for_gs",
 }
 
+FRONTEND_RAW_REQUIRED_CONTRACT = {
+    "/camera/image": "sensor_msgs/msg/Image",
+    "/camera/camera_info": "sensor_msgs/msg/CameraInfo",
+    "/livox/lidar": "sensor_msgs/msg/PointCloud2",
+    "/imu": "sensor_msgs/msg/Imu",
+}
+
+FRONTEND_RAW_OPTIONAL_CONTRACT = {
+    "/camera/depth": "sensor_msgs/msg/Image",
+}
+
+FRONTEND_RAW_POSE_ALTERNATIVES = {
+    "/gaussian_lic/frontend/pose": "geometry_msgs/msg/PoseStamped",
+    "/gaussian_lic/frontend/input_odometry": "nav_msgs/msg/Odometry",
+}
+
 
 def load_ros2_metadata(bag_path):
     import yaml
@@ -101,6 +117,24 @@ def load_bag_info(bag_path, bag_format):
 
 
 def load_contracts(args):
+    if args.contract == "frontend_raw":
+        required = {
+            args.raw_image_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/camera/image"],
+            args.raw_camera_info_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/camera/camera_info"],
+            args.raw_pointcloud_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/livox/lidar"],
+            args.raw_imu_topic: FRONTEND_RAW_REQUIRED_CONTRACT["/imu"],
+        }
+        optional = {
+            args.raw_depth_topic: FRONTEND_RAW_OPTIONAL_CONTRACT["/camera/depth"],
+            args.frontend_pose_topic: FRONTEND_RAW_POSE_ALTERNATIVES[
+                "/gaussian_lic/frontend/pose"
+            ],
+            args.raw_odometry_topic: FRONTEND_RAW_POSE_ALTERNATIVES[
+                "/gaussian_lic/frontend/input_odometry"
+            ],
+        }
+        return required, optional
+
     overrides = {
         "/points_for_gs": args.pointcloud_topic,
         "/pose_for_gs": args.pose_topic,
@@ -164,12 +198,42 @@ def check_topic_contract(topics, contract, required):
     return checks, errors
 
 
+def check_alternative_group(topics, contract, group_name):
+    checks, errors = check_topic_contract(topics, contract, required=False)
+    ok = any(check["ok"] and check["present"] for check in checks.values())
+    if not ok:
+        errors.append(
+            f"{group_name}: at least one valid topic is required from "
+            f"{', '.join(contract)}"
+        )
+    return {
+        "ok": ok,
+        "required": True,
+        "alternatives": checks,
+    }, errors
+
+
 def build_report(args):
     info, topics, detected_format = load_bag_info(args.bag, args.bag_format)
     required_contract, optional_contract = load_contracts(args)
     required_checks, required_errors = check_topic_contract(topics, required_contract, required=True)
     optional_checks, optional_errors = check_topic_contract(topics, optional_contract, required=False)
-    errors = required_errors + optional_errors
+    alternative_groups = {}
+    alternative_errors = []
+    if args.contract == "frontend_raw":
+        pose_contract = {
+            args.frontend_pose_topic: FRONTEND_RAW_POSE_ALTERNATIVES[
+                "/gaussian_lic/frontend/pose"
+            ],
+            args.raw_odometry_topic: FRONTEND_RAW_POSE_ALTERNATIVES[
+                "/gaussian_lic/frontend/input_odometry"
+            ],
+        }
+        alternative_group, alternative_errors = check_alternative_group(
+            topics, pose_contract, "frontend_pose_source"
+        )
+        alternative_groups["frontend_pose_source"] = alternative_group
+    errors = required_errors + optional_errors + alternative_errors
     duration_nsec = int(info.get("duration", {}).get("nanoseconds", 0))
     return {
         "bag": str(Path(args.bag).expanduser().resolve()),
@@ -183,23 +247,28 @@ def build_report(args):
         "errors": errors,
         "required_topics": required_checks,
         "optional_topics": optional_checks,
+        "alternative_groups": alternative_groups,
         "all_topics": topics,
     }
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Validate that a ROS1 or ROS2 bag contains the Gaussian-LIC mapper topic contract."
+        description=(
+            "Validate that a ROS1 or ROS2 bag contains a Gaussian-LIC mapper or "
+            "LIC2 frontend topic contract."
+        )
     )
     parser.add_argument("--bag", required=True, help="ROS2 bag directory or ROS1 .bag")
     parser.add_argument("--bag-format", choices=("auto", "ros1", "ros2"), default="auto")
     parser.add_argument(
         "--contract",
-        choices=("full", "mapper_minimal"),
+        choices=("full", "mapper_minimal", "frontend_raw"),
         default="full",
         help=(
             "Topic contract to validate. full requires the complete mapper input set; "
-            "mapper_minimal requires point cloud, pose, and image only."
+            "mapper_minimal requires point cloud, pose, and image only; "
+            "frontend_raw validates raw topics consumed by lic2_contract_adapter."
         ),
     )
     parser.add_argument("--pointcloud-topic", default="/points_for_gs")
@@ -208,6 +277,13 @@ def main(argv=None):
     parser.add_argument("--camera-info-topic", default="/camera_info_for_gs")
     parser.add_argument("--depth-topic", default="/depth_for_gs")
     parser.add_argument("--imu-topic", default="/imu_for_gs")
+    parser.add_argument("--raw-image-topic", default="/camera/image")
+    parser.add_argument("--raw-camera-info-topic", default="/camera/camera_info")
+    parser.add_argument("--raw-depth-topic", default="/camera/depth")
+    parser.add_argument("--raw-pointcloud-topic", default="/livox/lidar")
+    parser.add_argument("--raw-imu-topic", default="/imu")
+    parser.add_argument("--frontend-pose-topic", default="/gaussian_lic/frontend/pose")
+    parser.add_argument("--raw-odometry-topic", default="/gaussian_lic/frontend/input_odometry")
     parser.add_argument("--json", action="store_true", help="Print full JSON report")
     args = parser.parse_args(argv)
 

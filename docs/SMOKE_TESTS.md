@@ -192,6 +192,20 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
 
 The same command accepts `--contract mapper_minimal` for intermediate replay bags that contain only `/points_for_gs`, `/pose_for_gs`, and `/image_for_gs`; CameraInfo, depth, and IMU are reported as optional topics in that mode. It also accepts `--bag-format ros1` for a ROS1 `.bag` when the optional `rosbags` package is available in that Python environment. This is useful before converting archived upstream bags to rosbag2.
 
+Check a raw frontend bag before routing it through `lic2_contract_adapter`:
+
+```bash
+./scripts/create_synthetic_bag.sh \
+  --frontend-raw \
+  --output bags/synthetic_frontend_raw_demo
+ros2 run gaussian_lic_tools gaussian_lic_bag_check \
+  --bag bags/synthetic_frontend_raw_demo \
+  --contract frontend_raw \
+  --json
+```
+
+The `frontend_raw` contract requires `/camera/image`, `/camera/camera_info`, `/livox/lidar`, `/imu`, and one valid pose source from `/gaussian_lic/frontend/pose` or `/gaussian_lic/frontend/input_odometry`. `/camera/depth` is optional.
+
 Run the same mapper checks from rosbag2 playback:
 
 ```bash
