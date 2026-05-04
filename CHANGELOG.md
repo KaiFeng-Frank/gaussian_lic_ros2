@@ -31,6 +31,7 @@
 - Produced a curated official FAST-LIVO2 `Bright_Screen_Wall_curated_8s` baseline-vs-current report with metrics, trajectory, and point-cloud gates passing while strict `CBD_Building_01` data remains quota-blocked.
 - Added `scripts/run_curated_fastlivo2_report.sh` as a one-command curated FAST-LIVO2 reproduction chain for conversion, ROS2 current collection, ROS1 upstream baseline execution, and report generation.
 - Extended the curated FAST-LIVO2 runner with a validated transformed Bright preset and opt-in Gaussian PLY color audit forwarding.
+- Added a dedicated `gaussian_color` reproduction-report gate so the current Bright substitute proof chain combines full-sequence metrics, trajectory, geometry, and Torch Gaussian `f_dc_0..2` RGB drift checks in one report.
 - Added upstream Gaussian-LIC backend parameter coverage for image size, depth completion, optimizer, loss, exposure, Gaussian extension, and skybox control.
 - Implemented the dependency-gated ROS1 `.bag` to rosbag2 converter backend using `rosbags`.
 - Added `gaussian_lic_bag_check` to validate rosbag2 mapper-contract topics before replay.

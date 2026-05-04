@@ -32,6 +32,8 @@ REBUILD=false
 CHECK_ONLY=false
 DERIVE_GAUSSIAN_RGB=false
 COLORIZE_POINTCLOUD=false
+GAUSSIAN_COLOR_CURRENT_POINT_CLOUD=""
+GAUSSIAN_COLOR_BASELINE_POINT_CLOUD=""
 MAPPER_BAG_SET=false
 SEQUENCE_SET=false
 CURRENT_RECORD_SEC_SET=false
@@ -76,6 +78,11 @@ Options:
                            not overridden, this selects the validated transformed
                            Bright_Screen_Wall defaults.
   --derive-gaussian-rgb    Derive Gaussian PLY RGB from f_dc_0..2 during the point-cloud gate.
+  --gaussian-color-current-point-cloud FILE
+                           Add a dedicated Torch Gaussian f_dc_0..2 RGB color gate.
+  --gaussian-color-baseline-point-cloud FILE
+                           Baseline PLY for the dedicated Gaussian color gate.
+                           Defaults to BASELINE_DIR/point_cloud.ply.
   --colorize-pointcloud    Write RGB fields into the ROS1 mapper-contract point cloud from image projection.
   --render-mode MODE       Current render mode. Default: debug_cpu.
   --skip-convert           Reuse an existing mapper-contract bag.
@@ -161,6 +168,14 @@ while [[ $# -gt 0 ]]; do
       DERIVE_GAUSSIAN_RGB=true
       shift
       ;;
+    --gaussian-color-current-point-cloud)
+      GAUSSIAN_COLOR_CURRENT_POINT_CLOUD="$2"
+      shift 2
+      ;;
+    --gaussian-color-baseline-point-cloud)
+      GAUSSIAN_COLOR_BASELINE_POINT_CLOUD="$2"
+      shift 2
+      ;;
     --colorize-pointcloud)
       COLORIZE_POINTCLOUD=true
       shift
@@ -234,6 +249,12 @@ FRONTEND_RAW="$(realpath -m "${FRONTEND_RAW}")"
 MAPPER_BAG="$(realpath -m "${MAPPER_BAG}")"
 BASELINE_DIR="$(realpath -m "${BASELINE_DIR}")"
 CURRENT_DIR="$(realpath -m "${CURRENT_DIR}")"
+if [[ -n "${GAUSSIAN_COLOR_CURRENT_POINT_CLOUD}" ]]; then
+  GAUSSIAN_COLOR_CURRENT_POINT_CLOUD="$(realpath -m "${GAUSSIAN_COLOR_CURRENT_POINT_CLOUD}")"
+fi
+if [[ -n "${GAUSSIAN_COLOR_BASELINE_POINT_CLOUD}" ]]; then
+  GAUSSIAN_COLOR_BASELINE_POINT_CLOUD="$(realpath -m "${GAUSSIAN_COLOR_BASELINE_POINT_CLOUD}")"
+fi
 
 run_rosbags_python() {
   if [[ -d "${ROSBAGS_SITE}" ]]; then
@@ -276,6 +297,12 @@ fi
 
 if [[ "${SKIP_CURRENT}" == "true" || "${CHECK_ONLY}" == "true" ]]; then
   check_artifacts "${CURRENT_DIR}" "current"
+fi
+if [[ -n "${GAUSSIAN_COLOR_CURRENT_POINT_CLOUD}" && ( "${SKIP_CURRENT}" == "true" || "${CHECK_ONLY}" == "true" ) ]]; then
+  require_file "${GAUSSIAN_COLOR_CURRENT_POINT_CLOUD}"
+fi
+if [[ -n "${GAUSSIAN_COLOR_BASELINE_POINT_CLOUD}" && ( "${SKIP_BASELINE}" == "true" || "${CHECK_ONLY}" == "true" ) ]]; then
+  require_file "${GAUSSIAN_COLOR_BASELINE_POINT_CLOUD}"
 fi
 if [[ "${SKIP_BASELINE}" == "true" || "${CHECK_ONLY}" == "true" ]]; then
   check_artifacts "${BASELINE_DIR}" "baseline"
@@ -392,5 +419,11 @@ report_args=(
 )
 if [[ "${DERIVE_GAUSSIAN_RGB}" == "true" ]]; then
   report_args+=(--derive-gaussian-rgb)
+fi
+if [[ -n "${GAUSSIAN_COLOR_CURRENT_POINT_CLOUD}" ]]; then
+  report_args+=(--gaussian-color-current-point-cloud "${GAUSSIAN_COLOR_CURRENT_POINT_CLOUD}")
+fi
+if [[ -n "${GAUSSIAN_COLOR_BASELINE_POINT_CLOUD}" ]]; then
+  report_args+=(--gaussian-color-baseline-point-cloud "${GAUSSIAN_COLOR_BASELINE_POINT_CLOUD}")
 fi
 "${report_args[@]}"

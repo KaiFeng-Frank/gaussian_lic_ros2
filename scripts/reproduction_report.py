@@ -149,6 +149,40 @@ def run_pointcloud_compare(args, baseline_dir, current_dir):
         return {"ok": False, "errors": [str(exc)]}
 
 
+def run_gaussian_color_compare(args, baseline_dir):
+    current_point_cloud = getattr(args, "gaussian_color_current_point_cloud", None)
+    if not current_point_cloud:
+        return {"ok": True, "skipped": True, "errors": []}
+
+    baseline_point_cloud = getattr(args, "gaussian_color_baseline_point_cloud", None)
+    baseline_path = (
+        Path(baseline_point_cloud)
+        if baseline_point_cloud
+        else baseline_dir / "point_cloud.ply"
+    )
+    compare_args = SimpleNamespace(
+        baseline=str(baseline_path),
+        current=str(Path(current_point_cloud)),
+        max_points=args.max_pointcloud_points,
+        voxel_size=args.pointcloud_voxel_size,
+        align=args.pointcloud_align,
+        max_nearest_m=args.max_nearest_m,
+        min_count_ratio=args.min_point_count_ratio,
+        max_count_ratio=args.max_point_count_ratio,
+        max_centroid_drift_m=args.max_centroid_drift_m,
+        max_chamfer_rmse_m=args.max_chamfer_rmse_m,
+        max_chamfer_mean_m=args.max_chamfer_mean_m,
+        max_chamfer_max_m=args.max_chamfer_max_m,
+        max_unmatched_ratio=args.max_unmatched_ratio,
+        max_mean_rgb_drift=getattr(args, "gaussian_color_max_mean_rgb_drift", args.max_mean_rgb_drift),
+        derive_gaussian_rgb=True,
+    )
+    try:
+        return compute_pointcloud_report(compare_args)
+    except Exception as exc:  # noqa: BLE001 - keep report generation best-effort.
+        return {"ok": False, "errors": [str(exc)]}
+
+
 def gate_status(gate_report):
     if gate_report.get("skipped"):
         return "SKIP"
@@ -166,7 +200,8 @@ def render_markdown(report):
         "| Gate | Status |",
         "| --- | --- |",
     ]
-    for name in ("baseline_manifest", "metrics", "trajectory", "point_cloud"):
+    gate_names = ("baseline_manifest", "metrics", "trajectory", "point_cloud", "gaussian_color")
+    for name in gate_names:
         lines.append(f"| {name} | {gate_status(report[name])} |")
 
     metrics = report["metrics"]
@@ -204,8 +239,28 @@ def render_markdown(report):
             ]
         )
 
+    gaussian_color = report["gaussian_color"]
+    if "color" in gaussian_color:
+        color = gaussian_color["color"]
+        lines.extend(
+            [
+                "",
+                "## Gaussian Color",
+                "",
+                f"Compared: {color['compared']}",
+                f"Mean RGB drift: {color['mean_rgb_distance']:.6f}",
+            ]
+        )
+        if color.get("baseline_mean_rgb") and color.get("current_mean_rgb"):
+            lines.extend(
+                [
+                    f"Baseline mean RGB: {', '.join(f'{value:.3f}' for value in color['baseline_mean_rgb'])}",
+                    f"Current mean RGB: {', '.join(f'{value:.3f}' for value in color['current_mean_rgb'])}",
+                ]
+            )
+
     failures = []
-    for name in ("baseline_manifest", "metrics", "trajectory", "point_cloud"):
+    for name in gate_names:
         failures.extend(f"{name}: {error}" for error in report[name].get("errors", []))
     if failures:
         lines.extend(["", "## Failures", ""])
@@ -238,10 +293,11 @@ def build_report(args):
         "metrics": metrics_report,
         "trajectory": run_trajectory_compare(args, baseline_dir, current_dir),
         "point_cloud": run_pointcloud_compare(args, baseline_dir, current_dir),
+        "gaussian_color": run_gaussian_color_compare(args, baseline_dir),
     }
     report["ok"] = all(
         report[name].get("ok", False)
-        for name in ("baseline_manifest", "metrics", "trajectory", "point_cloud")
+        for name in ("baseline_manifest", "metrics", "trajectory", "point_cloud", "gaussian_color")
     )
     return report
 
@@ -295,6 +351,20 @@ def main(argv=None):
         action="store_true",
         help="Derive RGB means from Gaussian PLY f_dc_0..2 coefficients when explicit RGB is absent",
     )
+    parser.add_argument(
+        "--gaussian-color-baseline-point-cloud",
+        help="Optional baseline PLY for the dedicated Torch Gaussian color gate. Defaults to baseline-dir/point_cloud.ply.",
+    )
+    parser.add_argument(
+        "--gaussian-color-current-point-cloud",
+        help="Current Torch Gaussian PLY for the dedicated color gate. Enables gaussian_color when set.",
+    )
+    parser.add_argument(
+        "--gaussian-color-max-mean-rgb-drift",
+        type=float,
+        default=40.0,
+        help="Maximum mean RGB drift for the dedicated Torch Gaussian color gate.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -320,7 +390,8 @@ def main(argv=None):
             f"sequence={report['sequence']} "
             f"metrics={gate_status(report['metrics'])} "
             f"trajectory={gate_status(report['trajectory'])} "
-            f"point_cloud={gate_status(report['point_cloud'])}"
+            f"point_cloud={gate_status(report['point_cloud'])} "
+            f"gaussian_color={gate_status(report['gaussian_color'])}"
         )
 
     return 0 if report["ok"] else 1
