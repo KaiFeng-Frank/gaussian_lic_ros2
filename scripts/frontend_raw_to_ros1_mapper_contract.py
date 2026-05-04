@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import argparse
+import math
 from pathlib import Path
 import shutil
 import struct
@@ -57,15 +58,74 @@ def make_ros1_header(store, source_header, frame_id=None, seq=0):
     )
 
 
-def make_identity_pose(store, source_header, frame_id, child_frame, seq):
+def normalize_quaternion(q):
+    norm = math.sqrt(sum(value * value for value in q))
+    if not math.isfinite(norm) or norm <= sys.float_info.epsilon:
+        return (1.0, 0.0, 0.0, 0.0)
+    return tuple(value / norm for value in q)
+
+
+def multiply_quaternion(lhs, rhs):
+    lw, lx, ly, lz = lhs
+    rw, rx, ry, rz = rhs
+    return normalize_quaternion((
+        lw * rw - lx * rx - ly * ry - lz * rz,
+        lw * rx + lx * rw + ly * rz - lz * ry,
+        lw * ry - lx * rz + ly * rw + lz * rx,
+        lw * rz + lx * ry - ly * rx + lz * rw,
+    ))
+
+
+def delta_quaternion(wx, wy, wz, dt):
+    omega = math.sqrt(wx * wx + wy * wy + wz * wz)
+    if not math.isfinite(omega) or omega <= sys.float_info.epsilon or dt <= 0.0:
+        return (1.0, 0.0, 0.0, 0.0)
+
+    half_angle = 0.5 * omega * dt
+    scale = math.sin(half_angle) / omega
+    return normalize_quaternion((
+        math.cos(half_angle),
+        wx * scale,
+        wy * scale,
+        wz * scale,
+    ))
+
+
+def integrate_imu_orientation(state, imu_msg, args):
+    stamp_nsec = stamp_to_nsec(imu_msg.header.stamp)
+    last_stamp = state.get("last_imu_stamp_nsec")
+    if last_stamp is None:
+        state["last_imu_stamp_nsec"] = stamp_nsec
+        return False
+
+    state["last_imu_stamp_nsec"] = stamp_nsec
+    dt = float(stamp_nsec - last_stamp) * 1e-9
+    if dt <= 0.0 or dt > args.imu_integration_max_dt_sec:
+        return False
+
+    wx = float(imu_msg.angular_velocity.x)
+    wy = float(imu_msg.angular_velocity.y)
+    wz = float(imu_msg.angular_velocity.z)
+    if not all(math.isfinite(value) for value in (wx, wy, wz)):
+        return False
+
+    state["orientation"] = multiply_quaternion(
+        state["orientation"],
+        delta_quaternion(wx, wy, wz, dt),
+    )
+    return True
+
+
+def make_pose(store, source_header, frame_id, child_frame, seq, orientation):
     point_cls = store.types["geometry_msgs/msg/Point"]
     quat_cls = store.types["geometry_msgs/msg/Quaternion"]
     pose_cls = store.types["geometry_msgs/msg/Pose"]
     pose_stamped_cls = store.types["geometry_msgs/msg/PoseStamped"]
     header = make_ros1_header(store, source_header, frame_id, seq)
+    qw, qx, qy, qz = normalize_quaternion(orientation)
     pose = pose_cls(
         position=point_cls(x=0.0, y=0.0, z=0.0),
-        orientation=quat_cls(x=0.0, y=0.0, z=0.0, w=1.0),
+        orientation=quat_cls(x=qx, y=qy, z=qz, w=qw),
     )
     pose_msg = pose_stamped_cls(header=header, pose=pose)
     pose_msg.header.frame_id = frame_id
@@ -277,10 +337,16 @@ def convert(args):
         "poses": 0,
         "depths": 0,
         "camera_infos": 0,
+        "imu": 0,
+        "imu_integrations": 0,
         "skipped": 0,
         "dropped_clouds": 0,
         "raw_point_samples": 0,
         "written_point_samples": 0,
+    }
+    imu_state = {
+        "orientation": (1.0, 0.0, 0.0, 0.0),
+        "last_imu_stamp_nsec": None,
     }
 
     with AnyReader([input_path], default_typestore=ros2_store) as reader, Writer(output_path) as writer:
@@ -307,6 +373,12 @@ def convert(args):
                 update_intrinsics_from_camera_info(args, reader.deserialize(rawdata, connection.msgtype))
                 counts["camera_infos"] += 1
                 continue
+            if args.imu_pose_fallback and connection.topic == args.input_imu_topic:
+                imu_msg = reader.deserialize(rawdata, connection.msgtype)
+                if integrate_imu_orientation(imu_state, imu_msg, args):
+                    counts["imu_integrations"] += 1
+                counts["imu"] += 1
+                continue
             if connection.topic not in (args.input_image_topic, args.input_pointcloud_topic):
                 counts["skipped"] += 1
                 continue
@@ -325,7 +397,14 @@ def convert(args):
                 if kept_points < args.min_points_per_cloud:
                     counts["dropped_clouds"] += 1
                     continue
-                pose = make_identity_pose(ros1_store, msg.header, args.world_frame, args.camera_frame, seq)
+                pose = make_pose(
+                    ros1_store,
+                    msg.header,
+                    args.world_frame,
+                    args.camera_frame,
+                    seq,
+                    imu_state["orientation"] if args.imu_pose_fallback else (1.0, 0.0, 0.0, 0.0),
+                )
                 depth = make_projected_depth(ros1_store, np, cloud, args, seq)
                 timestamp = stamp_to_nsec(cloud.header.stamp)
                 writer.write(point_conn, timestamp, ros1_store.serialize_ros1(cloud, "sensor_msgs/msg/PointCloud2"))
@@ -350,6 +429,7 @@ def convert(args):
         "cx": args.cx,
         "cy": args.cy,
         "pointcloud_transform_profile": args.pointcloud_transform_profile,
+        "imu_pose_fallback": args.imu_pose_fallback,
     }
 
 
@@ -363,6 +443,7 @@ def main(argv=None):
     parser.add_argument("--input-image-topic", default="/camera/image")
     parser.add_argument("--input-camera-info-topic", default="/camera/camera_info")
     parser.add_argument("--input-pointcloud-topic", default="/livox/lidar")
+    parser.add_argument("--input-imu-topic", default="/imu")
     parser.add_argument("--output-image-topic", default="/image_for_gs")
     parser.add_argument("--output-pointcloud-topic", default="/points_for_gs")
     parser.add_argument("--output-pose-topic", default="/pose_for_gs")
@@ -383,6 +464,17 @@ def main(argv=None):
         choices=("identity", "fastlivo2"),
         default="identity",
         help="Optional static pointcloud transform before z filtering/depth projection.",
+    )
+    parser.add_argument(
+        "--imu-pose-fallback",
+        action="store_true",
+        help="Integrate IMU gyro orientation and write it into generated PoseStamped messages.",
+    )
+    parser.add_argument(
+        "--imu-integration-max-dt-sec",
+        type=float,
+        default=0.05,
+        help="Maximum IMU sample interval integrated by --imu-pose-fallback.",
     )
     parser.add_argument("--min-points-per-cloud", type=int, default=1)
     parser.add_argument("--max-depth-points", type=int, default=200000)
@@ -406,6 +498,9 @@ def main(argv=None):
         f"raw_points={report['counts']['raw_point_samples']} "
         f"written_points={report['counts']['written_point_samples']} "
         f"dropped_clouds={report['counts']['dropped_clouds']} "
+        f"imu={report['counts']['imu']} "
+        f"imu_integrations={report['counts']['imu_integrations']} "
+        f"imu_pose_fallback={report['imu_pose_fallback']} "
         f"pointcloud_transform={report['pointcloud_transform_profile']} "
         f"size={report['width']}x{report['height']}"
     )

@@ -297,6 +297,9 @@ if [[ "${SKIP_CONVERT}" != "true" ]]; then
   if [[ "${POINTCLOUD_TRANSFORM_PROFILE}" != "identity" ]]; then
     convert_args+=(--pointcloud-transform-profile "${POINTCLOUD_TRANSFORM_PROFILE}")
   fi
+  if [[ "${IMU_POSE_FALLBACK}" == "true" ]]; then
+    convert_args+=(--imu-pose-fallback)
+  fi
   run_rosbags_python "${convert_args[@]}"
 fi
 
