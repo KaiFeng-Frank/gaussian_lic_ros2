@@ -11,6 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from baseline_manifest import REQUIRED_FILES, build_manifest
+from reproduction_report import build_report as build_reproduction_report
 
 
 DEFAULT_SEQUENCE = "CBD_Building_01"
@@ -192,6 +193,93 @@ def check_results_dir(results_dir):
     return report
 
 
+def reproduction_args(args, baseline_dir, current_results):
+    strict_max_regression = args.strict_max_regression
+    return SimpleNamespace(
+        baseline_dir=str(baseline_dir),
+        current_dir=str(current_results),
+        dataset=args.dataset,
+        sequence=args.sequence,
+        output=None,
+        markdown=None,
+        json=False,
+        strict=True,
+        strict_max_regression=strict_max_regression,
+        baseline_renders_dir=args.baseline_renders_dir,
+        current_renders_dir=args.current_renders_dir,
+        min_render_pairs=args.min_render_pairs,
+        max_render_pairs=args.max_render_pairs,
+        min_render_pair_psnr=args.min_render_pair_psnr,
+        min_render_pair_ssim=args.min_render_pair_ssim,
+        skip_baseline_manifest=False,
+        min_renders=args.min_renders,
+        skip_metrics=False,
+        metrics_name="metrics.json",
+        metric_keys=None,
+        max_metric_regression=strict_max_regression,
+        skip_trajectory=False,
+        trajectory_name="trajectory.tum",
+        trajectory_align="none",
+        max_association_dt=0.02,
+        min_trajectory_matches=2,
+        min_trajectory_coverage=0.8,
+        max_trajectory_rmse_m=0.05,
+        max_trajectory_mean_m=0.03,
+        max_trajectory_error_m=0.15,
+        max_trajectory_path_drift=0.05,
+        skip_pointcloud=False,
+        baseline_point_cloud=None,
+        current_point_cloud=None,
+        max_pointcloud_points=200000,
+        pointcloud_voxel_size=0.05,
+        pointcloud_align="none",
+        max_nearest_m=0.5,
+        min_point_count_ratio=0.5,
+        max_point_count_ratio=2.0,
+        max_centroid_drift_m=0.2,
+        max_chamfer_rmse_m=0.15,
+        max_chamfer_mean_m=0.1,
+        max_chamfer_max_m=0.5,
+        max_unmatched_ratio=0.05,
+        max_mean_rgb_drift=40.0,
+        derive_gaussian_rgb=False,
+        gaussian_color_baseline_point_cloud=None,
+        gaussian_color_current_point_cloud=None,
+        gaussian_color_max_mean_rgb_drift=40.0,
+    )
+
+
+def compact_gate_errors(report):
+    errors = []
+    for name in ("baseline_manifest", "metrics", "novel_view_quality", "trajectory", "point_cloud", "gaussian_color"):
+        section = report.get(name, {})
+        errors.extend(f"{name}: {error}" for error in section.get("errors", []))
+    return errors
+
+
+def check_strict_reproduction(args, baseline_dir, current_results):
+    if not args.strict:
+        return {"ok": True, "skipped": True, "errors": []}
+    baseline_dir = baseline_dir.expanduser().resolve()
+    current_results = current_results.expanduser().resolve()
+    if not baseline_dir.is_dir() or not current_results.is_dir():
+        return {
+            "ok": False,
+            "strict": True,
+            "errors": ["strict reproduction requires existing baseline and current result directories"],
+        }
+    try:
+        report = build_reproduction_report(reproduction_args(args, baseline_dir, current_results))
+    except Exception as exc:  # noqa: BLE001 - readiness should turn strict report failures into blockers.
+        return {"ok": False, "strict": True, "errors": [str(exc)]}
+    return {
+        "ok": bool(report.get("ok")),
+        "strict": True,
+        "report": report,
+        "errors": compact_gate_errors(report),
+    }
+
+
 def load_fetch_attempt(dataset_root, sequence):
     path = dataset_root.expanduser().resolve() / f"{sequence}.fetch.json"
     report = {
@@ -306,9 +394,15 @@ def build_next_actions(report):
             f"artifacts under {report['current_results']['path']}"
         )
     if baseline["ok"] and report["current_results"]["ok"]:
-        actions.append(
-            "Run scripts/reproduction_report.py with the baseline and current result directories."
-        )
+        strict = report.get("strict_reproduction", {})
+        if strict.get("skipped"):
+            actions.append(
+                "Run scripts/reproduction_report.py with the baseline and current result directories."
+            )
+        elif not strict.get("ok"):
+            actions.append(
+                "Fix strict reproduction blockers until PSNR/SSIM/LPIPS, trajectory, and Chamfer gates pass."
+            )
     return actions
 
 
@@ -330,6 +424,9 @@ def render_markdown(report):
         f"| ROS1 baseline artifacts | {status(report['baseline']['ok'])} | `{report['baseline']['path']}` |",
         f"| ROS2 current artifacts | {status(report['current_results']['ok'])} | `{report['current_results']['path']}` |",
     ]
+    strict = report.get("strict_reproduction", {"ok": True, "skipped": True})
+    if not strict.get("skipped"):
+        lines.append(f"| Strict reproduction report | {status(strict['ok'])} | `{report['current_results']['path']}` |")
     source_ready = report["upstream"]["lic2_release_notice"] and report["upstream"]["fast_livo2_quickstart"]
     lines.append(f"| Upstream LIC2 source/readme | {status(source_ready)} | `{report['upstream']['path']}` |")
 
@@ -342,6 +439,7 @@ def render_markdown(report):
     failures = []
     for section in ("dataset", "baseline", "current_results"):
         failures.extend(f"{section}: {error}" for error in report[section].get("errors", []))
+    failures.extend(f"strict_reproduction: {error}" for error in report.get("strict_reproduction", {}).get("errors", []))
     failures.extend(f"upstream: {error}" for error in report["upstream"].get("errors", []))
     if report["fetch_attempt"].get("error"):
         failures.append(f"fetch_attempt: {report['fetch_attempt']['error']}")
@@ -366,20 +464,31 @@ def build_report(args):
     dataset_root = Path(args.dataset_root)
     baseline_dir = Path(args.baseline_dir)
     current_results = Path(args.current_results_dir)
+    dataset = scan_dataset_root(dataset_root, args.sequence, args.max_candidates)
+    fetch_attempt = load_fetch_attempt(dataset_root, args.sequence)
+    baseline = check_baseline_dir(baseline_dir, args.dataset, args.sequence, args.min_renders)
+    current = check_results_dir(current_results)
+    strict_reproduction = check_strict_reproduction(args, baseline_dir, current_results)
     report = {
         "schema": "gaussian_lic_baseline_readiness/v1",
         "generated_at": utc_now(),
         "dataset_name": args.dataset,
         "sequence": args.sequence,
         "official_sources": SOURCE_URLS,
-        "dataset": scan_dataset_root(dataset_root, args.sequence, args.max_candidates),
-        "fetch_attempt": load_fetch_attempt(dataset_root, args.sequence),
-        "baseline": check_baseline_dir(baseline_dir, args.dataset, args.sequence, args.min_renders),
-        "current_results": check_results_dir(current_results),
+        "dataset": dataset,
+        "fetch_attempt": fetch_attempt,
+        "baseline": baseline,
+        "current_results": current,
+        "strict_reproduction": strict_reproduction,
         "upstream": local_upstream_status(repo_root),
         "source_probes": probe_sources(args.probe_timeout) if args.probe_sources else [],
     }
-    report["ok"] = report["dataset"]["ok"] and report["baseline"]["ok"] and report["current_results"]["ok"]
+    report["ok"] = (
+        report["dataset"]["ok"]
+        and report["baseline"]["ok"]
+        and report["current_results"]["ok"]
+        and report["strict_reproduction"]["ok"]
+    )
     report["next_actions"] = build_next_actions(report)
     return report
 
@@ -395,6 +504,18 @@ def main(argv=None):
     parser.add_argument("--sequence", default=DEFAULT_SEQUENCE)
     parser.add_argument("--min-renders", type=int, default=1)
     parser.add_argument("--max-candidates", type=int, default=20)
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Run the full reproduction report gate, including PSNR/SSIM/LPIPS and render-pair checks.",
+    )
+    parser.add_argument("--strict-max-regression", type=float, default=0.05)
+    parser.add_argument("--baseline-renders-dir", help="Override baseline render image directory for --strict.")
+    parser.add_argument("--current-renders-dir", help="Override current render image directory for --strict.")
+    parser.add_argument("--min-render-pairs", type=int, default=1)
+    parser.add_argument("--max-render-pairs", type=int, default=64)
+    parser.add_argument("--min-render-pair-psnr", type=float, default=30.0)
+    parser.add_argument("--min-render-pair-ssim", type=float, default=0.95)
     parser.add_argument("--probe-sources", action="store_true", help="Probe official source URLs with HEAD requests.")
     parser.add_argument("--probe-timeout", type=float, default=10.0)
     parser.add_argument("--output", help="Optional JSON report path.")
@@ -421,12 +542,14 @@ def main(argv=None):
     if args.json or not report["ok"]:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
+        strict_status = "SKIP" if report["strict_reproduction"].get("skipped") else "PASS"
         print(
             "baseline readiness OK: "
             f"sequence={report['sequence']} "
             f"dataset={report['dataset']['root']} "
             f"baseline={report['baseline']['path']} "
-            f"current={report['current_results']['path']}"
+            f"current={report['current_results']['path']} "
+            f"strict={strict_status}"
         )
 
     return 0 if report["ok"] or args.allow_missing else 1

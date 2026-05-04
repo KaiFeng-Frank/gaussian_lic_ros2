@@ -116,10 +116,14 @@ Until that package is ported, `gaussian_lic_frontend/lic2_contract_adapter`
 remains an adapter for externally supplied pose/odometry and raw sensor topics,
 not the paper tracker.
 
-## Strict Gate Gap
+## Strict Gate Status
 
-`baseline_readiness.py` currently checks data, baseline artifacts, current
-artifacts, and upstream source status. It does not yet implement `--strict`, and
-it does not compare PSNR, SSIM, LPIPS, or paper-level ±5% metric drift.
+`baseline_readiness.py --strict` now delegates to the combined reproduction
+report instead of only checking that files exist. The strict report requires
+novel-view PSNR, SSIM, and LPIPS metrics in `metrics.json`, applies the paper
+gate as a default 5% regression limit, and also requires matched baseline/current
+render images to pass PSNR/SSIM similarity thresholds.
 
-The strict gate must be added before claiming paper-level reproduction.
+If PSNR, SSIM, or LPIPS are missing or null, strict readiness fails explicitly.
+The remaining blocker is producing the `CBD_Building_01` ROS1 baseline and ROS2
+current artifacts from the real official bag with the native tracker path.

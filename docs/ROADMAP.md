@@ -51,10 +51,15 @@ Current execution gate:
   --dataset-root /home/frank/data/fast_livo \
   --baseline-dir baseline/fastlivo2/CBD_Building_01 \
   --current-results-dir results/fastlivo2/current \
-  --sequence CBD_Building_01
+  --sequence CBD_Building_01 \
+  --strict
 ```
 
-As of 2026-05-04, `CBD_Building_01` download is blocked by Google Drive quota. The upstream ROS1 `gs_mapping` target builds successfully in Docker with the local OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6. Strict OpenCV 4.7.0 is still incomplete locally.
+As of 2026-05-04, `CBD_Building_01` is being fetched from the official Google
+Drive file ID discovered by `scripts/fetch_fastlivo2_sequence.py`. The upstream
+ROS1 `gs_mapping` target builds successfully in Docker with the local OpenCV
+4.10 CUDA fallback and TensorRT 8.6.1.6. Strict OpenCV 4.7.0 is still incomplete
+locally.
 
 To avoid waiting on the quota-blocked strict sequence, the current executable substitute is the official FAST-LIVO2 `Bright_Screen_Wall` bag, curated to the first 8 seconds. The latest colorized combined proof chain has:
 
@@ -168,6 +173,7 @@ baseline_manifest.json
 - [x] FAST-LIVO2 data fetch/readiness scripts for executable baseline status.
 - [x] Reproducible ROS1 upstream baseline build-attempt script for the local Noetic Docker environment.
 - [x] Add a ROS2 current-results collector that records mapper outputs and writes `trajectory.tum`, `point_cloud.ply`, and `metrics.json`.
+- [x] Add `--strict` reproduction readiness that fails on missing PSNR/SSIM/LPIPS and enforces the 5% paper metric gate.
 - [x] Jazzy CI smoke tests with a generated mini rosbag2 sequence.
 - [x] ROS1 upstream baseline archive for the official curated FAST-LIVO2 `Bright_Screen_Wall_curated_8s` substitute.
 - [x] ROS1 `.bag` to rosbag2 `.mcap` converter backend.

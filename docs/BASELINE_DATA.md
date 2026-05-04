@@ -153,6 +153,20 @@ Run the curated baseline-vs-current report:
   --markdown results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.md
 ```
 
+For the paper gate, use `--strict` on the real `CBD_Building_01` baseline/current
+pair. Strict mode requires finite novel-view PSNR, SSIM, and LPIPS metrics in
+both `metrics.json` files, enforces the default 5% regression limit, and checks
+matched rendered images under `renders/`:
+
+```bash
+./scripts/baseline_readiness.py \
+  --dataset-root /home/frank/data/fast_livo \
+  --baseline-dir baseline/fastlivo2/CBD_Building_01 \
+  --current-results-dir results/fastlivo2/current \
+  --sequence CBD_Building_01 \
+  --strict
+```
+
 The validated curated chain can also be re-run from one entrypoint:
 
 ```bash
