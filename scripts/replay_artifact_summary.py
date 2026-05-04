@@ -26,6 +26,7 @@ def build_summary(artifact_dir):
     root = Path(artifact_dir).expanduser().resolve()
     full_contract = load_json(root / "bag_contract_full.json")
     minimal_contract = load_json(root / "bag_contract_mapper_minimal.json")
+    frontend_raw_contract = load_json(root / "bag_contract_frontend_raw.json")
     metrics = load_json(root / "offline" / "metrics.json")
 
     debug_cloud = metrics.get("debug_cloud", {})
@@ -38,7 +39,9 @@ def build_summary(artifact_dir):
         "contracts": {
             "full": bool(full_contract.get("contract_ok")),
             "mapper_minimal": bool(minimal_contract.get("contract_ok")),
+            "frontend_raw": bool(frontend_raw_contract.get("contract_ok")),
         },
+        "frontend_raw_bag": frontend_raw_contract.get("bag", ""),
         "message_count": int(metrics.get("message_count", 0)),
         "duration_sec": float(metrics.get("duration_sec", 0.0)),
         "trajectory_poses": int(metrics.get("trajectory_poses", 0)),
@@ -47,7 +50,11 @@ def build_summary(artifact_dir):
         "points_with_color": int(debug_cloud.get("points_with_color", 0)),
         "points_without_color": int(debug_cloud.get("points_without_color", 0)),
         "mean_rgb": debug_cloud.get("mean_rgb", []),
-        "ok": bool(full_contract.get("contract_ok")) and bool(minimal_contract.get("contract_ok")),
+        "ok": (
+            bool(full_contract.get("contract_ok"))
+            and bool(minimal_contract.get("contract_ok"))
+            and bool(frontend_raw_contract.get("contract_ok"))
+        ),
     }
 
 
@@ -59,12 +66,14 @@ def render_markdown(summary):
         "",
         f"Status: {status(summary['ok'])}",
         f"Bag: `{summary['bag']}`",
+        f"Frontend raw bag: `{summary['frontend_raw_bag']}`",
         f"Format: `{summary['bag_format']}` / `{summary['storage_identifier']}`",
         "",
         "| Gate | Status |",
         "| --- | --- |",
         f"| full bag contract | {status(summary['contracts']['full'])} |",
         f"| mapper_minimal contract | {status(summary['contracts']['mapper_minimal'])} |",
+        f"| frontend_raw contract | {status(summary['contracts']['frontend_raw'])} |",
         "",
         "| Metric | Value |",
         "| --- | ---: |",
