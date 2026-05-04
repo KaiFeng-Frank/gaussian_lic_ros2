@@ -8,7 +8,7 @@ This repository is **not a ROS1 bridge wrapper**. It is a clean ROS2 workspace t
 
 ## Current Release State
 
-This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper-scaffold, optional Torch Gaussian, artifact extraction, and baseline comparison tooling, plus an official FAST-LIVO2 Bright substitute proof chain.
+This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper-scaffold, optional Torch Gaussian tensor plumbing, artifact extraction, and baseline comparison tooling, plus an official FAST-LIVO2 Bright substitute proof chain.
 
 It is **not yet** the strict full-paper Gaussian-LIC2 ROS2 port: the native LIC2 tracking executable and the full upstream CUDA rasterizer/optimizer/densification backend are still pending, and the strict `CBD_Building_01` data gate is blocked by the upstream data source.
 
@@ -33,9 +33,20 @@ Still pending:
 - TensorRT depth completion as an optional backend.
 - Strict FAST-LIVO2 `CBD_Building_01` paper gate once the official bag is available locally. Current Google Drive attempts are quota-blocked and the SharePoint mirror returns 404 as of 2026-05-04.
 
+## Progress Ledger
+
+| Scope | Current status |
+| --- | --- |
+| ROS2 workspace, messages, launch, composable node, profiles, bag checks, artifact gates | Complete for the current porting surface |
+| FAST-LIVO2 Bright substitute evidence chain | Complete and executable with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` passing |
+| Strict `CBD_Building_01` paper-data gate | Blocked by official data availability on this machine |
+| Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Not complete; core CUDA rendering, full loss/optimizer/densification, native tracker, and TensorRT depth completion remain |
+
+The Bright substitute report is a regression/evidence chain for current ROS2 plumbing and Torch Gaussian tensor boundaries. It is not a claim that the full paper algorithm has been ported.
+
 ## Current Executable Proof Chain
 
-The current 100% executable proof chain uses the official FAST-LIVO2 `Bright_Screen_Wall` bag as a substitute while `CBD_Building_01` is unavailable. It compares ROS2 current artifacts against an upstream ROS1 Gaussian-LIC/Gaussian-LIC2 baseline and adds a Torch Gaussian color gate in the same report.
+The current executable proof chain uses the official FAST-LIVO2 `Bright_Screen_Wall` bag as a substitute while `CBD_Building_01` is unavailable. It compares ROS2 current artifacts against an upstream ROS1 Gaussian-LIC/Gaussian-LIC2 baseline and adds a Torch Gaussian color gate in the same report.
 
 Validated artifacts:
 
@@ -70,6 +81,18 @@ reproduction report OK: sequence=Bright_Screen_Wall_fastlivo2_color_8s metrics=P
 ```
 
 The latest local report has Torch Gaussian mean RGB drift `11.657 < 40.0`.
+
+## Algorithmic Gaps
+
+The current Torch backend is an executable placeholder for the future Gaussian core, not the final paper backend.
+
+- CUDA rasterizer stack is not ported into `src/`: there are no in-tree `.cu` sources for upstream `forward.cu`, `backward.cu`, `rasterizer_impl.cu`, SparseGaussianAdam, simple-knn, or fused-ssim.
+- The current Torch update path optimizes a small DC-color/opacity surface from projected keyframe samples. It does not run differentiable image rendering, DSSIM, depth loss, or the full upstream Gaussian loss schedule.
+- The current optimizer is not upstream SparseGaussianAdam and does not train the full Gaussian parameter set (`xyz`, scale, rotation, SH coefficients, opacity) as the paper backend does.
+- Gradient-aware densification is not ported: upstream split/clone/prune scheduling remains a future CUDA/Gaussian-core task.
+- `lic2_contract_adapter` is a ROS2 input boundary for raw sensors plus pose/odometry. It is not the full continuous-time Gaussian-LIC/Coco-LIC tracker.
+- TensorRT/SPNet depth completion is optional at the ROS2 boundary, but upstream `depth_completer` is not yet integrated as a native backend.
+- Strict paper reproduction still needs `CBD_Building_01`, a native algorithm path with the CUDA backend, and baseline-vs-current paper metrics against the upstream ROS1 run.
 
 ## Platform
 
