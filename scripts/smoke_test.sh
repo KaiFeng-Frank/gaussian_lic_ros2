@@ -15,10 +15,11 @@ RENDER_MODE="debug_cpu"
 CHECK_RENDERED_DATA=true
 IMAGE_COLOR_FALLBACK_CHECK=false
 OPTIONAL_DEPTH_CHECK=false
+MINIMAL_INPUTS=false
 
 usage() {
   cat <<'EOF'
-Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--optional-depth-check] [--bag DIR] [--timeout SEC] [--save-dir DIR]
+Usage: scripts/smoke_test.sh [--torch] [--tf] [--composition] [--sensor-qos RELIABILITY] [--config FILE] [--render-mode MODE] [--skip-rendered-data-check] [--image-color-fallback-check] [--optional-depth-check] [--minimal-inputs] [--bag DIR] [--timeout SEC] [--save-dir DIR]
 
 Runs the synthetic ROS2 mapping smoke test and verifies published outputs.
 
@@ -38,6 +39,8 @@ Options:
                   Publish an uncolored synthetic cloud and verify image-projected RGB in SaveMap output.
   --optional-depth-check
                   Disable synthetic depth and verify require_depth_topic:=false projected-depth fallback.
+  --minimal-inputs
+                  Replay/check bags with only points, pose, and image mapper inputs.
   --bag DIR       Replay a rosbag2 directory instead of live synthetic input.
   --timeout SEC   Per-topic wait timeout. Default: 8.
   --save-dir DIR  SaveMap target directory for --torch. Default: /tmp/gaussian_lic_smoke_map.
@@ -96,6 +99,10 @@ while [[ $# -gt 0 ]]; do
       OPTIONAL_DEPTH_CHECK=true
       shift
       ;;
+    --minimal-inputs)
+      MINIMAL_INPUTS=true
+      shift
+      ;;
     --bag)
       BAG_PATH="$2"
       shift 2
@@ -134,6 +141,10 @@ if [[ "${RENDER_MODE}" != "debug_cpu" ]]; then
   CHECK_RENDERED_DATA=false
 fi
 
+if [[ "${MINIMAL_INPUTS}" == "true" ]]; then
+  CHECK_RENDERED_DATA=false
+fi
+
 if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" && -n "${BAG_PATH}" ]]; then
   echo "--image-color-fallback-check requires live synthetic input, not --bag" >&2
   exit 2
@@ -146,6 +157,11 @@ fi
 
 if [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" && "${ENABLE_TORCH}" == "true" ]]; then
   echo "--image-color-fallback-check verifies the non-torch debug PLY SaveMap path" >&2
+  exit 2
+fi
+
+if [[ "${MINIMAL_INPUTS}" == "true" && "${ENABLE_TORCH}" == "true" ]]; then
+  echo "--minimal-inputs verifies the non-torch mapper replay path" >&2
   exit 2
 fi
 
@@ -180,6 +196,11 @@ if [[ -n "${BAG_PATH}" ]]; then
     synthetic_input:=false
     use_sim_time:=true
   )
+  if [[ "${MINIMAL_INPUTS}" == "true" ]]; then
+    launch_args+=(
+      require_depth_topic:=false
+    )
+  fi
 else
   launch_args+=(
     synthetic_input:=true
@@ -241,14 +262,16 @@ run_check "odometry" \
   ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
     /gaussian_lic/odometry nav_msgs/msg/Odometry >/tmp/gaussian_lic_smoke_odom.txt
 
-run_check "camera_info" \
-  ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
-    /camera_info_for_gs sensor_msgs/msg/CameraInfo >/tmp/gaussian_lic_smoke_camera_info.txt
+if [[ "${MINIMAL_INPUTS}" != "true" ]]; then
+  run_check "camera_info" \
+    ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \
+      /camera_info_for_gs sensor_msgs/msg/CameraInfo >/tmp/gaussian_lic_smoke_camera_info.txt
 
-run_check "imu" \
-  ros2 topic echo --once --timeout "${TIMEOUT_SEC}" --no-arr \
-    /imu_for_gs sensor_msgs/msg/Imu >/tmp/gaussian_lic_smoke_imu.txt
-rg -q "linear_acceleration:" /tmp/gaussian_lic_smoke_imu.txt
+  run_check "imu" \
+    ros2 topic echo --once --timeout "${TIMEOUT_SEC}" --no-arr \
+      /imu_for_gs sensor_msgs/msg/Imu >/tmp/gaussian_lic_smoke_imu.txt
+  rg -q "linear_acceleration:" /tmp/gaussian_lic_smoke_imu.txt
+fi
 
 run_check "path" \
   ros2 topic echo --once --timeout "${TIMEOUT_SEC}" \

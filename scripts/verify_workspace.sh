@@ -92,6 +92,9 @@ fi
 echo "[verify] bag smoke"
 ./scripts/smoke_test.sh --bag "${BAG_PATH}" --tf
 
+echo "[verify] minimal bag smoke"
+./scripts/smoke_test.sh --bag "${BAG_PATH}" --minimal-inputs
+
 echo "[verify] offline artifact extraction"
 set +u
 source /opt/ros/jazzy/setup.bash

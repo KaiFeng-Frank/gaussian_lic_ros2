@@ -136,6 +136,15 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
 
 `mapper_minimal` requires `/points_for_gs`, `/pose_for_gs`, and `/image_for_gs`. It still reports `/camera_info_for_gs`, `/depth_for_gs`, and `/imu_for_gs` when present, but missing optional topics do not fail the check. Use it with `require_depth_topic:=false` and profile intrinsics when replaying bags that do not carry depth or CameraInfo.
 
+Replay a minimal rosbag2 mapper bag with:
+
+```bash
+./scripts/smoke_test.sh \
+  --bag /path/to/intermediate_ros2_bag \
+  --minimal-inputs \
+  --config src/gaussian_lic_bringup/config/r3live.yaml
+```
+
 The same checker can inspect ROS1 `.bag` metadata before conversion when the optional `rosbags` package is installed:
 
 ```bash

@@ -188,6 +188,18 @@ Run the same mapper checks from rosbag2 playback:
 ./scripts/smoke_test.sh --bag bags/synthetic_gs_demo --tf
 ```
 
+For rosbag2 replay bags that satisfy only the `mapper_minimal` contract:
+
+```bash
+./scripts/smoke_test.sh \
+  --bag /path/to/intermediate_ros2_bag \
+  --minimal-inputs \
+  --config src/gaussian_lic_bringup/config/r3live.yaml \
+  --timeout 20
+```
+
+`--minimal-inputs` skips CameraInfo and IMU input-topic checks, passes `require_depth_topic:=false` to the mapper, and keeps the rest of the output checks enabled.
+
 The smoke script launches rosbag2 with `loop_bag:=true` so volatile input-topic checks do not race short bag playback.
 
 The non-torch smoke path also calls `/gaussian_lic/save_map` and checks that a debug XYZRGB PLY is written.
