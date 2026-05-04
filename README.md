@@ -541,13 +541,22 @@ Fetch the official FAST-LIVO2 quick-start bag only when the data gate reports mi
 Run or resume the strict chain from the local `CBD_Building_01` bag:
 
 ```bash
-./scripts/run_strict_cbd_pipeline.sh --overwrite
+./scripts/run_strict_cbd_pipeline.sh \
+  --overwrite \
+  --render-mode rasterizer \
+  --current-torch-device cuda \
+  --current-torch-optimization-steps 1 \
+  --current-torch-max-foreground 20000
 ```
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
 `frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
 runs the upstream ROS1 baseline container, collects ROS2 current artifacts, and
-emits strict readiness and reproduction reports.
+emits strict readiness and reproduction reports. During report generation it also
+fills `metrics.json::quality` from same-name render/GT image pairs. If
+`${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python` exists, it is used for
+CPU LPIPS evaluation; otherwise set `QUALITY_PYTHON` to a Python environment with
+`torch`, `torchvision`, `numpy`, and `Pillow`.
 
 ## Release Roadmap
 

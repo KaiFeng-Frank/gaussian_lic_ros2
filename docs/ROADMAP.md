@@ -184,4 +184,6 @@ baseline_manifest.json
 - [x] PR comparison report on real or curated mini-sequence artifacts.
 - [x] Resumable strict `CBD_Building_01` pipeline entrypoint from official bag to strict report.
 - [x] Strict `CBD_Building_01` ROS1 upstream baseline archive from the official local bag.
+- [x] Strict report quality extraction fills PSNR/SSIM/LPIPS from render/GT pairs, with lpipsPyTorch fallback for CPU report environments.
+- [x] Strict rasterizer current collection forwards CUDA optimization and pruning controls so runtime does not silently run zero optimizer steps.
 - [ ] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.

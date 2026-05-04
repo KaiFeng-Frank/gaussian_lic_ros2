@@ -182,7 +182,12 @@ After `/home/frank/data/fast_livo/CBD_Building_01.bag` is present, the full
 local strict chain can be run from one resumable entrypoint:
 
 ```bash
-./scripts/run_strict_cbd_pipeline.sh --overwrite
+./scripts/run_strict_cbd_pipeline.sh \
+  --overwrite \
+  --render-mode rasterizer \
+  --current-torch-device cuda \
+  --current-torch-optimization-steps 1 \
+  --current-torch-max-foreground 20000
 ```
 
 The script converts the official ROS1 bag into a sqlite-backed ROS2
@@ -190,6 +195,15 @@ The script converts the official ROS1 bag into a sqlite-backed ROS2
 the ROS1 mapper-contract bag, runs the upstream ROS1 baseline container,
 collects ROS2 current artifacts, and emits strict readiness/report JSON and
 Markdown files under the current-results directory.
+
+Before strict reporting, the script runs `scripts/eval_render_quality.py` on the
+baseline and current render directories when upstream GT images are available.
+That step fills finite PSNR, SSIM, and LPIPS fields under
+`metrics.json::quality`. The upstream TorchScript LPIPS file is traced with CUDA
+tensors, so CPU-only report environments should use the lpipsPyTorch fallback via
+a Python environment containing `torch`, `torchvision`, `numpy`, and `Pillow`.
+If `${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python` exists it is
+selected automatically; otherwise set `QUALITY_PYTHON=/path/to/python`.
 
 The validated curated chain can also be re-run from one entrypoint:
 

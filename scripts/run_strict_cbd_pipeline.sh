@@ -16,6 +16,9 @@ CURRENT_RECORD_SEC=12
 CURRENT_PLAY_RATE=1
 CURRENT_POST_PLAY_SETTLE=8
 CURRENT_TORCH_DEVICE=cpu
+CURRENT_TORCH_OPTIMIZATION_STEPS=1
+CURRENT_TORCH_MAX_FOREGROUND=20000
+CURRENT_TORCH_PRUNE_MIN_OPACITY=0.005
 TIMEOUT_SEC=30
 OVERWRITE=false
 SKIP_CONVERT=false
@@ -47,6 +50,12 @@ Options:
                             Pass to collect_current_results.sh. Default: 8
   --current-torch-device DEVICE
                             Pass to collect_current_results.sh when --render-mode rasterizer is used.
+  --current-torch-optimization-steps N
+                            Torch optimization steps per keyframe in rasterizer mode. Default: 1
+  --current-torch-max-foreground N
+                            Foreground Gaussian cap in rasterizer mode. Default: 20000
+  --current-torch-prune-min-opacity X
+                            Foreground opacity pruning threshold in rasterizer mode. Default: 0.005
   --timeout N              Current-result wait timeout. Default: 30
   --overwrite              Recreate converted frontend/mapper-contract outputs.
   --skip-convert           Reuse existing converted bags.
@@ -108,6 +117,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-torch-device)
       CURRENT_TORCH_DEVICE="$2"
+      shift 2
+      ;;
+    --current-torch-optimization-steps)
+      CURRENT_TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --current-torch-max-foreground)
+      CURRENT_TORCH_MAX_FOREGROUND="$2"
+      shift 2
+      ;;
+    --current-torch-prune-min-opacity)
+      CURRENT_TORCH_PRUNE_MIN_OPACITY="$2"
       shift 2
       ;;
     --timeout)
@@ -209,7 +230,13 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
   echo "[strict-cbd] collecting ROS2 current results: ${CURRENT_DIR}"
   current_torch_args=()
   if [[ "${RENDER_MODE}" == "rasterizer" ]]; then
-    current_torch_args+=(--torch --torch-device "${CURRENT_TORCH_DEVICE}")
+    current_torch_args+=(
+      --torch
+      --torch-device "${CURRENT_TORCH_DEVICE}"
+      --torch-optimization-steps "${CURRENT_TORCH_OPTIMIZATION_STEPS}"
+      --torch-max-foreground "${CURRENT_TORCH_MAX_FOREGROUND}"
+      --torch-prune-min-opacity "${CURRENT_TORCH_PRUNE_MIN_OPACITY}"
+    )
   fi
   ./scripts/collect_current_results.sh \
     --bag "${FRONTEND_RAW}" \
@@ -230,6 +257,41 @@ fi
 
 if [[ "${SKIP_REPORT}" != "true" ]]; then
   echo "[strict-cbd] running strict readiness and reproduction report"
+  QUALITY_REFERENCE_DIR="${BASELINE_DIR}/upstream_result/gt"
+  QUALITY_LPIPS_MODEL="${ROOT_DIR}/external/Gaussian-LIC/src/lpips/lpips_alex.pt"
+  QUALITY_LPIPS_ROOT="${ROOT_DIR}/external/Gaussian-LIC/src/lpips"
+  QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cpu}"
+  QUALITY_PYTHON="${QUALITY_PYTHON:-}"
+  if [[ -z "${QUALITY_PYTHON}" ]]; then
+    quality_venv="${GAUSSIAN_LIC_QUALITY_VENV:-${HOME}/.cache/gaussian_lic_ros2/quality-venv}"
+    if [[ -x "${quality_venv}/bin/python" ]]; then
+      QUALITY_PYTHON="${quality_venv}/bin/python"
+    else
+      QUALITY_PYTHON="/usr/bin/python3"
+    fi
+  fi
+  if [[ -d "${QUALITY_REFERENCE_DIR}" ]]; then
+    if [[ -d "${BASELINE_DIR}/upstream_result/render" ]]; then
+      "${QUALITY_PYTHON}" scripts/eval_render_quality.py \
+        --result-dir "${BASELINE_DIR}" \
+        --render-dir "${BASELINE_DIR}/upstream_result/render" \
+        --reference-dir "${QUALITY_REFERENCE_DIR}" \
+        --lpips-model "${QUALITY_LPIPS_MODEL}" \
+        --lpips-device "${QUALITY_LPIPS_DEVICE}" \
+        --lpips-pytorch-root "${QUALITY_LPIPS_ROOT}" \
+        >"${BASELINE_DIR}/quality_eval.json" || true
+    fi
+    if [[ -d "${CURRENT_DIR}/renders" ]]; then
+      "${QUALITY_PYTHON}" scripts/eval_render_quality.py \
+        --result-dir "${CURRENT_DIR}" \
+        --render-dir "${CURRENT_DIR}/renders" \
+        --reference-dir "${QUALITY_REFERENCE_DIR}" \
+        --lpips-model "${QUALITY_LPIPS_MODEL}" \
+        --lpips-device "${QUALITY_LPIPS_DEVICE}" \
+        --lpips-pytorch-root "${QUALITY_LPIPS_ROOT}" \
+        >"${CURRENT_DIR}/quality_eval.json" || true
+    fi
+  fi
   report_status=0
   set +e
   ./scripts/baseline_readiness.py \
