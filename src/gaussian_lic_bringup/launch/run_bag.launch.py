@@ -21,6 +21,10 @@ def generate_launch_description():
     adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
     adapter_imu_pose_fallback = LaunchConfiguration("adapter_imu_pose_fallback")
     adapter_pointcloud_transform_profile = LaunchConfiguration("adapter_pointcloud_transform_profile")
+    adapter_raw_pointcloud_topic = LaunchConfiguration("adapter_raw_pointcloud_topic")
+    livox_custom_bridge = LaunchConfiguration("livox_custom_bridge")
+    livox_custom_topic = LaunchConfiguration("livox_custom_topic")
+    livox_pointcloud_topic = LaunchConfiguration("livox_pointcloud_topic")
     synthetic_pose_output_mode = LaunchConfiguration("synthetic_pose_output_mode")
     synthetic_pointcloud_color_mode = LaunchConfiguration("synthetic_pointcloud_color_mode")
     synthetic_point_color_rgb = LaunchConfiguration("synthetic_point_color_rgb")
@@ -117,6 +121,7 @@ def generate_launch_description():
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
             "sensor_qos_depth": sensor_qos_depth,
+            "raw_pointcloud_topic": adapter_raw_pointcloud_topic,
             "identity_pose_fallback": adapter_identity_pose_fallback,
             "imu_pose_fallback": adapter_imu_pose_fallback,
             "pointcloud_transform_profile": adapter_pointcloud_transform_profile,
@@ -169,6 +174,26 @@ def generate_launch_description():
             "adapter_pointcloud_transform_profile",
             default_value="identity",
             description="Static adapter pointcloud transform profile: identity or fastlivo2",
+        ),
+        DeclareLaunchArgument(
+            "adapter_raw_pointcloud_topic",
+            default_value="/livox/lidar",
+            description="Raw PointCloud2 topic consumed by the LIC2 contract adapter",
+        ),
+        DeclareLaunchArgument(
+            "livox_custom_bridge",
+            default_value="false",
+            description="Bridge livox_ros_driver2/CustomMsg packets to PointCloud2 before the adapter",
+        ),
+        DeclareLaunchArgument(
+            "livox_custom_topic",
+            default_value="/livox/lidar",
+            description="Livox CustomMsg topic consumed by livox_custom_to_pointcloud2",
+        ),
+        DeclareLaunchArgument(
+            "livox_pointcloud_topic",
+            default_value="/livox/lidar/points",
+            description="PointCloud2 topic published by livox_custom_to_pointcloud2",
         ),
         DeclareLaunchArgument(
             "synthetic_pose_output_mode",
@@ -335,6 +360,23 @@ def generate_launch_description():
             output="screen",
             parameters=adapter_parameters,
             condition=frontend_adapter_condition,
+        ),
+
+        Node(
+            package="gaussian_lic_frontend",
+            executable="livox_custom_to_pointcloud2",
+            name="livox_custom_to_pointcloud2",
+            output="screen",
+            parameters=[
+                {
+                    "use_sim_time": use_sim_time,
+                    "input_topic": livox_custom_topic,
+                    "output_topic": livox_pointcloud_topic,
+                    "sensor_qos_reliability": sensor_qos_reliability,
+                    "sensor_qos_depth": sensor_qos_depth,
+                },
+            ],
+            condition=IfCondition(livox_custom_bridge),
         ),
 
         ComposableNodeContainer(

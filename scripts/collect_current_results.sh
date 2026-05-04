@@ -15,6 +15,9 @@ FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
 POINTCLOUD_TRANSFORM_PROFILE="identity"
+LIVOX_CUSTOM_BRIDGE=false
+LIVOX_CUSTOM_TOPIC="/livox/lidar"
+LIVOX_POINTCLOUD_TOPIC="/livox/lidar/points"
 PUBLISH_TF=false
 REQUIRE_DEPTH_TOPIC=true
 RENDER_MODE="debug_cpu"
@@ -49,6 +52,7 @@ Options:
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
   --fastlivo2-camera-lidar-transform
                                Transform raw FAST-LIVO2 LiDAR points into camera frame in the adapter.
+  --livox-custom-bridge        Bridge Livox CustomMsg input to PointCloud2 before the adapter.
   --optional-depth             Allow mapper replay without a depth image topic.
   --tf                         Enable TF publication.
   --render-mode MODE           debug_cpu, debug_input, rasterizer, or off. Default: debug_cpu.
@@ -105,6 +109,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fastlivo2-camera-lidar-transform)
       POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
+      shift
+      ;;
+    --livox-custom-bridge)
+      LIVOX_CUSTOM_BRIDGE=true
       shift
       ;;
     --optional-depth)
@@ -176,10 +184,16 @@ launch_args=(
   adapter_identity_pose_fallback:="${IDENTITY_POSE_FALLBACK}"
   adapter_imu_pose_fallback:="${IMU_POSE_FALLBACK}"
   adapter_pointcloud_transform_profile:="${POINTCLOUD_TRANSFORM_PROFILE}"
+  livox_custom_bridge:="${LIVOX_CUSTOM_BRIDGE}"
+  livox_custom_topic:="${LIVOX_CUSTOM_TOPIC}"
+  livox_pointcloud_topic:="${LIVOX_POINTCLOUD_TOPIC}"
   publish_tf:="${PUBLISH_TF}"
   require_depth_topic:="${REQUIRE_DEPTH_TOPIC}"
   render_mode:="${RENDER_MODE}"
 )
+if [[ "${LIVOX_CUSTOM_BRIDGE}" == "true" ]]; then
+  launch_args+=(adapter_raw_pointcloud_topic:="${LIVOX_POINTCLOUD_TOPIC}")
+fi
 
 if [[ -n "${CONFIG_PATH}" ]]; then
   launch_args+=(config:="${CONFIG_PATH}")

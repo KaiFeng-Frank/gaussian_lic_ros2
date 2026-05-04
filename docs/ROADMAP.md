@@ -114,7 +114,7 @@ baseline_manifest.json
 
 - [x] Inventory the released Gaussian-LIC2 surface in `external/Gaussian-LIC`, including depth completion, rasterizer/optimizer changes, and any frontend/tracking code available in upstream commits.
 - [x] Add `gaussian_lic_frontend/lic2_contract_adapter` as the ROS2 boundary for raw camera/LiDAR/IMU/pose inputs.
-- [ ] Port Livox/custom point handling to ROS2.
+- [x] Port Livox/custom point handling to ROS2.
 - [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
 - [ ] Publish odometry, path, TF, and Gaussian mapper input topics natively.
 - [ ] Keep any ROS1 bridge mode clearly marked as temporary.

@@ -435,6 +435,35 @@ fallback(identity=false imu=true)
 identity_pose=0 imu_pose=... imu_integrations=...
 ```
 
+For ROS2 bags or live drivers that publish Livox custom packets instead of
+`sensor_msgs/msg/PointCloud2`, run the optional bridge before the LIC2 adapter:
+
+```bash
+ros2 run gaussian_lic_frontend livox_custom_to_pointcloud2 \
+  --ros-args \
+  -p input_topic:=/livox/lidar \
+  -p output_topic:=/livox/lidar/points
+```
+
+Then point the adapter at the bridge output:
+
+```bash
+./scripts/collect_current_results.sh \
+  --bag /path/to/livox_custom_frontend_raw \
+  --frontend-adapter \
+  --livox-custom-bridge \
+  --identity-pose-fallback \
+  --optional-depth \
+  --output results/fastlivo2/livox_custom_current
+```
+
+The bridge depends on `livox_ros_driver2` only at runtime. Its conversion logic
+can be checked on machines without that package:
+
+```bash
+ros2 run gaussian_lic_frontend livox_custom_to_pointcloud2 --self-test
+```
+
 To exercise the FAST-LIVO2 camera-LiDAR transform and Torch image supervision on the official Bright bag:
 
 ```bash

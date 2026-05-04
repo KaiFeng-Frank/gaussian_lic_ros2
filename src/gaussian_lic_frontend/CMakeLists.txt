@@ -26,4 +26,10 @@ install(TARGETS lic2_contract_adapter
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+install(PROGRAMS
+  scripts/livox_custom_to_pointcloud2.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME livox_custom_to_pointcloud2
+)
+
 ament_package()

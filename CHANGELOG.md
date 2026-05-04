@@ -6,6 +6,7 @@
 - Documented the released Gaussian-LIC2 upstream surface and confirmed the current public tree exposes mapper/rasterizer/optimizer/depth-completion code but no standalone native LIC2 frontend executable.
 - Added `gaussian_lic_frontend/lic2_contract_adapter` to route raw ROS2 camera/LiDAR/IMU/pose topics into the Gaussian mapper contract.
 - Extended the LIC2 contract adapter with frontend odometry/path outputs and optional TF.
+- Added an optional ROS2 Livox CustomMsg-to-PointCloud2 bridge for raw driver packets before the LIC2 contract adapter.
 - Added a `frontend_raw` bag contract and synthetic raw frontend bag recording mode for LIC2 adapter input validation.
 - Added a `frontend_sensor_raw` bag contract for true LIC2 camera/LiDAR/IMU input without requiring a pose source.
 - Extended CI replay smoke to replay raw frontend bags through the LIC2 adapter and report the `frontend_raw` contract.
