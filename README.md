@@ -327,6 +327,18 @@ Compare a current PLY map against an archived ROS1 baseline:
 
 The point-cloud gate supports ASCII PLY files with standard `x/y/z` vertex properties. It reports point-count ratio, centroid drift, bidirectional nearest-neighbor RMSE/mean/max, unmatched ratio, and RGB mean drift when both PLY files include `red/green/blue`.
 
+Generate one combined reproduction report:
+
+```bash
+./scripts/reproduction_report.py \
+  --baseline-dir baseline/fastlivo2/CBD_Building_01 \
+  --current-dir results/fastlivo2/current \
+  --output results/fastlivo2/current/reproduction_report.json \
+  --markdown results/fastlivo2/current/reproduction_report.md
+```
+
+The combined report validates the baseline manifest and runs metrics, trajectory, and PLY map drift gates in one command. It exits non-zero when any gate fails and is intended as the future CI comparison artifact.
+
 ## Release Roadmap
 
 The public plan is release-driven:

@@ -13,6 +13,7 @@ Goal: make strict reproduction measurable before the native algorithm port grows
 - Add a trajectory regression gate for timestamp-associated TUM trajectory drift.
 - Add a point-cloud regression gate for ASCII PLY map drift.
 - Add a baseline manifest generator for archived ROS1 artifact fingerprinting.
+- Add a combined reproduction report that aggregates manifest, metrics, trajectory, and map gates.
 
 Release artifacts:
 
@@ -51,5 +52,5 @@ Goal: one-command paper-level reproduction on the selected FAST-LIVO2 sequence.
 
 - Run full Coco-LIC tracking plus Gaussian mapping end to end from rosbag2.
 - Generate `metrics.json`, trajectory, Gaussian PLY, rendered images, and comparison report.
-- Compare ROS2 outputs against archived ROS1 baseline artifacts.
+- Compare ROS2 outputs against archived ROS1 baseline artifacts with `scripts/reproduction_report.py`.
 - Publish release artifacts and expected screenshots/video for README and GitHub release notes.

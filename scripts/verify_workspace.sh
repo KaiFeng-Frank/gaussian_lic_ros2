@@ -69,6 +69,7 @@ paths = [
     Path("scripts/convert_ros1_bag_to_rosbag2.py"),
     Path("scripts/perf_regression.py"),
     Path("scripts/pointcloud_compare.py"),
+    Path("scripts/reproduction_report.py"),
     Path("scripts/trajectory_compare.py"),
     Path("src/gaussian_lic_bringup/launch/run_bag.launch.py"),
     Path("src/gaussian_lic_bringup/setup.py"),
@@ -208,6 +209,31 @@ printf 'synthetic render placeholder\n' >/tmp/gaussian_lic_baseline_manifest/ren
 rg -q '"ok": true' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
 rg -q '"trajectory_poses": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
 rg -q '"point_cloud_vertices": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
+
+echo "[verify] reproduction report"
+rm -rf /tmp/gaussian_lic_current_report
+mkdir -p /tmp/gaussian_lic_current_report
+cp /tmp/gaussian_lic_current.tum /tmp/gaussian_lic_current_report/trajectory.tum
+cp /tmp/gaussian_lic_current.ply /tmp/gaussian_lic_current_report/point_cloud.ply
+printf '{"tracking_hz": 9.8, "mapping_hz": 9.7, "mean_iteration_ms": 1.05}\n' \
+  >/tmp/gaussian_lic_current_report/metrics.json
+./scripts/reproduction_report.py \
+  --baseline-dir /tmp/gaussian_lic_baseline_manifest \
+  --current-dir /tmp/gaussian_lic_current_report \
+  --sequence synthetic_verify \
+  --output /tmp/gaussian_lic_reproduction_report.json \
+  --markdown /tmp/gaussian_lic_reproduction_report.md \
+  --max-trajectory-rmse-m 0.01 \
+  --max-trajectory-mean-m 0.01 \
+  --max-trajectory-error-m 0.01 \
+  --pointcloud-voxel-size 0 \
+  --max-nearest-m 0.01 \
+  --max-centroid-drift-m 0.01 \
+  --max-chamfer-rmse-m 0.01 \
+  --max-chamfer-mean-m 0.01 \
+  --max-chamfer-max-m 0.01
+rg -q '"ok": true' /tmp/gaussian_lic_reproduction_report.json
+rg -q '| metrics | PASS |' /tmp/gaussian_lic_reproduction_report.md
 
 echo "[verify] live smoke"
 ./scripts/smoke_test.sh --tf

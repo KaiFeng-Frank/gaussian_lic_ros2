@@ -19,6 +19,7 @@
 - Added `scripts/trajectory_compare.py` for timestamp-associated TUM trajectory drift gates.
 - Added `scripts/pointcloud_compare.py` for ASCII PLY map drift gates.
 - Added `scripts/baseline_manifest.py` for ROS1 baseline artifact validation and fingerprinting.
+- Added `scripts/reproduction_report.py` to aggregate baseline manifest, metrics, trajectory, and PLY drift gates.
 
 ## v0.1.0-m1-infra - 2026-05-03
 
