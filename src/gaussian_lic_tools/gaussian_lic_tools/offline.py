@@ -3,9 +3,11 @@
 import argparse
 import json
 from pathlib import Path
+import struct
 
 from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
+from sensor_msgs.msg import PointField
 import rosbag2_py
 from sensor_msgs_py import point_cloud2
 import yaml
@@ -15,10 +17,56 @@ def stamp_to_float(stamp):
     return float(stamp.sec) + float(stamp.nanosec) * 1e-9
 
 
-def iter_xyz_points(cloud_msg, max_points):
+def field_metadata(cloud_msg):
+    return {field.name: field.datatype for field in cloud_msg.fields}
+
+
+def get_point_value(point, index, name):
+    try:
+        return point[index]
+    except (IndexError, TypeError, ValueError):
+        return point[name]
+
+
+def packed_rgb_to_channels(value, packed_as_float):
+    if packed_as_float:
+        bits = struct.unpack("<I", struct.pack("<f", value))[0]
+    else:
+        bits = int(value)
+    red = (bits >> 16) & 0xFF
+    green = (bits >> 8) & 0xFF
+    blue = bits & 0xFF
+    return red, green, blue
+
+
+def scalar_color_to_u8(value):
+    numeric = float(value)
+    if 0.0 <= numeric <= 1.0:
+        numeric *= 255.0
+    return max(0, min(255, int(round(numeric))))
+
+
+def iter_xyzrgb_points(cloud_msg, max_points):
+    fields = field_metadata(cloud_msg)
+    color_mode = "none"
+    rgb_packed_as_float = False
+    if "rgb" in fields:
+        color_mode = "rgb"
+        rgb_packed_as_float = fields["rgb"] == PointField.FLOAT32
+        requested_fields = ("x", "y", "z", "rgb")
+    elif "rgba" in fields:
+        color_mode = "rgba"
+        rgb_packed_as_float = fields["rgba"] == PointField.FLOAT32
+        requested_fields = ("x", "y", "z", "rgba")
+    elif {"r", "g", "b"}.issubset(fields):
+        color_mode = "channels"
+        requested_fields = ("x", "y", "z", "r", "g", "b")
+    else:
+        requested_fields = ("x", "y", "z")
+
     points = point_cloud2.read_points(
         cloud_msg,
-        field_names=("x", "y", "z"),
+        field_names=requested_fields,
         skip_nans=True,
     )
     count = 0
@@ -26,10 +74,23 @@ def iter_xyz_points(cloud_msg, max_points):
         if count >= max_points:
             return
         try:
-            x, y, z = float(point[0]), float(point[1]), float(point[2])
-        except (IndexError, TypeError, ValueError):
-            x, y, z = float(point["x"]), float(point["y"]), float(point["z"])
-        yield x, y, z
+            x = float(get_point_value(point, 0, "x"))
+            y = float(get_point_value(point, 1, "y"))
+            z = float(get_point_value(point, 2, "z"))
+            if color_mode in {"rgb", "rgba"}:
+                red, green, blue = packed_rgb_to_channels(
+                    get_point_value(point, 3, color_mode),
+                    rgb_packed_as_float,
+                )
+            elif color_mode == "channels":
+                red = scalar_color_to_u8(get_point_value(point, 3, "r"))
+                green = scalar_color_to_u8(get_point_value(point, 4, "g"))
+                blue = scalar_color_to_u8(get_point_value(point, 5, "b"))
+            else:
+                red, green, blue = 255, 255, 255
+        except (IndexError, KeyError, TypeError, ValueError):
+            continue
+        yield x, y, z, red, green, blue
         count += 1
 
 
@@ -56,8 +117,8 @@ def write_xyzrgb_ply(path, points):
         stream.write("property uchar green\n")
         stream.write("property uchar blue\n")
         stream.write("end_header\n")
-        for x, y, z in points:
-            stream.write(f"{x:.9f} {y:.9f} {z:.9f} 255 255 255\n")
+        for x, y, z, red, green, blue in points:
+            stream.write(f"{x:.9f} {y:.9f} {z:.9f} {red} {green} {blue}\n")
 
 
 def detect_storage_id(bag_path):
@@ -114,7 +175,7 @@ def run(args):
           poses.append((stamp_to_float(msg.header.stamp), msg))
       elif topic == args.pointcloud_topic and len(points) < args.max_points:
           remaining = args.max_points - len(points)
-          points.extend(iter_xyz_points(msg, remaining))
+          points.extend(iter_xyzrgb_points(msg, remaining))
 
       if args.max_messages > 0 and sum(topic_counts.values()) >= args.max_messages:
           break

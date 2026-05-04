@@ -115,7 +115,7 @@ point_cloud_debug.ply
 metrics.json
 ```
 
-This is the seed for the future `gaussian_lic_offline` reproduction binary. The current implementation reads mapper contract topics and writes debug artifacts; it does not yet run the full Coco-LIC/Gaussian-LIC algorithm offline.
+This is the seed for the future `gaussian_lic_offline` reproduction binary. The current implementation reads mapper contract topics, preserves PointCloud2 `rgb`/`rgba` or `r/g/b` colors in the debug PLY when available, and writes debug artifacts; it does not yet run the full Coco-LIC/Gaussian-LIC algorithm offline.
 
 Validate that a rosbag2 directory has the mapper input contract before replaying it:
 

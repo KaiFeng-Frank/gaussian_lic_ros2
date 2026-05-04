@@ -13,6 +13,7 @@
 - Added `require_depth_topic` so the mapper can run with sparse point-projected depth when depth images are unavailable.
 - Added a `mapper_minimal` bag contract mode for point/pose/image replay bags.
 - Added `smoke_test.sh --minimal-inputs` for replaying point/pose/image-only mapper bags.
+- Preserved PointCloud2 RGB fields in `gaussian_lic_offline` debug PLY artifacts.
 
 ## v0.1.0-m1-infra - 2026-05-03
 
