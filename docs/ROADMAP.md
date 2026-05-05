@@ -192,8 +192,11 @@ baseline_manifest.json
 - [x] Strict frontend adapter matches the ROS1 mapper-contract fallback by rotating FAST-LIVO2 point clouds into the IMU-pose world frame before the mapper consumes them.
 - [x] Strict current collection disables high-rate `GaussianArray` visualization publication and uses a 1.5M foreground cap, reducing the local output bag from 38.7 GiB to 3.7 GiB while preserving metric artifacts.
 - [x] Strict current collection supports foreground count-cap policy selection and defaults the strict CUDA run to uniform pruning, preserving insertion-order spatial coverage better than opacity-only top-k pruning.
+- [x] Strict CUDA extension filters pending points to current-view alpha holes before appending, matching the upstream Gaussian-LIC `extend()` visibility semantics instead of adding every synchronized LiDAR sample.
+- [x] Strict CUDA current collection records the PyTorch allocator policy in `metrics.json` and defaults CUDA runs to `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` to reduce late-run fragmentation OOMs around million-Gaussian maps.
 - [ ] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.
-  - 2026-05-05 local strict run: trajectory gate passes with 1004/1186 matched poses and 84.65% coverage after the 60 second post-playback settle window.
-  - 2026-05-05 local strict run: full-frame quality has real data, but still fails paper parity: ROS2 novel PSNR 11.20 dB vs ROS1 12.70 dB, ROS2 novel SSIM 0.0809 vs ROS1 0.3644, and ROS2 novel LPIPS 0.688.
-  - 2026-05-05 local strict run: the 64-pair ROS1-vs-ROS2 render summary improved to mean PSNR 12.84 dB and mean SSIM 0.430 with uniform foreground count-cap pruning.
-  - 2026-05-05 local strict run: point-cloud parity still fails, but the world-frame point-cloud semantic fix plus the uniform 1.5M cap improved coverage to centroid drift 1.08 m, nearest RMSE 0.343 m, and unmatched ratio 31.30%.
+  - 2026-05-05 local strict run: trajectory gate passes with 1021/1186 matched poses and 86.09% coverage after the 60 second post-playback settle window.
+  - 2026-05-05 local strict run: full-frame quality has real data, but still fails paper parity: ROS2 novel PSNR 10.37 dB vs ROS1 12.70 dB, ROS2 novel SSIM 0.0705 vs ROS1 0.3644, and ROS2 novel LPIPS 0.744.
+  - 2026-05-05 local strict run: the 64-pair ROS1-vs-ROS2 render summary is mean PSNR 11.87 dB and mean SSIM 0.288 after upstream-style alpha-hole extension filtering.
+  - 2026-05-05 local strict run: point-cloud parity still fails, but alpha-hole extension filtering greatly reduced geometry noise versus the uniform-only run: centroid drift 1.26 m, nearest mean 0.131 m, nearest RMSE 0.192 m, and unmatched ratio 8.29%.
+  - 2026-05-05 local strict run: two late optimizer calls skipped after CUDA allocator-fragmentation OOMs near 1.15M Gaussians; the next blocker is memory-fragmentation-safe rasterizer optimization plus visual-quality recovery.

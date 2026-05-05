@@ -43,6 +43,8 @@ def generate_launch_description():
     torch_gaussian_prune_min_opacity = LaunchConfiguration("torch_gaussian_prune_min_opacity")
     torch_gaussian_max_foreground = LaunchConfiguration("torch_gaussian_max_foreground")
     torch_gaussian_prune_count_policy = LaunchConfiguration("torch_gaussian_prune_count_policy")
+    enable_torch_gaussian_extend_visibility_filter = LaunchConfiguration("enable_torch_gaussian_extend_visibility_filter")
+    torch_gaussian_extend_alpha_threshold = LaunchConfiguration("torch_gaussian_extend_alpha_threshold")
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
     publish_gaussian_map = LaunchConfiguration("publish_gaussian_map")
     save_map_render_evaluation = LaunchConfiguration("save_map_render_evaluation")
@@ -83,6 +85,8 @@ def generate_launch_description():
             "torch_gaussian_prune_min_opacity": torch_gaussian_prune_min_opacity,
             "torch_gaussian_max_foreground": torch_gaussian_max_foreground,
             "torch_gaussian_prune_count_policy": torch_gaussian_prune_count_policy,
+            "enable_torch_gaussian_extend_visibility_filter": enable_torch_gaussian_extend_visibility_filter,
+            "torch_gaussian_extend_alpha_threshold": torch_gaussian_extend_alpha_threshold,
             "torch_gaussian_device": torch_gaussian_device,
             "publish_gaussian_map": publish_gaussian_map,
             "save_map_render_evaluation": save_map_render_evaluation,
@@ -256,6 +260,16 @@ def generate_launch_description():
             "enable_torch_gaussian_extend",
             default_value="true",
             description="Append new keyframe pending points to the Torch Gaussian map after initialization",
+        ),
+        DeclareLaunchArgument(
+            "enable_torch_gaussian_extend_visibility_filter",
+            default_value="true",
+            description="Filter Torch Gaussian extension points to current-view alpha holes, matching upstream Gaussian-LIC extend()",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_extend_alpha_threshold",
+            default_value="0.99",
+            description="Rendered alpha threshold below which pending points may be inserted during Torch Gaussian extension",
         ),
         DeclareLaunchArgument(
             "enable_torch_gaussian_optimization",

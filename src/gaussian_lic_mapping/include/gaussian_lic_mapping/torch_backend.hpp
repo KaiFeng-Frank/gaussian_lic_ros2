@@ -149,6 +149,17 @@ size_t append_pending_points_to_gaussian_map(
   double fy,
   torch::Device device = torch::kCPU);
 
+size_t append_pending_points_to_gaussian_map(
+  TorchGaussianMap & map,
+  const MapperDataset & dataset,
+  const CameraFrameRecord & current_keyframe,
+  const GaussianBackendConfig & config,
+  double fx,
+  double fy,
+  double cx,
+  double cy,
+  torch::Device device = torch::kCPU);
+
 TorchOptimizationResult optimize_gaussian_map_from_camera(
   TorchGaussianMap & map,
   const TorchCamera & camera,

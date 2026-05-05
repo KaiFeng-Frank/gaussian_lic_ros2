@@ -549,16 +549,20 @@ Run or resume the strict chain from the local `CBD_Building_01` bag:
 The strict script defaults to CUDA rasterizer mode, `torch_gaussian_device=cuda`,
 `--current-torch-optimization-steps 100`, a slowed current playback rate of
 `0.25`, a 60 second post-playback settle window, a 1.5M foreground Gaussian cap,
-uniform foreground count-cap pruning, and disabled high-rate `GaussianArray`
-publication. In this path the step count means up to 100 accumulated train-frame
-optimizer samples per keyframe, matching the upstream Gaussian-LIC `optimize()`
-scheduler instead of repeating 100 steps on only the newest frame. The slowed
-playback is deliberate: the strict CUDA path is heavier than the live preview
-path, so 1x rosbag2 replay can underfeed the final-map metric gate by dropping
-unprocessed frames. The settle window lets the mapper consume queued frames
-before `SaveMap` writes final-map render pairs. Disabling the visualization
-Gaussian map topic keeps the strict recorder from writing tens of GiB of
-high-frequency chunked Gaussian messages that are not used by the metric gate.
+uniform foreground count-cap pruning, upstream-style alpha-hole filtering before
+Gaussian extension, and disabled high-rate `GaussianArray` publication. In this
+path the step count means up to 100 accumulated train-frame optimizer samples per
+keyframe, matching the upstream Gaussian-LIC `optimize()` scheduler instead of
+repeating 100 steps on only the newest frame. The slowed playback is deliberate:
+the strict CUDA path is heavier than the live preview path, so 1x rosbag2 replay
+can underfeed the final-map metric gate by dropping unprocessed frames. The
+settle window lets the mapper consume queued frames before `SaveMap` writes
+final-map render pairs. Disabling the visualization Gaussian map topic keeps the
+strict recorder from writing tens of GiB of high-frequency chunked Gaussian
+messages that are not used by the metric gate. CUDA current collection also
+defaults `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` unless the caller has
+already set it, which reduces late-run allocator fragmentation around million
+Gaussian maps.
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
 `frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
@@ -574,17 +578,21 @@ Latest local strict run, 2026-05-05:
 - ROS1 baseline visual dump: 1186 render/GT pairs, 237 train and 949 novel frames.
 - ROS2 current strict path: CUDA rasterizer, final-map evaluation, IMU-fallback
   world-frame point-cloud rotation enabled, high-rate GaussianArray publication
-  disabled, 1.5M foreground cap with uniform count-cap pruning, 1004 render/GT
-  pairs, 200 train and 804 novel frames, trajectory coverage 84.65%. The
-  trajectory gate passes.
-- Current vs ROS1 quality remains below the paper gate: ROS2 novel PSNR 11.20 dB
-  vs ROS1 12.70 dB, ROS2 novel SSIM 0.0809 vs ROS1 0.3644, and ROS2 novel
-  LPIPS 0.688. The 64-pair strict render summary reports mean PSNR 12.84 dB and
-  mean SSIM 0.430.
-- Chamfer/point-cloud parity still fails, but the ROS1/ROS2 point-cloud frame
-  semantics fix plus the uniform 1.5M cap improved spatial coverage: centroid
-  drift is now 1.08 m, bidirectional nearest RMSE is 0.343 m, and unmatched
-  ratio is 31.30%.
+  disabled, 1.5M foreground cap with uniform count-cap pruning, alpha-hole
+  extension filtering enabled at threshold `0.99`, 1021 render/GT pairs, 204
+  train and 817 novel frames, trajectory coverage 86.09%. The trajectory gate
+  passes.
+- Current vs ROS1 quality remains below the paper gate: ROS2 novel PSNR 10.37 dB
+  vs ROS1 12.70 dB, ROS2 novel SSIM 0.0705 vs ROS1 0.3644, and ROS2 novel
+  LPIPS 0.744. The 64-pair strict render summary reports mean PSNR 11.87 dB and
+  mean SSIM 0.288.
+- Chamfer/point-cloud parity still fails, but upstream-style alpha-hole extension
+  filtering made the geometry much closer than the uniform-only run: centroid
+  drift is 1.26 m, bidirectional nearest mean is 0.131 m, bidirectional nearest
+  RMSE is 0.192 m, and unmatched ratio is 8.29%. Two late optimizer calls still
+  skipped after CUDA allocator-fragmentation OOMs near 1.15M Gaussians; the next
+  blocker is memory-fragmentation-safe optimization plus visual quality recovery,
+  not missing render pairs or a disabled CUDA runtime.
 
 So the strict chain now produces full-frame, same-cadence numbers and passes the
 strict trajectory coverage gate, but the remaining blocker is algorithmic parity

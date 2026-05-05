@@ -132,6 +132,10 @@ public:
     backend_config_.exposure_lr = declare_parameter<double>("exposure_lr", 0.001);
     backend_config_.skybox_points_num = declare_parameter<int>("skybox_points_num", 0);
     backend_config_.skybox_radius = declare_parameter<double>("skybox_radius", 1000.0);
+    backend_config_.enable_extend_visibility_filter =
+      declare_parameter<bool>("enable_torch_gaussian_extend_visibility_filter", true);
+    backend_config_.extend_alpha_threshold =
+      declare_parameter<double>("torch_gaussian_extend_alpha_threshold", 0.99);
     backend_config_.optimization_steps_per_keyframe =
       declare_parameter<int>("torch_gaussian_optimization_steps", 0);
     backend_config_.optimization_max_samples =
@@ -304,9 +308,13 @@ public:
     RCLCPP_INFO(get_logger(), "Torch Gaussian initialization %s, min points %d, device %s",
       enable_torch_gaussian_init_ ? "enabled" : "disabled",
       gaussian_init_min_points_, torch_gaussian_device_name_.c_str());
-    RCLCPP_INFO(get_logger(), "Torch Gaussian extension %s, min keyframes %d, skybox points %d",
+    RCLCPP_INFO(
+      get_logger(),
+      "Torch Gaussian extension %s, min keyframes %d, skybox points %d visibility_filter=%s alpha_threshold=%.3f",
       enable_torch_gaussian_extend_ ? "enabled" : "disabled",
-      gaussian_init_min_keyframes_, backend_config_.skybox_points_num);
+      gaussian_init_min_keyframes_, backend_config_.skybox_points_num,
+      backend_config_.enable_extend_visibility_filter ? "enabled" : "disabled",
+      backend_config_.extend_alpha_threshold);
     RCLCPP_INFO(
       get_logger(), "Torch Gaussian photometric optimization %s, steps/keyframe=%d max_samples=%d",
       backend_config_.enable_photometric_optimization ? "enabled" : "disabled",
@@ -1002,7 +1010,8 @@ private:
       }
 
       last_torch_gaussian_inserted_ = gaussian_lic_mapping::append_pending_points_to_gaussian_map(
-        torch_gaussian_map_, dataset_, backend_config_, intrinsics.fx, intrinsics.fy, device);
+        torch_gaussian_map_, dataset_, record, backend_config_,
+        intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy, device);
       ++torch_gaussian_extend_count_;
       refresh_torch_gaussian_status(device);
       dataset_.clear_pending_points();

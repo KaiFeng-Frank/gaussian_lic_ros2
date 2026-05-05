@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -103,15 +104,16 @@ torch::Tensor inverse_sigmoid(const torch::Tensor & x)
   return torch::log(x / (1.0F - x));
 }
 
-GaussianTensorPack make_foreground_tensors_from_pending_points(
+GaussianTensorPack make_foreground_tensors_from_pending_indices(
   const MapperDataset & dataset,
+  const std::vector<size_t> & point_indices,
   const int sh_degree,
   const double scaling_scale,
   const double fx,
   const double fy,
   torch::Device device)
 {
-  const size_t num_points = dataset.pending_point_count();
+  const size_t num_points = point_indices.size();
   if (num_points == 0) {
     throw std::runtime_error("cannot build foreground Gaussian tensors without pending points");
   }
@@ -134,7 +136,7 @@ GaussianTensorPack make_foreground_tensors_from_pending_points(
   const auto & points = dataset.pending_points_world();
   const auto & colors = dataset.pending_colors_rgb();
   const auto & depths = dataset.pending_depths_m();
-  if (colors.size() != num_points || depths.size() != num_points) {
+  if (colors.size() != points.size() || depths.size() != points.size()) {
     throw std::runtime_error("pending point/color/depth buffers have inconsistent sizes");
   }
 
@@ -143,19 +145,23 @@ GaussianTensorPack make_foreground_tensors_from_pending_points(
   std::vector<float> scale_values(num_points);
 
   for (size_t i = 0; i < num_points; ++i) {
-    xyz_values[i * 3U + 0U] = points[i].x();
-    xyz_values[i * 3U + 1U] = points[i].y();
-    xyz_values[i * 3U + 2U] = points[i].z();
+    const size_t point_index = point_indices[i];
+    if (point_index >= points.size()) {
+      throw std::runtime_error("pending point selection index is out of range");
+    }
+    xyz_values[i * 3U + 0U] = points[point_index].x();
+    xyz_values[i * 3U + 1U] = points[point_index].y();
+    xyz_values[i * 3U + 2U] = points[point_index].z();
 
     const size_t feature_offset = i * 3U * static_cast<size_t>(sh_coeff_count);
     feature_values[feature_offset + 0U * static_cast<size_t>(sh_coeff_count)] =
-      rgb_to_sh(colors[i].x());
+      rgb_to_sh(colors[point_index].x());
     feature_values[feature_offset + 1U * static_cast<size_t>(sh_coeff_count)] =
-      rgb_to_sh(colors[i].y());
+      rgb_to_sh(colors[point_index].y());
     feature_values[feature_offset + 2U * static_cast<size_t>(sh_coeff_count)] =
-      rgb_to_sh(colors[i].z());
+      rgb_to_sh(colors[point_index].z());
 
-    const double clamped_depth = std::max(static_cast<double>(depths[i]), 1e-6);
+    const double clamped_depth = std::max(static_cast<double>(depths[point_index]), 1e-6);
     scale_values[i] = static_cast<float>(std::log(scaling_scale * clamped_depth / focal));
   }
 
@@ -193,6 +199,20 @@ GaussianTensorPack make_foreground_tensors_from_pending_points(
   pack.opacity = opacity;
   pack.foreground_count = num_points;
   return pack;
+}
+
+GaussianTensorPack make_foreground_tensors_from_pending_points(
+  const MapperDataset & dataset,
+  const int sh_degree,
+  const double scaling_scale,
+  const double fx,
+  const double fy,
+  torch::Device device)
+{
+  std::vector<size_t> point_indices(dataset.pending_point_count());
+  std::iota(point_indices.begin(), point_indices.end(), 0U);
+  return make_foreground_tensors_from_pending_indices(
+    dataset, point_indices, sh_degree, scaling_scale, fx, fy, device);
 }
 
 GaussianTensorPack make_skybox_tensors(
@@ -708,6 +728,87 @@ rasterize_gaussian_map(
     cov3d_precomp);
 }
 
+std::vector<size_t> select_pending_points_in_alpha_holes(
+  const TorchGaussianMap & map,
+  const MapperDataset & dataset,
+  const CameraFrameRecord & current_keyframe,
+  const TorchCamera & camera,
+  const GaussianBackendConfig & config,
+  torch::Device device)
+{
+  const size_t pending_count = dataset.pending_point_count();
+  if (pending_count == 0) {
+    return {};
+  }
+
+  auto render_result = rasterize_gaussian_map(map, camera, config, device);
+  const auto alpha = (1.0F - std::get<3>(render_result).detach())
+    .clamp(0.0F, 1.0F)
+    .to(torch::kCPU)
+    .contiguous();
+  if (alpha.dim() != 2 || alpha.size(0) != camera.image_height || alpha.size(1) != camera.image_width) {
+    throw std::runtime_error("rasterizer alpha image shape does not match the current keyframe");
+  }
+  const auto alpha_a = alpha.accessor<float, 2>();
+
+  const auto & points = dataset.pending_points_world();
+  const auto & depths = dataset.pending_depths_m();
+  if (depths.size() != points.size()) {
+    throw std::runtime_error("pending point/depth buffers have inconsistent sizes");
+  }
+
+  const int width = camera.image_width;
+  const int height = camera.image_height;
+  const Eigen::Matrix3d r_cw = current_keyframe.r_wc.transpose();
+  const Eigen::Vector3d t_cw = -r_cw * current_keyframe.t_wc;
+  const float alpha_threshold = static_cast<float>(
+    std::clamp(config.extend_alpha_threshold, 0.0, 1.0));
+
+  std::vector<size_t> best_index(static_cast<size_t>(width) * static_cast<size_t>(height), pending_count);
+  std::vector<double> best_depth(best_index.size(), std::numeric_limits<double>::infinity());
+  for (size_t i = 0; i < pending_count; ++i) {
+    if (depths[i] <= 0.0F) {
+      continue;
+    }
+    const Eigen::Vector3d xyz_cam = r_cw * points[i].cast<double>() + t_cw;
+    const double z = xyz_cam.z();
+    if (!std::isfinite(z) || z <= 0.0) {
+      continue;
+    }
+    const double u_float = static_cast<double>(camera.fx) * xyz_cam.x() / z +
+      static_cast<double>(camera.cx);
+    const double v_float = static_cast<double>(camera.fy) * xyz_cam.y() / z +
+      static_cast<double>(camera.cy);
+    if (!std::isfinite(u_float) || !std::isfinite(v_float)) {
+      continue;
+    }
+    const int u = static_cast<int>(std::floor(u_float));
+    const int v = static_cast<int>(std::floor(v_float));
+    if (u < 0 || v < 0 || u >= width || v >= height) {
+      continue;
+    }
+
+    const size_t pixel_index = static_cast<size_t>(v) * static_cast<size_t>(width) + static_cast<size_t>(u);
+    if (z < best_depth[pixel_index]) {
+      best_depth[pixel_index] = z;
+      best_index[pixel_index] = i;
+    }
+  }
+
+  std::vector<size_t> selected;
+  selected.reserve(std::min(pending_count, best_index.size()));
+  for (int v = 0; v < height; ++v) {
+    for (int u = 0; u < width; ++u) {
+      const size_t pixel_index = static_cast<size_t>(v) * static_cast<size_t>(width) + static_cast<size_t>(u);
+      const size_t point_index = best_index[pixel_index];
+      if (point_index != pending_count && alpha_a[v][u] < alpha_threshold) {
+        selected.push_back(point_index);
+      }
+    }
+  }
+  return selected;
+}
+
 TorchOptimizationResult optimize_gaussian_map_with_cuda_rasterizer(
   TorchGaussianMap & map,
   const TorchCamera & camera,
@@ -961,6 +1062,57 @@ size_t append_pending_points_to_gaussian_map(
   const double fy,
   torch::Device device)
 {
+  return append_pending_points_to_gaussian_map(
+    map, dataset, config.sh_degree, config.scaling_scale, fx, fy, device);
+}
+
+size_t append_pending_points_to_gaussian_map(
+  TorchGaussianMap & map,
+  const MapperDataset & dataset,
+  const CameraFrameRecord & current_keyframe,
+  const GaussianBackendConfig & config,
+  const double fx,
+  const double fy,
+  const double cx,
+  const double cy,
+  torch::Device device)
+{
+  const size_t num_points = dataset.pending_point_count();
+  if (num_points == 0) {
+    return 0;
+  }
+  if (map.sh_degree != config.sh_degree) {
+    throw std::runtime_error("cannot append Gaussian tensors with a different SH degree");
+  }
+  if (map.xyz.defined() && map.xyz.numel() > 0) {
+    device = map.xyz.device();
+  }
+
+#ifdef GAUSSIAN_LIC_ENABLE_CUDA
+  if (config.enable_extend_visibility_filter && device.is_cuda()) {
+    torch::NoGradGuard no_grad;
+    const auto camera = make_torch_camera(
+      current_keyframe, fx, fy, cx, cy, torch::kCPU, device);
+    const auto selected_indices = select_pending_points_in_alpha_holes(
+      map, dataset, current_keyframe, camera, config, device);
+    if (selected_indices.empty()) {
+      return 0;
+    }
+
+    auto foreground = make_foreground_tensors_from_pending_indices(
+      dataset, selected_indices, config.sh_degree, config.scaling_scale, fx, fy, device);
+    append_gaussian_topology(
+      map,
+      foreground.xyz,
+      foreground.features_dc,
+      foreground.features_rest,
+      foreground.scaling,
+      foreground.rotation,
+      foreground.opacity);
+    return foreground.foreground_count;
+  }
+#endif
+
   return append_pending_points_to_gaussian_map(
     map, dataset, config.sh_degree, config.scaling_scale, fx, fy, device);
 }

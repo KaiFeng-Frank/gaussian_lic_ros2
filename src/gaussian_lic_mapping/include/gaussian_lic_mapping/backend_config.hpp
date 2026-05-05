@@ -38,6 +38,8 @@ struct GaussianBackendConfig
   double exposure_lr{0.001};
   int skybox_points_num{0};
   double skybox_radius{1000.0};
+  bool enable_extend_visibility_filter{true};
+  double extend_alpha_threshold{0.99};
 
   bool enable_photometric_optimization{false};
   int optimization_steps_per_keyframe{0};

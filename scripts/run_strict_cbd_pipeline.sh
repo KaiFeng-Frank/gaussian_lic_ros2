@@ -21,6 +21,8 @@ CURRENT_TORCH_OPTIMIZATION_STEPS=100
 CURRENT_TORCH_MAX_FOREGROUND=1500000
 CURRENT_TORCH_PRUNE_MIN_OPACITY=0.005
 CURRENT_TORCH_PRUNE_COUNT_POLICY=uniform
+CURRENT_TORCH_EXTEND_VISIBILITY_FILTER=true
+CURRENT_TORCH_EXTEND_ALPHA_THRESHOLD=0.99
 TIMEOUT_SEC=30
 SAVE_TIMEOUT_SEC=600
 OVERWRITE=false
@@ -63,6 +65,10 @@ Options:
                             Foreground opacity pruning threshold in rasterizer mode. Default: 0.005
   --current-torch-prune-count-policy P
                             Foreground count-cap policy in rasterizer mode. Default: uniform
+  --no-current-torch-extend-visibility-filter
+                            Append all pending points instead of upstream-style alpha-hole filtering.
+  --current-torch-extend-alpha-threshold X
+                            Alpha threshold for current-view extension filtering. Default: 0.99
   --timeout N              Current-result wait timeout. Default: 30
   --save-timeout N         SaveMap/final-render timeout. Default: 600
   --overwrite              Recreate converted frontend/mapper-contract outputs.
@@ -145,6 +151,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-torch-prune-count-policy)
       CURRENT_TORCH_PRUNE_COUNT_POLICY="$2"
+      shift 2
+      ;;
+    --no-current-torch-extend-visibility-filter)
+      CURRENT_TORCH_EXTEND_VISIBILITY_FILTER=false
+      shift
+      ;;
+    --current-torch-extend-alpha-threshold)
+      CURRENT_TORCH_EXTEND_ALPHA_THRESHOLD="$2"
       shift 2
       ;;
     --timeout)
@@ -259,10 +273,14 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
       --torch-max-foreground "${CURRENT_TORCH_MAX_FOREGROUND}"
       --torch-prune-min-opacity "${CURRENT_TORCH_PRUNE_MIN_OPACITY}"
       --torch-prune-count-policy "${CURRENT_TORCH_PRUNE_COUNT_POLICY}"
+      --torch-extend-alpha-threshold "${CURRENT_TORCH_EXTEND_ALPHA_THRESHOLD}"
       --torch-densification
       --final-render-eval
       --no-publish-gaussian-map
     )
+    if [[ "${CURRENT_TORCH_EXTEND_VISIBILITY_FILTER}" != "true" ]]; then
+      current_torch_args+=(--no-torch-extend-visibility-filter)
+    fi
   fi
   ./scripts/collect_current_results.sh \
     --bag "${FRONTEND_RAW}" \
