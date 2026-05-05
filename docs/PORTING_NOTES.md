@@ -96,7 +96,7 @@ PointCloud2 -> world xyz, RGB color in [0, 1], camera-frame depth
 
 PointCloud2 color uses packed `rgb/rgba` or scalar `r/g/b` fields when present. For uncolored clouds, the ROS2 port now projects each positive-depth point into the synchronized image with the active pinhole intrinsics and samples the image color, keeping a white fallback for points outside the image. This preserves the LiDAR-camera color boundary needed by Gaussian initialization without requiring a pre-colored cloud topic.
 
-Depth images are required by default. When `require_depth_topic:=false`, the mapper aligns only point cloud, pose, and image messages, then builds a sparse `CV_32FC1` metric depth image by projecting valid point-cloud points into the camera. This keeps replay usable for intermediate upstream bags while TensorRT/SPNet depth completion remains unported.
+Depth images are required by default. When `require_depth_topic:=false`, the mapper aligns only point cloud, pose, and image messages, then builds a sparse `CV_32FC1` metric depth image by projecting valid point-cloud points into the camera. This keeps replay usable for intermediate upstream bags when TensorRT/SPNet depth completion is disabled or no engine path is configured.
 
 Converted frames are then accumulated in `MapperDataset`, mirroring the non-torch state of upstream `Dataset`:
 

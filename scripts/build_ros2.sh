@@ -28,8 +28,12 @@ if [[ "${GAUSSIAN_LIC_ENABLE_TORCH:-OFF}" == "ON" || "${GAUSSIAN_LIC_ENABLE_CUDA
 fi
 
 if [[ "${GAUSSIAN_LIC_ENABLE_TENSORRT:-OFF}" == "ON" ]]; then
+  default_tensorrt_root="${HOME}/Software/TensorRT-10.9.0.34-cuda12.8"
+  if [[ ! -d "${default_tensorrt_root}" ]]; then
+    default_tensorrt_root="${HOME}/Software/TensorRT-8.6.1.6"
+  fi
   cmake_args+=(
-    -DTENSORRT_ROOT="${TENSORRT_ROOT:-${HOME}/Software/TensorRT-8.6.1.6}"
+    -DTENSORRT_ROOT="${TENSORRT_ROOT:-${default_tensorrt_root}}"
   )
 fi
 

@@ -60,6 +60,7 @@ public:
     lidar_nearest_distance_m_ = declare_parameter<double>("lidar_nearest_distance_m", 0.35);
     lidar_correction_gain_ = declare_parameter<double>("lidar_correction_gain", 0.7);
     lidar_max_correction_m_ = declare_parameter<double>("lidar_max_correction_m", 0.25);
+    lidar_max_rotation_rad_ = declare_parameter<double>("lidar_max_rotation_rad", 0.08);
     lidar_keyframe_translation_m_ = declare_parameter<double>("lidar_keyframe_translation_m", 0.25);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
@@ -69,6 +70,7 @@ public:
     lidar_config.nearest_distance_m = lidar_nearest_distance_m_;
     lidar_config.correction_gain = lidar_correction_gain_;
     lidar_config.max_correction_m = lidar_max_correction_m_;
+    lidar_config.max_rotation_rad = lidar_max_rotation_rad_;
     lidar_factor_.set_config(lidar_config);
     visual_factor_.set_max_pixels(static_cast<size_t>(std::max(visual_max_pixels_, 1)));
 
@@ -225,9 +227,10 @@ private:
     std::vector<Eigen::Vector3d> lidar_points;
     if (enable_lio_factor_) {
       lidar_points = decode_pointcloud_xyz(msg);
-      const auto correction = lidar_factor_.compute_translation_correction(lidar_points, tracking_pose);
+      const auto correction = lidar_factor_.compute_pose_correction(lidar_points, tracking_pose);
       if (correction.applied) {
         tracking_pose.p_w_i += correction.delta_p_w;
+        tracking_pose.q_w_i = (correction.delta_q * tracking_pose.q_w_i).normalized();
       }
       if (should_insert_lidar_keyframe(tracking_pose, lidar_points.size())) {
         lidar_factor_.insert_keyframe(lidar_points, tracking_pose);
@@ -454,6 +457,7 @@ private:
   double lidar_nearest_distance_m_{0.35};
   double lidar_correction_gain_{0.7};
   double lidar_max_correction_m_{0.25};
+  double lidar_max_rotation_rad_{0.08};
   double lidar_keyframe_translation_m_{0.25};
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;

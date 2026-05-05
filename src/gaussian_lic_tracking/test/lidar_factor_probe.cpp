@@ -15,6 +15,7 @@ int main()
   config.nearest_distance_m = 0.5;
   config.correction_gain = 1.0;
   config.max_correction_m = 1.0;
+  config.max_rotation_rad = 0.2;
   gaussian_lic_tracking::LidarFactor factor(config);
 
   std::vector<Eigen::Vector3d> scan;
@@ -50,6 +51,46 @@ int main()
   }
   if (x_error > 1.0e-12 || yz_error > 1.0e-12) {
     std::cerr << "LiDAR translation correction is wrong\n";
+    return 1;
+  }
+
+  std::vector<Eigen::Vector3d> structured_scan;
+  for (int z = 0; z < 3; ++z) {
+    for (int y = 0; y < 4; ++y) {
+      for (int x = 0; x < 5; ++x) {
+        structured_scan.emplace_back(
+          0.2 * static_cast<double>(x),
+          0.15 * static_cast<double>(y),
+          0.1 * static_cast<double>(z));
+      }
+    }
+  }
+  factor.clear();
+  factor.insert_keyframe(structured_scan, identity);
+
+  gaussian_lic_tracking::TrajectoryPose rotated_prediction;
+  rotated_prediction.stamp_ns = 200000000LL;
+  rotated_prediction.p_w_i = Eigen::Vector3d(0.04, -0.03, 0.02);
+  rotated_prediction.q_w_i =
+    Eigen::Quaterniond(Eigen::AngleAxisd(0.04, Eigen::Vector3d::UnitZ()));
+  const auto pose_correction = factor.compute_pose_correction(structured_scan, rotated_prediction);
+  const Eigen::Quaterniond corrected_q =
+    (pose_correction.delta_q * rotated_prediction.q_w_i).normalized();
+  const Eigen::Vector3d corrected_p = rotated_prediction.p_w_i + pose_correction.delta_p_w;
+  const double pose_translation_error = corrected_p.norm();
+  const double pose_rotation_error =
+    Eigen::AngleAxisd(corrected_q).angle();
+  std::cout << "lidar_pose_correction matched=" << pose_correction.matched_points
+            << " mean_residual_m=" << pose_correction.mean_residual_m
+            << " delta_p=" << pose_correction.delta_p_w.transpose()
+            << " corrected_translation_error=" << pose_translation_error
+            << " corrected_rotation_error=" << pose_rotation_error << "\n";
+  if (!pose_correction.applied || pose_correction.matched_points < config.min_points) {
+    std::cerr << "LiDAR pose correction did not apply\n";
+    return 1;
+  }
+  if (pose_translation_error > 1.0e-6 || pose_rotation_error > 1.0e-6) {
+    std::cerr << "LiDAR 6-DoF pose correction is wrong\n";
     return 1;
   }
 

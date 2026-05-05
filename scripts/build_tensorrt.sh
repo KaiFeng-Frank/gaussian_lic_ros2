@@ -3,7 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TENSORRT_ROOT="${TENSORRT_ROOT:-${HOME}/Software/TensorRT-8.6.1.6}"
+DEFAULT_TENSORRT_ROOT="${HOME}/Software/TensorRT-10.9.0.34-cuda12.8"
+if [[ ! -f "${DEFAULT_TENSORRT_ROOT}/include/NvInfer.h" ]]; then
+  DEFAULT_TENSORRT_ROOT="${HOME}/Software/TensorRT-8.6.1.6"
+fi
+TENSORRT_ROOT="${TENSORRT_ROOT:-${DEFAULT_TENSORRT_ROOT}}"
 
 cd "${ROOT_DIR}"
 

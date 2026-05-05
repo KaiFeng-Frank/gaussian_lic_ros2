@@ -56,7 +56,7 @@ Goal: replace the debug mapping slice with the real Gaussian-LIC backend.
 - Port CUDA rasterizer, simple-knn, fused-ssim, optimizer, densification, pruning, and upstream-compatible PLY persistence.
 - Change the default render path to `render_mode:=rasterizer` after replacing the interim CPU Gaussian splat preview with the upstream CUDA rasterizer.
 - Keep `render_mode:=debug_cpu` only as a temporary diagnostic path and remove it after v0.3 stabilization.
-- Keep TensorRT/depth completion optional; `depth_completion:=false` must run without TensorRT installed.
+- Keep TensorRT/depth completion optional; `depth_completion:=false` must run without TensorRT installed, and SPNet engine generation must stay outside git.
 
 ## v0.4.0 - Strict FAST-LIVO2 Reproduction
 
@@ -69,5 +69,6 @@ Goal: one-command paper-level reproduction on the selected FAST-LIVO2 sequence.
 
 Status as of 2026-05-05: the mapper-contract/CUDA strict `CBD_Building_01`
 chain passes the local trajectory, PSNR/SSIM/LPIPS, GT-associated render-pair,
-and Chamfer gates against the archived ROS1 upstream baseline. Full native
-Coco-LIC2 frontend parity and SPNet runtime artifacting remain follow-up work.
+and Chamfer gates against the archived ROS1 upstream baseline. SPNet TensorRT
+engine generation is validated locally with TensorRT 10.9 on `sm_120`; full
+native Coco-LIC2 frontend parity remains follow-up work.

@@ -10,7 +10,7 @@ This repository is **not a ROS1 bridge wrapper**. It is a clean ROS2 workspace t
 
 This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper, CUDA/Torch Gaussian backend plumbing, initial native tracking factors, artifact extraction, strict replay/readiness tooling, an official FAST-LIVO2 Bright substitute proof chain, and a passing local strict `CBD_Building_01` reproduction report against the archived ROS1 upstream baseline.
 
-It is **not yet** the complete full-paper Gaussian-LIC2 ROS2 port: the native tracker still needs full Coco-LIC2-grade sliding-window joint optimization, and TensorRT/SPNet needs a runtime engine artifact. The current strict pass is for the mapper-contract/CUDA current path against the locally archived ROS1 upstream baseline.
+It is **not yet** the complete full-paper Gaussian-LIC2 ROS2 port: the native tracker still needs full Coco-LIC2-grade sliding-window joint optimization. The current strict pass is for the mapper-contract/CUDA current path against the locally archived ROS1 upstream baseline.
 
 Available now:
 
@@ -21,17 +21,17 @@ Available now:
   `/points_for_gs`, `/pose_for_gs`, `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/imu_for_gs`.
 - Odometry, path, TF, debug map cloud, rendered debug preview, status, GaussianArray, and SaveMap interfaces.
 - Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, incremental foreground insertion, CUDA rasterizer preview/loss, fused SSIM, SparseGaussianAdam, gradient-aware densification, multi-criteria pruning, opacity reset, and optional TensorRT/SPNet depth-completion wrapper.
-- Native tracking package with signed-nanosecond trajectory and IMU primitives, LiDAR residual correction, visual residual comparison against mapper renders, GaussianMap snapshot subscription, odometry/path/optional TF publication, and deterministic probes.
+- Native tracking package with signed-nanosecond trajectory and IMU primitives, bounded 6-DoF LiDAR residual correction, visual residual comparison against mapper renders, GaussianMap snapshot subscription, odometry/path/optional TF publication, and deterministic probes.
 - Dataset profile YAMLs derived from upstream Gaussian-LIC: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - `gaussian_lic_offline` CLI for rosbag2 artifact extraction without launching ROS nodes.
 - FAST-LIVO2 ROS1-to-ROS2 raw frontend conversion, ROS1 mapper-contract conversion, upstream ROS1 baseline runner, strict rosbag2 replay wrapper, baseline manifest/readiness gates, and combined reproduction reports.
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` report with trajectory, PSNR/SSIM/LPIPS, GT-associated render pairs, and Chamfer gates passing locally.
+- SPNet TensorRT engine generation for the local `sm_120` GPU via TensorRT 10.9, with the generated FP16 engine kept outside git.
 
 Still pending:
 
 - Full Coco-LIC2-grade frontend/tracking algorithm: deskew, LIO/VIO factors, and sliding-window joint optimization.
-- Runtime SPNet TensorRT `.engine` artifact and real depth-completion benchmark.
 - Full native Coco-LIC2 frontend/tracking parity beyond the mapper-contract reproduction path.
 
 ## Progress Ledger
@@ -41,7 +41,7 @@ Still pending:
 | ROS2 workspace, messages, launch, composable node, profiles, bag checks, artifact gates | Complete for the current porting surface |
 | FAST-LIVO2 Bright substitute evidence chain | Complete and executable with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` passing |
 | Strict `CBD_Building_01` paper-data gate | Official bag is local; ROS1 baseline is archived; ROS2 current collection/report passes the strict local gate |
-| Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend and strict mapper-contract parity are in place; full Coco-LIC2 tracking BA and SPNet engine remain |
+| Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend, strict mapper-contract parity, and local SPNet TensorRT engine generation are in place; full Coco-LIC2 tracking BA remains |
 
 The Bright substitute report is a regression/evidence chain for current ROS2 plumbing and Torch Gaussian tensor boundaries. It is not a claim that the full paper algorithm has been ported.
 
@@ -88,8 +88,8 @@ The latest local report has Torch Gaussian mean RGB drift `11.657 < 40.0`.
 The mapper backend now has the major CUDA/Torch surfaces in tree, but the full paper system is not finished.
 
 - The native tracker has timestamp-safe trajectory/IMU primitives plus initial LiDAR/visual/Gaussian snapshot factors, but it is not yet the full continuous-time Coco-LIC2 sliding-window optimizer.
-- LiDAR deskew, VIO residual Jacobians, IMU bias optimization, and joint BA remain to be ported.
-- TensorRT/SPNet depth completion has a native optional wrapper, but no SPNet `.engine` artifact is checked in or benchmarked locally.
+- LiDAR deskew, VIO residual Jacobians, IMU bias optimization, and joint BA remain to be ported beyond the current bounded 6-DoF LiDAR correction foundation.
+- TensorRT/SPNet depth completion has a native optional wrapper and a local TensorRT 10.9 FP16 engine benchmark; the generated `.engine` is hardware/runtime-specific and intentionally not checked in.
 - Strict paper reproduction now has the local `CBD_Building_01` bag, ROS1 upstream baseline artifacts, strict CUDA current collection, final-map render-pair extraction, and a passing local strict report. Full native tracker parity remains outside this mapper-contract gate.
 
 ## Platform
@@ -331,6 +331,32 @@ gaussian_count=2
 ```
 
 On the tested machine, CUDA is available. TensorRT is optional for the ROS2 porting surface; the local upstream ROS1 baseline Docker path has also been validated with TensorRT 8.6.1.6.
+
+For SPNet depth-completion engine generation on the local RTX 5070 Ti
+(`sm_120`) machine, TensorRT 8.6.1.6 is too old for engine building. Use the
+local TensorRT 10.9 CUDA 12.8 SDK layout generated by
+`scripts/install_local_tensorrt_10_9.sh` instead.
+
+Current local SPNet runtime status:
+
+```text
+/home/frank/Software/TensorRT-10.9.0.34-cuda12.8
+/home/frank/Software/TensorRT-engines/spnet_512_640_fp16.engine
+```
+
+The latest `trtexec` benchmark reports mean latency `26.4492 ms` at
+`512x640`, below the 30 ms/frame target. See
+`docs/SPNET_RUNTIME_STATUS.md` for hashes and the TensorRT 8.6 incompatibility
+note.
+
+Rebuild the local engine with:
+
+```bash
+./scripts/install_local_tensorrt_10_9.sh
+SPNET_PYTHON=/home/frank/.cache/gaussian_lic_ros2/quality-venv/bin/python \
+TENSORRT_ROOT=/home/frank/Software/TensorRT-10.9.0.34-cuda12.8 \
+  ./scripts/build_spnet_engine.sh --output-dir /home/frank/Software/TensorRT-engines
+```
 
 ## ROS2 Interfaces
 
@@ -624,10 +650,17 @@ Latest local strict run, 2026-05-05:
   nearest mean 0.0994 m, bidirectional RMSE 0.1455 m, unmatched ratio 2.83%,
   and declared point-count ratio 0.978.
 
+Visual review artifacts from the same strict run:
+
+```text
+docs/assets/strict_cbd_montage.jpg
+docs/assets/strict_cbd_render_demo.gif
+```
+
 So the strict chain now passes the local `CBD_Building_01` reproduction gate
 for the mapper-contract/CUDA current path. The remaining paper-port work is full
-native Coco-LIC2 tracking and SPNet runtime completion, not missing render
-pairs, disabled CUDA runtime, or failing PSNR/SSIM/LPIPS/Chamfer parity.
+native Coco-LIC2 tracking, not missing render pairs, disabled CUDA runtime,
+missing SPNet engine generation, or failing PSNR/SSIM/LPIPS/Chamfer parity.
 
 ## Release Roadmap
 

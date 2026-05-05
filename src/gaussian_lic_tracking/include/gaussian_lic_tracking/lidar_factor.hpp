@@ -22,6 +22,7 @@ struct LidarFactorConfig
   double nearest_distance_m{0.35};
   double correction_gain{0.7};
   double max_correction_m{0.25};
+  double max_rotation_rad{0.08};
 };
 
 struct LidarCorrection
@@ -30,6 +31,15 @@ struct LidarCorrection
   size_t matched_points{0};
   double mean_residual_m{0.0};
   Eigen::Vector3d delta_p_w{Eigen::Vector3d::Zero()};
+};
+
+struct LidarPoseCorrection
+{
+  bool applied{false};
+  size_t matched_points{0};
+  double mean_residual_m{0.0};
+  Eigen::Vector3d delta_p_w{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond delta_q{Eigen::Quaterniond::Identity()};
 };
 
 class LidarFactor
@@ -43,6 +53,10 @@ public:
   size_t map_size() const { return map_points_w_.size(); }
 
   LidarCorrection compute_translation_correction(
+    const std::vector<Eigen::Vector3d> & frame_points_i,
+    const TrajectoryPose & predicted_pose) const;
+
+  LidarPoseCorrection compute_pose_correction(
     const std::vector<Eigen::Vector3d> & frame_points_i,
     const TrajectoryPose & predicted_pose) const;
 

@@ -43,6 +43,8 @@ private:
   void init_engine(const std::string & engine_path);
   std::vector<char> read_file(const std::string & filename) const;
   void allocate_buffers();
+  void assign_tensor_index(const std::string & name, int index, bool is_input);
+  bool run_inference();
   size_t volume(const nvinfer1::Dims & dims) const;
   void prepare_inputs(const cv::Mat & rgb_image, const cv::Mat & sparse_depth_m);
   cv::Mat process_output();
@@ -53,6 +55,12 @@ private:
   std::unique_ptr<nvinfer1::IExecutionContext, InferDeleter> context_;
   std::vector<void *> device_buffers_;
   std::vector<std::vector<float>> host_buffers_;
+  std::vector<std::string> tensor_names_;
+  std::vector<int> input_indices_;
+  int rgb_index_{0};
+  int depth_index_{1};
+  int mask_index_{2};
+  int output_index_{3};
   int input_width_{0};
   int input_height_{0};
 };

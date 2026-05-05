@@ -146,7 +146,9 @@ public:
       declare_parameter<std::string>("torch_gaussian_optimization_sampling", "upstream_random");
     backend_config_.optimization_seed =
       declare_parameter<int>("torch_gaussian_optimization_seed", 20260505);
+#ifdef GAUSSIAN_LIC_ENABLE_TORCH
     initialize_torch_optimization_rng();
+#endif
     backend_config_.enable_density_control =
       declare_parameter<bool>("enable_torch_gaussian_pruning", false);
     backend_config_.prune_min_opacity =

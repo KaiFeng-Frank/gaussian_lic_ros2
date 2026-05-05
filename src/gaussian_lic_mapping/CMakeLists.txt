@@ -94,16 +94,19 @@ install(TARGETS mapping_node_component
 
 if(GAUSSIAN_LIC_ENABLE_TENSORRT)
   set(TENSORRT_ROOT "$ENV{TENSORRT_ROOT}" CACHE PATH "TensorRT SDK root")
-  if(NOT TENSORRT_ROOT AND EXISTS "$ENV{HOME}/Software/TensorRT-8.6.1.6")
+  if(NOT TENSORRT_ROOT AND EXISTS "$ENV{HOME}/Software/TensorRT-10.9.0.34-cuda12.8")
+    set(TENSORRT_ROOT "$ENV{HOME}/Software/TensorRT-10.9.0.34-cuda12.8" CACHE PATH "TensorRT SDK root" FORCE)
+  elseif(NOT TENSORRT_ROOT AND EXISTS "$ENV{HOME}/Software/TensorRT-8.6.1.6")
     set(TENSORRT_ROOT "$ENV{HOME}/Software/TensorRT-8.6.1.6" CACHE PATH "TensorRT SDK root" FORCE)
   endif()
   find_path(TENSORRT_INCLUDE_DIR NvInfer.h
     HINTS ${TENSORRT_ROOT}
-    PATH_SUFFIXES include
+    PATH_SUFFIXES usr/include/x86_64-linux-gnu include
   )
-  find_library(TENSORRT_NVINFER_LIBRARY nvinfer
+  find_library(TENSORRT_NVINFER_LIBRARY
+    NAMES nvinfer libnvinfer.so.10
     HINTS ${TENSORRT_ROOT}
-    PATH_SUFFIXES lib lib64
+    PATH_SUFFIXES lib lib64 usr/lib/x86_64-linux-gnu
   )
   if(NOT TENSORRT_INCLUDE_DIR OR NOT TENSORRT_NVINFER_LIBRARY)
     message(FATAL_ERROR "GAUSSIAN_LIC_ENABLE_TENSORRT=ON requires NvInfer.h and libnvinfer")

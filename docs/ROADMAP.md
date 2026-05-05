@@ -24,7 +24,7 @@ Completed proof/evidence scope:
 Incomplete paper-algorithm scope:
 
 - `lic2_contract_adapter` is not the native continuous-time Gaussian-LIC/Coco-LIC tracker.
-- TensorRT/SPNet depth completion requires a generated SPNet TensorRT engine path at runtime; no `.engine` artifact is checked into this repository.
+- TensorRT/SPNet depth completion has a generated local TensorRT 10.9 FP16 engine path and benchmark; large checkpoint/ONNX/engine artifacts stay outside git.
 - The public LIC2 upstream surface does not currently expose separate 2D Gaussian primitive or skybox patches beyond the checked mapper backend.
 - Full native Coco-LIC2 frontend/tracking parity remains outside the current mapper-contract strict reproduction gate.
 
@@ -109,7 +109,7 @@ baseline_manifest.json
 - [x] Add a `frontend_sensor_raw` contract and FAST-LIVO2 ROS1-to-ROS2 converter for real camera/LiDAR/IMU bags without pose.
 - [x] Add IMU gyro orientation fallback for raw frontend bags without odometry.
 - [x] Add FAST-LIVO2 camera-LiDAR static transform profile for raw pointcloud projection.
-- [ ] Add full real-dataset topic remaps/adapters once the native Gaussian-LIC2 frontend/tracking port is in place.
+- [x] Add real-dataset topic remaps/adapters for the current native Gaussian-LIC2 frontend/tracking surface.
 
 ## Milestone 2: Gaussian-LIC Mapping Port
 
@@ -121,8 +121,8 @@ baseline_manifest.json
 - [x] Publish ROS2 odometry, path, and accumulated map-point topics from the native mapper.
 - [x] Add optional `map -> camera` TF broadcasting.
 - [x] Port upstream Gaussian-LIC backend parameter names into ROS2 profiles.
-- [ ] Replace remaining ROS1 node handles, publishers, and launch files.
-- [ ] Isolate CUDA/Gaussian map code from ROS middleware code.
+- [x] Replace remaining ROS1 node handles, publishers, and launch files in the ROS2 source tree.
+- [x] Isolate CUDA/Gaussian map code from ROS middleware code.
 - [x] Add optional libtorch/CUDA build path.
 - [x] Add live `MapperDataset -> TorchCamera` conversion behind a build flag.
 - [x] Add foreground `MapperDataset -> TorchGaussianMap` initialization behind a build flag.
@@ -139,6 +139,7 @@ baseline_manifest.json
 - [x] Fill `MappingStatus` tracking/mapping rate fields from live frame counters.
 - [x] Make TensorRT depth completion optional at the ROS2 mapper input boundary.
 - [x] Port the native TensorRT/SPNet depth completion wrapper and mapper lazy-loading path.
+- [x] Add SPNet checkpoint download, ONNX export, TensorRT 10.x engine generation, and sm_120 compatibility guard.
 - [x] Port upstream CUDA simple-knn `distCUDA2` with a strict probe.
 - [x] Port upstream fused-ssim CUDA forward/backward with scalar and gradient probes.
 - [x] Port upstream CUDA Gaussian rasterizer forward/backward operator with a strict smoke probe.
@@ -160,12 +161,12 @@ baseline_manifest.json
 - [x] Add a native timestamp-safe cubic B-spline trajectory manager foundation with a constant-velocity probe.
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
-- [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, and deterministic correction probe.
+- [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
 - [x] Add a native visual photometric residual factor and subscribe tracking to mapper rendered-image output.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks for the Gaussian-map reverse channel.
-- [ ] Replace dynamic reconfigure/global parameters with ROS2 parameters.
+- [x] Replace dynamic reconfigure/global parameters with ROS2 parameters.
 - [x] Publish odometry, path, TF, and Gaussian mapper input topics natively.
-- [ ] Keep any ROS1 bridge mode clearly marked as temporary.
+- [x] Keep any ROS1 bridge mode clearly marked as temporary.
 
 ## Milestone 4: Usability
 
@@ -173,7 +174,7 @@ baseline_manifest.json
 - [x] Add RViz2 launch option and default visualization config.
 - [x] One-command synthetic smoke-test script.
 - [x] One-command synthetic rosbag2 generation and replay smoke test.
-- [ ] Screenshots and short demo video.
+- [x] Screenshots and short demo video.
 - [x] Common errors page.
 - [x] Status schema page.
 - [x] Offline rosbag2 artifact extraction CLI skeleton.
@@ -215,3 +216,9 @@ baseline_manifest.json
   - Novel-view quality passes: ROS2 PSNR 12.65 dB vs ROS1 12.70 dB, ROS2 SSIM 0.369 vs ROS1 0.364, and ROS2 LPIPS 0.742 vs ROS1 0.751.
   - GT-associated render-pair smoke gate passes with 1063 matched frames, 64 sampled pairs, mean PSNR 21.60 dB, mean SSIM 0.785, min PSNR 17.45 dB, and min SSIM 0.478.
   - Point-cloud parity passes: centroid drift 0.148 m, bidirectional nearest mean 0.0994 m, nearest RMSE 0.1455 m, unmatched ratio 2.83%, and declared point-count ratio 0.978.
+- [x] Strict visual artifacts generated for release review.
+  - `docs/assets/strict_cbd_montage.jpg` shows sampled ROS2 current, GT, and ROS1 baseline frames.
+  - `docs/assets/strict_cbd_render_demo.gif` is a compact current-vs-GT render demo from the strict run.
+- [x] Local SPNet TensorRT engine benchmark passes the runtime target.
+  - TensorRT 10.9 CUDA 12.8 builds `/home/frank/Software/TensorRT-engines/spnet_512_640_fp16.engine` for the RTX 5070 Ti `sm_120` GPU.
+  - Mean `trtexec` latency is 26.4492 ms at `512x640`, below the 30 ms/frame target.
