@@ -88,3 +88,6 @@ sensor/render/depth inputs are present.
 Optimized velocity and bias now feed back into odometry and safe IMU
 propagation re-anchoring, and cubic B-spline pose/velocity trajectory queries
 are available as the first deskew lookup source before IMU-history fallback.
+`TrackingStatus` and the native smoke gate now expose optimized IMU re-anchor
+counts and B-spline trajectory-control counts so the production BA feedback
+path is runtime-observable.

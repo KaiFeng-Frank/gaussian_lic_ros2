@@ -181,6 +181,7 @@ baseline_manifest.json
 - [x] Add analytic SE3 camera photometric pixel Jacobians and multi-sample normal equations with finite-difference CTest coverage.
 - [x] Default-enable native sliding-window BA plus visual-alignment and SE3 photometric window factors in `tracking.launch.py`, while preserving bounded best-effort QoS and serialized callbacks.
 - [x] Feed optimized sliding-window velocity/bias back into odometry and safe IMU propagation re-anchoring, and expose cubic B-spline pose/velocity trajectory queries for deskew fallback.
+- [x] Publish and smoke-gate optimized IMU re-anchor and B-spline trajectory-control runtime status fields.
 - [x] Add optional SE3 photometric pose factors to the sliding-window optimizer with deterministic CTest coverage.
 - [x] Extract runtime SE3 photometric window factors from rendered/current/depth images and gate them in native tracking smoke.
 - [x] Add robust runtime SE3 photometric sampling gates for depth range, image gradient, residual outliers, Huber weighting, and status-reported sample quality.

@@ -705,6 +705,7 @@ private:
             corrected_state.gyro_bias = optimized.gyro_bias;
             corrected_state.accel_bias = optimized.accel_bias;
             imu_propagator_.reset(corrected_state);
+            ++num_sliding_window_imu_reanchors_;
           }
         }
         RCLCPP_DEBUG_THROTTLE(
@@ -1184,7 +1185,7 @@ private:
 
   gaussian_lic_tracking::LidarDeskewResult deskew_decoded_points(
     const std::vector<DecodedLidarPoint> & points,
-    const gaussian_lic_tracking::TrajectoryPose & reference_pose) const
+    const gaussian_lic_tracking::TrajectoryPose & reference_pose)
   {
     std::vector<gaussian_lic_tracking::TimedLidarPoint> timed_points;
     timed_points.reserve(points.size());
@@ -1196,7 +1197,9 @@ private:
       timed_points,
       reference_pose,
       [this](const int64_t stamp_ns, gaussian_lic_tracking::TrajectoryPose & pose) {
+        ++trajectory_deskew_queries_;
         if (trajectory_manager_.query_pose(stamp_ns, pose)) {
+          ++trajectory_deskew_hits_;
           return true;
         }
         gaussian_lic_tracking::ImuState state;
@@ -1319,6 +1322,10 @@ private:
     status.sliding_window_gyro_bias_observability = summary.gyro_bias_observability;
     status.sliding_window_accel_bias_observability = summary.accel_bias_observability;
     status.sliding_window_converged = summary.converged;
+    status.sliding_window_imu_reanchors = num_sliding_window_imu_reanchors_;
+    status.trajectory_control_poses = static_cast<uint64_t>(trajectory_manager_.size());
+    status.trajectory_deskew_queries = trajectory_deskew_queries_;
+    status.trajectory_deskew_hits = trajectory_deskew_hits_;
 
     status.gaussian_snapshot_points = static_cast<uint64_t>(gaussian_snapshot_.point_count());
     status.gaussian_snapshot_expected_total = last_gaussian_total_count_;
@@ -1459,6 +1466,9 @@ private:
   bool has_sliding_window_state_{false};
   int64_t last_sliding_window_stamp_ns_{0};
   std::optional<int64_t> last_trajectory_control_stamp_ns_;
+  uint64_t num_sliding_window_imu_reanchors_{0};
+  uint64_t trajectory_deskew_queries_{0};
+  uint64_t trajectory_deskew_hits_{0};
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   bool has_lidar_keyframe_{false};

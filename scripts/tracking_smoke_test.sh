@@ -165,6 +165,8 @@ status_matches() {
     rg -q "sliding_window_dense_prior_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_gyro_bias_observability: [1-9]" "${status_file}" &&
     rg -q "sliding_window_accel_bias_observability: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_imu_reanchors: [1-9]" "${status_file}" &&
+    rg -q "trajectory_control_poses: [1-9]" "${status_file}" &&
     rg -q "total_window_point_correspondences: [1-9]" "${status_file}" &&
     rg -q "num_lidar_keyframes: [1-9]" "${status_file}" || return 1
   if [[ "${ENABLE_VISUAL_FACTOR_GATE}" == "true" ]]; then

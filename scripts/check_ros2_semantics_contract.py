@@ -131,6 +131,10 @@ def main() -> int:
         "last_image_stamp_ns",
         "last_pointcloud_stamp_ns",
         "last_imu_stamp_ns",
+        "sliding_window_imu_reanchors",
+        "trajectory_control_poses",
+        "trajectory_deskew_queries",
+        "trajectory_deskew_hits",
     ]:
         if field not in tracking_status_msg_text or field not in tracking_node_text:
             errors.append(f"tracking status must publish signed-nanosecond field {field}")

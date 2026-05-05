@@ -28,7 +28,7 @@ Available now:
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` report with trajectory, PSNR/SSIM/LPIPS, GT-associated render pairs, and Chamfer gates passing locally.
 - SPNet TensorRT engine generation for the local `sm_120` GPU via TensorRT 10.9, with the generated FP16 engine kept outside git.
-- Native tracking probes are registered with CTest, so `colcon test --packages-select gaussian_lic_tracking` runs trajectory, IMU, LiDAR, sliding-window, bias observability, geometric Jacobian, Gaussian snapshot, SE3 photometric Jacobian/factor, and visual checks automatically. `scripts/tracking_smoke_test.sh` also verifies the launch path through `/gaussian_lic/frontend/status`, including signed-nanosecond time status, tracking QoS, executor callback serialization, dense-prior health, bias observability, visual alignment, photometric linearization status, and SE3 photometric sample quality.
+- Native tracking probes are registered with CTest, so `colcon test --packages-select gaussian_lic_tracking` runs trajectory, IMU, LiDAR, sliding-window, bias observability, geometric Jacobian, Gaussian snapshot, SE3 photometric Jacobian/factor, and visual checks automatically. `scripts/tracking_smoke_test.sh` also verifies the launch path through `/gaussian_lic/frontend/status`, including signed-nanosecond time status, tracking QoS, executor callback serialization, dense-prior health, bias observability, optimized IMU re-anchors, B-spline trajectory control poses, visual alignment, photometric linearization status, and SE3 photometric sample quality.
 
 Still pending:
 

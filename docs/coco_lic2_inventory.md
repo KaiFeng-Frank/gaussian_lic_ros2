@@ -76,6 +76,8 @@ Current ROS2 implementation status:
   Optimized sliding-window velocity and bias now feed back into odometry and
   safe IMU propagation re-anchoring, and the B-spline trajectory cache is used
   as the first deskew pose-query source when it is valid.
+  `TrackingStatus` exposes optimized IMU re-anchor counts, trajectory-control
+  counts, and B-spline deskew lookup query/hit counters for runtime gates.
   The optimizer has bounded window trimming, Schur-complement retained-window
   priors, optional SE3 photometric pose factors extracted from
   rendered/current/depth images, rank/singular-value health for retained dense
