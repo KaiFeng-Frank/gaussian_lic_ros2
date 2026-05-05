@@ -36,6 +36,8 @@ uint64 num_published_poses
 
 uint64 num_lidar_keyframes
 uint64 lidar_map_points
+uint64 lidar_spatial_index_voxels
+float64 lidar_spatial_index_voxel_size_m
 uint64 last_lidar_points
 uint64 lidar_invalid_frames
 uint64 lidar_invalid_points

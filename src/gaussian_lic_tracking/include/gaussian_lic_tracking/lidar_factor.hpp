@@ -57,6 +57,8 @@ public:
   const LidarFactorConfig & config() const { return config_; }
   void clear();
   size_t map_size() const { return map_points_w_.size(); }
+  size_t spatial_index_voxels() const { return map_voxels_.size(); }
+  double spatial_index_voxel_size_m() const { return voxel_size_m_; }
 
   LidarCorrection compute_translation_correction(
     const std::vector<Eigen::Vector3d> & frame_points_i,

@@ -191,6 +191,8 @@ status_matches() {
     rg -q "lidar_invalid_point_times: 0" "${status_file}" &&
     rg -q "lidar_out_of_range_point_times: 0" "${status_file}" &&
     rg -q "last_lidar_max_abs_point_time_offset_s:" "${status_file}" &&
+    rg -q "lidar_spatial_index_voxels: [1-9]" "${status_file}" &&
+    status_has_finite_number "lidar_spatial_index_voxel_size_m" &&
     status_has_finite_number "last_window_point_confidence_mean" &&
     status_has_finite_number "last_window_point_confidence_min" &&
     status_has_finite_number "last_window_plane_confidence_mean" &&

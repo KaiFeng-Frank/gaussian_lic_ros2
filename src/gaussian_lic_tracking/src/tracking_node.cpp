@@ -2130,6 +2130,9 @@ private:
 
     status.num_lidar_keyframes = num_lidar_keyframes_;
     status.lidar_map_points = static_cast<uint64_t>(lidar_factor_.map_size());
+    status.lidar_spatial_index_voxels =
+      static_cast<uint64_t>(lidar_factor_.spatial_index_voxels());
+    status.lidar_spatial_index_voxel_size_m = lidar_factor_.spatial_index_voxel_size_m();
     status.last_lidar_points = static_cast<uint64_t>(last_lidar_points_);
     status.lidar_invalid_frames = lidar_invalid_frames_;
     status.lidar_invalid_points = lidar_invalid_points_;
