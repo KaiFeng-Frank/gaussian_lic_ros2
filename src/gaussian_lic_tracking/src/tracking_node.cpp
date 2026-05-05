@@ -1607,6 +1607,7 @@ private:
     status.sliding_window_iterations = static_cast<uint64_t>(summary.iterations);
     status.sliding_window_accepted_steps = static_cast<uint64_t>(summary.accepted_steps);
     status.sliding_window_rejected_steps = static_cast<uint64_t>(summary.rejected_steps);
+    status.sliding_window_limited_steps = static_cast<uint64_t>(summary.limited_steps);
     status.sliding_window_initial_cost = summary.initial_cost;
     status.sliding_window_final_cost = summary.final_cost;
     status.sliding_window_last_step_norm = summary.last_step_norm;

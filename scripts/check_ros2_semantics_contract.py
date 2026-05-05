@@ -187,6 +187,7 @@ def main() -> int:
         "sliding_window_smoothness_factors",
         "sliding_window_accepted_steps",
         "sliding_window_rejected_steps",
+        "sliding_window_limited_steps",
         "sliding_window_last_step_norm",
         "sliding_window_last_step_scale",
         "sliding_window_last_damping",

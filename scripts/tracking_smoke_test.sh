@@ -162,6 +162,7 @@ status_matches() {
     rg -q "sliding_window_enabled: true" "${status_file}" &&
     rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_accepted_steps: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_limited_steps:" "${status_file}" &&
     rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&

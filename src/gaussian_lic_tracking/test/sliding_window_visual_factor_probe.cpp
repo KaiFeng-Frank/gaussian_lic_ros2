@@ -106,8 +106,11 @@ int main()
   }
   const double limited_translation = limited_optimized.p_w_i.norm();
   std::cout << " limited_translation=" << limited_translation
+            << " limited_steps=" << limited_summary.limited_steps
             << " limited_final_cost=" << limited_summary.final_cost;
-  if (!limited_summary.converged || limited_translation > 0.050001) {
+  if (!limited_summary.converged || limited_summary.limited_steps != 1U ||
+    limited_translation > 0.050001)
+  {
     std::cerr << "\nsliding window translation step limiter failed\n";
     return 1;
   }

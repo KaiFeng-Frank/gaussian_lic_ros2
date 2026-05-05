@@ -1681,6 +1681,9 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
     summary.last_step_norm = step.norm();
     summary.last_step_scale = step_scale;
     summary.last_damping = damping;
+    if (step_scale < 1.0) {
+      ++summary.limited_steps;
+    }
     apply_delta(candidate_states, variables, step, step_scale);
     const double candidate_cost = compute_cost(build_residual(candidate_states));
     if (candidate_cost <= current_cost) {
