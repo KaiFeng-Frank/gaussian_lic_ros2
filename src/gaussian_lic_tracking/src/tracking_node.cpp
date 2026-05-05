@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <chrono>
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
@@ -1206,7 +1207,11 @@ private:
 
     if (has_sliding_window_state_ && window_factor_added) {
       try {
+        const auto optimization_start = std::chrono::steady_clock::now();
         const auto summary = sliding_window_optimizer_.optimize();
+        const auto optimization_end = std::chrono::steady_clock::now();
+        last_sliding_window_optimization_duration_ms_ =
+          std::chrono::duration<double, std::milli>(optimization_end - optimization_start).count();
         last_sliding_window_summary_ = summary;
         has_last_sliding_window_summary_ = true;
         gaussian_lic_tracking::SlidingWindowState optimized;
@@ -2203,6 +2208,8 @@ private:
       last_sliding_window_imu_preintegration_end_stamp_ns_;
     status.sliding_window_optimization_skip_count = sliding_window_optimization_skip_count_;
     status.sliding_window_invalid_optimized_states = sliding_window_invalid_optimized_states_;
+    status.sliding_window_last_optimization_duration_ms =
+      last_sliding_window_optimization_duration_ms_;
     status.sliding_window_feedback_updates = sliding_window_feedback_update_count_;
     status.sliding_window_last_feedback_stamp_ns = last_sliding_window_feedback_stamp_ns_;
     status.sliding_window_last_feedback_translation_delta_m =
@@ -2549,6 +2556,7 @@ private:
   uint64_t visual_se3_photometric_pending_stale_drops_{0};
   gaussian_lic_tracking::SlidingWindowSummary last_sliding_window_summary_;
   bool has_last_sliding_window_summary_{false};
+  double last_sliding_window_optimization_duration_ms_{0.0};
   uint64_t num_raw_images_{0};
   uint64_t num_raw_pointclouds_{0};
   uint64_t num_raw_imus_{0};

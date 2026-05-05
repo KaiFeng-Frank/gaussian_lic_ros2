@@ -376,6 +376,7 @@ def main() -> int:
         "sliding_window_last_imu_preintegration_end_stamp_ns",
         "sliding_window_optimization_skip_count",
         "sliding_window_invalid_optimized_states",
+        "sliding_window_last_optimization_duration_ms",
         "sliding_window_feedback_updates",
         "sliding_window_last_feedback_stamp_ns",
         "sliding_window_last_feedback_translation_delta_m",

@@ -227,6 +227,7 @@ status_matches() {
     rg -q "sliding_window_last_imu_preintegration_end_stamp_ns:" "${status_file}" &&
     rg -q "sliding_window_optimization_skip_count:" "${status_file}" &&
     rg -q "sliding_window_invalid_optimized_states: 0" "${status_file}" &&
+    status_has_finite_number "sliding_window_last_optimization_duration_ms" &&
     rg -q "sliding_window_feedback_updates:" "${status_file}" &&
     rg -q "sliding_window_last_feedback_stamp_ns:" "${status_file}" &&
     rg -q "sliding_window_last_feedback_translation_delta_m:" "${status_file}" &&
