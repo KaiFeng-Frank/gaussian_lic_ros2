@@ -168,6 +168,7 @@ baseline_manifest.json
 - [x] Add Schur-complement normal-equation math coverage for the tracking marginalization path, with deterministic equivalence against the full normal-equation solve.
 - [x] Expose reusable sliding-window residual/Jacobian/Hessian/RHS normal-equation linearization and cover it with CTest.
 - [x] Feed Schur-complement marginalization back into the live sliding window as retained-state dense priors, with fallback to diagonal anchoring when the marginalized block has no information.
+- [x] Publish dense-prior marginalization rank and singular-value health, and gate it in native tracking smoke.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
 - [x] Add per-correspondence robust weighting for LiDAR and Gaussian-map point-to-point tracking-window factors.
 - [x] Add LiDAR point-to-plane tracking-window factors from local plane fits with deterministic CTest coverage.

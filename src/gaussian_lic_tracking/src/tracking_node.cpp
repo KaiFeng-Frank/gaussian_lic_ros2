@@ -1232,9 +1232,14 @@ private:
     status.sliding_window_se3_photometric_factors =
       static_cast<uint64_t>(summary.se3_photometric_factor_count);
     status.sliding_window_marginalized_states = static_cast<uint64_t>(summary.marginalized_state_count);
+    status.sliding_window_dense_prior_rows = static_cast<uint64_t>(summary.dense_prior_rows);
+    status.sliding_window_dense_prior_cols = static_cast<uint64_t>(summary.dense_prior_cols);
+    status.sliding_window_dense_prior_rank = static_cast<uint64_t>(summary.dense_prior_rank);
     status.sliding_window_iterations = static_cast<uint64_t>(summary.iterations);
     status.sliding_window_initial_cost = summary.initial_cost;
     status.sliding_window_final_cost = summary.final_cost;
+    status.sliding_window_dense_prior_min_singular_value = summary.dense_prior_min_singular_value;
+    status.sliding_window_dense_prior_max_singular_value = summary.dense_prior_max_singular_value;
     status.sliding_window_gyro_bias_norm = summary.gyro_bias_norm;
     status.sliding_window_accel_bias_norm = summary.accel_bias_norm;
     status.sliding_window_gyro_bias_observability = summary.gyro_bias_observability;

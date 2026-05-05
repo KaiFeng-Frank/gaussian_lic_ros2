@@ -154,6 +154,8 @@ status_matches() {
     rg -q "sliding_window_enabled: true" "${status_file}" &&
     rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_dense_prior_rank: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_dense_prior_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_gyro_bias_observability: [1-9]" "${status_file}" &&
     rg -q "sliding_window_accel_bias_observability: [1-9]" "${status_file}" &&
     rg -q "total_window_point_correspondences: [1-9]" "${status_file}" &&

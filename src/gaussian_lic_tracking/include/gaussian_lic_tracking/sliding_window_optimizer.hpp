@@ -129,9 +129,14 @@ struct SlidingWindowSummary
   size_t visual_factor_count{0};
   size_t se3_photometric_factor_count{0};
   size_t marginalized_state_count{0};
+  size_t dense_prior_rows{0};
+  size_t dense_prior_cols{0};
+  size_t dense_prior_rank{0};
   size_t iterations{0};
   double initial_cost{0.0};
   double final_cost{0.0};
+  double dense_prior_min_singular_value{0.0};
+  double dense_prior_max_singular_value{0.0};
   double gyro_bias_norm{0.0};
   double accel_bias_norm{0.0};
   double gyro_bias_observability{0.0};

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include <Eigen/Dense>
@@ -999,6 +1000,43 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
 
   const auto variables = variable_layout();
   const size_t variable_count = variables.size() * kStateDof;
+  auto refresh_dense_prior_summary = [&summary, this]() {
+      summary.dense_prior_rows = 0U;
+      summary.dense_prior_cols = 0U;
+      summary.dense_prior_rank = 0U;
+      summary.dense_prior_min_singular_value = 0.0;
+      summary.dense_prior_max_singular_value = 0.0;
+      double min_positive = std::numeric_limits<double>::infinity();
+      for (const auto & prior : dense_priors_) {
+        if (prior.sqrt_information.rows() == 0 || prior.sqrt_information.cols() == 0 ||
+          !prior.sqrt_information.allFinite())
+        {
+          continue;
+        }
+        summary.dense_prior_rows += static_cast<size_t>(prior.sqrt_information.rows());
+        summary.dense_prior_cols += static_cast<size_t>(prior.sqrt_information.cols());
+        const Eigen::JacobiSVD<Eigen::MatrixXd> svd(prior.sqrt_information);
+        if (svd.info() != Eigen::Success || svd.singularValues().size() == 0) {
+          continue;
+        }
+        const double max_singular = std::max(0.0, svd.singularValues().maxCoeff());
+        const double threshold = static_cast<double>(
+          std::max(prior.sqrt_information.rows(), prior.sqrt_information.cols())) *
+          std::numeric_limits<double>::epsilon() * std::max(max_singular, 1.0);
+        summary.dense_prior_max_singular_value =
+          std::max(summary.dense_prior_max_singular_value, max_singular);
+        for (Eigen::Index i = 0; i < svd.singularValues().size(); ++i) {
+          const double singular = svd.singularValues()[i];
+          if (singular > threshold) {
+            ++summary.dense_prior_rank;
+            min_positive = std::min(min_positive, singular);
+          }
+        }
+      }
+      if (std::isfinite(min_positive)) {
+        summary.dense_prior_min_singular_value = min_positive;
+      }
+    };
   auto refresh_bias_summary = [&summary, this, &variables]() {
       summary.gyro_bias_norm = 0.0;
       summary.accel_bias_norm = 0.0;
@@ -1036,9 +1074,11 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
           min_eigenvalue(normal.hessian.block<3, 3>(offset + 12, offset + 12)));
       }
     };
+  refresh_dense_prior_summary();
   if (residual.size() == 0 || variable_count == 0U) {
     summary.converged = true;
     refresh_bias_summary();
+    refresh_dense_prior_summary();
     return summary;
   }
 
@@ -1075,6 +1115,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
     summary.converged = summary.final_cost <= summary.initial_cost;
   }
   refresh_bias_summary();
+  refresh_dense_prior_summary();
   return summary;
 }
 

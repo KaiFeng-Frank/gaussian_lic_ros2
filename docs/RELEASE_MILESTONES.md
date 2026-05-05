@@ -74,7 +74,7 @@ engine generation is validated locally with TensorRT 10.9 on `sm_120`. The
 native tracking path now has a launch smoke gate and analytic geometric
 Jacobians for point-to-point, point-to-plane, and visual-alignment residuals,
 plus runtime-gated bias observability and 2-DoF photometric translation
-linearization status, plus analytic SE3 photometric normal-equation and
-runtime sliding-window factor coverage from rendered/current/depth images, with
-robust sample-quality status gates; full native Coco-LIC2 frontend parity
-remains follow-up work.
+linearization status, dense-prior rank/singular-value marginalization health,
+plus analytic SE3 photometric normal-equation and runtime sliding-window factor
+coverage from rendered/current/depth images, with robust sample-quality status
+gates; full native Coco-LIC2 frontend parity remains follow-up work.

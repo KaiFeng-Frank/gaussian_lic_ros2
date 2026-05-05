@@ -154,8 +154,9 @@ This launches `gaussian_lic_tracking/tracking_node`, replays raw frontend topics
 and checks `/pose_for_gs`, `/points_for_gs`, `/gaussian_lic/frontend/odometry`,
 `/gaussian_lic/frontend/path`, and `/gaussian_lic/frontend/status`. The status
 gate requires `STATE_TRACKING`, nonzero IMU factors, nonzero LiDAR point factors,
-nonzero bias observability, nonzero visual factors, valid visual subpixel
-alignment, valid photometric Gauss-Newton linearization, nonzero SE3
+nonzero dense-prior rank/singular-value coverage after marginalization, nonzero
+bias observability, nonzero visual factors, valid visual subpixel alignment,
+valid photometric Gauss-Newton linearization, nonzero SE3
 photometric window factors extracted from rendered/current/depth images, nonzero
 SE3 candidate/sample counts, nonzero robust inlier ratio and SE3 step norm, and
 nonzero LiDAR keyframes. The script lowers the synthetic LiDAR threshold to one

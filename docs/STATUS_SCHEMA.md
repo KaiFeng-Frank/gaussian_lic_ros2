@@ -80,9 +80,14 @@ sliding_window_plane_factors
 sliding_window_visual_factors
 sliding_window_se3_photometric_factors
 sliding_window_marginalized_states
+sliding_window_dense_prior_rows
+sliding_window_dense_prior_cols
+sliding_window_dense_prior_rank
 sliding_window_iterations
 sliding_window_initial_cost
 sliding_window_final_cost
+sliding_window_dense_prior_min_singular_value
+sliding_window_dense_prior_max_singular_value
 sliding_window_gyro_bias_norm
 sliding_window_accel_bias_norm
 sliding_window_gyro_bias_observability
@@ -115,6 +120,9 @@ visual_se3_photometric_step_norm
 `scripts/tracking_smoke_test.sh` asserts that the synthetic frontend bag reaches
 `STATE_TRACKING`, publishes frontend odometry/path, and exercises the sliding
 window with nonzero IMU, LiDAR point, bias-observability, and visual factors.
+The sliding-window gate also requires nonzero dense-prior rank and singular
+value coverage after marginalization so retained-state priors are numerically
+observable rather than only present by count.
 The visual gate replays a 32x32 Gaussian-pattern image bag while a
 transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment and photometric Gauss-Newton linearization

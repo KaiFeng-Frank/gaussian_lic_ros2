@@ -71,9 +71,9 @@ Current ROS2 implementation status:
   SE3 Jacobians, while IMU and dense-prior rows keep finite-difference fallback.
   The optimizer has bounded window trimming, Schur-complement retained-window
   priors, optional SE3 photometric pose factors extracted from
-  rendered/current/depth images, and deterministic convergence probes. It is
-  exposed as an optional tracking-node path while the production Coco-LIC2 BA
-  factors are ported.
+  rendered/current/depth images, rank/singular-value health for retained dense
+  priors, and deterministic convergence probes. It is exposed as an optional
+  tracking-node path while the production Coco-LIC2 BA factors are ported.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual, integer/subpixel image-alignment foundation, and 2-DoF photometric
   translation linearization, plus analytic SE3 camera photometric pixel
