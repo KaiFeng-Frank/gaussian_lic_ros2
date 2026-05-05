@@ -17,6 +17,7 @@ FRONTEND_ADAPTER = ROOT / "src" / "gaussian_lic_frontend" / "src" / "lic2_contra
 RUN_BAG_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "run_bag.launch.py"
 TRACKING_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "tracking.launch.py"
 TRACKING_NODE = ROOT / "src" / "gaussian_lic_tracking" / "src" / "tracking_node.cpp"
+SLIDING_WINDOW_OPTIMIZER = ROOT / "src" / "gaussian_lic_tracking" / "src" / "sliding_window_optimizer.cpp"
 TRACKING_STATUS_MSG = ROOT / "src" / "gaussian_lic_msgs" / "msg" / "TrackingStatus.msg"
 SEMANTICS_DOC = ROOT / "docs" / "ROS2_SEMANTICS.md"
 TIMING_AUDIT = ROOT / "scripts" / "rosbag2_timing_audit.py"
@@ -59,6 +60,7 @@ def main() -> int:
     launch_text = read(RUN_BAG_LAUNCH)
     tracking_launch_text = read(TRACKING_LAUNCH)
     tracking_node_text = read(TRACKING_NODE)
+    sliding_window_text = read(SLIDING_WINDOW_OPTIMIZER)
     tracking_status_msg_text = read(TRACKING_STATUS_MSG)
     timing_audit_text = read(TIMING_AUDIT)
 
@@ -282,6 +284,8 @@ def main() -> int:
         errors.append("tracking_node must publish invalid camera/image/depth/rendered-frame counters")
     if "sliding_window_invalid_optimized_states_" not in tracking_node_text or "valid_sliding_window_state" not in tracking_node_text:
         errors.append("tracking_node must reject invalid optimized sliding-window states before feedback")
+    if "invalid_candidate_steps" not in sliding_window_text or "states_are_finite(candidate_states)" not in sliding_window_text:
+        errors.append("sliding_window_optimizer must explicitly reject invalid candidate states")
     if "trajectory_control_pose_skip_count_" not in tracking_node_text:
         errors.append("tracking_node must publish trajectory-control pose rejection counters")
     for field in [
@@ -326,6 +330,7 @@ def main() -> int:
         "sliding_window_last_step_norm",
         "sliding_window_last_step_scale",
         "sliding_window_last_damping",
+        "sliding_window_invalid_candidate_steps",
         "trajectory_control_poses",
         "trajectory_deskew_queries",
         "trajectory_deskew_hits",

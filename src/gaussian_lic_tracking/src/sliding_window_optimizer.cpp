@@ -93,6 +93,15 @@ bool state_is_finite(const SlidingWindowState & state)
          quaternion_is_finite_and_nonzero(state.q_w_i);
 }
 
+bool states_are_finite(const std::vector<SlidingWindowState> & states)
+{
+  return std::all_of(
+    states.begin(), states.end(),
+    [](const SlidingWindowState & state) {
+      return state_is_finite(state);
+    });
+}
+
 Eigen::MatrixXd sqrt_information_from_hessian(const Eigen::MatrixXd & hessian)
 {
   if (hessian.rows() != hessian.cols() || hessian.rows() == 0 || !hessian.allFinite()) {
@@ -1843,7 +1852,21 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
       ++summary.limited_steps;
     }
     apply_delta(candidate_states, variables, step, step_scale);
+    if (!states_are_finite(candidate_states)) {
+      ++summary.invalid_candidate_steps;
+      ++summary.rejected_steps;
+      summary.final_cost = current_cost;
+      damping *= 10.0;
+      continue;
+    }
     const double candidate_cost = compute_cost(build_residual(candidate_states));
+    if (!std::isfinite(candidate_cost)) {
+      ++summary.invalid_candidate_steps;
+      ++summary.rejected_steps;
+      summary.final_cost = current_cost;
+      damping *= 10.0;
+      continue;
+    }
     if (candidate_cost <= current_cost) {
       states_ = std::move(candidate_states);
       summary.iterations = iteration + 1U;

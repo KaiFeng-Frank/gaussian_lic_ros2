@@ -189,6 +189,7 @@ status_matches() {
     rg -q "sliding_window_enabled: true" "${status_file}" &&
     rg -q "sliding_window_rejected_steps:" "${status_file}" &&
     rg -q "sliding_window_limited_steps:" "${status_file}" &&
+    rg -q "sliding_window_invalid_candidate_steps: 0" "${status_file}" &&
     rg -q "sliding_window_point_factor_skip_count:" "${status_file}" &&
     rg -q "sliding_window_plane_factor_skip_count:" "${status_file}" &&
     rg -q "sliding_window_visual_factor_skip_count:" "${status_file}" &&

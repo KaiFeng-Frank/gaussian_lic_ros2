@@ -72,6 +72,8 @@ Current ROS2 implementation status:
 - The optimized sliding-window state is finite/non-zero-quaternion checked before
   odometry publication, IMU re-anchoring, or trajectory-control feedback; the
   trajectory manager also rejects invalid control poses before B-spline deskew use.
+- Sliding-window LM candidate states are finite/non-zero-quaternion checked before
+  cost evaluation and acceptance, with invalid-candidate step counts in status.
 - `tracking_node` applies ROS2-configurable camera-to-IMU extrinsics to convert
   camera-frame SE3 photometric Gauss-Newton deltas into body-frame sliding-window
   deltas before adding SE3 photometric BA factors.

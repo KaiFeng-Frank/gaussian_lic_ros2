@@ -121,6 +121,7 @@ sliding_window_iterations
 sliding_window_accepted_steps
 sliding_window_rejected_steps
 sliding_window_limited_steps
+sliding_window_invalid_candidate_steps
 sliding_window_initial_cost
 sliding_window_final_cost
 sliding_window_last_step_norm

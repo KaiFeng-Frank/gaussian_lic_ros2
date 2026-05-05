@@ -77,6 +77,7 @@ uint64 sliding_window_iterations
 uint64 sliding_window_accepted_steps
 uint64 sliding_window_rejected_steps
 uint64 sliding_window_limited_steps
+uint64 sliding_window_invalid_candidate_steps
 float64 sliding_window_initial_cost
 float64 sliding_window_final_cost
 float64 sliding_window_last_step_norm
