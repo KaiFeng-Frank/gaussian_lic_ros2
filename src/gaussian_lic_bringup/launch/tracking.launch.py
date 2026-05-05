@@ -106,7 +106,7 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_time_unit", default_value="auto"),
             DeclareLaunchArgument("lidar_time_mode", default_value="auto"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
-            DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="50000000"),
+            DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="150000000"),
             DeclareLaunchArgument("camera_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("camera_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("visual_alignment_max_shift_px", default_value="8"),

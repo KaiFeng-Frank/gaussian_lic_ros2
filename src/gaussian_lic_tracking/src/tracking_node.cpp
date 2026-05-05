@@ -66,7 +66,7 @@ public:
     enable_gaussian_snapshot_ = declare_parameter<bool>("enable_gaussian_snapshot", true);
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
     visual_factor_max_dt_ns_ =
-      declare_parameter<int64_t>("visual_factor_max_dt_ns", 50000000LL);
+      declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL);
     const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
@@ -849,10 +849,18 @@ private:
     if (!factor_stamp_ns.has_value()) {
       return false;
     }
-    const int64_t delta_ns = factor_stamp_ns.value() > target_stamp_ns
-      ? factor_stamp_ns.value() - target_stamp_ns
-      : target_stamp_ns - factor_stamp_ns.value();
-    return delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL);
+    return stamp_delta_is_within(factor_stamp_ns.value(), target_stamp_ns, visual_factor_max_dt_ns_);
+  }
+
+  static bool stamp_delta_is_within(
+    const int64_t lhs_stamp_ns,
+    const int64_t rhs_stamp_ns,
+    const int64_t max_delta_ns)
+  {
+    const int64_t delta_ns = lhs_stamp_ns > rhs_stamp_ns
+      ? lhs_stamp_ns - rhs_stamp_ns
+      : rhs_stamp_ns - lhs_stamp_ns;
+    return delta_ns <= std::max<int64_t>(max_delta_ns, 0LL);
   }
 
   bool decode_image_gray(
@@ -973,7 +981,8 @@ private:
     if (!has_camera_intrinsics_ || !has_depth_frame_ ||
       rendered.width < 3U || rendered.height < 3U ||
       rendered.width != observed.width || rendered.height != observed.height ||
-      latest_depth_frame_.width != observed.width || latest_depth_frame_.height != observed.height)
+      latest_depth_frame_.width != observed.width || latest_depth_frame_.height != observed.height ||
+      !stamp_delta_is_within(latest_depth_frame_.stamp_ns, observed.stamp_ns, visual_factor_max_dt_ns_))
     {
       return batch;
     }
@@ -1503,7 +1512,7 @@ private:
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
-  int64_t visual_factor_max_dt_ns_{50000000LL};
+  int64_t visual_factor_max_dt_ns_{150000000LL};
   Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};

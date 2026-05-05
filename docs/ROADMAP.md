@@ -180,7 +180,7 @@ baseline_manifest.json
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
 - [x] Add ROS2-configurable camera-to-IMU extrinsics and apply their SE3 adjoint to photometric BA deltas.
 - [x] Add subpixel refinement for visual alignment factors before they enter the optional tracking window.
-- [x] Gate pending visual/SE3 photometric BA factors by signed-nanosecond image-to-LiDAR timestamp freshness before consumption.
+- [x] Gate pending visual/SE3 photometric BA factors by signed-nanosecond image-to-LiDAR and image-to-depth timestamp freshness before consumption.
 - [x] Add analytic SE3 camera photometric pixel Jacobians and multi-sample normal equations with finite-difference CTest coverage.
 - [x] Default-enable native sliding-window BA plus visual-alignment and SE3 photometric window factors in `tracking.launch.py`, while preserving bounded best-effort QoS and serialized callbacks.
 - [x] Feed optimized sliding-window pose/velocity/bias back into odometry, the continuous-time trajectory-control cache, and safe IMU propagation re-anchoring, and expose cubic B-spline pose/velocity trajectory queries for deskew fallback.
