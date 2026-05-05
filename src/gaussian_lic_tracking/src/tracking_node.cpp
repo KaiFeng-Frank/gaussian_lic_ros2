@@ -75,16 +75,8 @@ public:
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
       "camera_to_imu_rpy_rad", std::vector<double>{0.0, 0.0, 0.0});
-    if (camera_to_imu_translation.size() == 3U && camera_to_imu_rpy.size() == 3U) {
-      p_i_c_ = Eigen::Vector3d{
-        camera_to_imu_translation[0],
-        camera_to_imu_translation[1],
-        camera_to_imu_translation[2]};
-      q_i_c_ = (
-        Eigen::AngleAxisd(camera_to_imu_rpy[2], Eigen::Vector3d::UnitZ()) *
-        Eigen::AngleAxisd(camera_to_imu_rpy[1], Eigen::Vector3d::UnitY()) *
-        Eigen::AngleAxisd(camera_to_imu_rpy[0], Eigen::Vector3d::UnitX())).normalized();
-    }
+    p_i_c_ = vector3_from_parameter("camera_to_imu_translation_m", camera_to_imu_translation);
+    q_i_c_ = quaternion_from_rpy_parameter("camera_to_imu_rpy_rad", camera_to_imu_rpy);
     visual_alignment_max_shift_px_ = declare_parameter<int>("visual_alignment_max_shift_px", 8);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
@@ -131,16 +123,8 @@ public:
       "lidar_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto lidar_to_imu_rpy = declare_parameter<std::vector<double>>(
       "lidar_to_imu_rpy_rad", std::vector<double>{0.0, 0.0, 0.0});
-    if (lidar_to_imu_translation.size() == 3U && lidar_to_imu_rpy.size() == 3U) {
-      p_i_l_ = Eigen::Vector3d{
-        lidar_to_imu_translation[0],
-        lidar_to_imu_translation[1],
-        lidar_to_imu_translation[2]};
-      q_i_l_ = (
-        Eigen::AngleAxisd(lidar_to_imu_rpy[2], Eigen::Vector3d::UnitZ()) *
-        Eigen::AngleAxisd(lidar_to_imu_rpy[1], Eigen::Vector3d::UnitY()) *
-        Eigen::AngleAxisd(lidar_to_imu_rpy[0], Eigen::Vector3d::UnitX())).normalized();
-    }
+    p_i_l_ = vector3_from_parameter("lidar_to_imu_translation_m", lidar_to_imu_translation);
+    q_i_l_ = quaternion_from_rpy_parameter("lidar_to_imu_rpy_rad", lidar_to_imu_rpy);
     enable_lidar_deskew_ = declare_parameter<bool>("enable_lidar_deskew", true);
     lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
     lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
@@ -410,6 +394,39 @@ private:
     return std::isfinite(msg.k[0]) && std::isfinite(msg.k[4]) &&
            std::isfinite(msg.k[2]) && std::isfinite(msg.k[5]) &&
            msg.k[0] > 0.0 && msg.k[4] > 0.0;
+  }
+
+  static Eigen::Vector3d vector3_from_parameter(
+    const char * parameter_name,
+    const std::vector<double> & values)
+  {
+    if (values.size() != 3U) {
+      throw std::runtime_error(std::string(parameter_name) + " must contain exactly 3 values");
+    }
+    if (!std::isfinite(values[0]) || !std::isfinite(values[1]) || !std::isfinite(values[2])) {
+      throw std::runtime_error(std::string(parameter_name) + " must contain only finite values");
+    }
+    return Eigen::Vector3d{values[0], values[1], values[2]};
+  }
+
+  static Eigen::Quaterniond quaternion_from_rpy_parameter(
+    const char * parameter_name,
+    const std::vector<double> & values)
+  {
+    if (values.size() != 3U) {
+      throw std::runtime_error(std::string(parameter_name) + " must contain exactly 3 values");
+    }
+    if (!std::isfinite(values[0]) || !std::isfinite(values[1]) || !std::isfinite(values[2])) {
+      throw std::runtime_error(std::string(parameter_name) + " must contain only finite values");
+    }
+    const Eigen::Quaterniond q = (
+      Eigen::AngleAxisd(values[2], Eigen::Vector3d::UnitZ()) *
+      Eigen::AngleAxisd(values[1], Eigen::Vector3d::UnitY()) *
+      Eigen::AngleAxisd(values[0], Eigen::Vector3d::UnitX())).normalized();
+    if (!q.coeffs().allFinite() || q.norm() <= std::numeric_limits<double>::epsilon()) {
+      throw std::runtime_error(std::string(parameter_name) + " produced an invalid quaternion");
+    }
+    return q;
   }
 
   void handle_depth(const sensor_msgs::msg::Image & msg)

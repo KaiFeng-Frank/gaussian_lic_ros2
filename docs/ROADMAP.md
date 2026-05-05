@@ -172,6 +172,7 @@ baseline_manifest.json
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
 - [x] Add ROS2-configurable LiDAR-to-IMU extrinsics before LIO, deskew, and mapper point publication.
+- [x] Reject malformed or non-finite LiDAR-to-IMU and camera-to-IMU extrinsics before tracker startup.
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
 - [x] Reject invalid reference/per-point deskew poses so zero quaternions cannot inject NaNs into LiDAR points before LIO/BA.
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, window trimming, and deterministic convergence probes.

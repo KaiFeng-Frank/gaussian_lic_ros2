@@ -177,6 +177,8 @@ def main() -> int:
         errors.append("tracking_node must default serialize_callbacks to true")
     if "valid_camera_info_intrinsics" not in tracking_node_text or "std::isfinite(msg.k[2])" not in tracking_node_text:
         errors.append("tracking_node must reject non-finite CameraInfo intrinsics at the input boundary")
+    if "vector3_from_parameter" not in tracking_node_text or "quaternion_from_rpy_parameter" not in tracking_node_text:
+        errors.append("tracking_node must validate finite LiDAR/camera extrinsic parameters")
     if 'declare_parameter<bool>("enable_sliding_window_optimizer", true)' not in tracking_node_text:
         errors.append("tracking_node must default production sliding-window BA to true")
     if 'DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="true")' not in tracking_launch_text:
