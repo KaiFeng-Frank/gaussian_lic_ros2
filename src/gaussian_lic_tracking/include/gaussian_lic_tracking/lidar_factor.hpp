@@ -24,6 +24,7 @@ struct LidarFactorConfig
   double correction_gain{0.7};
   double max_correction_m{0.25};
   double max_rotation_rad{0.08};
+  double robust_kernel_m{0.15};
 };
 
 struct LidarCorrection

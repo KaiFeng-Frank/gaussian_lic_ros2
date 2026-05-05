@@ -222,6 +222,9 @@ void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointT
   if (factor.frame_points_i.size() != factor.target_points_w.size()) {
     throw std::runtime_error("point-to-point factor source/target sizes must match");
   }
+  if (!factor.point_weights.empty() && factor.point_weights.size() != factor.frame_points_i.size()) {
+    throw std::runtime_error("point-to-point factor weights must match correspondences");
+  }
   if (factor.frame_points_i.empty()) {
     return;
   }
@@ -499,8 +502,11 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       continue;
     }
     const auto & state = states[static_cast<size_t>(index)];
-    const double scale = std::sqrt(factor.weight);
     for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      const double robust_weight = factor.point_weights.empty()
+        ? 1.0
+        : std::max(0.0, factor.point_weights[point_index]);
+      const double scale = std::sqrt(factor.weight * robust_weight);
       Eigen::Vector3d residual =
         state.q_w_i * factor.frame_points_i[point_index] + state.p_w_i -
         factor.target_points_w[point_index];

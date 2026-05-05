@@ -16,6 +16,7 @@ int main()
   config.correction_gain = 1.0;
   config.max_correction_m = 1.0;
   config.max_rotation_rad = 0.2;
+  config.robust_kernel_m = 0.02;
   gaussian_lic_tracking::LidarFactor factor(config);
 
   std::vector<Eigen::Vector3d> scan;
@@ -95,12 +96,26 @@ int main()
   }
   const auto point_factor = factor.build_point_to_point_factor(structured_scan, rotated_prediction);
   std::cout << "lidar_point_factor correspondences=" << point_factor.frame_points_i.size()
-            << " weight=" << point_factor.weight << "\n";
+            << " weight=" << point_factor.weight
+            << " robust_weights=" << point_factor.point_weights.size() << "\n";
   if (point_factor.stamp_ns != rotated_prediction.stamp_ns ||
     point_factor.frame_points_i.size() < config.min_points ||
-    point_factor.frame_points_i.size() != point_factor.target_points_w.size())
+    point_factor.frame_points_i.size() != point_factor.target_points_w.size() ||
+    point_factor.point_weights.size() != point_factor.frame_points_i.size())
   {
     std::cerr << "LiDAR point-to-point window factor is invalid\n";
+    return 1;
+  }
+  bool saw_downweighted_match = false;
+  for (const double weight : point_factor.point_weights) {
+    if (weight <= 0.0 || weight > 1.0) {
+      std::cerr << "LiDAR robust point weight is outside (0, 1]\n";
+      return 1;
+    }
+    saw_downweighted_match = saw_downweighted_match || weight < 1.0;
+  }
+  if (!saw_downweighted_match) {
+    std::cerr << "LiDAR robust kernel did not downweight any nonzero residual\n";
     return 1;
   }
 

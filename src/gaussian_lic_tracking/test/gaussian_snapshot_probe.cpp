@@ -77,12 +77,20 @@ int main()
     frame_points, predicted_pose, 2U, 100U, 0.05, 0.1);
   std::cout << "gaussian_snapshot_point_factor correspondences="
             << point_factor.frame_points_i.size()
-            << " weight=" << point_factor.weight << "\n";
+            << " weight=" << point_factor.weight
+            << " robust_weights=" << point_factor.point_weights.size() << "\n";
   if (point_factor.frame_points_i.size() != frame_points.size() ||
-    point_factor.frame_points_i.size() != point_factor.target_points_w.size())
+    point_factor.frame_points_i.size() != point_factor.target_points_w.size() ||
+    point_factor.point_weights.size() != point_factor.frame_points_i.size())
   {
     std::cerr << "Gaussian snapshot point-to-point factor is invalid\n";
     return 1;
+  }
+  for (const double weight : point_factor.point_weights) {
+    if (weight <= 0.0 || weight > 1.0) {
+      std::cerr << "Gaussian snapshot robust point weight is outside (0, 1]\n";
+      return 1;
+    }
   }
   std::cout << "gaussian_snapshot_probe OK\n";
   return 0;

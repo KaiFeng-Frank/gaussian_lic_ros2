@@ -169,6 +169,7 @@ baseline_manifest.json
 - [x] Expose reusable sliding-window residual/Jacobian/Hessian/RHS normal-equation linearization and cover it with CTest.
 - [x] Feed Schur-complement marginalization back into the live sliding window as retained-state dense priors, with fallback to diagonal anchoring when the marginalized block has no information.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
+- [x] Add per-correspondence robust weighting for LiDAR and Gaussian-map point-to-point tracking-window factors.
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks and cache chunk-complete Gaussian-map snapshots for the reverse channel.

@@ -72,6 +72,7 @@ public:
     lidar_correction_gain_ = declare_parameter<double>("lidar_correction_gain", 0.7);
     lidar_max_correction_m_ = declare_parameter<double>("lidar_max_correction_m", 0.25);
     lidar_max_rotation_rad_ = declare_parameter<double>("lidar_max_rotation_rad", 0.08);
+    lidar_robust_kernel_m_ = declare_parameter<double>("lidar_robust_kernel_m", 0.15);
     lidar_keyframe_translation_m_ = declare_parameter<double>("lidar_keyframe_translation_m", 0.25);
     enable_lidar_deskew_ = declare_parameter<bool>("enable_lidar_deskew", true);
     lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
@@ -109,6 +110,7 @@ public:
     lidar_config.correction_gain = lidar_correction_gain_;
     lidar_config.max_correction_m = lidar_max_correction_m_;
     lidar_config.max_rotation_rad = lidar_max_rotation_rad_;
+    lidar_config.robust_kernel_m = lidar_robust_kernel_m_;
     lidar_factor_.set_config(lidar_config);
     visual_factor_.set_max_pixels(static_cast<size_t>(std::max(visual_max_pixels_, 1)));
 
@@ -951,6 +953,7 @@ private:
   double lidar_correction_gain_{0.7};
   double lidar_max_correction_m_{0.25};
   double lidar_max_rotation_rad_{0.08};
+  double lidar_robust_kernel_m_{0.15};
   double lidar_keyframe_translation_m_{0.25};
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;

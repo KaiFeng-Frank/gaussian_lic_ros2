@@ -38,6 +38,9 @@ void LidarFactor::set_config(const LidarFactorConfig & config)
   if (config.max_rotation_rad <= 0.0) {
     throw std::runtime_error("LiDAR factor max rotation correction must be positive");
   }
+  if (config.robust_kernel_m <= 0.0) {
+    throw std::runtime_error("LiDAR factor robust kernel must be positive");
+  }
   config_ = config;
 }
 
@@ -227,6 +230,7 @@ SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
   factor.frame_points_i.reserve(sampled.size());
   factor.target_points_w.reserve(sampled.size());
+  factor.point_weights.reserve(sampled.size());
   factor.weight = 1.0 / std::max(config_.nearest_distance_m * config_.nearest_distance_m, 1.0e-12);
 
   for (const auto & point_i : sampled) {
@@ -241,13 +245,16 @@ SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
       }
     }
     if (best_distance_sq <= max_distance_sq) {
+      const double residual_norm = std::sqrt(best_distance_sq);
       factor.frame_points_i.push_back(point_i);
       factor.target_points_w.push_back(best_point_w);
+      factor.point_weights.push_back(std::min(1.0, config_.robust_kernel_m / std::max(residual_norm, 1.0e-12)));
     }
   }
   if (factor.frame_points_i.size() < config_.min_points) {
     factor.frame_points_i.clear();
     factor.target_points_w.clear();
+    factor.point_weights.clear();
   }
   return factor;
 }

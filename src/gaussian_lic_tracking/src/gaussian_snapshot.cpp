@@ -129,6 +129,7 @@ SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
     ? static_cast<size_t>(std::ceil(static_cast<double>(frame_points_i.size()) / static_cast<double>(max_frame_points)))
     : 1U;
   const double max_distance_sq = nearest_distance_m * nearest_distance_m;
+  const double robust_kernel_m = 0.5 * nearest_distance_m;
   factor.weight = 1.0 / std::max(max_distance_sq, 1.0e-12);
   for (size_t point_index = 0; point_index < frame_points_i.size(); point_index += stride) {
     const auto & point_i = frame_points_i[point_index];
@@ -146,13 +147,16 @@ SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
       }
     }
     if (best_distance_sq <= max_distance_sq) {
+      const double residual_norm = std::sqrt(best_distance_sq);
       factor.frame_points_i.push_back(point_i);
       factor.target_points_w.push_back(best_point_w);
+      factor.point_weights.push_back(std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12)));
     }
   }
   if (factor.frame_points_i.size() < min_points) {
     factor.frame_points_i.clear();
     factor.target_points_w.clear();
+    factor.point_weights.clear();
   }
   return factor;
 }

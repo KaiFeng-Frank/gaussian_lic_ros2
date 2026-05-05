@@ -75,6 +75,7 @@ struct SlidingWindowPointToPointFactor
   int64_t stamp_ns{0};
   std::vector<Eigen::Vector3d> frame_points_i;
   std::vector<Eigen::Vector3d> target_points_w;
+  std::vector<double> point_weights;
   double weight{1.0};
 };
 
