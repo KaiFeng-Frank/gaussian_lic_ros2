@@ -83,6 +83,9 @@ int main()
   factor.preintegration = preintegration;
   factor.gravity_w = Eigen::Vector3d{0.0, 0.0, -9.81};
   factor.weight = 3.7;
+  factor.rotation_weight = 1.4;
+  factor.velocity_weight = 0.8;
+  factor.position_weight = 2.1;
   factor.bias_weight = 2.25;
 
   gaussian_lic_tracking::SlidingWindowOptimizer optimizer;

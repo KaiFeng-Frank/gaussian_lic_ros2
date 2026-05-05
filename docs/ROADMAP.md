@@ -164,6 +164,7 @@ baseline_manifest.json
 - [x] Add a native timestamp-safe cubic B-spline trajectory manager foundation with position/velocity and SO(3) cubic orientation constant-rate probes.
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.
 - [x] Add signed-nanosecond IMU history interpolation and an IMU preintegration residual foundation with deterministic probes.
+- [x] Add per-block IMU preintegration residual weighting for rotation, velocity, and position constraints with analytic Jacobian coverage.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
 - [x] Add ROS2-configurable LiDAR-to-IMU extrinsics before LIO, deskew, and mapper point publication.

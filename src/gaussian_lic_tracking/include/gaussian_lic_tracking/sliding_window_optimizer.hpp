@@ -49,6 +49,9 @@ struct SlidingWindowImuFactor
   ImuPreintegrator preintegration;
   Eigen::Vector3d gravity_w{Eigen::Vector3d::Zero()};
   double weight{1.0};
+  double rotation_weight{1.0};
+  double velocity_weight{1.0};
+  double position_weight{1.0};
   double bias_weight{1.0};
 };
 

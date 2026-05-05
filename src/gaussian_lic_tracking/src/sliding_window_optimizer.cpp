@@ -497,10 +497,18 @@ void SlidingWindowOptimizer::add_imu_factor(const SlidingWindowImuFactor & facto
   if (factor.to_stamp_ns <= factor.from_stamp_ns) {
     throw std::runtime_error("IMU factor timestamps must be strictly increasing");
   }
-  if (!std::isfinite(factor.weight) || !std::isfinite(factor.bias_weight) ||
-    factor.weight <= 0.0 || factor.bias_weight < 0.0)
+  if (!std::isfinite(factor.weight) || !std::isfinite(factor.rotation_weight) ||
+    !std::isfinite(factor.velocity_weight) || !std::isfinite(factor.position_weight) ||
+    !std::isfinite(factor.bias_weight) || factor.weight <= 0.0 ||
+    factor.rotation_weight < 0.0 || factor.velocity_weight < 0.0 ||
+    factor.position_weight < 0.0 || factor.bias_weight < 0.0)
   {
     throw std::runtime_error("IMU factor weights must be finite and valid");
+  }
+  if (factor.rotation_weight == 0.0 && factor.velocity_weight == 0.0 &&
+    factor.position_weight == 0.0 && factor.bias_weight == 0.0)
+  {
+    throw std::runtime_error("IMU factor must keep at least one residual block active");
   }
   if (!factor.gravity_w.allFinite() || !factor.preintegration.delta_q().coeffs().allFinite() ||
     factor.preintegration.delta_q().norm() <= std::numeric_limits<double>::epsilon() ||
@@ -905,7 +913,14 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       to_imu_state(states[static_cast<size_t>(from)]),
       to_imu_state(states[static_cast<size_t>(to)]),
       factor.gravity_w);
-    append(std::sqrt(factor.weight) * residual.residual);
+    Eigen::Matrix<double, 9, 1> weighted_residual = residual.residual;
+    weighted_residual.template segment<3>(0) *=
+      std::sqrt(factor.weight * factor.rotation_weight);
+    weighted_residual.template segment<3>(3) *=
+      std::sqrt(factor.weight * factor.velocity_weight);
+    weighted_residual.template segment<3>(6) *=
+      std::sqrt(factor.weight * factor.position_weight);
+    append(weighted_residual);
     Eigen::Matrix<double, 6, 1> bias_residual;
     bias_residual.template segment<3>(0) =
       states[static_cast<size_t>(to)].gyro_bias - states[static_cast<size_t>(from)].gyro_bias;
@@ -1120,7 +1135,9 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     const auto & to_state = states[static_cast<size_t>(to)];
     const ImuBias start_bias{from_state.gyro_bias, from_state.accel_bias};
     const auto corrected_preintegration = factor.preintegration.reintegrated(start_bias);
-    const double residual_scale = std::sqrt(factor.weight);
+    const double rotation_scale = std::sqrt(factor.weight * factor.rotation_weight);
+    const double velocity_scale = std::sqrt(factor.weight * factor.velocity_weight);
+    const double position_scale = std::sqrt(factor.weight * factor.position_weight);
     const Eigen::Matrix3d r_i_w = from_state.q_w_i.normalized().inverse().toRotationMatrix();
     const Eigen::Quaterniond predicted_delta_q =
       from_state.q_w_i.normalized().inverse() * to_state.q_w_i.normalized();
@@ -1145,19 +1162,23 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       const Eigen::Matrix<double, 9, 6> bias_residual_jacobian =
         imu_preintegration_bias_residual_jacobian(factor, from_state, to_state);
       jacobian.template block<3, 3>(row, from_offset) =
-        residual_scale * rotation_middle_jacobian * (-r_i_w);
+        rotation_scale * rotation_middle_jacobian * (-r_i_w);
       jacobian.template block<3, 3>(row + 3, from_offset) =
-        residual_scale * r_i_w * skew_symmetric(delta_v_w);
+        velocity_scale * r_i_w * skew_symmetric(delta_v_w);
       jacobian.template block<3, 3>(row + 3, from_offset + 3) =
-        -residual_scale * r_i_w;
+        -velocity_scale * r_i_w;
       jacobian.template block<3, 3>(row + 6, from_offset) =
-        residual_scale * r_i_w * skew_symmetric(delta_p_w);
+        position_scale * r_i_w * skew_symmetric(delta_p_w);
       jacobian.template block<3, 3>(row + 6, from_offset + 3) =
-        -residual_scale * corrected_preintegration.delta_t_s() * r_i_w;
+        -position_scale * corrected_preintegration.delta_t_s() * r_i_w;
       jacobian.template block<3, 3>(row + 6, from_offset + 6) =
-        -residual_scale * r_i_w;
-      jacobian.block(row, from_offset + 9, 9, 6) =
-        residual_scale * bias_residual_jacobian;
+        -position_scale * r_i_w;
+      jacobian.block(row, from_offset + 9, 3, 6) =
+        rotation_scale * bias_residual_jacobian.block(0, 0, 3, 6);
+      jacobian.block(row + 3, from_offset + 9, 3, 6) =
+        velocity_scale * bias_residual_jacobian.block(3, 0, 3, 6);
+      jacobian.block(row + 6, from_offset + 9, 3, 6) =
+        position_scale * bias_residual_jacobian.block(6, 0, 3, 6);
       jacobian.template block<3, 3>(row + 9, from_offset + 9) =
         -bias_scale * Eigen::Matrix3d::Identity();
       jacobian.template block<3, 3>(row + 12, from_offset + 12) =
@@ -1165,11 +1186,11 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     }
     if (to_offset >= 0) {
       jacobian.template block<3, 3>(row, to_offset) =
-        residual_scale * rotation_middle_jacobian * r_i_w;
+        rotation_scale * rotation_middle_jacobian * r_i_w;
       jacobian.template block<3, 3>(row + 3, to_offset + 3) =
-        residual_scale * r_i_w;
+        velocity_scale * r_i_w;
       jacobian.template block<3, 3>(row + 6, to_offset + 6) =
-        residual_scale * r_i_w;
+        position_scale * r_i_w;
       jacobian.template block<3, 3>(row + 9, to_offset + 9) =
         bias_scale * Eigen::Matrix3d::Identity();
       jacobian.template block<3, 3>(row + 12, to_offset + 12) =

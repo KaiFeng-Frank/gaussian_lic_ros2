@@ -168,6 +168,12 @@ public:
     sliding_window_min_normal_equation_rank_ratio_ =
       declare_parameter<double>("sliding_window_min_normal_equation_rank_ratio", 0.0);
     sliding_window_imu_weight_ = declare_parameter<double>("sliding_window_imu_weight", 1.0);
+    sliding_window_imu_rotation_weight_ =
+      declare_parameter<double>("sliding_window_imu_rotation_weight", 1.0);
+    sliding_window_imu_velocity_weight_ =
+      declare_parameter<double>("sliding_window_imu_velocity_weight", 1.0);
+    sliding_window_imu_position_weight_ =
+      declare_parameter<double>("sliding_window_imu_position_weight", 1.0);
     sliding_window_bias_weight_ = declare_parameter<double>("sliding_window_bias_weight", 1.0);
     sliding_window_pose_translation_weight_ =
       declare_parameter<double>("sliding_window_pose_translation_weight", 2.0);
@@ -828,6 +834,9 @@ private:
       factor.preintegration = sliding_window_preintegrator_;
       factor.gravity_w = imu_propagator_.gravity_w();
       factor.weight = sliding_window_imu_weight_;
+      factor.rotation_weight = sliding_window_imu_rotation_weight_;
+      factor.velocity_weight = sliding_window_imu_velocity_weight_;
+      factor.position_weight = sliding_window_imu_position_weight_;
       factor.bias_weight = sliding_window_bias_weight_;
       bool imu_factor_added = false;
       try {
@@ -1816,6 +1825,9 @@ private:
   double sliding_window_min_normal_equation_rank_ratio_{0.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double sliding_window_imu_weight_{1.0};
+  double sliding_window_imu_rotation_weight_{1.0};
+  double sliding_window_imu_velocity_weight_{1.0};
+  double sliding_window_imu_position_weight_{1.0};
   double sliding_window_bias_weight_{1.0};
   double sliding_window_pose_translation_weight_{2.0};
   double sliding_window_pose_rotation_weight_{2.0};
