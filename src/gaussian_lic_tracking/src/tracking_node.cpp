@@ -11,6 +11,7 @@
 #include <gaussian_lic_tracking/imu_propagator.hpp>
 #include <gaussian_lic_tracking/lidar_deskew.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
+#include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
@@ -69,11 +70,23 @@ public:
     lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
     lidar_time_mode_ = declare_parameter<std::string>("lidar_time_mode", "auto");
     imu_history_size_ = declare_parameter<int>("imu_history_size", 4000);
+    enable_sliding_window_optimizer_ = declare_parameter<bool>("enable_sliding_window_optimizer", false);
+    sliding_window_max_states_ = declare_parameter<int>("sliding_window_max_states", 12);
+    sliding_window_max_iterations_ = declare_parameter<int>("sliding_window_max_iterations", 3);
+    sliding_window_imu_weight_ = declare_parameter<double>("sliding_window_imu_weight", 1.0);
+    sliding_window_pose_translation_weight_ =
+      declare_parameter<double>("sliding_window_pose_translation_weight", 2.0);
+    sliding_window_pose_rotation_weight_ =
+      declare_parameter<double>("sliding_window_pose_rotation_weight", 2.0);
     const auto gravity = declare_parameter<std::vector<double>>("imu_gravity_w", std::vector<double>{0.0, 0.0, 0.0});
     if (gravity.size() == 3U) {
       imu_propagator_.set_gravity_w(Eigen::Vector3d{gravity[0], gravity[1], gravity[2]});
     }
     imu_propagator_.set_max_history_size(static_cast<size_t>(std::max(imu_history_size_, 2)));
+    gaussian_lic_tracking::SlidingWindowConfig window_config;
+    window_config.max_states = static_cast<size_t>(std::max(sliding_window_max_states_, 2));
+    window_config.max_iterations = static_cast<size_t>(std::max(sliding_window_max_iterations_, 1));
+    sliding_window_optimizer_.set_config(window_config);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
     lidar_config.min_points = static_cast<size_t>(std::max(lidar_min_points_, 1));
@@ -185,6 +198,19 @@ private:
           msg.linear_acceleration.x,
           msg.linear_acceleration.y,
           msg.linear_acceleration.z});
+      if (enable_sliding_window_optimizer_) {
+        sliding_window_preintegrator_.add_measurement(
+          stamp_ns,
+          Eigen::Vector3d{
+            msg.angular_velocity.x,
+            msg.angular_velocity.y,
+            msg.angular_velocity.z},
+          Eigen::Vector3d{
+            msg.linear_acceleration.x,
+            msg.linear_acceleration.y,
+            msg.linear_acceleration.z});
+        sliding_window_preintegrator_initialized_ = true;
+      }
     } catch (const std::exception & ex) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
@@ -292,6 +318,10 @@ private:
       }
     }
 
+    if (enable_sliding_window_optimizer_) {
+      tracking_pose = update_sliding_window(tracking_pose);
+    }
+
     geometry_msgs::msg::PoseStamped pose;
     pose.header.stamp = msg.header.stamp;
     pose.header.frame_id = world_frame_;
@@ -333,6 +363,75 @@ private:
       tf.transform.rotation = pose.pose.orientation;
       tf_broadcaster_->sendTransform(tf);
     }
+  }
+
+  gaussian_lic_tracking::TrajectoryPose update_sliding_window(
+    const gaussian_lic_tracking::TrajectoryPose & input_pose)
+  {
+    gaussian_lic_tracking::TrajectoryPose output_pose = input_pose;
+    gaussian_lic_tracking::ImuState imu_state;
+    if (!imu_propagator_.query_state(input_pose.stamp_ns, imu_state)) {
+      if (!imu_propagator_.initialized()) {
+        return output_pose;
+      }
+      imu_state = imu_propagator_.state();
+    }
+
+    gaussian_lic_tracking::SlidingWindowState state;
+    state.stamp_ns = input_pose.stamp_ns;
+    state.p_w_i = input_pose.p_w_i;
+    state.q_w_i = input_pose.q_w_i;
+    state.v_w_i = imu_state.v_w_i;
+    state.gyro_bias = imu_state.gyro_bias;
+    state.accel_bias = imu_state.accel_bias;
+    state.fixed = !has_sliding_window_state_;
+    sliding_window_optimizer_.add_or_update_state(state);
+
+    gaussian_lic_tracking::SlidingWindowPosePrior prior;
+    prior.stamp_ns = input_pose.stamp_ns;
+    prior.p_w_i = input_pose.p_w_i;
+    prior.q_w_i = input_pose.q_w_i;
+    prior.translation_weight = sliding_window_pose_translation_weight_;
+    prior.rotation_weight = sliding_window_pose_rotation_weight_;
+    sliding_window_optimizer_.add_pose_prior(prior);
+
+    if (has_sliding_window_state_ && sliding_window_preintegrator_initialized_ &&
+      sliding_window_preintegrator_.delta_t_s() > 0.0)
+    {
+      gaussian_lic_tracking::SlidingWindowImuFactor factor;
+      factor.from_stamp_ns = last_sliding_window_stamp_ns_;
+      factor.to_stamp_ns = input_pose.stamp_ns;
+      factor.preintegration = sliding_window_preintegrator_;
+      factor.gravity_w = imu_propagator_.gravity_w();
+      factor.weight = sliding_window_imu_weight_;
+      try {
+        sliding_window_optimizer_.add_imu_factor(factor);
+        const auto summary = sliding_window_optimizer_.optimize();
+        gaussian_lic_tracking::SlidingWindowState optimized;
+        if (sliding_window_optimizer_.get_state(input_pose.stamp_ns, optimized)) {
+          output_pose.p_w_i = optimized.p_w_i;
+          output_pose.q_w_i = optimized.q_w_i;
+        }
+        RCLCPP_DEBUG_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window states=%zu imu_factors=%zu priors=%zu cost %.6g -> %.6g",
+          summary.state_count,
+          summary.imu_factor_count,
+          summary.pose_prior_count,
+          summary.initial_cost,
+          summary.final_cost);
+      } catch (const std::exception & ex) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window optimization skipped: %s", ex.what());
+      }
+    }
+
+    has_sliding_window_state_ = true;
+    last_sliding_window_stamp_ns_ = input_pose.stamp_ns;
+    sliding_window_preintegrator_.reset(input_pose.stamp_ns);
+    sliding_window_preintegrator_initialized_ = true;
+    return output_pose;
   }
 
   bool decode_image_gray(
@@ -737,10 +836,16 @@ private:
   int visual_max_pixels_{200000};
   bool enable_lio_factor_{true};
   bool enable_lidar_deskew_{true};
+  bool enable_sliding_window_optimizer_{false};
   std::string lidar_time_field_{"auto"};
   std::string lidar_time_unit_{"auto"};
   std::string lidar_time_mode_{"auto"};
   int imu_history_size_{4000};
+  int sliding_window_max_states_{12};
+  int sliding_window_max_iterations_{3};
+  double sliding_window_imu_weight_{1.0};
+  double sliding_window_pose_translation_weight_{2.0};
+  double sliding_window_pose_rotation_weight_{2.0};
   int lidar_min_points_{32};
   int lidar_max_frame_points_{2000};
   int lidar_max_map_points_{20000};
@@ -766,6 +871,11 @@ private:
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
   gaussian_lic_tracking::ImuPropagator imu_propagator_;
+  gaussian_lic_tracking::SlidingWindowOptimizer sliding_window_optimizer_;
+  gaussian_lic_tracking::ImuPreintegrator sliding_window_preintegrator_;
+  bool sliding_window_preintegrator_initialized_{false};
+  bool has_sliding_window_state_{false};
+  int64_t last_sliding_window_stamp_ns_{0};
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   bool has_lidar_keyframe_{false};

@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
+#include <gaussian_lic_tracking/imu_preintegrator.hpp>
+
+namespace gaussian_lic_tracking
+{
+
+struct SlidingWindowConfig
+{
+  size_t max_states{12};
+  size_t max_iterations{4};
+  double damping{1.0e-6};
+  double step_tolerance{1.0e-8};
+  double numeric_epsilon{1.0e-6};
+};
+
+struct SlidingWindowState
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d p_w_i{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_w_i{Eigen::Quaterniond::Identity()};
+  Eigen::Vector3d v_w_i{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d gyro_bias{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d accel_bias{Eigen::Vector3d::Zero()};
+  bool fixed{false};
+};
+
+struct SlidingWindowImuFactor
+{
+  int64_t from_stamp_ns{0};
+  int64_t to_stamp_ns{0};
+  ImuPreintegrator preintegration;
+  Eigen::Vector3d gravity_w{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+};
+
+struct SlidingWindowPosePrior
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d p_w_i{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_w_i{Eigen::Quaterniond::Identity()};
+  double translation_weight{1.0};
+  double rotation_weight{1.0};
+};
+
+struct SlidingWindowSummary
+{
+  size_t state_count{0};
+  size_t imu_factor_count{0};
+  size_t pose_prior_count{0};
+  size_t marginalized_state_count{0};
+  size_t iterations{0};
+  double initial_cost{0.0};
+  double final_cost{0.0};
+  bool converged{false};
+};
+
+class SlidingWindowOptimizer
+{
+public:
+  explicit SlidingWindowOptimizer(SlidingWindowConfig config = {});
+
+  void set_config(const SlidingWindowConfig & config);
+  const SlidingWindowConfig & config() const { return config_; }
+
+  void clear();
+  void add_or_update_state(const SlidingWindowState & state);
+  bool get_state(int64_t stamp_ns, SlidingWindowState & state) const;
+  const std::vector<SlidingWindowState> & states() const { return states_; }
+
+  void add_imu_factor(const SlidingWindowImuFactor & factor);
+  void add_pose_prior(const SlidingWindowPosePrior & prior);
+
+  SlidingWindowSummary optimize();
+
+private:
+  struct VariableBlock
+  {
+    size_t state_index{0};
+    size_t offset{0};
+  };
+
+  static Eigen::Vector3d rotation_residual(
+    const Eigen::Quaterniond & measured_q,
+    const Eigen::Quaterniond & predicted_q);
+  static void apply_delta(
+    std::vector<SlidingWindowState> & states,
+    const std::vector<VariableBlock> & variables,
+    const Eigen::VectorXd & delta,
+    double scale = 1.0);
+
+  int find_state_index(int64_t stamp_ns) const;
+  std::vector<VariableBlock> variable_layout() const;
+  Eigen::VectorXd build_residual(const std::vector<SlidingWindowState> & states) const;
+  double compute_cost(const Eigen::VectorXd & residual) const;
+  size_t enforce_window_size();
+
+  SlidingWindowConfig config_;
+  std::vector<SlidingWindowState> states_;
+  std::vector<SlidingWindowImuFactor> imu_factors_;
+  std::vector<SlidingWindowPosePrior> pose_priors_;
+};
+
+}  // namespace gaussian_lic_tracking
