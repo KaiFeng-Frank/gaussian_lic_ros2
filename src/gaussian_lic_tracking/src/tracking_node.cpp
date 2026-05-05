@@ -2127,6 +2127,16 @@ private:
       static_cast<uint64_t>(summary.linear_solve_failure_count);
     status.sliding_window_initial_cost = summary.initial_cost;
     status.sliding_window_final_cost = summary.final_cost;
+    status.sliding_window_imu_cost = summary.imu_cost;
+    status.sliding_window_pose_prior_cost = summary.pose_prior_cost;
+    status.sliding_window_state_prior_cost = summary.state_prior_cost;
+    status.sliding_window_dense_prior_cost = summary.dense_prior_cost;
+    status.sliding_window_point_factor_cost = summary.point_factor_cost;
+    status.sliding_window_plane_factor_cost = summary.plane_factor_cost;
+    status.sliding_window_visual_factor_cost = summary.visual_factor_cost;
+    status.sliding_window_se3_photometric_factor_cost =
+      summary.se3_photometric_factor_cost;
+    status.sliding_window_smoothness_factor_cost = summary.smoothness_factor_cost;
     status.sliding_window_last_step_norm = summary.last_step_norm;
     status.sliding_window_last_step_scale = summary.last_step_scale;
     status.sliding_window_last_damping = summary.last_damping;

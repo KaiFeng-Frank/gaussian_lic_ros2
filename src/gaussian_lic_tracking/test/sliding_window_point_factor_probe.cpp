@@ -52,6 +52,7 @@ int main()
 
   if (!summary.converged || summary.point_factor_count != 1U ||
     summary.final_cost >= summary.initial_cost ||
+    summary.point_factor_cost > 1.0e-18 ||
     position_error > 1.0e-7 || rotation_error_norm > 1.0e-7)
   {
     std::cerr << "sliding window point-to-point factor failed to recover the pose\n";
@@ -98,8 +99,14 @@ int main()
   std::cout << "sliding_window_point_factor_robust_probe initial_cost="
             << robust_summary.initial_cost
             << " final_cost=" << robust_summary.final_cost
+            << " point_cost=" << robust_summary.point_factor_cost
+            << " pose_prior_cost=" << robust_summary.pose_prior_cost
             << " position_error=" << robust_position_error << "\n";
+  const double robust_cost_sum =
+    robust_summary.point_factor_cost + robust_summary.pose_prior_cost;
   if (!robust_summary.converged || robust_summary.final_cost >= robust_summary.initial_cost ||
+    robust_summary.point_factor_cost <= 0.0 ||
+    std::abs(robust_summary.final_cost - robust_cost_sum) > 1.0e-9 ||
     robust_position_error > 0.03)
   {
     std::cerr << "dynamic Huber point-to-point weighting failed to reject an outlier\n";

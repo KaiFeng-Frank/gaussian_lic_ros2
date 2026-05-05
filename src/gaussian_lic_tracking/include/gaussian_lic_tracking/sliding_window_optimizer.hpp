@@ -143,6 +143,19 @@ struct SlidingWindowDensePrior
   Eigen::VectorXd target_delta;
 };
 
+struct SlidingWindowCostBreakdown
+{
+  double imu_cost{0.0};
+  double pose_prior_cost{0.0};
+  double state_prior_cost{0.0};
+  double dense_prior_cost{0.0};
+  double point_factor_cost{0.0};
+  double plane_factor_cost{0.0};
+  double visual_factor_cost{0.0};
+  double se3_photometric_factor_cost{0.0};
+  double smoothness_factor_cost{0.0};
+};
+
 struct SlidingWindowSummary
 {
   size_t state_count{0};
@@ -176,6 +189,15 @@ struct SlidingWindowSummary
   size_t linear_solve_failure_count{0};
   double initial_cost{0.0};
   double final_cost{0.0};
+  double imu_cost{0.0};
+  double pose_prior_cost{0.0};
+  double state_prior_cost{0.0};
+  double dense_prior_cost{0.0};
+  double point_factor_cost{0.0};
+  double plane_factor_cost{0.0};
+  double visual_factor_cost{0.0};
+  double se3_photometric_factor_cost{0.0};
+  double smoothness_factor_cost{0.0};
   double last_step_norm{0.0};
   double last_step_scale{0.0};
   double last_damping{0.0};
@@ -277,6 +299,9 @@ private:
   SlidingWindowStatePrior make_state_prior(const SlidingWindowState & state) const;
   std::vector<VariableBlock> variable_layout() const;
   Eigen::VectorXd build_residual(const std::vector<SlidingWindowState> & states) const;
+  Eigen::VectorXd build_residual(
+    const std::vector<SlidingWindowState> & states,
+    SlidingWindowCostBreakdown * breakdown) const;
   std::vector<NumericJacobianBlock> fill_analytic_jacobian(
     const std::vector<SlidingWindowState> & states,
     const std::vector<VariableBlock> & variables,

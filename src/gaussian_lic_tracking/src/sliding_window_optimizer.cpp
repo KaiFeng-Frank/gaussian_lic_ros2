@@ -954,6 +954,16 @@ Eigen::Matrix<double, 15, 1> SlidingWindowOptimizer::state_delta(
 Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   const std::vector<SlidingWindowState> & states) const
 {
+  return build_residual(states, nullptr);
+}
+
+Eigen::VectorXd SlidingWindowOptimizer::build_residual(
+  const std::vector<SlidingWindowState> & states,
+  SlidingWindowCostBreakdown * breakdown) const
+{
+  if (breakdown != nullptr) {
+    *breakdown = SlidingWindowCostBreakdown{};
+  }
   std::vector<double> values;
   values.reserve(
     imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
@@ -961,9 +971,14 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     visual_factors_.size() * 2U + se3_photometric_factors_.size() * 6U +
     smoothness_factors_.size() * 15U);
 
-  auto append = [&values](const Eigen::VectorXd & residual) {
+  auto append = [&values, breakdown](
+      const Eigen::VectorXd & residual,
+      double SlidingWindowCostBreakdown::* cost_field = nullptr) {
       for (Eigen::Index i = 0; i < residual.size(); ++i) {
         values.push_back(residual[i]);
+      }
+      if (breakdown != nullptr && cost_field != nullptr) {
+        (*breakdown).*cost_field += 0.5 * residual.squaredNorm();
       }
     };
 
@@ -1000,13 +1015,13 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       std::sqrt(factor.weight * factor.velocity_weight);
     weighted_residual.template segment<3>(6) *=
       std::sqrt(factor.weight * factor.position_weight);
-    append(weighted_residual);
+    append(weighted_residual, &SlidingWindowCostBreakdown::imu_cost);
     Eigen::Matrix<double, 6, 1> bias_residual;
     bias_residual.template segment<3>(0) =
       states[static_cast<size_t>(to)].gyro_bias - states[static_cast<size_t>(from)].gyro_bias;
     bias_residual.template segment<3>(3) =
       states[static_cast<size_t>(to)].accel_bias - states[static_cast<size_t>(from)].accel_bias;
-    append(std::sqrt(factor.bias_weight) * bias_residual);
+    append(std::sqrt(factor.bias_weight) * bias_residual, &SlidingWindowCostBreakdown::imu_cost);
   }
 
   for (const auto & prior : pose_priors_) {
@@ -1020,7 +1035,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       std::sqrt(prior.rotation_weight) * rotation_residual(prior.q_w_i, state.q_w_i);
     residual.template segment<3>(3) =
       std::sqrt(prior.translation_weight) * (state.p_w_i - prior.p_w_i);
-    append(residual);
+    append(residual, &SlidingWindowCostBreakdown::pose_prior_cost);
   }
 
   for (const auto & prior : state_priors_) {
@@ -1040,7 +1055,9 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       state.gyro_bias - prior.gyro_bias;
     residual.template segment<3>(12) =
       state.accel_bias - prior.accel_bias;
-    append(effective_state_prior_sqrt_information(prior) * residual);
+    append(
+      effective_state_prior_sqrt_information(prior) * residual,
+      &SlidingWindowCostBreakdown::state_prior_cost);
   }
 
   for (const auto & prior : dense_priors_) {
@@ -1060,7 +1077,9 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
         state_delta(prior.reference_states[reference_index], states[static_cast<size_t>(index)]);
     }
     if (complete) {
-      append(prior.sqrt_information * (delta - prior.target_delta));
+      append(
+        prior.sqrt_information * (delta - prior.target_delta),
+        &SlidingWindowCostBreakdown::dense_prior_cost);
     }
   }
 
@@ -1079,7 +1098,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
         factor.target_points_w[point_index];
       const double robust_weight = huber_weight(residual.norm(), factor.huber_delta_m);
       const double scale = std::sqrt(factor.weight * base_weight * robust_weight);
-      append(scale * residual);
+      append(scale * residual, &SlidingWindowCostBreakdown::point_factor_cost);
     }
   }
 
@@ -1102,7 +1121,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       const double scale = std::sqrt(factor.weight * base_weight * robust_weight);
       residual[static_cast<Eigen::Index>(point_index)] = scale * point_residual;
     }
-    append(residual);
+    append(residual, &SlidingWindowCostBreakdown::plane_factor_cost);
   }
 
   for (const auto & factor : visual_factors_) {
@@ -1118,7 +1137,9 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     residual.x() = state.p_w_i.x() - target_xy.x();
     residual.y() = state.p_w_i.y() - target_xy.y();
     const double robust_weight = huber_weight(residual.norm(), factor.huber_delta_m);
-    append(std::sqrt(factor.weight * robust_weight) * residual);
+    append(
+      std::sqrt(factor.weight * robust_weight) * residual,
+      &SlidingWindowCostBreakdown::visual_factor_cost);
   }
 
   for (const auto & factor : se3_photometric_factors_) {
@@ -1133,7 +1154,9 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     const Eigen::Matrix<double, 6, 1> whitened_residual =
       factor.sqrt_information * (delta - factor.target_delta);
     const double robust_weight = huber_weight(whitened_residual.norm(), factor.huber_delta);
-    append(std::sqrt(factor.weight * robust_weight) * whitened_residual);
+    append(
+      std::sqrt(factor.weight * robust_weight) * whitened_residual,
+      &SlidingWindowCostBreakdown::se3_photometric_factor_cost);
   }
 
   for (const auto & factor : smoothness_factors_) {
@@ -1148,7 +1171,8 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
         factor,
         states[static_cast<size_t>(previous)],
         states[static_cast<size_t>(current)],
-        states[static_cast<size_t>(next)]));
+        states[static_cast<size_t>(next)]),
+      &SlidingWindowCostBreakdown::smoothness_factor_cost);
   }
 
   Eigen::VectorXd residual(values.size());
@@ -1928,6 +1952,22 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
           min_eigenvalue(normal.hessian.block<3, 3>(offset + 12, offset + 12)));
       }
     };
+  auto refresh_cost_summary = [&summary, this]() {
+      SlidingWindowCostBreakdown breakdown;
+      const Eigen::VectorXd final_residual = build_residual(states_, &breakdown);
+      if (final_residual.allFinite()) {
+        summary.final_cost = compute_cost(final_residual);
+      }
+      summary.imu_cost = breakdown.imu_cost;
+      summary.pose_prior_cost = breakdown.pose_prior_cost;
+      summary.state_prior_cost = breakdown.state_prior_cost;
+      summary.dense_prior_cost = breakdown.dense_prior_cost;
+      summary.point_factor_cost = breakdown.point_factor_cost;
+      summary.plane_factor_cost = breakdown.plane_factor_cost;
+      summary.visual_factor_cost = breakdown.visual_factor_cost;
+      summary.se3_photometric_factor_cost = breakdown.se3_photometric_factor_cost;
+      summary.smoothness_factor_cost = breakdown.smoothness_factor_cost;
+    };
   refresh_dense_prior_summary();
   refresh_normal_equation_summary();
   auto normal_equation_is_degenerate = [&summary, this]() {
@@ -1953,12 +1993,14 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
     summary.normal_equation_degenerate = true;
     ++summary.rejected_steps;
     refresh_bias_summary();
+    refresh_cost_summary();
     return summary;
   }
   if (summary.state_gap_degenerate) {
     summary.normal_equation_degenerate = true;
     ++summary.rejected_steps;
     refresh_bias_summary();
+    refresh_cost_summary();
     return summary;
   }
   if (residual.size() == 0 || variable_count == 0U) {
@@ -1966,12 +2008,14 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
     refresh_bias_summary();
     refresh_dense_prior_summary();
     refresh_normal_equation_summary();
+    refresh_cost_summary();
     return summary;
   }
   if (normal_equation_is_degenerate()) {
     summary.normal_equation_degenerate = true;
     ++summary.rejected_steps;
     refresh_bias_summary();
+    refresh_cost_summary();
     return summary;
   }
 
@@ -2069,6 +2113,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   refresh_bias_summary();
   refresh_dense_prior_summary();
   refresh_normal_equation_summary();
+  refresh_cost_summary();
   return summary;
 }
 
