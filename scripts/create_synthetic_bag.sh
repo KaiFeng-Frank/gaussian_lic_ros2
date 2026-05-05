@@ -88,6 +88,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${GAUSSIAN_LIC_BAG_ROS_DOMAIN_ID:-}" ]]; then
+  export ROS_DOMAIN_ID="${GAUSSIAN_LIC_BAG_ROS_DOMAIN_ID}"
+elif [[ -z "${ROS_DOMAIN_ID:-}" ]]; then
+  export ROS_DOMAIN_ID="$((120 + (BASHPID % 100)))"
+fi
+
 set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source "${ROOT_DIR}/install/setup.bash"

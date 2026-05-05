@@ -72,6 +72,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${GAUSSIAN_LIC_SMOKE_ROS_DOMAIN_ID:-}" ]]; then
+  export ROS_DOMAIN_ID="${GAUSSIAN_LIC_SMOKE_ROS_DOMAIN_ID}"
+elif [[ -z "${ROS_DOMAIN_ID:-}" ]]; then
+  export ROS_DOMAIN_ID="$((120 + (BASHPID % 100)))"
+fi
+
 cd "${ROOT_DIR}"
 if [[ ! -f "${BAG_PATH}/metadata.yaml" ]]; then
   ./scripts/create_synthetic_bag.sh \

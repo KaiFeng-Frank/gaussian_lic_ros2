@@ -188,11 +188,17 @@ int main()
     std::cerr << "LiDAR point-to-point window factor is invalid\n";
     return 1;
   }
+  bool point_factor_downweighted = false;
   for (const double weight : point_factor.point_weights) {
     if (weight <= 0.0 || weight > 1.0) {
       std::cerr << "LiDAR base point weight is outside (0, 1]\n";
       return 1;
     }
+    point_factor_downweighted = point_factor_downweighted || weight < 1.0;
+  }
+  if (!point_factor_downweighted) {
+    std::cerr << "LiDAR point-to-point factor did not downweight nonzero residual correspondences\n";
+    return 1;
   }
 
   std::vector<Eigen::Vector3d> plane_scan;
@@ -225,6 +231,18 @@ int main()
       std::cerr << "LiDAR plane normal is not aligned with the fitted plane\n";
       return 1;
     }
+  }
+  bool plane_factor_downweighted = false;
+  for (const double weight : plane_factor.point_weights) {
+    if (weight <= 0.0 || weight > 1.0) {
+      std::cerr << "LiDAR plane point weight is outside (0, 1]\n";
+      return 1;
+    }
+    plane_factor_downweighted = plane_factor_downweighted || weight < 1.0;
+  }
+  if (!plane_factor_downweighted) {
+    std::cerr << "LiDAR point-to-plane factor did not downweight nonzero residual correspondences\n";
+    return 1;
   }
 
   factor.clear();

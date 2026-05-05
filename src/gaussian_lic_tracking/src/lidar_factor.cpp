@@ -21,6 +21,17 @@ bool pose_is_finite(const TrajectoryPose & pose)
   return pose.p_w_i.allFinite() && pose.q_w_i.coeffs().allFinite() &&
          pose.q_w_i.norm() > std::numeric_limits<double>::epsilon();
 }
+
+double correspondence_confidence(const double residual_norm, const double robust_kernel)
+{
+  if (!std::isfinite(residual_norm) || residual_norm < 0.0) {
+    return 0.0;
+  }
+  if (residual_norm <= std::numeric_limits<double>::epsilon()) {
+    return 1.0;
+  }
+  return std::clamp(robust_kernel / residual_norm, 0.0, 1.0);
+}
 }
 
 LidarFactor::LidarFactor(LidarFactorConfig config)
@@ -294,9 +305,13 @@ SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
     }
     if (best_distance_sq <= max_distance_sq) {
       const double residual_norm = std::sqrt(best_distance_sq);
+      const double confidence = correspondence_confidence(residual_norm, config_.robust_kernel_m);
+      if (confidence <= 0.0) {
+        continue;
+      }
       factor.frame_points_i.push_back(point_i);
       factor.target_points_w.push_back(best_point_w);
-      factor.point_weights.push_back(1.0);
+      factor.point_weights.push_back(confidence);
     }
   }
   if (factor.frame_points_i.size() < config_.min_points) {
@@ -380,13 +395,17 @@ SlidingWindowPointToPlaneFactor LidarFactor::build_point_to_plane_factor(
     if (std::abs(signed_distance) > config_.nearest_distance_m) {
       continue;
     }
+    const double confidence = correspondence_confidence(std::abs(signed_distance), config_.robust_kernel_m);
+    if (confidence <= 0.0) {
+      continue;
+    }
     if (signed_distance > 0.0) {
       normal *= -1.0;
     }
     factor.frame_points_i.push_back(point_i);
     factor.target_points_w.push_back(centroid);
     factor.target_normals_w.push_back(normal);
-    factor.point_weights.push_back(1.0);
+    factor.point_weights.push_back(confidence);
   }
   if (factor.frame_points_i.size() < config_.min_points) {
     factor.frame_points_i.clear();
