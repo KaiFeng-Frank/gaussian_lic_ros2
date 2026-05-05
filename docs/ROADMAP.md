@@ -19,14 +19,14 @@ Completed proof/evidence scope:
 - Native mapper input contract and `lic2_contract_adapter` boundary for raw camera/LiDAR/IMU plus pose/odometry.
 - Optional Torch Gaussian tensor path with keyframe initialization, skybox seeding, foreground append, gradient-aware densification, multi-criteria pruning, opacity reset scheduling, CUDA rasterizer preview, CUDA rasterizer/fused-SSIM/depth loss, visibility-masked SparseGaussianAdam updates for the full Gaussian parameter set, and optional TensorRT/SPNet depth completion.
 - Official FAST-LIVO2 `Bright_Screen_Wall` substitute report with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` gates passing.
-- Strict FAST-LIVO2 `CBD_Building_01` local reproduction report with trajectory, PSNR/SSIM/LPIPS, GT-associated render pairs, and Chamfer gates passing against the archived ROS1 upstream baseline.
+- Strict FAST-LIVO2 `CBD_Building_01` local reproduction pipeline with trajectory passing and the current PSNR/SSIM/LPIPS, GT-associated render-pair, and point-cloud parity blockers recorded against the archived ROS1 upstream baseline.
 
 Incomplete paper-algorithm scope:
 
 - `lic2_contract_adapter` is not the native continuous-time Gaussian-LIC/Coco-LIC tracker.
 - TensorRT/SPNet depth completion has a generated local TensorRT 10.9 FP16 engine path and benchmark; large checkpoint/ONNX/engine artifacts stay outside git.
 - The public LIC2 upstream surface does not currently expose separate 2D Gaussian primitive or skybox patches beyond the checked mapper backend.
-- Full native Coco-LIC2 frontend/tracking parity remains outside the current mapper-contract strict reproduction gate.
+- Full native Coco-LIC2 frontend/tracking parity and strict `CBD_Building_01` paper-gate parity remain outside the current mapper-contract checkpoint.
 
 ## Current Execution Gate
 
@@ -61,9 +61,11 @@ locally, the upstream ROS1 `gs_mapping` target builds in Docker with the local
 OpenCV 4.10 CUDA fallback and TensorRT 8.6.1.6, and
 `baseline/fastlivo2/CBD_Building_01/` contains the archived ROS1 upstream
 baseline (`trajectory.tum`, `point_cloud.ply`, `renders/`, `metrics.json`, and
-`run.log`). The ROS2 strict current report at
-`results/fastlivo2/CBD_Building_01_current_round_no_opacity_prune_probe/`
-passes the local paper metric gate.
+`run.log`). The latest archived ROS2 strict current report at
+`results/fastlivo2/CBD_Building_01_current_upstream_sampling_probe/` is blocked:
+trajectory passes, but novel SSIM regresses 8.84%, the GT-associated render-pair
+smoke gate fails, and point-cloud parity fails on centroid drift and nearest
+mean distance.
 
 The official FAST-LIVO2 `Bright_Screen_Wall` bag remains the quick executable
 substitute for short regression coverage. The latest colorized combined proof
@@ -74,8 +76,9 @@ baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/
 results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/reproduction_report.json
 ```
 
-That Bright substitute passing report is now a fast regression companion to the
-strict `CBD_Building_01` paper gate, not a replacement for it.
+That Bright substitute passing report is a fast regression companion to the
+strict `CBD_Building_01` paper gate, not a replacement for the currently blocked
+strict report.
 
 Required baseline artifacts:
 
@@ -292,12 +295,12 @@ baseline_manifest.json
 - [x] ROS2 fallback projected-depth generation now matches the ROS1 mapper-contract converter's nearest-pixel rounding semantics; RGB projection remains floor-based because the ROS1 converter uses floor for color.
 - [x] Strict report uses current saved GT frames for ROS2 quality extraction and decoded-GT hash association for ROS1-vs-ROS2 render-pair comparison, avoiding false failures when rosbag2 replay drops or reorders frame names relative to the ROS1 baseline.
 - [x] Strict CUDA current defaults to no opacity pruning for released LIC2 append-only parity; foreground count limiting remains available through the uniform count-cap policy.
-- [x] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.
-  - 2026-05-05 local strict run with upstream-random optimizer-frame sampling, ROS1-compatible depth rounding, current-GT quality extraction, decoded-GT render-pair association, disabled split/clone densification, disabled opacity reset, no opacity pruning, alpha-hole extension filtering, and zero optimizer OOMs passes `baseline_readiness.py --strict` and `reproduction_report.py --strict`.
-  - Trajectory gate passes with 1063/1186 matched poses and 89.63% coverage.
-  - Novel-view quality passes: ROS2 PSNR 12.65 dB vs ROS1 12.70 dB, ROS2 SSIM 0.369 vs ROS1 0.364, and ROS2 LPIPS 0.742 vs ROS1 0.751.
-  - GT-associated render-pair smoke gate passes with 1063 matched frames, 64 sampled pairs, mean PSNR 21.60 dB, mean SSIM 0.785, min PSNR 17.45 dB, and min SSIM 0.478.
-  - Point-cloud parity passes: centroid drift 0.148 m, bidirectional nearest mean 0.0994 m, nearest RMSE 0.1455 m, unmatched ratio 2.83%, and declared point-count ratio 0.978.
+- [ ] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.
+  - 2026-05-05 archived strict run at `results/fastlivo2/CBD_Building_01_current_upstream_sampling_probe/` is executable but fails `reproduction_report.py --strict`.
+  - Trajectory gate passes with 1167 matched poses, zero translation RMSE, and zero path drift.
+  - Novel-view quality is blocked by SSIM: ROS2 PSNR 12.4461 dB vs ROS1 12.7036 dB passes at 2.03% regression, ROS2 SSIM 0.332179 vs ROS1 0.3644 fails at 8.84% regression, and ROS2 LPIPS 0.746502 vs ROS1 0.75136 passes.
+  - GT-associated render-pair smoke gate fails with 1167 matched frames, 64 sampled pairs, mean PSNR 20.148 dB, mean SSIM 0.664466, and many sampled train/test frames below the strict similarity threshold.
+  - Point-cloud parity fails: count ratio 0.610, centroid drift 0.443841 m, bidirectional nearest RMSE 0.144099 m, and bidirectional nearest mean 0.102231 m against the 0.100000 m strict threshold.
 - [x] Strict visual artifacts generated for release review.
   - `docs/assets/strict_cbd_montage.jpg` shows sampled ROS2 current, GT, and ROS1 baseline frames.
   - `docs/assets/strict_cbd_render_demo.gif` is a compact current-vs-GT render demo from the strict run.
