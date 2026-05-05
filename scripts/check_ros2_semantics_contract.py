@@ -16,6 +16,7 @@ MAPPING_NODE = ROOT / "src" / "gaussian_lic_mapping" / "src" / "mapping_node.cpp
 FRONTEND_ADAPTER = ROOT / "src" / "gaussian_lic_frontend" / "src" / "lic2_contract_adapter_node.cpp"
 RUN_BAG_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "run_bag.launch.py"
 TRACKING_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "tracking.launch.py"
+TRACKING_NODE = ROOT / "src" / "gaussian_lic_tracking" / "src" / "tracking_node.cpp"
 SEMANTICS_DOC = ROOT / "docs" / "ROS2_SEMANTICS.md"
 TIMING_AUDIT = ROOT / "scripts" / "rosbag2_timing_audit.py"
 
@@ -56,6 +57,7 @@ def main() -> int:
     frontend_text = read(FRONTEND_ADAPTER)
     launch_text = read(RUN_BAG_LAUNCH)
     tracking_launch_text = read(TRACKING_LAUNCH)
+    tracking_node_text = read(TRACKING_NODE)
     timing_audit_text = read(TIMING_AUDIT)
 
     if "stamp_to_sec" in mapping_text:
@@ -87,6 +89,7 @@ def main() -> int:
 
     required_tracking_launch_args = [
         "tracking_status_topic",
+        "serialize_callbacks",
         "enable_lidar_plane_factor",
         "lidar_robust_kernel_m",
         "lidar_plane_min_neighbors",
@@ -102,6 +105,11 @@ def main() -> int:
             errors.append(f"tracking.launch.py must expose {argument}")
         if f'"{argument}": {argument}' not in tracking_launch_text:
             errors.append(f"tracking.launch.py must pass {argument} into tracking_node")
+
+    if 'declare_parameter<bool>("serialize_callbacks", true)' not in tracking_node_text:
+        errors.append("tracking_node must default serialize_callbacks to true")
+    if "run_serialized_callback" not in tracking_node_text or "std::scoped_lock<std::mutex>" not in tracking_node_text:
+        errors.append("tracking_node callbacks must pass through the serialization guard")
 
     for path in sorted(CONFIG_DIR.glob("*.yaml")):
         params = mapping_params(path)

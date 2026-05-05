@@ -16,6 +16,7 @@ def generate_launch_description():
     tracking_status_topic = LaunchConfiguration("tracking_status_topic")
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
+    serialize_callbacks = LaunchConfiguration("serialize_callbacks")
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
     enable_lidar_plane_factor = LaunchConfiguration("enable_lidar_plane_factor")
     lidar_min_points = LaunchConfiguration("lidar_min_points")
@@ -69,6 +70,7 @@ def generate_launch_description():
             DeclareLaunchArgument("tracking_status_topic", default_value="/gaussian_lic/frontend/status"),
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
+            DeclareLaunchArgument("serialize_callbacks", default_value="true"),
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
             DeclareLaunchArgument("enable_lidar_plane_factor", default_value="true"),
             DeclareLaunchArgument("lidar_min_points", default_value="32"),
@@ -130,6 +132,7 @@ def generate_launch_description():
                         "tracking_status_topic": tracking_status_topic,
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,
+                        "serialize_callbacks": serialize_callbacks,
                         "enable_lio_factor": enable_lio_factor,
                         "enable_lidar_plane_factor": enable_lidar_plane_factor,
                         "lidar_min_points": lidar_min_points,

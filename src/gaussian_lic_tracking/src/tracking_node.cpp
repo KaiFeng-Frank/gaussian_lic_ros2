@@ -5,8 +5,10 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <builtin_interfaces/msg/time.hpp>
@@ -59,6 +61,7 @@ public:
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
     sensor_qos_depth_ = declare_parameter<int>("sensor_qos_depth", 5);
     sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
+    serialize_callbacks_ = declare_parameter<bool>("serialize_callbacks", true);
     enable_visual_factor_ = declare_parameter<bool>("enable_visual_factor", true);
     enable_gaussian_snapshot_ = declare_parameter<bool>("enable_gaussian_snapshot", true);
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
@@ -146,27 +149,37 @@ public:
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
       raw_image_topic_, qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        handle_image(*msg);
+        run_serialized_callback([this, msg]() {
+          handle_image(*msg);
+        });
       });
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
       raw_camera_info_topic_, qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
-        handle_camera_info(*msg);
+        run_serialized_callback([this, msg]() {
+          handle_camera_info(*msg);
+        });
       });
     depth_sub_ = create_subscription<sensor_msgs::msg::Image>(
       raw_depth_topic_, qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        handle_depth(*msg);
+        run_serialized_callback([this, msg]() {
+          handle_depth(*msg);
+        });
       });
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       raw_pointcloud_topic_, qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
-        handle_pointcloud(*msg);
+        run_serialized_callback([this, msg]() {
+          handle_pointcloud(*msg);
+        });
       });
     imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
       raw_imu_topic_, qos,
       [this](sensor_msgs::msg::Imu::ConstSharedPtr msg) {
-        handle_imu(*msg);
+        run_serialized_callback([this, msg]() {
+          handle_imu(*msg);
+        });
       });
 
     image_pub_ = create_publisher<sensor_msgs::msg::Image>(image_topic_, qos);
@@ -181,13 +194,17 @@ public:
     rendered_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
       rendered_image_topic_, rclcpp::QoS(1).transient_local().reliable(),
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        handle_rendered_image(*msg);
+        run_serialized_callback([this, msg]() {
+          handle_rendered_image(*msg);
+        });
       });
     if (enable_gaussian_snapshot_) {
       gaussian_map_sub_ = create_subscription<gaussian_lic_msgs::msg::GaussianArray>(
         gaussian_map_topic_, rclcpp::QoS(1).transient_local().reliable(),
         [this](gaussian_lic_msgs::msg::GaussianArray::ConstSharedPtr msg) {
-          handle_gaussian_snapshot(*msg);
+          run_serialized_callback([this, msg]() {
+            handle_gaussian_snapshot(*msg);
+          });
         });
     }
     if (publish_tf_) {
@@ -231,6 +248,17 @@ private:
     size_t accepted_pixels{0};
     double mean_abs_residual{0.0};
   };
+
+  template<typename CallbackT>
+  void run_serialized_callback(CallbackT && callback)
+  {
+    if (serialize_callbacks_) {
+      std::scoped_lock<std::mutex> lock(callback_mutex_);
+      std::forward<CallbackT>(callback)();
+      return;
+    }
+    std::forward<CallbackT>(callback)();
+  }
 
   rclcpp::QoS make_sensor_qos() const
   {
@@ -1188,6 +1216,7 @@ private:
     gaussian_lic_msgs::msg::TrackingStatus status;
     status.header.stamp = stamp;
     status.header.frame_id = world_frame_;
+    status.executor_callback_serialization_enabled = serialize_callbacks_;
     if (num_published_poses_ == 0U) {
       status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_INITIALIZING;
       status.status_text = "initializing";
@@ -1313,6 +1342,7 @@ private:
   int max_path_length_{5000};
   int sensor_qos_depth_{5};
   std::string sensor_qos_reliability_{"best_effort"};
+  bool serialize_callbacks_{true};
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
@@ -1364,6 +1394,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rendered_image_sub_;
   rclcpp::Subscription<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr gaussian_map_sub_;
+  std::mutex callback_mutex_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_pub_;

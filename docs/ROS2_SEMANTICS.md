@@ -28,8 +28,13 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
 ## Executor
 
 - Strict replay and composition use the single-threaded `component_container`.
+- `gaussian_lic_tracking/tracking_node` defaults `serialize_callbacks:=true`.
+  All raw image, camera-info, depth, LiDAR, IMU, rendered-image, and Gaussian-map
+  callbacks pass through one mutex before mutating estimator state, so a launch
+  that swaps to `MultiThreadedExecutor` cannot concurrently update IMU
+  propagation, deskew, visual factors, and the sliding window.
 - The continuous-time frontend must not rely on callback interleaving from a
-  `MultiThreadedExecutor`. If parallel callbacks are added later, callbacks must
+  `MultiThreadedExecutor`. If higher throughput is needed later, callbacks must
   push messages into deterministic stamp-ordered queues before estimator updates.
 
 ## tf2
