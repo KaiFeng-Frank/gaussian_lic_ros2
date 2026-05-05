@@ -74,6 +74,7 @@ public:
     sliding_window_max_states_ = declare_parameter<int>("sliding_window_max_states", 12);
     sliding_window_max_iterations_ = declare_parameter<int>("sliding_window_max_iterations", 3);
     sliding_window_imu_weight_ = declare_parameter<double>("sliding_window_imu_weight", 1.0);
+    sliding_window_bias_weight_ = declare_parameter<double>("sliding_window_bias_weight", 1.0);
     sliding_window_pose_translation_weight_ =
       declare_parameter<double>("sliding_window_pose_translation_weight", 2.0);
     sliding_window_pose_rotation_weight_ =
@@ -382,8 +383,8 @@ private:
     state.p_w_i = input_pose.p_w_i;
     state.q_w_i = input_pose.q_w_i;
     state.v_w_i = imu_state.v_w_i;
-    state.gyro_bias = imu_state.gyro_bias;
-    state.accel_bias = imu_state.accel_bias;
+    state.gyro_bias = sliding_window_bias_.gyro;
+    state.accel_bias = sliding_window_bias_.accel;
     state.fixed = !has_sliding_window_state_;
     sliding_window_optimizer_.add_or_update_state(state);
 
@@ -404,6 +405,7 @@ private:
       factor.preintegration = sliding_window_preintegrator_;
       factor.gravity_w = imu_propagator_.gravity_w();
       factor.weight = sliding_window_imu_weight_;
+      factor.bias_weight = sliding_window_bias_weight_;
       try {
         sliding_window_optimizer_.add_imu_factor(factor);
         const auto summary = sliding_window_optimizer_.optimize();
@@ -411,6 +413,8 @@ private:
         if (sliding_window_optimizer_.get_state(input_pose.stamp_ns, optimized)) {
           output_pose.p_w_i = optimized.p_w_i;
           output_pose.q_w_i = optimized.q_w_i;
+          sliding_window_bias_.gyro = optimized.gyro_bias;
+          sliding_window_bias_.accel = optimized.accel_bias;
         }
         RCLCPP_DEBUG_THROTTLE(
           get_logger(), *get_clock(), 2000,
@@ -429,7 +433,7 @@ private:
 
     has_sliding_window_state_ = true;
     last_sliding_window_stamp_ns_ = input_pose.stamp_ns;
-    sliding_window_preintegrator_.reset(input_pose.stamp_ns);
+    sliding_window_preintegrator_.reset(input_pose.stamp_ns, sliding_window_bias_);
     sliding_window_preintegrator_initialized_ = true;
     return output_pose;
   }
@@ -844,6 +848,7 @@ private:
   int sliding_window_max_states_{12};
   int sliding_window_max_iterations_{3};
   double sliding_window_imu_weight_{1.0};
+  double sliding_window_bias_weight_{1.0};
   double sliding_window_pose_translation_weight_{2.0};
   double sliding_window_pose_rotation_weight_{2.0};
   int lidar_min_points_{32};
@@ -873,6 +878,7 @@ private:
   gaussian_lic_tracking::ImuPropagator imu_propagator_;
   gaussian_lic_tracking::SlidingWindowOptimizer sliding_window_optimizer_;
   gaussian_lic_tracking::ImuPreintegrator sliding_window_preintegrator_;
+  gaussian_lic_tracking::ImuBias sliding_window_bias_;
   bool sliding_window_preintegrator_initialized_{false};
   bool has_sliding_window_state_{false};
   int64_t last_sliding_window_stamp_ns_{0};

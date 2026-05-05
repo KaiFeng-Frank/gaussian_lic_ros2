@@ -12,7 +12,7 @@ namespace gaussian_lic_tracking
 {
 namespace
 {
-constexpr size_t kStateDof = 9U;
+constexpr size_t kStateDof = 15U;
 
 ImuState to_imu_state(const SlidingWindowState & state)
 {
@@ -172,7 +172,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   const std::vector<SlidingWindowState> & states) const
 {
   std::vector<double> values;
-  values.reserve(imu_factors_.size() * 9U + pose_priors_.size() * 6U);
+  values.reserve(imu_factors_.size() * 15U + pose_priors_.size() * 6U);
 
   auto append = [&values](const Eigen::VectorXd & residual) {
       for (Eigen::Index i = 0; i < residual.size(); ++i) {
@@ -198,11 +198,21 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     if (from < 0 || to < 0) {
       continue;
     }
-    const auto residual = factor.preintegration.residual(
+    const ImuBias start_bias{
+      states[static_cast<size_t>(from)].gyro_bias,
+      states[static_cast<size_t>(from)].accel_bias};
+    const auto corrected_preintegration = factor.preintegration.reintegrated(start_bias);
+    const auto residual = corrected_preintegration.residual(
       to_imu_state(states[static_cast<size_t>(from)]),
       to_imu_state(states[static_cast<size_t>(to)]),
       factor.gravity_w);
     append(std::sqrt(factor.weight) * residual.residual);
+    Eigen::Matrix<double, 6, 1> bias_residual;
+    bias_residual.template segment<3>(0) =
+      states[static_cast<size_t>(to)].gyro_bias - states[static_cast<size_t>(from)].gyro_bias;
+    bias_residual.template segment<3>(3) =
+      states[static_cast<size_t>(to)].accel_bias - states[static_cast<size_t>(from)].accel_bias;
+    append(std::sqrt(factor.bias_weight) * bias_residual);
   }
 
   for (const auto & prior : pose_priors_) {
@@ -243,12 +253,16 @@ void SlidingWindowOptimizer::apply_delta(
     const Eigen::Vector3d dtheta = scale * delta.template segment<3>(offset);
     const Eigen::Vector3d dv = scale * delta.template segment<3>(offset + 3);
     const Eigen::Vector3d dp = scale * delta.template segment<3>(offset + 6);
+    const Eigen::Vector3d dgyro_bias = scale * delta.template segment<3>(offset + 9);
+    const Eigen::Vector3d daccel_bias = scale * delta.template segment<3>(offset + 12);
     const double angle = dtheta.norm();
     if (angle > 1.0e-12) {
       state.q_w_i = (Eigen::Quaterniond(Eigen::AngleAxisd(angle, dtheta / angle)) * state.q_w_i).normalized();
     }
     state.v_w_i += dv;
     state.p_w_i += dp;
+    state.gyro_bias += dgyro_bias;
+    state.accel_bias += daccel_bias;
   }
 }
 

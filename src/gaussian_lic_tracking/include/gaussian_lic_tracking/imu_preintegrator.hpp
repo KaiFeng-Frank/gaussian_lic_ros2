@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -26,6 +27,13 @@ struct ImuPreintegrationResidual
   double position_norm{0.0};
 };
 
+struct ImuPreintegrationSample
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d angular_velocity_rad_s{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d linear_acceleration_m_s2{Eigen::Vector3d::Zero()};
+};
+
 class ImuPreintegrator
 {
 public:
@@ -41,10 +49,13 @@ public:
     const ImuState & start_state,
     const ImuState & end_state,
     const Eigen::Vector3d & gravity_w = Eigen::Vector3d::Zero()) const;
+  ImuPreintegrator reintegrated(const ImuBias & bias) const;
 
   int64_t start_stamp_ns() const { return start_stamp_ns_; }
   int64_t end_stamp_ns() const { return end_stamp_ns_; }
   double delta_t_s() const { return delta_t_s_; }
+  size_t sample_count() const { return samples_.size(); }
+  const ImuBias & bias() const { return bias_; }
   const Eigen::Quaterniond & delta_q() const { return delta_q_; }
   const Eigen::Vector3d & delta_v() const { return delta_v_; }
   const Eigen::Vector3d & delta_p() const { return delta_p_; }
@@ -63,6 +74,7 @@ private:
   Eigen::Vector3d delta_p_{Eigen::Vector3d::Zero()};
   Eigen::Vector3d last_angular_velocity_rad_s_{Eigen::Vector3d::Zero()};
   Eigen::Vector3d last_linear_acceleration_m_s2_{Eigen::Vector3d::Zero()};
+  std::vector<ImuPreintegrationSample> samples_;
   bool initialized_{false};
   bool has_last_measurement_{false};
 };

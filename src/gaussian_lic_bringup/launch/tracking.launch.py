@@ -20,6 +20,7 @@ def generate_launch_description():
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
     enable_sliding_window_optimizer = LaunchConfiguration("enable_sliding_window_optimizer")
+    sliding_window_bias_weight = LaunchConfiguration("sliding_window_bias_weight")
     lidar_time_field = LaunchConfiguration("lidar_time_field")
     lidar_time_unit = LaunchConfiguration("lidar_time_unit")
     lidar_time_mode = LaunchConfiguration("lidar_time_mode")
@@ -42,6 +43,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="false"),
+            DeclareLaunchArgument("sliding_window_bias_weight", default_value="1.0"),
             Node(
                 package="gaussian_lic_tracking",
                 executable="tracking_node",
@@ -69,6 +71,7 @@ def generate_launch_description():
                         "enable_visual_factor": enable_visual_factor,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "enable_sliding_window_optimizer": enable_sliding_window_optimizer,
+                        "sliding_window_bias_weight": sliding_window_bias_weight,
                     }
                 ],
             ),

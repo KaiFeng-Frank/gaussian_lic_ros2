@@ -18,6 +18,7 @@ void ImuPreintegrator::reset(const int64_t start_stamp_ns, const ImuBias & bias)
   delta_q_ = Eigen::Quaterniond::Identity();
   delta_v_.setZero();
   delta_p_.setZero();
+  samples_.clear();
   has_last_measurement_ = false;
   initialized_ = true;
 }
@@ -31,6 +32,8 @@ void ImuPreintegrator::add_measurement(
     reset(stamp_ns, bias_);
     last_angular_velocity_rad_s_ = angular_velocity_rad_s;
     last_linear_acceleration_m_s2_ = linear_acceleration_m_s2;
+    samples_.push_back(ImuPreintegrationSample{
+        stamp_ns, angular_velocity_rad_s, linear_acceleration_m_s2});
     has_last_measurement_ = true;
     return;
   }
@@ -64,6 +67,8 @@ void ImuPreintegrator::add_measurement(
   end_stamp_ns_ = stamp_ns;
   last_angular_velocity_rad_s_ = angular_velocity_rad_s;
   last_linear_acceleration_m_s2_ = linear_acceleration_m_s2;
+  samples_.push_back(ImuPreintegrationSample{
+      stamp_ns, angular_velocity_rad_s, linear_acceleration_m_s2});
   has_last_measurement_ = true;
 }
 
@@ -103,6 +108,19 @@ ImuPreintegrationResidual ImuPreintegrator::residual(
   output.rotation_norm = output.residual.template segment<3>(0).norm();
   output.velocity_norm = output.residual.template segment<3>(3).norm();
   output.position_norm = output.residual.template segment<3>(6).norm();
+  return output;
+}
+
+ImuPreintegrator ImuPreintegrator::reintegrated(const ImuBias & bias) const
+{
+  ImuPreintegrator output;
+  output.reset(start_stamp_ns_, bias);
+  for (const auto & sample : samples_) {
+    output.add_measurement(
+      sample.stamp_ns,
+      sample.angular_velocity_rad_s,
+      sample.linear_acceleration_m_s2);
+  }
   return output;
 }
 

@@ -53,17 +53,19 @@ Current ROS2 implementation status:
   timestamp-safe cubic B-spline trajectory primitive with a constant-velocity
   probe and negative-time roundtrip coverage.
 - `gaussian_lic_tracking::ImuPropagator` now keeps a bounded signed-nanosecond
-  IMU state history for interpolation, and `ImuPreintegrator` provides the
-  first native preintegration residual foundation for later sliding-window BA.
+  IMU state history for interpolation, and `ImuPreintegrator` stores raw IMU
+  samples so the sliding window can reintegrate factors with candidate gyro and
+  accelerometer biases.
 - `gaussian_lic_tracking::LidarFactor` provides the first native LIO residual
   foundation: bounded local map insertion, sampled nearest-neighbor residuals,
   bounded 6-DoF correction, and deterministic probes.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native
-  optimization container for IMU preintegration factors and pose priors, with
-  finite-difference Jacobians, bounded window trimming, and a deterministic
-  convergence probe. It is exposed as an optional tracking-node path while the
+  optimization container for IMU preintegration factors, raw-sample bias
+  reintegration, bias continuity residuals, and pose priors, with
+  finite-difference Jacobians, bounded window trimming, and deterministic
+  convergence probes. It is exposed as an optional tracking-node path while the
   production Coco-LIC2 BA factors are ported.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual foundation, and `tracking_node` subscribes to
@@ -72,6 +74,6 @@ Current ROS2 implementation status:
 - `tracking_node` also subscribes to `/gaussian_lic/gaussian_map`
   `GaussianArray` chunks, giving the frontend a native Gaussian-map snapshot
   channel for later joint optimization.
-- Production sliding-window BA, VIO Jacobians, IMU bias optimization,
-  marginalization, and Coco-LIC2-grade IMU/LiDAR/camera joint optimization
-  still need to be ported from the audited Coco-LIC modules.
+- Production sliding-window BA, VIO Jacobians, robust IMU bias observability
+  from LIO/VIO factors, marginalization, and Coco-LIC2-grade IMU/LiDAR/camera
+  joint optimization still need to be ported from the audited Coco-LIC modules.
