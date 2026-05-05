@@ -249,10 +249,10 @@ public:
       camera_info_topic_, camera_info_qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
         ++camera_info_count_;
-        if (msg->k[0] <= 0.0 || msg->k[4] <= 0.0) {
+        if (!valid_camera_info_intrinsics(*msg)) {
           RCLCPP_WARN_THROTTLE(
             get_logger(), *get_clock(), 2000,
-            "ignoring CameraInfo with non-positive focal length");
+            "ignoring CameraInfo with invalid intrinsics");
           return;
         }
 
@@ -545,6 +545,13 @@ private:
       throw std::runtime_error(std::string(parameter_name) + " is too large for int64 nanoseconds");
     }
     return static_cast<int64_t>(std::llround(nsec));
+  }
+
+  static bool valid_camera_info_intrinsics(const sensor_msgs::msg::CameraInfo & msg)
+  {
+    return std::isfinite(msg.k[0]) && std::isfinite(msg.k[4]) &&
+           std::isfinite(msg.k[2]) && std::isfinite(msg.k[5]) &&
+           msg.k[0] > 0.0 && msg.k[4] > 0.0;
   }
 
   static uint8_t color_channel_to_u8(const float value)

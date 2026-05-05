@@ -118,6 +118,7 @@ baseline_manifest.json
 - [x] Replace the four-topic ROS1 input synchronization surface with native ROS2.
 - [x] Convert aligned ROS2 frames into mapper-ready image/depth/pose/point data.
 - [x] Consume CameraInfo intrinsics with parameter fallback.
+- [x] Reject non-finite or non-positive CameraInfo intrinsics before mapper/tracker state updates.
 - [x] Accumulate converted frames into a non-torch `MapperDataset`.
 - [x] Publish ROS2 odometry, path, and accumulated map-point topics from the native mapper.
 - [x] Add optional `map -> camera` TF broadcasting.

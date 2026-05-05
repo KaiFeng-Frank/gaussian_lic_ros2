@@ -68,6 +68,8 @@ def main() -> int:
         errors.append("mapping_node does not retain a nanosecond sync tolerance")
     if "const double frame_time" in mapping_text:
         errors.append("mapping_node frame synchronization regressed to double seconds")
+    if "valid_camera_info_intrinsics" not in mapping_text or "std::isfinite(msg.k[2])" not in mapping_text:
+        errors.append("mapping_node must reject non-finite CameraInfo intrinsics at the input boundary")
     nanosecond_guard = "stamp.nanosec >= static_cast<uint32_t>(kNanosecondsPerSecond)"
     if nanosecond_guard not in mapping_text:
         errors.append("mapping_node stamp_to_nsec must reject ROS2 stamps with nanosec >= 1e9")
@@ -173,6 +175,8 @@ def main() -> int:
 
     if 'declare_parameter<bool>("serialize_callbacks", true)' not in tracking_node_text:
         errors.append("tracking_node must default serialize_callbacks to true")
+    if "valid_camera_info_intrinsics" not in tracking_node_text or "std::isfinite(msg.k[2])" not in tracking_node_text:
+        errors.append("tracking_node must reject non-finite CameraInfo intrinsics at the input boundary")
     if 'declare_parameter<bool>("enable_sliding_window_optimizer", true)' not in tracking_node_text:
         errors.append("tracking_node must default production sliding-window BA to true")
     if 'DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="true")' not in tracking_launch_text:

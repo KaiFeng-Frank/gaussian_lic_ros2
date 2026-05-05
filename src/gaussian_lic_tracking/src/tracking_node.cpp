@@ -392,13 +392,24 @@ private:
   void handle_camera_info(const sensor_msgs::msg::CameraInfo & msg)
   {
     camera_info_pub_->publish(msg);
-    if (msg.k[0] > 0.0 && msg.k[4] > 0.0) {
+    if (valid_camera_info_intrinsics(msg)) {
       camera_intrinsics_.fx = msg.k[0];
       camera_intrinsics_.fy = msg.k[4];
       camera_intrinsics_.cx = msg.k[2];
       camera_intrinsics_.cy = msg.k[5];
       has_camera_intrinsics_ = true;
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "ignoring CameraInfo with invalid intrinsics");
     }
+  }
+
+  static bool valid_camera_info_intrinsics(const sensor_msgs::msg::CameraInfo & msg)
+  {
+    return std::isfinite(msg.k[0]) && std::isfinite(msg.k[4]) &&
+           std::isfinite(msg.k[2]) && std::isfinite(msg.k[5]) &&
+           msg.k[0] > 0.0 && msg.k[4] > 0.0;
   }
 
   void handle_depth(const sensor_msgs::msg::Image & msg)
