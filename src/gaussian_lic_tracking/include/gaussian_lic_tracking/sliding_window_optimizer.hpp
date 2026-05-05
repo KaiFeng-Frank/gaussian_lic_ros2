@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Core>
@@ -196,6 +197,10 @@ private:
   SlidingWindowStatePrior make_state_prior(const SlidingWindowState & state) const;
   std::vector<VariableBlock> variable_layout() const;
   Eigen::VectorXd build_residual(const std::vector<SlidingWindowState> & states) const;
+  std::vector<std::pair<Eigen::Index, Eigen::Index>> fill_analytic_jacobian(
+    const std::vector<SlidingWindowState> & states,
+    const std::vector<VariableBlock> & variables,
+    Eigen::MatrixXd & jacobian) const;
   SlidingWindowNormalEquation linearize(
     const std::vector<SlidingWindowState> & states,
     const std::vector<VariableBlock> & variables,

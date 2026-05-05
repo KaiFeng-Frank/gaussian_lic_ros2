@@ -42,6 +42,15 @@ Eigen::MatrixXd sqrt_information_from_hessian(const Eigen::MatrixXd & hessian)
   }
   return sqrt_values.asDiagonal() * solver.eigenvectors().transpose();
 }
+
+Eigen::Matrix3d skew_symmetric(const Eigen::Vector3d & value)
+{
+  Eigen::Matrix3d skew;
+  skew << 0.0, -value.z(), value.y(),
+    value.z(), 0.0, -value.x(),
+    -value.y(), value.x(), 0.0;
+  return skew;
+}
 }  // namespace
 
 SchurComplementResult compute_schur_complement(
@@ -591,6 +600,151 @@ double SlidingWindowOptimizer::compute_cost(const Eigen::VectorXd & residual) co
   return 0.5 * residual.squaredNorm();
 }
 
+std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_analytic_jacobian(
+  const std::vector<SlidingWindowState> & states,
+  const std::vector<VariableBlock> & variables,
+  Eigen::MatrixXd & jacobian) const
+{
+  std::vector<std::pair<Eigen::Index, Eigen::Index>> numeric_row_ranges;
+  auto mark_numeric = [&numeric_row_ranges](const Eigen::Index start, const Eigen::Index size) {
+      if (size > 0) {
+        numeric_row_ranges.emplace_back(start, size);
+      }
+    };
+  auto find_local = [&states](const int64_t stamp_ns) -> int {
+      const auto it = std::find_if(
+        states.begin(), states.end(),
+        [stamp_ns](const SlidingWindowState & state) {
+          return state.stamp_ns == stamp_ns;
+        });
+      if (it == states.end()) {
+        return -1;
+      }
+      return static_cast<int>(std::distance(states.begin(), it));
+    };
+
+  std::vector<Eigen::Index> variable_offsets(states.size(), -1);
+  for (const auto & variable : variables) {
+    if (variable.state_index < variable_offsets.size()) {
+      variable_offsets[variable.state_index] = static_cast<Eigen::Index>(variable.offset);
+    }
+  }
+
+  Eigen::Index row = 0;
+  for (const auto & factor : imu_factors_) {
+    const int from = find_local(factor.from_stamp_ns);
+    const int to = find_local(factor.to_stamp_ns);
+    if (from < 0 || to < 0) {
+      continue;
+    }
+    mark_numeric(row, 21);
+    row += 21;
+  }
+
+  for (const auto & prior : pose_priors_) {
+    const int index = find_local(prior.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    mark_numeric(row, 6);
+    row += 6;
+  }
+
+  for (const auto & prior : state_priors_) {
+    const int index = find_local(prior.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    mark_numeric(row, 15);
+    row += 15;
+  }
+
+  for (const auto & prior : dense_priors_) {
+    const auto prior_cols = static_cast<Eigen::Index>(prior.reference_states.size() * kStateDof);
+    if (prior.sqrt_information.cols() != prior_cols || prior.target_delta.size() != prior_cols) {
+      continue;
+    }
+    bool complete = true;
+    for (const auto stamp_ns : prior.stamp_ns) {
+      if (find_local(stamp_ns) < 0) {
+        complete = false;
+        break;
+      }
+    }
+    if (complete) {
+      mark_numeric(row, prior.sqrt_information.rows());
+      row += prior.sqrt_information.rows();
+    }
+  }
+
+  for (const auto & factor : point_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      if (offset >= 0) {
+        const double robust_weight = factor.point_weights.empty()
+          ? 1.0
+          : std::max(0.0, factor.point_weights[point_index]);
+        const double scale = std::sqrt(factor.weight * robust_weight);
+        const Eigen::Vector3d rotated_point = state.q_w_i * factor.frame_points_i[point_index];
+        jacobian.template block<3, 3>(row, offset) =
+          scale * -skew_symmetric(rotated_point);
+        jacobian.template block<3, 3>(row, offset + 6) =
+          scale * Eigen::Matrix3d::Identity();
+      }
+      row += 3;
+    }
+  }
+
+  for (const auto & factor : plane_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      if (offset >= 0) {
+        const double robust_weight = factor.point_weights.empty()
+          ? 1.0
+          : std::max(0.0, factor.point_weights[point_index]);
+        const double scale = std::sqrt(factor.weight * robust_weight);
+        const Eigen::Vector3d normal = factor.target_normals_w[point_index].normalized();
+        const Eigen::Vector3d rotated_point = state.q_w_i * factor.frame_points_i[point_index];
+        jacobian.template block<1, 3>(row, offset) =
+          scale * -normal.transpose() * skew_symmetric(rotated_point);
+        jacobian.template block<1, 3>(row, offset + 6) =
+          scale * normal.transpose();
+      }
+      ++row;
+    }
+  }
+
+  for (const auto & factor : visual_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    if (offset >= 0) {
+      const double scale = std::sqrt(factor.weight);
+      jacobian(row, offset + 6) = scale;
+      jacobian(row + 1, offset + 7) = scale;
+    }
+    row += 2;
+  }
+
+  if (row != jacobian.rows()) {
+    numeric_row_ranges.clear();
+    mark_numeric(0, jacobian.rows());
+  }
+  return numeric_row_ranges;
+}
+
 bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
 {
   if (states_.size() < 2U) {
@@ -705,16 +859,21 @@ SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
     return output;
   }
 
-  for (size_t column = 0; column < output.variable_count; ++column) {
+  const auto numeric_row_ranges = fill_analytic_jacobian(states, variables, output.jacobian);
+  for (size_t column = 0; column < output.variable_count && !numeric_row_ranges.empty(); ++column) {
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(variable_count);
     delta[static_cast<Eigen::Index>(column)] = config_.numeric_epsilon;
     auto plus_states = states;
     auto minus_states = states;
     apply_delta(plus_states, variables, delta, 1.0);
     apply_delta(minus_states, variables, delta, -1.0);
-    output.jacobian.col(static_cast<Eigen::Index>(column)) =
+    const Eigen::VectorXd numeric_column =
       (build_residual(plus_states) - build_residual(minus_states)) /
       (2.0 * config_.numeric_epsilon);
+    for (const auto & range : numeric_row_ranges) {
+      output.jacobian.block(range.first, static_cast<Eigen::Index>(column), range.second, 1) =
+        numeric_column.segment(range.first, range.second);
+    }
   }
 
   output.hessian = output.jacobian.transpose() * output.jacobian;
