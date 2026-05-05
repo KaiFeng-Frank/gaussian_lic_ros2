@@ -15,7 +15,7 @@ DEFAULT_REPORT = Path(
     "results/fastlivo2/CBD_Building_01_current_upstream_sampling_probe/"
     "reproduction_report_strict.json"
 )
-DOCS = (Path("README.md"), Path("docs/ROADMAP.md"))
+DOCS = (Path("README.md"), Path("docs/ROADMAP.md"), Path("docs/RELEASE_MILESTONES.md"))
 
 
 def _load_json(path: Path) -> dict:
@@ -76,6 +76,9 @@ def check_docs(report: dict, docs: dict[Path, str]) -> list[str]:
         if path.match("docs/ROADMAP.md"):
             _require(text, "- [ ] Strict `CBD_Building_01` ROS2 current report", path, errors)
             _require(text, "fails `reproduction_report.py --strict`", path, errors)
+        if path.match("docs/RELEASE_MILESTONES.md"):
+            _require(text, "latest archived strict `CBD_Building_01` report is not green", path, errors)
+            _require(text, "blocked on novel SSIM", path, errors)
         _require(text, current_rel, path, errors)
         _require(text, f"{ssim_regression:.2f}%", path, errors)
         _require(text, f"{centroid_drift:.6f}", path, errors)
@@ -90,6 +93,7 @@ def check_docs(report: dict, docs: dict[Path, str]) -> list[str]:
         r"passes the local paper metric gate",
         r"Current vs ROS1 quality passes the paper metric gate",
         r"Chamfer/point-cloud parity passes",
+        r"chain passes the local trajectory, PSNR/SSIM/LPIPS, GT-associated render-pair,\s*and Chamfer gates",
         r"- \[x\] Strict `CBD_Building_01` ROS2 current report",
         r"passes `baseline_readiness\.py --strict`",
         r"passes `reproduction_report\.py --strict`",

@@ -68,10 +68,14 @@ Goal: one-command paper-level reproduction on the selected FAST-LIVO2 sequence.
 - Publish release artifacts and expected screenshots/video for README and GitHub release notes.
 
 Status as of 2026-05-05: the mapper-contract/CUDA strict `CBD_Building_01`
-chain passes the local trajectory, PSNR/SSIM/LPIPS, GT-associated render-pair,
-and Chamfer gates against the archived ROS1 upstream baseline. SPNet TensorRT
-engine generation is validated locally with TensorRT 10.9 on `sm_120`. The
-native tracking path now has a launch smoke gate and analytic geometric
+chain is executable against the archived ROS1 upstream baseline, but the latest archived strict `CBD_Building_01` report is not green. The current artifact is
+`results/fastlivo2/CBD_Building_01_current_upstream_sampling_probe`; trajectory
+passes, but the release is blocked on novel SSIM, GT-associated render-pair
+smoke checks, and point-cloud parity. Novel-view SSIM regresses 8.84%, the
+point-cloud centroid drift is 0.443841 m, and the bidirectional nearest-neighbor
+mean distance is 0.102231 m against the 0.100000 m strict threshold. SPNet
+TensorRT engine generation is validated locally with TensorRT 10.9 on `sm_120`.
+The native tracking path now has a launch smoke gate and analytic geometric
 Jacobians for point-to-point, point-to-plane, and visual-alignment residuals,
 plus runtime-gated bias observability and 2-DoF photometric translation
 linearization status, dense-prior rank/singular-value marginalization health,
