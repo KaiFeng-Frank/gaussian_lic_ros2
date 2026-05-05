@@ -302,6 +302,8 @@ def main() -> int:
         errors.append("sliding_window_optimizer must validate dense-prior stamp/reference consistency")
     if "*existing = normalized" not in sliding_window_text:
         errors.append("sliding_window_optimizer must replace same-stamp pose/state priors instead of accumulating duplicates")
+    if "candidate.from_stamp_ns == factor.from_stamp_ns" not in sliding_window_text or "candidate.previous_stamp_ns == factor.previous_stamp_ns" not in sliding_window_text:
+        errors.append("sliding_window_optimizer must replace duplicate IMU spans and smoothness triplets instead of accumulating residual weight")
     if 'DeclareLaunchArgument("sliding_window_max_state_gap_s", default_value="1.0")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose the sliding-window max state gap")
     if 'DeclareLaunchArgument("sliding_window_imu_max_extrapolation_s", default_value="0.02")' not in tracking_launch_text:

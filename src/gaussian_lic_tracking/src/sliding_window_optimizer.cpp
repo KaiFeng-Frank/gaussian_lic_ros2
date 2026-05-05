@@ -533,7 +533,17 @@ void SlidingWindowOptimizer::add_imu_factor(const SlidingWindowImuFactor & facto
   {
     throw std::runtime_error("IMU factor preintegration values must be finite");
   }
-  imu_factors_.push_back(factor);
+  const auto existing = std::find_if(
+    imu_factors_.begin(), imu_factors_.end(),
+    [&factor](const SlidingWindowImuFactor & candidate) {
+      return candidate.from_stamp_ns == factor.from_stamp_ns &&
+             candidate.to_stamp_ns == factor.to_stamp_ns;
+    });
+  if (existing == imu_factors_.end()) {
+    imu_factors_.push_back(factor);
+  } else {
+    *existing = factor;
+  }
   enforce_window_size();
 }
 
@@ -754,7 +764,18 @@ void SlidingWindowOptimizer::add_trajectory_smoothness_factor(
   {
     return;
   }
-  smoothness_factors_.push_back(factor);
+  const auto existing = std::find_if(
+    smoothness_factors_.begin(), smoothness_factors_.end(),
+    [&factor](const SlidingWindowTrajectorySmoothnessFactor & candidate) {
+      return candidate.previous_stamp_ns == factor.previous_stamp_ns &&
+             candidate.current_stamp_ns == factor.current_stamp_ns &&
+             candidate.next_stamp_ns == factor.next_stamp_ns;
+    });
+  if (existing == smoothness_factors_.end()) {
+    smoothness_factors_.push_back(factor);
+  } else {
+    *existing = factor;
+  }
   enforce_window_size();
 }
 

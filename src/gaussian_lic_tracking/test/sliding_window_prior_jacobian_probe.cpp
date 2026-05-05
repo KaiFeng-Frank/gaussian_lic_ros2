@@ -225,7 +225,8 @@ int main()
     dedupe_optimizer.add_state_prior(state_prior);
     dedupe_optimizer.add_state_prior(state_prior);
     const auto dedupe_summary = dedupe_optimizer.optimize();
-    if (dedupe_summary.pose_prior_count != 1U || dedupe_summary.state_prior_count != 1U) {
+    if (dedupe_summary.pose_prior_count != 1U || dedupe_summary.state_prior_count != 1U)
+    {
       std::cerr << "sliding window optimizer duplicated same-stamp priors\n";
       return 1;
     }
