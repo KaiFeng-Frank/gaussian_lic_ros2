@@ -108,6 +108,7 @@ VisualSe3PhotometricLinearization linearize_se3_photometric_samples(
   VisualSe3PhotometricLinearization output;
   for (const auto & sample : samples) {
     if (!std::isfinite(sample.weight) || sample.weight <= 0.0 ||
+      sample.weight > 1.0 ||
       !std::isfinite(sample.residual))
     {
       continue;

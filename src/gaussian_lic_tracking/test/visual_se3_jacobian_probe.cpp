@@ -103,10 +103,11 @@ int main()
   }
   auto samples_with_bad_weight = samples;
   samples_with_bad_weight.front().weight = std::numeric_limits<double>::quiet_NaN();
+  samples_with_bad_weight[1].weight = 2.0;
   const auto filtered_linearization =
     gaussian_lic_tracking::linearize_se3_photometric_samples(intrinsics, samples_with_bad_weight);
-  if (!filtered_linearization.valid || filtered_linearization.sample_count != samples.size() - 1U) {
-    std::cerr << "SE3 photometric linearization failed to skip non-finite sample weights\n";
+  if (!filtered_linearization.valid || filtered_linearization.sample_count != samples.size() - 2U) {
+    std::cerr << "SE3 photometric linearization failed to skip invalid sample weights\n";
     return 1;
   }
 

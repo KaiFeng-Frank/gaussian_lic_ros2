@@ -290,6 +290,8 @@ def main() -> int:
         errors.append("sliding_window_optimizer must explicitly reject invalid candidate states")
     if "linearization_failure_count" not in sliding_window_text or "linear_solve_failure_count" not in sliding_window_text:
         errors.append("sliding_window_optimizer must publish linearization/linear-solve failure counters")
+    if "sample.weight > 1.0" not in read(ROOT / "src" / "gaussian_lic_tracking" / "src" / "visual_factor.cpp"):
+        errors.append("visual SE3 photometric sample weights must be bounded to (0, 1]")
     if "trajectory_control_pose_skip_count_" not in tracking_node_text:
         errors.append("tracking_node must publish trajectory-control pose rejection counters")
     if "last_sliding_window_imu_preintegration_samples_" not in tracking_node_text:
