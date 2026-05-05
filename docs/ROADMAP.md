@@ -190,6 +190,7 @@ baseline_manifest.json
 - [x] Publish sliding-window limited-step counts so real-bag BA saturation is visible without parsing debug logs.
 - [x] Publish per-factor skip counters for LiDAR point/plane, visual, SE3 photometric, smoothness, IMU, and optimizer failures.
 - [x] Reject non-finite LiDAR point/plane correspondences, zero plane normals, and invalid robust weights before they enter the BA normal equation.
+- [x] Reject non-finite IMU preintegration samples, non-finite residual states, and zero-norm IMU residual quaternions before BA consumes them.
 - [x] Publish rendered/depth cache hit diagnostics, pending visual-factor stale drops, and SE3 photometric depth/gradient/residual rejection counters through `TrackingStatus`.
 - [x] Add analytic SE3 camera photometric pixel Jacobians and multi-sample normal equations with finite-difference CTest coverage.
 - [x] Default-enable native sliding-window BA plus visual-alignment and SE3 photometric window factors in `tracking.launch.py`, while preserving bounded best-effort QoS and serialized callbacks.

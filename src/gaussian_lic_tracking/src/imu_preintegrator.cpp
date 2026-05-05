@@ -4,6 +4,7 @@
 #include <gaussian_lic_tracking/time.hpp>
 
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace gaussian_lic_tracking
@@ -11,6 +12,9 @@ namespace gaussian_lic_tracking
 
 void ImuPreintegrator::reset(const int64_t start_stamp_ns, const ImuBias & bias)
 {
+  if (!bias.gyro.allFinite() || !bias.accel.allFinite()) {
+    throw std::runtime_error("IMU preintegration bias must be finite");
+  }
   bias_ = bias;
   start_stamp_ns_ = start_stamp_ns;
   end_stamp_ns_ = start_stamp_ns;
@@ -28,6 +32,9 @@ void ImuPreintegrator::add_measurement(
   const Eigen::Vector3d & angular_velocity_rad_s,
   const Eigen::Vector3d & linear_acceleration_m_s2)
 {
+  if (!angular_velocity_rad_s.allFinite() || !linear_acceleration_m_s2.allFinite()) {
+    throw std::runtime_error("IMU preintegration measurements must be finite");
+  }
   if (!initialized_) {
     reset(stamp_ns, bias_);
     last_angular_velocity_rad_s_ = angular_velocity_rad_s;
@@ -90,6 +97,18 @@ ImuPreintegrationResidual ImuPreintegrator::residual(
 {
   if (!initialized_) {
     throw std::runtime_error("cannot compute IMU preintegration residual before reset");
+  }
+  if (!start_state.p_w_i.allFinite() || !start_state.v_w_i.allFinite() ||
+    !start_state.q_w_i.coeffs().allFinite() ||
+    !end_state.p_w_i.allFinite() || !end_state.v_w_i.allFinite() ||
+    !end_state.q_w_i.coeffs().allFinite() || !gravity_w.allFinite())
+  {
+    throw std::runtime_error("IMU preintegration residual inputs must be finite");
+  }
+  if (start_state.q_w_i.norm() <= std::numeric_limits<double>::epsilon() ||
+    end_state.q_w_i.norm() <= std::numeric_limits<double>::epsilon())
+  {
+    throw std::runtime_error("IMU preintegration residual quaternions must be non-zero");
   }
   const Eigen::Quaterniond q_start_inv = start_state.q_w_i.normalized().inverse();
   const Eigen::Quaterniond predicted_delta_q =

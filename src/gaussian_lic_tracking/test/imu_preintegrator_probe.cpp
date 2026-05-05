@@ -4,7 +4,9 @@
 #include <gaussian_lic_tracking/time.hpp>
 
 #include <cmath>
+#include <exception>
 #include <iostream>
+#include <limits>
 
 int main()
 {
@@ -40,6 +42,28 @@ int main()
     residual.position_norm > 1.0e-12)
   {
     std::cerr << "IMU preintegration residual does not close on its propagated endpoint\n";
+    return 1;
+  }
+
+  bool rejected_bad_measurement = false;
+  try {
+    preintegrator.add_measurement(
+      (steps + 1) * dt_ns,
+      Eigen::Vector3d{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0},
+      accel);
+  } catch (const std::exception &) {
+    rejected_bad_measurement = true;
+  }
+  bool rejected_bad_quaternion = false;
+  try {
+    auto bad_end = end;
+    bad_end.q_w_i.coeffs().setZero();
+    (void)preintegrator.residual(start, bad_end);
+  } catch (const std::exception &) {
+    rejected_bad_quaternion = true;
+  }
+  if (!rejected_bad_measurement || !rejected_bad_quaternion) {
+    std::cerr << "IMU preintegration validation failed to reject invalid inputs\n";
     return 1;
   }
   std::cout << "imu_preintegrator_probe OK\n";
