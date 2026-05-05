@@ -82,6 +82,10 @@ sliding_window_marginalized_states
 sliding_window_iterations
 sliding_window_initial_cost
 sliding_window_final_cost
+sliding_window_gyro_bias_norm
+sliding_window_accel_bias_norm
+sliding_window_gyro_bias_observability
+sliding_window_accel_bias_observability
 sliding_window_converged
 gaussian_snapshot_points
 gaussian_snapshot_expected_total
@@ -102,12 +106,12 @@ visual_photometric_step_dy
 
 `scripts/tracking_smoke_test.sh` asserts that the synthetic frontend bag reaches
 `STATE_TRACKING`, publishes frontend odometry/path, and exercises the sliding
-window with nonzero IMU, LiDAR point, and visual factors. The visual gate replays
-a 32x32 Gaussian-pattern image bag while a transient-local rendered-image
-publisher supplies the mapper-render reference, then checks both subpixel
-alignment and photometric Gauss-Newton linearization status. The synthetic bag
-intentionally lowers the LiDAR point threshold to one point; dataset profiles
-keep production thresholds.
+window with nonzero IMU, LiDAR point, bias-observability, and visual factors.
+The visual gate replays a 32x32 Gaussian-pattern image bag while a
+transient-local rendered-image publisher supplies the mapper-render reference,
+then checks both subpixel alignment and photometric Gauss-Newton linearization
+status. The synthetic bag intentionally lowers the LiDAR point threshold to one
+point; dataset profiles keep production thresholds.
 
 ## Render Mode Policy
 

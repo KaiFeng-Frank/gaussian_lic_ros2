@@ -73,5 +73,6 @@ and Chamfer gates against the archived ROS1 upstream baseline. SPNet TensorRT
 engine generation is validated locally with TensorRT 10.9 on `sm_120`. The
 native tracking path now has a launch smoke gate and analytic geometric
 Jacobians for point-to-point, point-to-plane, and visual-alignment residuals,
-plus runtime-gated 2-DoF photometric translation linearization status; full
-native Coco-LIC2 frontend parity remains follow-up work.
+plus runtime-gated bias observability and 2-DoF photometric translation
+linearization status; full native Coco-LIC2 frontend parity remains follow-up
+work.

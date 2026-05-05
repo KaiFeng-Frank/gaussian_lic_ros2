@@ -121,6 +121,10 @@ struct SlidingWindowSummary
   size_t iterations{0};
   double initial_cost{0.0};
   double final_cost{0.0};
+  double gyro_bias_norm{0.0};
+  double accel_bias_norm{0.0};
+  double gyro_bias_observability{0.0};
+  double accel_bias_observability{0.0};
   bool converged{false};
 };
 

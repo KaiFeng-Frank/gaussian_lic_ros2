@@ -1013,6 +1013,10 @@ private:
     status.sliding_window_iterations = static_cast<uint64_t>(summary.iterations);
     status.sliding_window_initial_cost = summary.initial_cost;
     status.sliding_window_final_cost = summary.final_cost;
+    status.sliding_window_gyro_bias_norm = summary.gyro_bias_norm;
+    status.sliding_window_accel_bias_norm = summary.accel_bias_norm;
+    status.sliding_window_gyro_bias_observability = summary.gyro_bias_observability;
+    status.sliding_window_accel_bias_observability = summary.accel_bias_observability;
     status.sliding_window_converged = summary.converged;
 
     status.gaussian_snapshot_points = static_cast<uint64_t>(gaussian_snapshot_.point_count());

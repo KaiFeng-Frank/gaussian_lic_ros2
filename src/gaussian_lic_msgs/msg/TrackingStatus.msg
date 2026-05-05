@@ -38,6 +38,10 @@ uint64 sliding_window_marginalized_states
 uint64 sliding_window_iterations
 float64 sliding_window_initial_cost
 float64 sliding_window_final_cost
+float64 sliding_window_gyro_bias_norm
+float64 sliding_window_accel_bias_norm
+float64 sliding_window_gyro_bias_observability
+float64 sliding_window_accel_bias_observability
 bool sliding_window_converged
 
 uint64 gaussian_snapshot_points

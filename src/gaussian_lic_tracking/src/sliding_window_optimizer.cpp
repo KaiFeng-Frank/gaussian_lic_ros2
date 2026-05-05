@@ -953,8 +953,46 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
 
   const auto variables = variable_layout();
   const size_t variable_count = variables.size() * kStateDof;
+  auto refresh_bias_summary = [&summary, this, &variables]() {
+      summary.gyro_bias_norm = 0.0;
+      summary.accel_bias_norm = 0.0;
+      for (const auto & state : states_) {
+        summary.gyro_bias_norm = std::max(summary.gyro_bias_norm, state.gyro_bias.norm());
+        summary.accel_bias_norm = std::max(summary.accel_bias_norm, state.accel_bias.norm());
+      }
+      summary.gyro_bias_observability = 0.0;
+      summary.accel_bias_observability = 0.0;
+      if (variables.empty()) {
+        return;
+      }
+      const auto normal = linearize(states_, variables, 0.0);
+      if (!normal.valid || normal.hessian.rows() == 0) {
+        return;
+      }
+      auto min_eigenvalue = [](const Eigen::Matrix3d & block) {
+          const Eigen::Matrix3d symmetric = 0.5 * (block + block.transpose());
+          const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(symmetric);
+          if (solver.info() != Eigen::Success) {
+            return 0.0;
+          }
+          return std::max(0.0, solver.eigenvalues().minCoeff());
+        };
+      for (const auto & variable : variables) {
+        const auto offset = static_cast<Eigen::Index>(variable.offset);
+        if (offset + static_cast<Eigen::Index>(kStateDof) > normal.hessian.rows()) {
+          continue;
+        }
+        summary.gyro_bias_observability = std::max(
+          summary.gyro_bias_observability,
+          min_eigenvalue(normal.hessian.block<3, 3>(offset + 9, offset + 9)));
+        summary.accel_bias_observability = std::max(
+          summary.accel_bias_observability,
+          min_eigenvalue(normal.hessian.block<3, 3>(offset + 12, offset + 12)));
+      }
+    };
   if (residual.size() == 0 || variable_count == 0U) {
     summary.converged = true;
+    refresh_bias_summary();
     return summary;
   }
 
@@ -990,6 +1028,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   if (summary.iterations == config_.max_iterations || summary.final_cost < summary.initial_cost) {
     summary.converged = summary.final_cost <= summary.initial_cost;
   }
+  refresh_bias_summary();
   return summary;
 }
 
