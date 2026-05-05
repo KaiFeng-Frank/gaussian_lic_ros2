@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <gaussian_lic_tracking/gaussian_snapshot.hpp>
 #include <gaussian_lic_tracking/imu_propagator.hpp>
 #include <gaussian_lic_tracking/lidar_deskew.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
@@ -256,18 +257,23 @@ private:
 
   void handle_gaussian_snapshot(const gaussian_lic_msgs::msg::GaussianArray & msg)
   {
-    last_gaussian_snapshot_stamp_ns_ = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
-    last_gaussian_total_count_ = msg.total_count;
-    last_gaussian_chunk_count_ = msg.chunk_count;
-    if (msg.chunk_index == 0U || gaussian_snapshot_chunks_received_ >= msg.chunk_count) {
-      gaussian_snapshot_chunks_received_ = 0U;
-    }
-    ++gaussian_snapshot_chunks_received_;
+    const bool accepted = gaussian_snapshot_.ingest(msg);
+    last_gaussian_snapshot_stamp_ns_ = gaussian_snapshot_.stamp_ns();
+    last_gaussian_total_count_ = gaussian_snapshot_.expected_total_count();
+    last_gaussian_chunk_count_ = gaussian_snapshot_.expected_chunk_count();
+    gaussian_snapshot_chunks_received_ = static_cast<uint32_t>(gaussian_snapshot_.received_chunk_count());
     last_gaussian_chunk_size_ = msg.gaussians.size();
     RCLCPP_DEBUG_THROTTLE(
       get_logger(), *get_clock(), 2000,
-      "received Gaussian snapshot chunk %u/%u total=%u chunk_size=%zu",
-      msg.chunk_index + 1U, msg.chunk_count, msg.total_count, msg.gaussians.size());
+      "received Gaussian snapshot chunk %u/%u total=%u chunk_size=%zu accepted=%s complete=%s cached=%zu mean_opacity=%.4f",
+      msg.chunk_index + 1U,
+      msg.chunk_count,
+      msg.total_count,
+      msg.gaussians.size(),
+      accepted ? "true" : "false",
+      gaussian_snapshot_.complete() ? "true" : "false",
+      gaussian_snapshot_.point_count(),
+      gaussian_snapshot_.mean_opacity());
   }
 
   void handle_pointcloud(const sensor_msgs::msg::PointCloud2 & msg)
@@ -903,6 +909,7 @@ private:
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   bool has_lidar_keyframe_{false};
+  gaussian_lic_tracking::GaussianSnapshot gaussian_snapshot_;
   gaussian_lic_tracking::VisualFactor visual_factor_;
   gaussian_lic_tracking::VisualFrame latest_rendered_frame_;
   gaussian_lic_tracking::VisualResidual last_visual_residual_;

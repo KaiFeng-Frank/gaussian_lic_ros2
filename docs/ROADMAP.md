@@ -167,7 +167,7 @@ baseline_manifest.json
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, pose/state priors, marginalization-prior anchoring, finite-difference Jacobians, window trimming, and deterministic convergence probes.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
 - [x] Add a native visual photometric residual factor and subscribe tracking to mapper rendered-image output.
-- [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks for the Gaussian-map reverse channel.
+- [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks and cache chunk-complete Gaussian-map snapshots for the reverse channel.
 - [x] Replace dynamic reconfigure/global parameters with ROS2 parameters.
 - [x] Publish odometry, path, TF, and Gaussian mapper input topics natively.
 - [x] Keep any ROS1 bridge mode clearly marked as temporary.

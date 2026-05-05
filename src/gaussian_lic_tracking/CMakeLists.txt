@@ -15,6 +15,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
 add_library(trajectory_manager
+  src/gaussian_snapshot.cpp
   src/imu_preintegrator.cpp
   src/imu_propagator.cpp
   src/lidar_deskew.cpp
@@ -29,6 +30,7 @@ target_include_directories(trajectory_manager PUBLIC
 )
 ament_target_dependencies(trajectory_manager
   builtin_interfaces
+  gaussian_lic_msgs
 )
 target_link_libraries(trajectory_manager Eigen3::Eigen)
 
@@ -41,6 +43,16 @@ target_link_libraries(trajectory_manager_probe
   Eigen3::Eigen
 )
 ament_target_dependencies(trajectory_manager_probe builtin_interfaces)
+
+add_executable(gaussian_snapshot_probe
+  test/gaussian_snapshot_probe.cpp
+)
+target_include_directories(gaussian_snapshot_probe PRIVATE include)
+target_link_libraries(gaussian_snapshot_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(gaussian_snapshot_probe builtin_interfaces gaussian_lic_msgs)
 
 add_executable(imu_propagator_probe
   test/imu_propagator_probe.cpp
@@ -148,7 +160,7 @@ ament_target_dependencies(tracking_node
   tf2_ros
 )
 
-install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_marginalization_probe sliding_window_point_factor_probe visual_factor_probe tracking_node
+install(TARGETS trajectory_manager trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_marginalization_probe sliding_window_point_factor_probe visual_factor_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

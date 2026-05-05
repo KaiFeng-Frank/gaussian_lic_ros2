@@ -74,8 +74,9 @@ Current ROS2 implementation status:
   `/gaussian_lic/rendered_image` so mapper Gaussian renders can be compared
   against incoming camera frames.
 - `tracking_node` also subscribes to `/gaussian_lic/gaussian_map`
-  `GaussianArray` chunks, giving the frontend a native Gaussian-map snapshot
-  channel for later joint optimization.
+  `GaussianArray` chunks and caches chunk-complete Gaussian snapshots, giving
+  the frontend a native Gaussian-map reverse channel for later photometric
+  joint optimization.
 - Production sliding-window BA, VIO Jacobians, robust IMU bias observability
   from LIO/VIO factors, true Schur-complement marginalization, and
   Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be ported
