@@ -62,6 +62,7 @@ struct SlidingWindowStatePrior
   Eigen::Vector3d v_w_i{Eigen::Vector3d::Zero()};
   Eigen::Vector3d gyro_bias{Eigen::Vector3d::Zero()};
   Eigen::Vector3d accel_bias{Eigen::Vector3d::Zero()};
+  Eigen::Matrix<double, 15, 15> sqrt_information{Eigen::Matrix<double, 15, 15>::Identity()};
   double rotation_weight{1.0};
   double velocity_weight{1.0};
   double position_weight{1.0};

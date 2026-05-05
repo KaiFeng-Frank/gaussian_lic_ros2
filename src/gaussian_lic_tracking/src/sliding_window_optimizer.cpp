@@ -174,6 +174,17 @@ SlidingWindowStatePrior SlidingWindowOptimizer::make_state_prior(const SlidingWi
   prior.v_w_i = state.v_w_i;
   prior.gyro_bias = state.gyro_bias;
   prior.accel_bias = state.accel_bias;
+  prior.sqrt_information.setZero();
+  prior.sqrt_information.template block<3, 3>(0, 0) =
+    std::sqrt(config_.marginalization_prior_weight) * Eigen::Matrix3d::Identity();
+  prior.sqrt_information.template block<3, 3>(3, 3) =
+    std::sqrt(config_.marginalization_prior_weight) * Eigen::Matrix3d::Identity();
+  prior.sqrt_information.template block<3, 3>(6, 6) =
+    std::sqrt(config_.marginalization_prior_weight) * Eigen::Matrix3d::Identity();
+  prior.sqrt_information.template block<3, 3>(9, 9) =
+    std::sqrt(config_.marginalization_prior_weight) * Eigen::Matrix3d::Identity();
+  prior.sqrt_information.template block<3, 3>(12, 12) =
+    std::sqrt(config_.marginalization_prior_weight) * Eigen::Matrix3d::Identity();
   prior.rotation_weight = config_.marginalization_prior_weight;
   prior.velocity_weight = config_.marginalization_prior_weight;
   prior.position_weight = config_.marginalization_prior_weight;
@@ -337,16 +348,30 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     const auto & state = states[static_cast<size_t>(index)];
     Eigen::Matrix<double, 15, 1> residual;
     residual.template segment<3>(0) =
-      std::sqrt(prior.rotation_weight) * rotation_residual(prior.q_w_i, state.q_w_i);
+      rotation_residual(prior.q_w_i, state.q_w_i);
     residual.template segment<3>(3) =
-      std::sqrt(prior.velocity_weight) * (state.v_w_i - prior.v_w_i);
+      state.v_w_i - prior.v_w_i;
     residual.template segment<3>(6) =
-      std::sqrt(prior.position_weight) * (state.p_w_i - prior.p_w_i);
+      state.p_w_i - prior.p_w_i;
     residual.template segment<3>(9) =
-      std::sqrt(prior.gyro_bias_weight) * (state.gyro_bias - prior.gyro_bias);
+      state.gyro_bias - prior.gyro_bias;
     residual.template segment<3>(12) =
-      std::sqrt(prior.accel_bias_weight) * (state.accel_bias - prior.accel_bias);
-    append(residual);
+      state.accel_bias - prior.accel_bias;
+    Eigen::Matrix<double, 15, 15> sqrt_information = prior.sqrt_information;
+    if (sqrt_information.isApprox(Eigen::Matrix<double, 15, 15>::Identity())) {
+      sqrt_information.setZero();
+      sqrt_information.template block<3, 3>(0, 0) =
+        std::sqrt(prior.rotation_weight) * Eigen::Matrix3d::Identity();
+      sqrt_information.template block<3, 3>(3, 3) =
+        std::sqrt(prior.velocity_weight) * Eigen::Matrix3d::Identity();
+      sqrt_information.template block<3, 3>(6, 6) =
+        std::sqrt(prior.position_weight) * Eigen::Matrix3d::Identity();
+      sqrt_information.template block<3, 3>(9, 9) =
+        std::sqrt(prior.gyro_bias_weight) * Eigen::Matrix3d::Identity();
+      sqrt_information.template block<3, 3>(12, 12) =
+        std::sqrt(prior.accel_bias_weight) * Eigen::Matrix3d::Identity();
+    }
+    append(sqrt_information * residual);
   }
 
   for (const auto & factor : point_factors_) {

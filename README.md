@@ -88,7 +88,7 @@ The latest local report has Torch Gaussian mean RGB drift `11.657 < 40.0`.
 
 The mapper backend now has the major CUDA/Torch surfaces in tree, but the full paper system is not finished.
 
-- The native tracker has timestamp-safe trajectory/IMU primitives, IMU history interpolation, raw-sample IMU preintegration/reintegration, IMU bias continuity residuals, marginalization-prior anchoring, per-point LiDAR deskew, direct LiDAR/Gaussian-map point-to-point window factors, chunk-complete Gaussian snapshot caching, an optional sliding-window optimizer foundation, direct visual residual/alignment, and optional visual-alignment window factors, but it is not yet the full continuous-time Coco-LIC2 production BA stack.
+- The native tracker has timestamp-safe trajectory/IMU primitives, IMU history interpolation, raw-sample IMU preintegration/reintegration, IMU bias continuity residuals, dense marginalization-prior anchoring, per-point LiDAR deskew, direct LiDAR/Gaussian-map point-to-point window factors, chunk-complete Gaussian snapshot caching, an optional sliding-window optimizer foundation, direct visual residual/alignment, and optional visual-alignment window factors, but it is not yet the full continuous-time Coco-LIC2 production BA stack.
 - VIO pose Jacobians, robust IMU bias observability from LIO/VIO factors, true Schur-complement marginalization, and full joint BA remain to be ported beyond the current deskewed bounded 6-DoF LiDAR correction and finite-difference IMU-window foundation.
 - TensorRT/SPNet depth completion has a native optional wrapper and a local TensorRT 10.9 FP16 engine benchmark; the generated `.engine` is hardware/runtime-specific and intentionally not checked in.
 - Strict paper reproduction now has the local `CBD_Building_01` bag, ROS1 upstream baseline artifacts, strict CUDA current collection, final-map render-pair extraction, and a passing local strict report. Full native tracker parity remains outside this mapper-contract gate.
@@ -132,7 +132,7 @@ colcon test --packages-select gaussian_lic_tracking --event-handlers console_dir
 colcon test-result --verbose
 ```
 
-Expected local result is `12 tests, 0 errors, 0 failures, 0 skipped`.
+Expected local result is `13 tests, 0 errors, 0 failures, 0 skipped`.
 
 Run the full local verification wrapper:
 
