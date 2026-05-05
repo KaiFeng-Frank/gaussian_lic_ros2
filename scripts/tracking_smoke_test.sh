@@ -196,6 +196,7 @@ status_matches() {
     rg -q "sliding_window_smoothness_factor_skip_count:" "${status_file}" &&
     rg -q "sliding_window_imu_factor_skip_count:" "${status_file}" &&
     rg -q "sliding_window_optimization_skip_count:" "${status_file}" &&
+    rg -q "sliding_window_invalid_optimized_states: 0" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rows: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_cols: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&
@@ -206,6 +207,7 @@ status_matches() {
     rg -q "sliding_window_dense_prior_rank: [1-9]" "${status_file}" &&
     rg -q "sliding_window_dense_prior_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "trajectory_control_poses: [1-9]" "${status_file}" &&
+    rg -q "trajectory_control_pose_skip_count: 0" "${status_file}" &&
     rg -q "total_window_point_correspondences: [1-9]" "${status_file}" &&
     rg -q "num_lidar_keyframes: [1-9]" "${status_file}" || return 1
   if [[ "${EXPECT_IMU_FACTOR}" == "true" ]]; then

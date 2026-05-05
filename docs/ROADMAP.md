@@ -221,6 +221,7 @@ baseline_manifest.json
 - [x] Transform SE3 photometric camera-frame Hessians through the camera-to-IMU adjoint into body-frame sqrt-information before adding sliding-window BA factors.
 - [x] Default-enable native sliding-window BA plus visual-alignment and SE3 photometric window factors in `tracking.launch.py`, while preserving bounded best-effort QoS and serialized callbacks.
 - [x] Feed optimized sliding-window pose/velocity/bias back into odometry, the continuous-time trajectory-control cache, and safe IMU propagation re-anchoring, and expose cubic B-spline pose/velocity trajectory queries for deskew fallback.
+- [x] Reject invalid optimized sliding-window states before odometry/IMU feedback and reject invalid trajectory-control poses before B-spline deskew use.
 - [x] Publish and smoke-gate optimized IMU re-anchor and B-spline trajectory-control runtime status fields.
 - [x] Add optional SE3 photometric pose factors to the sliding-window optimizer with deterministic CTest coverage.
 - [x] Extract runtime SE3 photometric window factors from rendered/current/depth images and gate them in native tracking smoke.

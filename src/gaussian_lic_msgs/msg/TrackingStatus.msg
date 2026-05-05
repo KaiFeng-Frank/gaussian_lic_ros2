@@ -65,6 +65,7 @@ uint64 sliding_window_se3_photometric_factor_skip_count
 uint64 sliding_window_smoothness_factor_skip_count
 uint64 sliding_window_imu_factor_skip_count
 uint64 sliding_window_optimization_skip_count
+uint64 sliding_window_invalid_optimized_states
 uint64 sliding_window_marginalized_states
 uint64 sliding_window_dense_prior_rows
 uint64 sliding_window_dense_prior_cols
@@ -96,6 +97,7 @@ uint64 sliding_window_imu_reanchors
 uint64 trajectory_control_poses
 uint64 trajectory_deskew_queries
 uint64 trajectory_deskew_hits
+uint64 trajectory_control_pose_skip_count
 
 uint64 gaussian_snapshot_points
 uint64 gaussian_snapshot_expected_total

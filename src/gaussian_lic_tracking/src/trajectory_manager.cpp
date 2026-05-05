@@ -4,10 +4,20 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace gaussian_lic_tracking
 {
+namespace
+{
+bool pose_is_finite_with_nonzero_quaternion(const TrajectoryPose & pose)
+{
+  return pose.p_w_i.allFinite() && pose.v_w_i.allFinite() &&
+         pose.q_w_i.coeffs().allFinite() &&
+         pose.q_w_i.norm() > std::numeric_limits<double>::epsilon();
+}
+}  // namespace
 
 TrajectoryManager::TrajectoryManager(const int64_t control_interval_ns)
 {
@@ -29,6 +39,9 @@ void TrajectoryManager::clear()
 
 void TrajectoryManager::add_control_pose(const TrajectoryPose & pose)
 {
+  if (!pose_is_finite_with_nonzero_quaternion(pose)) {
+    throw std::runtime_error("trajectory control poses must be finite with a non-zero quaternion");
+  }
   if (!control_poses_.empty() && pose.stamp_ns <= control_poses_.back().stamp_ns) {
     throw std::runtime_error("trajectory control poses must be inserted in strictly increasing timestamp order");
   }
@@ -39,6 +52,9 @@ void TrajectoryManager::add_control_pose(const TrajectoryPose & pose)
 
 void TrajectoryManager::add_or_update_control_pose(const TrajectoryPose & pose)
 {
+  if (!pose_is_finite_with_nonzero_quaternion(pose)) {
+    throw std::runtime_error("trajectory control poses must be finite with a non-zero quaternion");
+  }
   TrajectoryPose normalized = pose;
   normalized.q_w_i.normalize();
   const auto it = std::lower_bound(

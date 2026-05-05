@@ -280,6 +280,10 @@ def main() -> int:
         errors.append("tracking_node must gate out-of-range LiDAR per-point time offsets")
     if "camera_info_invalid_intrinsics_" not in tracking_node_text or "image_invalid_frames_" not in tracking_node_text:
         errors.append("tracking_node must publish invalid camera/image/depth/rendered-frame counters")
+    if "sliding_window_invalid_optimized_states_" not in tracking_node_text or "valid_sliding_window_state" not in tracking_node_text:
+        errors.append("tracking_node must reject invalid optimized sliding-window states before feedback")
+    if "trajectory_control_pose_skip_count_" not in tracking_node_text:
+        errors.append("tracking_node must publish trajectory-control pose rejection counters")
     for field in [
         "signed_nanosecond_time_math_enabled",
         "last_image_stamp_ns",
@@ -311,6 +315,7 @@ def main() -> int:
         "sliding_window_smoothness_factor_skip_count",
         "sliding_window_imu_factor_skip_count",
         "sliding_window_optimization_skip_count",
+        "sliding_window_invalid_optimized_states",
         "sliding_window_normal_equation_rows",
         "sliding_window_normal_equation_cols",
         "sliding_window_normal_equation_rank",
@@ -324,6 +329,7 @@ def main() -> int:
         "trajectory_control_poses",
         "trajectory_deskew_queries",
         "trajectory_deskew_hits",
+        "trajectory_control_pose_skip_count",
         "visual_rendered_cache_size",
         "visual_rendered_match_delta_ns",
         "visual_depth_cache_size",

@@ -69,6 +69,9 @@ Current ROS2 implementation status:
   correction, per-point deskew, sliding-window factor creation, and mapper point
   publication. The default is identity so existing synthetic and mapper-contract
   bags stay bit-compatible.
+- The optimized sliding-window state is finite/non-zero-quaternion checked before
+  odometry publication, IMU re-anchoring, or trajectory-control feedback; the
+  trajectory manager also rejects invalid control poses before B-spline deskew use.
 - `tracking_node` applies ROS2-configurable camera-to-IMU extrinsics to convert
   camera-frame SE3 photometric Gauss-Newton deltas into body-frame sliding-window
   deltas before adding SE3 photometric BA factors.
