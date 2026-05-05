@@ -91,6 +91,36 @@ int main()
     return 1;
   }
 
+  auto index_config = config;
+  index_config.min_points = 1U;
+  index_config.max_frame_points = 0U;
+  index_config.max_map_points = 2U;
+  index_config.nearest_distance_m = 0.25;
+  gaussian_lic_tracking::LidarFactor indexed_factor(index_config);
+  indexed_factor.insert_keyframe({Eigen::Vector3d{0.0, 0.0, 0.0}}, identity);
+  indexed_factor.insert_keyframe(
+    {Eigen::Vector3d{1.24, 0.0, 0.0}, Eigen::Vector3d{1.35, 0.0, 0.0}},
+    identity);
+  if (indexed_factor.map_size() != index_config.max_map_points) {
+    std::cerr << "LiDAR spatial index map cap did not preserve expected size\n";
+    return 1;
+  }
+  if (indexed_factor.compute_translation_correction(
+      {Eigen::Vector3d{0.0, 0.0, 0.0}}, identity).applied)
+  {
+    std::cerr << "LiDAR spatial index still matched an evicted map point\n";
+    return 1;
+  }
+  const auto boundary_correction = indexed_factor.compute_translation_correction(
+    {Eigen::Vector3d{1.26, 0.0, 0.0}},
+    identity);
+  if (!boundary_correction.applied || boundary_correction.matched_points != 1U ||
+    std::abs(boundary_correction.delta_p_w.x() + 0.02) > 1.0e-12)
+  {
+    std::cerr << "LiDAR spatial index missed a neighboring-voxel correspondence\n";
+    return 1;
+  }
+
   std::vector<Eigen::Vector3d> structured_scan;
   for (int z = 0; z < 3; ++z) {
     for (int y = 0; y < 4; ++y) {

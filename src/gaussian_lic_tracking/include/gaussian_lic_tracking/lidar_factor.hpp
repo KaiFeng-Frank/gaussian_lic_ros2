@@ -4,6 +4,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Core>
@@ -77,12 +79,43 @@ public:
     const TrajectoryPose & pose);
 
 private:
+  struct VoxelKey
+  {
+    int64_t x{0};
+    int64_t y{0};
+    int64_t z{0};
+
+    bool operator==(const VoxelKey & other) const
+    {
+      return x == other.x && y == other.y && z == other.z;
+    }
+  };
+
+  struct VoxelKeyHash
+  {
+    size_t operator()(const VoxelKey & key) const;
+  };
+
   static std::vector<Eigen::Vector3d> sample_points(
     const std::vector<Eigen::Vector3d> & points,
     size_t max_points);
+  static VoxelKey voxel_key_for_point(const Eigen::Vector3d & point, double voxel_size);
+
+  void rebuild_spatial_index();
+  bool find_nearest_map_point(
+    const Eigen::Vector3d & point_w,
+    double max_distance_sq,
+    Eigen::Vector3d & best_point_w,
+    double & best_distance_sq) const;
+  std::vector<std::pair<double, Eigen::Vector3d>> find_nearest_map_neighbors(
+    const Eigen::Vector3d & point_w,
+    double max_distance_sq,
+    size_t max_neighbors) const;
 
   LidarFactorConfig config_;
   std::vector<Eigen::Vector3d> map_points_w_;
+  std::unordered_map<VoxelKey, std::vector<size_t>, VoxelKeyHash> map_voxels_;
+  double voxel_size_m_{0.0};
 };
 
 }  // namespace gaussian_lic_tracking

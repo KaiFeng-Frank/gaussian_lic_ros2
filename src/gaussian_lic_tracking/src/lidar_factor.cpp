@@ -72,11 +72,29 @@ void LidarFactor::set_config(const LidarFactorConfig & config)
     throw std::runtime_error("LiDAR plane condition threshold must be positive");
   }
   config_ = config;
+  if (!map_points_w_.empty()) {
+    rebuild_spatial_index();
+  }
 }
 
 void LidarFactor::clear()
 {
   map_points_w_.clear();
+  map_voxels_.clear();
+  voxel_size_m_ = 0.0;
+}
+
+size_t LidarFactor::VoxelKeyHash::operator()(const VoxelKey & key) const
+{
+  size_t seed = 1469598103934665603ULL;
+  const auto mix = [&seed](const int64_t value) {
+    const size_t hashed = std::hash<int64_t>{}(value);
+    seed ^= hashed + 0x9e3779b97f4a7c15ULL + (seed << 6U) + (seed >> 2U);
+  };
+  mix(key.x);
+  mix(key.y);
+  mix(key.z);
+  return seed;
 }
 
 std::vector<Eigen::Vector3d> LidarFactor::sample_points(
@@ -104,6 +122,99 @@ std::vector<Eigen::Vector3d> LidarFactor::sample_points(
   return sampled;
 }
 
+LidarFactor::VoxelKey LidarFactor::voxel_key_for_point(
+  const Eigen::Vector3d & point,
+  const double voxel_size)
+{
+  return VoxelKey{
+    static_cast<int64_t>(std::floor(point.x() / voxel_size)),
+    static_cast<int64_t>(std::floor(point.y() / voxel_size)),
+    static_cast<int64_t>(std::floor(point.z() / voxel_size))};
+}
+
+void LidarFactor::rebuild_spatial_index()
+{
+  map_voxels_.clear();
+  voxel_size_m_ = std::max(config_.nearest_distance_m, 1.0e-6);
+  map_voxels_.reserve(map_points_w_.size());
+  for (size_t index = 0U; index < map_points_w_.size(); ++index) {
+    if (!map_points_w_[index].allFinite()) {
+      continue;
+    }
+    map_voxels_[voxel_key_for_point(map_points_w_[index], voxel_size_m_)].push_back(index);
+  }
+}
+
+bool LidarFactor::find_nearest_map_point(
+  const Eigen::Vector3d & point_w,
+  const double max_distance_sq,
+  Eigen::Vector3d & best_point_w,
+  double & best_distance_sq) const
+{
+  if (map_voxels_.empty() || voxel_size_m_ <= 0.0 || !point_w.allFinite()) {
+    return false;
+  }
+  const VoxelKey center = voxel_key_for_point(point_w, voxel_size_m_);
+  best_distance_sq = std::numeric_limits<double>::infinity();
+  for (int64_t dx = -1; dx <= 1; ++dx) {
+    for (int64_t dy = -1; dy <= 1; ++dy) {
+      for (int64_t dz = -1; dz <= 1; ++dz) {
+        const auto bucket = map_voxels_.find(VoxelKey{center.x + dx, center.y + dy, center.z + dz});
+        if (bucket == map_voxels_.end()) {
+          continue;
+        }
+        for (const size_t index : bucket->second) {
+          const double distance_sq = (map_points_w_[index] - point_w).squaredNorm();
+          if (distance_sq < best_distance_sq) {
+            best_distance_sq = distance_sq;
+            best_point_w = map_points_w_[index];
+          }
+        }
+      }
+    }
+  }
+  return best_distance_sq <= max_distance_sq;
+}
+
+std::vector<std::pair<double, Eigen::Vector3d>> LidarFactor::find_nearest_map_neighbors(
+  const Eigen::Vector3d & point_w,
+  const double max_distance_sq,
+  const size_t max_neighbors) const
+{
+  std::vector<std::pair<double, Eigen::Vector3d>> neighbors;
+  if (map_voxels_.empty() || voxel_size_m_ <= 0.0 || max_neighbors == 0U || !point_w.allFinite()) {
+    return neighbors;
+  }
+  const VoxelKey center = voxel_key_for_point(point_w, voxel_size_m_);
+  neighbors.reserve(max_neighbors);
+  for (int64_t dx = -1; dx <= 1; ++dx) {
+    for (int64_t dy = -1; dy <= 1; ++dy) {
+      for (int64_t dz = -1; dz <= 1; ++dz) {
+        const auto bucket = map_voxels_.find(VoxelKey{center.x + dx, center.y + dy, center.z + dz});
+        if (bucket == map_voxels_.end()) {
+          continue;
+        }
+        for (const size_t index : bucket->second) {
+          const double distance_sq = (map_points_w_[index] - point_w).squaredNorm();
+          if (distance_sq > max_distance_sq) {
+            continue;
+          }
+          neighbors.emplace_back(distance_sq, map_points_w_[index]);
+          std::sort(
+            neighbors.begin(), neighbors.end(),
+            [](const auto & lhs, const auto & rhs) {
+              return lhs.first < rhs.first;
+            });
+          if (neighbors.size() > max_neighbors) {
+            neighbors.pop_back();
+          }
+        }
+      }
+    }
+  }
+  return neighbors;
+}
+
 LidarCorrection LidarFactor::compute_translation_correction(
   const std::vector<Eigen::Vector3d> & frame_points_i,
   const TrajectoryPose & predicted_pose) const
@@ -126,14 +237,7 @@ LidarCorrection LidarFactor::compute_translation_correction(
     const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
     double best_distance_sq = std::numeric_limits<double>::infinity();
     Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
-    for (const auto & map_point_w : map_points_w_) {
-      const double distance_sq = (map_point_w - point_w).squaredNorm();
-      if (distance_sq < best_distance_sq) {
-        best_distance_sq = distance_sq;
-        best_point_w = map_point_w;
-      }
-    }
-    if (best_distance_sq <= max_distance_sq) {
+    if (find_nearest_map_point(point_w, max_distance_sq, best_point_w, best_distance_sq)) {
       const Eigen::Vector3d residual = best_point_w - point_w;
       residual_sum += residual;
       residual_norm_sum += std::sqrt(best_distance_sq);
@@ -183,14 +287,7 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
     const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
     double best_distance_sq = std::numeric_limits<double>::infinity();
     Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
-    for (const auto & map_point_w : map_points_w_) {
-      const double distance_sq = (map_point_w - point_w).squaredNorm();
-      if (distance_sq < best_distance_sq) {
-        best_distance_sq = distance_sq;
-        best_point_w = map_point_w;
-      }
-    }
-    if (best_distance_sq <= max_distance_sq) {
+    if (find_nearest_map_point(point_w, max_distance_sq, best_point_w, best_distance_sq)) {
       const double residual_norm = std::sqrt(best_distance_sq);
       const double match_weight =
         std::min(1.0, config_.robust_kernel_m / std::max(residual_norm, 1.0e-12));
@@ -296,14 +393,7 @@ SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
     const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
     double best_distance_sq = std::numeric_limits<double>::infinity();
     Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
-    for (const auto & map_point_w : map_points_w_) {
-      const double distance_sq = (map_point_w - point_w).squaredNorm();
-      if (distance_sq < best_distance_sq) {
-        best_distance_sq = distance_sq;
-        best_point_w = map_point_w;
-      }
-    }
-    if (best_distance_sq <= max_distance_sq) {
+    if (find_nearest_map_point(point_w, max_distance_sq, best_point_w, best_distance_sq)) {
       const double residual_norm = std::sqrt(best_distance_sq);
       const double confidence = correspondence_confidence(residual_norm, config_.robust_kernel_m);
       if (confidence <= 0.0) {
@@ -347,23 +437,8 @@ SlidingWindowPointToPlaneFactor LidarFactor::build_point_to_plane_factor(
 
   for (const auto & point_i : sampled) {
     const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
-    std::vector<std::pair<double, Eigen::Vector3d>> neighbors;
-    neighbors.reserve(config_.plane_min_neighbors);
-    for (const auto & map_point_w : map_points_w_) {
-      const double distance_sq = (map_point_w - point_w).squaredNorm();
-      if (distance_sq > max_distance_sq) {
-        continue;
-      }
-      neighbors.emplace_back(distance_sq, map_point_w);
-      std::sort(
-        neighbors.begin(), neighbors.end(),
-        [](const auto & lhs, const auto & rhs) {
-          return lhs.first < rhs.first;
-        });
-      if (neighbors.size() > config_.plane_min_neighbors) {
-        neighbors.pop_back();
-      }
-    }
+    const auto neighbors =
+      find_nearest_map_neighbors(point_w, max_distance_sq, config_.plane_min_neighbors);
     if (neighbors.size() < config_.plane_min_neighbors) {
       continue;
     }
@@ -435,6 +510,7 @@ void LidarFactor::insert_keyframe(
     const size_t overflow = map_points_w_.size() - config_.max_map_points;
     map_points_w_.erase(map_points_w_.begin(), map_points_w_.begin() + static_cast<std::ptrdiff_t>(overflow));
   }
+  rebuild_spatial_index();
 }
 
 }  // namespace gaussian_lic_tracking
