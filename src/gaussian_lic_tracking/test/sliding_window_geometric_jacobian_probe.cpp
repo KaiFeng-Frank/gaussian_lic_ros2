@@ -3,6 +3,7 @@
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 
 #include <cmath>
+#include <exception>
 #include <iostream>
 
 namespace
@@ -73,6 +74,27 @@ int main()
             << " max_abs_error=" << max_abs_error << "\n";
   if (max_abs_error > 1.0e-12) {
     std::cerr << "analytic geometric Jacobian does not match expected SE3 blocks\n";
+    return 1;
+  }
+
+  bool rejected_bad_plane = false;
+  try {
+    auto bad_plane = plane_factor;
+    bad_plane.target_normals_w[0].setZero();
+    optimizer.add_point_to_plane_factor(bad_plane);
+  } catch (const std::exception &) {
+    rejected_bad_plane = true;
+  }
+  bool rejected_bad_weight = false;
+  try {
+    auto bad_point = point_factor;
+    bad_point.point_weights[0] = -1.0;
+    optimizer.add_point_to_point_factor(bad_point);
+  } catch (const std::exception &) {
+    rejected_bad_weight = true;
+  }
+  if (!rejected_bad_plane || !rejected_bad_weight) {
+    std::cerr << "geometric factor validation failed to reject invalid inputs\n";
     return 1;
   }
 
