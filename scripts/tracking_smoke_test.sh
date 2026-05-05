@@ -225,6 +225,9 @@ status_matches() {
     rg -q "sliding_window_normal_equation_rows: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_cols: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_normal_equation_rank_ratio: .*[1-9]" "${status_file}" &&
+    rg -q "sliding_window_min_normal_equation_rank_ratio: 0.8" "${status_file}" &&
+    rg -q "sliding_window_max_normal_equation_condition: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_condition_number: .*[1-9]" "${status_file}" &&
     status_has_finite_number "sliding_window_initial_cost" &&

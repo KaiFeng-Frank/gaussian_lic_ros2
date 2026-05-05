@@ -2115,6 +2115,15 @@ private:
       static_cast<uint64_t>(summary.normal_equation_cols);
     status.sliding_window_normal_equation_rank =
       static_cast<uint64_t>(summary.normal_equation_rank);
+    status.sliding_window_normal_equation_rank_ratio =
+      summary.normal_equation_cols > 0U ?
+      static_cast<double>(summary.normal_equation_rank) /
+      static_cast<double>(summary.normal_equation_cols) :
+      0.0;
+    status.sliding_window_min_normal_equation_rank_ratio =
+      sliding_window_min_normal_equation_rank_ratio_;
+    status.sliding_window_max_normal_equation_condition =
+      sliding_window_max_normal_equation_condition_;
     status.sliding_window_iterations = static_cast<uint64_t>(summary.iterations);
     status.sliding_window_accepted_steps = static_cast<uint64_t>(summary.accepted_steps);
     status.sliding_window_rejected_steps = static_cast<uint64_t>(summary.rejected_steps);
