@@ -173,6 +173,9 @@ echo "[verify] frontend adapter smoke"
 echo "[verify] native tracking smoke"
 ./scripts/tracking_smoke_test.sh --bag "${FRONTEND_RAW_VISUAL_BAG_PATH}"
 
+echo "[verify] native tracking smoke without IMU factor trigger"
+./scripts/tracking_smoke_test.sh --bag "${FRONTEND_RAW_VISUAL_BAG_PATH}" --no-imu-factor
+
 echo "[verify] image color fallback smoke"
 ./scripts/smoke_test.sh --image-color-fallback-check
 

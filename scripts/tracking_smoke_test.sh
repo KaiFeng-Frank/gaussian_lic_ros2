@@ -9,6 +9,9 @@ TIMEOUT_SEC=20
 ENABLE_SLIDING_WINDOW=true
 ENABLE_LIDAR_PLANE_FACTOR=true
 ENABLE_VISUAL_FACTOR_GATE=true
+SLIDING_WINDOW_IMU_WEIGHT=1.0
+SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=1000000000000.0
+EXPECT_IMU_FACTOR=true
 
 usage() {
   cat <<'EOF'
@@ -24,6 +27,8 @@ Options:
   --no-sliding-window               Disable optional sliding-window optimizer.
   --no-lidar-plane-factor           Disable point-to-plane LiDAR window factors.
   --no-visual-factor-gate           Disable rendered-image visual runtime checks.
+  --no-imu-factor                   Set IMU factor weight to zero and require
+                                    non-IMU window factors to trigger BA.
 EOF
 }
 
@@ -47,6 +52,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-visual-factor-gate)
       ENABLE_VISUAL_FACTOR_GATE=false
+      shift
+      ;;
+    --no-imu-factor)
+      SLIDING_WINDOW_IMU_WEIGHT=0.0
+      SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=1000000000000000.0
+      EXPECT_IMU_FACTOR=false
       shift
       ;;
     -h|--help)
@@ -107,6 +118,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_lidar_plane_factor:="${ENABLE_LIDAR_PLANE_FACTOR}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTOR_GATE}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTOR_GATE}" \
+  sliding_window_imu_weight:="${SLIDING_WINDOW_IMU_WEIGHT}" \
+  sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
   lidar_min_points:=1 \
   lidar_nearest_distance_m:=2.0 \
   lidar_keyframe_translation_m:=0.0 \
@@ -160,7 +173,6 @@ status_matches() {
     rg -q "last_pointcloud_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "last_imu_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "sliding_window_enabled: true" "${status_file}" &&
-    rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_accepted_steps: [1-9]" "${status_file}" &&
     rg -q "sliding_window_limited_steps:" "${status_file}" &&
     rg -q "sliding_window_point_factor_skip_count:" "${status_file}" &&
@@ -182,12 +194,18 @@ status_matches() {
     rg -q "sliding_window_smoothness_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_dense_prior_rank: [1-9]" "${status_file}" &&
     rg -q "sliding_window_dense_prior_max_singular_value: .*[1-9]" "${status_file}" &&
-    rg -q "sliding_window_gyro_bias_observability: [1-9]" "${status_file}" &&
-    rg -q "sliding_window_accel_bias_observability: [1-9]" "${status_file}" &&
-    rg -q "sliding_window_imu_reanchors: [1-9]" "${status_file}" &&
     rg -q "trajectory_control_poses: [1-9]" "${status_file}" &&
     rg -q "total_window_point_correspondences: [1-9]" "${status_file}" &&
     rg -q "num_lidar_keyframes: [1-9]" "${status_file}" || return 1
+  if [[ "${EXPECT_IMU_FACTOR}" == "true" ]]; then
+    rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_gyro_bias_observability: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_accel_bias_observability: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_imu_reanchors: [1-9]" "${status_file}" || return 1
+  else
+    rg -q "sliding_window_imu_factors: 0" "${status_file}" &&
+      rg -q "sliding_window_imu_factor_skip_count: [1-9]" "${status_file}" || return 1
+  fi
   if [[ "${ENABLE_VISUAL_FACTOR_GATE}" == "true" ]]; then
     rg -q "visual_factor_enabled: true" "${status_file}" &&
       rg -q "visual_alignment_valid: true" "${status_file}" &&
