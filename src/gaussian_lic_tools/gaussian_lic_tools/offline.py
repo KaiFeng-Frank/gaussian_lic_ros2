@@ -29,6 +29,39 @@ FIELD_FORMATS = {
     POINT_FIELD_FLOAT64: ("d", 8),
 }
 
+TRACKING_STATUS_FIELDS = (
+    "state",
+    "status_text",
+    "sliding_window_enabled",
+    "sliding_window_states",
+    "sliding_window_imu_factors",
+    "sliding_window_point_factors",
+    "sliding_window_plane_factors",
+    "sliding_window_visual_factors",
+    "sliding_window_se3_photometric_factors",
+    "sliding_window_smoothness_factors",
+    "sliding_window_accepted_steps",
+    "sliding_window_rejected_steps",
+    "sliding_window_limited_steps",
+    "sliding_window_initial_cost",
+    "sliding_window_final_cost",
+    "sliding_window_imu_cost",
+    "sliding_window_pose_prior_cost",
+    "sliding_window_state_prior_cost",
+    "sliding_window_dense_prior_cost",
+    "sliding_window_point_factor_cost",
+    "sliding_window_plane_factor_cost",
+    "sliding_window_visual_factor_cost",
+    "sliding_window_se3_photometric_factor_cost",
+    "sliding_window_smoothness_factor_cost",
+    "sliding_window_normal_equation_rank",
+    "sliding_window_normal_equation_condition_number",
+    "sliding_window_normal_equation_degenerate",
+    "sliding_window_state_gap_degenerate",
+    "visual_se3_photometric_inlier_ratio",
+    "visual_se3_photometric_cost",
+)
+
 
 @dataclass
 class BagReadResult:
@@ -37,6 +70,7 @@ class BagReadResult:
     topic_counts: dict
     poses: list
     points: list
+    tracking_statuses: list
     first_stamp_nsec: int | None
     last_stamp_nsec: int | None
 
@@ -179,6 +213,18 @@ def pose_to_record(msg):
     )
 
 
+def tracking_status_to_record(msg):
+    record = {
+        "stamp": stamp_to_float(msg.header.stamp),
+    }
+    for field in TRACKING_STATUS_FIELDS:
+        if hasattr(msg, field):
+            value = getattr(msg, field)
+            if isinstance(value, (bool, int, float, str)):
+                record[field] = value
+    return record
+
+
 def write_tum_trajectory(path, poses):
     with path.open("w", encoding="utf-8") as stream:
         for stamp, x, y, z, qx, qy, qz, qw in poses:
@@ -316,6 +362,7 @@ def read_ros2_bag(bag_path, args):
     topic_counts = {}
     poses = []
     points = []
+    tracking_statuses = []
     first_stamp = None
     last_stamp = None
 
@@ -327,7 +374,11 @@ def read_ros2_bag(bag_path, args):
 
         should_decode_pose = topic == args.pose_topic
         should_decode_points = topic == args.pointcloud_topic and len(points) < args.max_points
-        if should_decode_pose or should_decode_points:
+        should_decode_tracking_status = (
+            topic == args.tracking_status_topic
+            and len(tracking_statuses) < args.max_status_samples
+        )
+        if should_decode_pose or should_decode_points or should_decode_tracking_status:
             msg_type = topic_types.get(topic)
             if msg_type is not None:
                 if msg_type not in message_types:
@@ -339,6 +390,8 @@ def read_ros2_bag(bag_path, args):
                 elif should_decode_points:
                     remaining = args.max_points - len(points)
                     points.extend(iter_xyzrgb_points(msg, remaining))
+                elif should_decode_tracking_status:
+                    tracking_statuses.append(tracking_status_to_record(msg))
 
         if args.max_messages > 0 and sum(topic_counts.values()) >= args.max_messages:
             break
@@ -349,6 +402,7 @@ def read_ros2_bag(bag_path, args):
         topic_counts=topic_counts,
         poses=poses,
         points=points,
+        tracking_statuses=tracking_statuses,
         first_stamp_nsec=first_stamp,
         last_stamp_nsec=last_stamp,
     )
@@ -367,6 +421,7 @@ def read_ros1_bag(bag_path, args):
     topic_counts = {}
     poses = []
     points = []
+    tracking_statuses = []
     first_stamp = None
     last_stamp = None
 
@@ -379,13 +434,19 @@ def read_ros1_bag(bag_path, args):
 
             should_decode_pose = topic == args.pose_topic
             should_decode_points = topic == args.pointcloud_topic and len(points) < args.max_points
-            if should_decode_pose or should_decode_points:
+            should_decode_tracking_status = (
+                topic == args.tracking_status_topic
+                and len(tracking_statuses) < args.max_status_samples
+            )
+            if should_decode_pose or should_decode_points or should_decode_tracking_status:
                 msg = reader.deserialize(rawdata, connection.msgtype)
                 if should_decode_pose:
                     poses.append(pose_to_record(msg))
                 elif should_decode_points:
                     remaining = args.max_points - len(points)
                     points.extend(iter_xyzrgb_points(msg, remaining))
+                elif should_decode_tracking_status:
+                    tracking_statuses.append(tracking_status_to_record(msg))
 
             if args.max_messages > 0 and sum(topic_counts.values()) >= args.max_messages:
                 break
@@ -396,6 +457,7 @@ def read_ros1_bag(bag_path, args):
         topic_counts=topic_counts,
         poses=poses,
         points=points,
+        tracking_statuses=tracking_statuses,
         first_stamp_nsec=first_stamp,
         last_stamp_nsec=last_stamp,
     )
@@ -438,6 +500,7 @@ def run(args):
         "topic_hz": compute_topic_rates(result.topic_counts, duration_sec),
         "pose_topic": args.pose_topic,
         "pointcloud_topic": args.pointcloud_topic,
+        "tracking_status_topic": args.tracking_status_topic,
         "trajectory_poses": len(result.poses),
         "trajectory": {
             "poses": len(result.poses),
@@ -448,6 +511,10 @@ def run(args):
             "points": len(result.points),
             "bounds": compute_point_bounds(result.points),
             **compute_color_stats(result.points),
+        },
+        "tracking_status": {
+            "samples": len(result.tracking_statuses),
+            "last": result.tracking_statuses[-1] if result.tracking_statuses else {},
         },
         "outputs": {
             "trajectory_tum": str(trajectory_path),
@@ -467,7 +534,9 @@ def main(argv=None):
     parser.add_argument("--output", required=True, help="Output directory")
     parser.add_argument("--pose-topic", default="/pose_for_gs")
     parser.add_argument("--pointcloud-topic", default="/points_for_gs")
+    parser.add_argument("--tracking-status-topic", default="/gaussian_lic/frontend/status")
     parser.add_argument("--max-points", type=int, default=200000)
+    parser.add_argument("--max-status-samples", type=int, default=2000)
     parser.add_argument("--max-messages", type=int, default=0)
     args = parser.parse_args(argv)
     try:

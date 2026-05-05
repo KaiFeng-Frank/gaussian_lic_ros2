@@ -422,6 +422,7 @@ record_topics=(
   /gaussian_lic/map_points
   /gaussian_lic/rendered_image
   /gaussian_lic/status
+  /gaussian_lic/frontend/status
 )
 if [[ "${ENABLE_TORCH}" == "true" && "${PUBLISH_GAUSSIAN_MAP}" == "true" ]]; then
   record_topics+=(/gaussian_lic/gaussian_map)

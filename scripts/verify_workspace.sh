@@ -162,6 +162,7 @@ test -f /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q " 255 32 16$" /tmp/gaussian_lic_offline_verify/point_cloud_debug.ply
 rg -q '"topic_hz"' /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q '"path_length_m"' /tmp/gaussian_lic_offline_verify/metrics.json
+rg -q '"tracking_status"' /tmp/gaussian_lic_offline_verify/metrics.json
 rg -q '"points_with_color": [1-9]' /tmp/gaussian_lic_offline_verify/metrics.json
 
 echo "[verify] artifact gates"
