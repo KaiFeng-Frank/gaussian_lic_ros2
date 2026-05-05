@@ -9,6 +9,8 @@ OUTPUT_DIR="${ROOT_DIR}/results/fastlivo2/current"
 CONFIG_PATH=""
 ENABLE_TORCH=false
 TORCH_OPTIMIZATION_STEPS=0
+TORCH_OPTIMIZATION_SAMPLING=upstream_random
+TORCH_OPTIMIZATION_SEED=20260505
 TORCH_MAX_FOREGROUND=0
 TORCH_PRUNE_MIN_OPACITY=0.005
 TORCH_PRUNE_COUNT_POLICY=opacity
@@ -60,6 +62,9 @@ Options:
   --config FILE                Override bringup parameter YAML.
   --torch                      Enable Torch Gaussian map init/extend and save Gaussian PLY output.
   --torch-optimization-steps N Enable Torch photometric updates with up to N accumulated train-frame samples per keyframe.
+  --torch-optimization-sampling MODE
+                               Training-frame optimization sampling: upstream_random, even, or latest_even.
+  --torch-optimization-seed N   Random seed for upstream_random sampling; 0 uses std::random_device.
   --torch-max-foreground N     Enable Torch pruning and retain at most N foreground Gaussians.
   --torch-prune-min-opacity X  Enable Torch pruning and drop foreground Gaussians below opacity X.
   --torch-prune-count-policy P Count-cap policy: opacity or uniform. Default: opacity.
@@ -118,6 +123,16 @@ while [[ $# -gt 0 ]]; do
     --torch-optimization-steps)
       ENABLE_TORCH=true
       TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --torch-optimization-sampling)
+      ENABLE_TORCH=true
+      TORCH_OPTIMIZATION_SAMPLING="$2"
+      shift 2
+      ;;
+    --torch-optimization-seed)
+      ENABLE_TORCH=true
+      TORCH_OPTIMIZATION_SEED="$2"
       shift 2
       ;;
     --torch-max-foreground)
@@ -330,7 +345,12 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
     torch_opt_enabled=true
   fi
   torch_prune_enabled=false
-  if [[ "${TORCH_MAX_FOREGROUND}" -gt 0 || "${TORCH_PRUNE_MIN_OPACITY}" != "0.005" ]]; then
+  torch_scale_prune_enabled=false
+  if [[ "${TORCH_PRUNE_MAX_WORLD_SCALE}" != "0.0" && "${TORCH_PRUNE_MAX_WORLD_SCALE}" != "0" ]]; then
+    torch_scale_prune_enabled=true
+  fi
+  if [[ "${TORCH_MAX_FOREGROUND}" -gt 0 || "${TORCH_PRUNE_MIN_OPACITY}" != "0.005" ||
+    "${torch_scale_prune_enabled}" == "true" ]]; then
     torch_prune_enabled=true
   fi
   launch_args+=(
@@ -338,6 +358,8 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
     enable_torch_gaussian_init:=true
     enable_torch_gaussian_optimization:="${torch_opt_enabled}"
     torch_gaussian_optimization_steps:="${TORCH_OPTIMIZATION_STEPS}"
+    torch_gaussian_optimization_sampling:="${TORCH_OPTIMIZATION_SAMPLING}"
+    torch_gaussian_optimization_seed:="${TORCH_OPTIMIZATION_SEED}"
     enable_torch_gaussian_pruning:="${torch_prune_enabled}"
     enable_torch_gaussian_densification:="${ENABLE_TORCH_DENSIFICATION}"
     torch_gaussian_prune_min_opacity:="${TORCH_PRUNE_MIN_OPACITY}"
@@ -554,7 +576,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -595,6 +617,8 @@ metrics.update(
         "pytorch_cuda_alloc_conf": sys.argv[24],
         "torch_opacity_reset_interval": int(sys.argv[25]),
         "torch_prune_max_world_scale": float(sys.argv[26]),
+        "torch_optimization_sampling": sys.argv[27],
+        "torch_optimization_seed": int(sys.argv[28]),
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

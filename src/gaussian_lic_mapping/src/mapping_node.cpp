@@ -14,6 +14,8 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <numeric>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -140,6 +142,11 @@ public:
       declare_parameter<int>("torch_gaussian_optimization_steps", 0);
     backend_config_.optimization_max_samples =
       declare_parameter<int>("torch_gaussian_optimization_max_samples", 4096);
+    backend_config_.optimization_sampling =
+      declare_parameter<std::string>("torch_gaussian_optimization_sampling", "upstream_random");
+    backend_config_.optimization_seed =
+      declare_parameter<int>("torch_gaussian_optimization_seed", 20260505);
+    initialize_torch_optimization_rng();
     backend_config_.enable_density_control =
       declare_parameter<bool>("enable_torch_gaussian_pruning", false);
     backend_config_.prune_min_opacity =
@@ -316,10 +323,13 @@ public:
       backend_config_.enable_extend_visibility_filter ? "enabled" : "disabled",
       backend_config_.extend_alpha_threshold);
     RCLCPP_INFO(
-      get_logger(), "Torch Gaussian photometric optimization %s, steps/keyframe=%d max_samples=%d",
+      get_logger(),
+      "Torch Gaussian photometric optimization %s, steps/keyframe=%d max_samples=%d sampling=%s seed=%d",
       backend_config_.enable_photometric_optimization ? "enabled" : "disabled",
       backend_config_.optimization_steps_per_keyframe,
-      backend_config_.optimization_max_samples);
+      backend_config_.optimization_max_samples,
+      backend_config_.optimization_sampling.c_str(),
+      backend_config_.optimization_seed);
     RCLCPP_INFO(
       get_logger(), "Torch Gaussian pruning %s, min_opacity=%.6f max_foreground=%d count_policy=%s",
       backend_config_.enable_density_control ? "enabled" : "disabled",
@@ -390,6 +400,14 @@ private:
         value.begin(), value.end(),
         [](const char c) { return c == '-' || c == ' ' || c == '_'; }),
       value.end());
+    return value;
+  }
+
+  static std::string lowercase(std::string value)
+  {
+    std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
   }
 
@@ -821,6 +839,106 @@ private:
     const size_t sample_count = std::min(
       static_cast<size_t>(std::max(backend_config_.optimization_steps_per_keyframe, 1)),
       train_frames.size());
+    const auto sample_indices = select_torch_optimization_frames(
+      train_frames, latest_record, sample_count);
+
+    for (const size_t index : sample_indices) {
+      const auto camera = gaussian_lic_mapping::make_torch_camera(
+        train_frames[index], intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy, device, device);
+      const auto result = gaussian_lic_mapping::optimize_gaussian_map_from_camera(
+        torch_gaussian_map_, camera, backend_config_, 1, device);
+      total.steps += result.steps;
+      total.supervised_count += result.supervised_count;
+      if (result.steps > 0) {
+        total.photometric_l1 = result.photometric_l1;
+      }
+    }
+    return total;
+  }
+
+  void initialize_torch_optimization_rng()
+  {
+    if (backend_config_.optimization_seed == 0) {
+      std::random_device random_device;
+      std::seed_seq seed{
+        random_device(), random_device(), random_device(), random_device()};
+      torch_optimization_rng_.seed(seed);
+    } else {
+      torch_optimization_rng_.seed(static_cast<std::mt19937::result_type>(
+          backend_config_.optimization_seed));
+    }
+  }
+
+  std::vector<size_t> select_torch_optimization_frames(
+    const std::vector<gaussian_lic_mapping::CameraFrameRecord> & train_frames,
+    const gaussian_lic_mapping::CameraFrameRecord & latest_record,
+    const size_t sample_count)
+  {
+    if (train_frames.empty() || sample_count == 0) {
+      return {};
+    }
+
+    const std::string mode = lowercase(backend_config_.optimization_sampling);
+    if (mode == "upstream_random" || mode == "random") {
+      return select_upstream_random_optimization_frames(train_frames, sample_count);
+    }
+    if (mode == "even" || mode == "latest_even" || mode == "deterministic_even") {
+      return select_even_optimization_frames(train_frames, latest_record, sample_count, mode != "even");
+    }
+
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "unknown torch_gaussian_optimization_sampling='%s'; falling back to upstream_random",
+      backend_config_.optimization_sampling.c_str());
+    return select_upstream_random_optimization_frames(train_frames, sample_count);
+  }
+
+  std::vector<size_t> select_upstream_random_optimization_frames(
+    const std::vector<gaussian_lic_mapping::CameraFrameRecord> & train_frames,
+    const size_t sample_count)
+  {
+    std::vector<size_t> all_indices(train_frames.size());
+    std::iota(all_indices.begin(), all_indices.end(), 0U);
+
+    std::vector<size_t> sample_indices;
+    sample_indices.reserve(sample_count);
+    if (train_frames.size() <= sample_count) {
+      sample_indices = all_indices;
+    } else if (backend_config_.iteration_decay && should_decay_torch_optimization_list(train_frames)) {
+      const size_t split = train_frames.size() * 2U / 3U;
+      const size_t first_count = std::min(sample_count / 2U, split);
+      const size_t second_count = std::min(sample_count - first_count, train_frames.size() - split);
+      std::sample(
+        all_indices.begin(), all_indices.begin() + static_cast<std::ptrdiff_t>(split),
+        std::back_inserter(sample_indices), first_count, torch_optimization_rng_);
+      std::sample(
+        all_indices.begin() + static_cast<std::ptrdiff_t>(split), all_indices.end(),
+        std::back_inserter(sample_indices), second_count, torch_optimization_rng_);
+    } else {
+      std::sample(
+        all_indices.begin(), all_indices.end(), std::back_inserter(sample_indices),
+        sample_count, torch_optimization_rng_);
+    }
+
+    std::shuffle(sample_indices.begin(), sample_indices.end(), torch_optimization_rng_);
+    return sample_indices;
+  }
+
+  bool should_decay_torch_optimization_list(
+    const std::vector<gaussian_lic_mapping::CameraFrameRecord> & train_frames) const
+  {
+    if (train_frames.size() < 2U) {
+      return false;
+    }
+    return (train_frames.back().t_wc - train_frames.front().t_wc).norm() > 120.0;
+  }
+
+  std::vector<size_t> select_even_optimization_frames(
+    const std::vector<gaussian_lic_mapping::CameraFrameRecord> & train_frames,
+    const gaussian_lic_mapping::CameraFrameRecord & latest_record,
+    const size_t sample_count,
+    const bool force_latest) const
+  {
     std::vector<size_t> sample_indices;
     sample_indices.reserve(sample_count);
     if (sample_count == train_frames.size()) {
@@ -841,40 +959,30 @@ private:
       }
     }
 
-    const auto latest_it = std::find_if(
-      train_frames.begin(), train_frames.end(),
-      [&latest_record](const gaussian_lic_mapping::CameraFrameRecord & frame) {
-        return frame.frame_index == latest_record.frame_index;
-      });
-    if (latest_it != train_frames.end()) {
-      const auto latest_index =
-        static_cast<size_t>(std::distance(train_frames.begin(), latest_it));
-      if (std::find(sample_indices.begin(), sample_indices.end(), latest_index) ==
-        sample_indices.end())
-      {
-        if (sample_indices.size() >= sample_count && !sample_indices.empty()) {
-          sample_indices.back() = latest_index;
-        } else {
-          sample_indices.push_back(latest_index);
+    if (force_latest) {
+      const auto latest_it = std::find_if(
+        train_frames.begin(), train_frames.end(),
+        [&latest_record](const gaussian_lic_mapping::CameraFrameRecord & frame) {
+          return frame.frame_index == latest_record.frame_index;
+        });
+      if (latest_it != train_frames.end()) {
+        const auto latest_index =
+          static_cast<size_t>(std::distance(train_frames.begin(), latest_it));
+        if (std::find(sample_indices.begin(), sample_indices.end(), latest_index) ==
+          sample_indices.end())
+        {
+          if (sample_indices.size() >= sample_count && !sample_indices.empty()) {
+            sample_indices.back() = latest_index;
+          } else {
+            sample_indices.push_back(latest_index);
+          }
         }
       }
     }
 
     std::sort(sample_indices.begin(), sample_indices.end());
     sample_indices.erase(std::unique(sample_indices.begin(), sample_indices.end()), sample_indices.end());
-
-    for (const size_t index : sample_indices) {
-      const auto camera = gaussian_lic_mapping::make_torch_camera(
-        train_frames[index], intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy, device, device);
-      const auto result = gaussian_lic_mapping::optimize_gaussian_map_from_camera(
-        torch_gaussian_map_, camera, backend_config_, 1, device);
-      total.steps += result.steps;
-      total.supervised_count += result.supervised_count;
-      if (result.steps > 0) {
-        total.photometric_l1 = result.photometric_l1;
-      }
-    }
-    return total;
+    return sample_indices;
   }
 
   void maybe_prune_torch_gaussians(const torch::Device & device)
@@ -2010,6 +2118,7 @@ private:
   int gaussian_init_min_points_{1};
   int gaussian_init_min_keyframes_{1};
   gaussian_lic_mapping::GaussianBackendConfig backend_config_;
+  std::mt19937 torch_optimization_rng_;
   std::string torch_gaussian_device_name_{"cpu"};
   int gaussian_map_chunk_size_{1024};
   int max_path_length_{5000};

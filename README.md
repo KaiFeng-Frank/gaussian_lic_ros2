@@ -557,18 +557,23 @@ Run or resume the strict chain from the local `CBD_Building_01` bag:
 ```
 
 The strict script defaults to CUDA rasterizer mode, `torch_gaussian_device=cuda`,
-`--current-torch-optimization-steps 100`, a slowed current playback rate of
-`0.25`, a 60 second post-playback settle window, a 1.5M foreground Gaussian cap,
-uniform foreground count-cap pruning, upstream-style alpha-hole filtering before
-Gaussian extension, disabled ROS2 gradient split/clone densification, disabled
-opacity resets, and disabled high-rate `GaussianArray` publication. In this path
-the step count means up to 100 accumulated train-frame optimizer samples per
-keyframe, matching the upstream Gaussian-LIC `optimize()` scheduler instead of
-repeating 100 steps on only the newest frame. Gradient split/clone densification
-is off by default because Gaussian-LIC2's released mapping path grows the map
-through append-only `extend()`; enabling the ROS2-only split/clone path produced
-large blurred splats and a much lower strict PSNR/SSIM run locally. Opacity reset
-is also off by default because Gaussian-LIC2's released optimizer does not run a
+`--current-torch-optimization-steps 100`,
+`--current-torch-optimization-sampling upstream_random`, a fixed
+`--current-torch-optimization-seed 20260505` for reproducible strict reports, a
+slowed current playback rate of `0.25`, a 60 second post-playback settle window,
+a 1.5M foreground Gaussian cap, uniform foreground count-cap pruning,
+upstream-style alpha-hole filtering before Gaussian extension, disabled ROS2
+gradient split/clone densification, disabled opacity resets, and disabled
+high-rate `GaussianArray` publication. In this path the step count means up to
+100 accumulated train-frame optimizer samples per keyframe, and the selected
+frames are sampled and shuffled in the same style as upstream Gaussian-LIC
+`optimize()` instead of being processed as a sorted, evenly spaced list that
+always forces the newest frame. Set the seed to `0` to use `std::random_device`
+like upstream's non-deterministic run. Gradient split/clone densification is off
+by default because Gaussian-LIC2's released mapping path grows the map through
+append-only `extend()`; enabling the ROS2-only split/clone path produced large
+blurred splats and a much lower strict PSNR/SSIM run locally. Opacity reset is
+also off by default because Gaussian-LIC2's released optimizer does not run a
 periodic reset; leaving the ROS2 recovery heuristic on can reset the whole
 foreground to opacity 0.01 immediately before final-map evaluation. The slowed
 playback is deliberate: the strict CUDA path is heavier than the live preview
@@ -598,7 +603,8 @@ Latest local strict run, 2026-05-05:
   world-frame point-cloud rotation enabled, high-rate GaussianArray publication
   disabled, 1.5M foreground cap with uniform count-cap pruning, alpha-hole
   extension filtering enabled at threshold `0.99`, ROS2 gradient split/clone
-  densification disabled, opacity reset disabled,
+  densification disabled, opacity reset disabled, deterministic upstream-random
+  optimization-frame sampling enabled,
   `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, 1159 render/GT pairs, 231
   train and 928 novel frames, trajectory coverage 97.72%. The trajectory gate
   passes and the optimizer finishes with `gaussian_opt_errors=0`,
@@ -616,7 +622,10 @@ Latest local strict run, 2026-05-05:
   of the downsampled load count; the current declared count ratio is 0.609
   while the diagnostic loaded sample ratio is 0.974. The next blocker is
   residual scale/camera/geometry parity, not missing render pairs, OOM,
-  ROS2-only densification, opacity reset, or a disabled CUDA runtime.
+  ROS2-only densification, opacity reset, or a disabled CUDA runtime. The next
+  strict A/B run should compare this newly upstream-aligned optimizer sampling
+  against the archived no-densify/no-reset result before changing more
+  geometry filters.
 
 So the strict chain now produces full-frame, same-cadence numbers and passes the
 strict trajectory coverage gate, but the remaining blocker is algorithmic parity

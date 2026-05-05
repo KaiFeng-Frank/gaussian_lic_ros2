@@ -199,6 +199,7 @@ baseline_manifest.json
 - [x] Strict report treats unavailable generic runtime performance keys as skipped when quality/trajectory/point-cloud paper gates are present, so `tracking_hz`/`mapping_hz` absence does not mask the real paper gate failures.
 - [x] Strict report samples render pairs evenly across the full sequence instead of only the first sorted frames, and the point-cloud count gate now uses declared PLY vertex counts rather than the downsampled load sample.
 - [x] Packaged dataset profiles and launch defaults are CUDA/rasterizer-first, while `collect_current_results.sh` still explicitly disables Torch when the caller omits `--torch`.
+- [x] Strict CUDA optimization uses upstream-style random train-camera sampling plus shuffle by default, with a fixed seed for reproducible ROS2 reports and `seed=0` available for upstream `random_device` behavior.
 - [ ] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.
   - 2026-05-05 local strict run: trajectory gate passes with 1159/1186 matched poses and 97.72% coverage after the 60 second post-playback settle window.
   - 2026-05-05 local strict run: ROS2 novel PSNR 12.14 dB vs ROS1 12.70 dB passes, ROS2 novel LPIPS 0.751 vs ROS1 0.751 passes, but ROS2 novel SSIM 0.297 vs ROS1 0.364 still fails with an 18.43% regression.

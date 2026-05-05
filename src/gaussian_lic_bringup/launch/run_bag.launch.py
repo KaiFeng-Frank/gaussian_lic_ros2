@@ -38,6 +38,8 @@ def generate_launch_description():
     enable_torch_gaussian_optimization = LaunchConfiguration("enable_torch_gaussian_optimization")
     torch_gaussian_optimization_steps = LaunchConfiguration("torch_gaussian_optimization_steps")
     torch_gaussian_optimization_max_samples = LaunchConfiguration("torch_gaussian_optimization_max_samples")
+    torch_gaussian_optimization_sampling = LaunchConfiguration("torch_gaussian_optimization_sampling")
+    torch_gaussian_optimization_seed = LaunchConfiguration("torch_gaussian_optimization_seed")
     enable_torch_gaussian_pruning = LaunchConfiguration("enable_torch_gaussian_pruning")
     enable_torch_gaussian_densification = LaunchConfiguration("enable_torch_gaussian_densification")
     torch_gaussian_prune_min_opacity = LaunchConfiguration("torch_gaussian_prune_min_opacity")
@@ -82,6 +84,8 @@ def generate_launch_description():
             "enable_torch_gaussian_optimization": enable_torch_gaussian_optimization,
             "torch_gaussian_optimization_steps": torch_gaussian_optimization_steps,
             "torch_gaussian_optimization_max_samples": torch_gaussian_optimization_max_samples,
+            "torch_gaussian_optimization_sampling": torch_gaussian_optimization_sampling,
+            "torch_gaussian_optimization_seed": torch_gaussian_optimization_seed,
             "enable_torch_gaussian_pruning": enable_torch_gaussian_pruning,
             "enable_torch_gaussian_densification": enable_torch_gaussian_densification,
             "torch_gaussian_prune_min_opacity": torch_gaussian_prune_min_opacity,
@@ -289,6 +293,16 @@ def generate_launch_description():
             "torch_gaussian_optimization_max_samples",
             default_value="4096",
             description="Maximum visible foreground Gaussians supervised per keyframe optimization",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_optimization_sampling",
+            default_value="upstream_random",
+            description="Training-frame optimization sampling: upstream_random, even, or latest_even",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_optimization_seed",
+            default_value="20260505",
+            description="Random seed for upstream_random optimization sampling; 0 uses std::random_device",
         ),
         DeclareLaunchArgument(
             "enable_torch_gaussian_pruning",

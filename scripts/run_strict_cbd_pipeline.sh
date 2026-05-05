@@ -18,6 +18,8 @@ CURRENT_PLAY_RATE=0.25
 CURRENT_POST_PLAY_SETTLE=60
 CURRENT_TORCH_DEVICE=cuda
 CURRENT_TORCH_OPTIMIZATION_STEPS=100
+CURRENT_TORCH_OPTIMIZATION_SAMPLING=upstream_random
+CURRENT_TORCH_OPTIMIZATION_SEED=20260505
 CURRENT_TORCH_MAX_FOREGROUND=1500000
 CURRENT_TORCH_PRUNE_MIN_OPACITY=0.005
 CURRENT_TORCH_PRUNE_COUNT_POLICY=uniform
@@ -62,6 +64,10 @@ Options:
   --current-torch-optimization-steps N
                             Max accumulated train-frame optimizer samples per keyframe in rasterizer mode.
                             Default: 100, matching upstream Gaussian-LIC optimize() max_iters.
+  --current-torch-optimization-sampling MODE
+                            Training-frame sampling in rasterizer mode. Default: upstream_random.
+  --current-torch-optimization-seed N
+                            Random seed for upstream_random sampling; 0 uses std::random_device.
   --current-torch-max-foreground N
                             Foreground Gaussian cap in rasterizer mode. Default: 1500000
   --current-torch-prune-min-opacity X
@@ -149,6 +155,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-torch-optimization-steps)
       CURRENT_TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --current-torch-optimization-sampling)
+      CURRENT_TORCH_OPTIMIZATION_SAMPLING="$2"
+      shift 2
+      ;;
+    --current-torch-optimization-seed)
+      CURRENT_TORCH_OPTIMIZATION_SEED="$2"
       shift 2
       ;;
     --current-torch-max-foreground)
@@ -292,6 +306,8 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
       --torch
       --torch-device "${CURRENT_TORCH_DEVICE}"
       --torch-optimization-steps "${CURRENT_TORCH_OPTIMIZATION_STEPS}"
+      --torch-optimization-sampling "${CURRENT_TORCH_OPTIMIZATION_SAMPLING}"
+      --torch-optimization-seed "${CURRENT_TORCH_OPTIMIZATION_SEED}"
       --torch-max-foreground "${CURRENT_TORCH_MAX_FOREGROUND}"
       --torch-prune-min-opacity "${CURRENT_TORCH_PRUNE_MIN_OPACITY}"
       --torch-prune-count-policy "${CURRENT_TORCH_PRUNE_COUNT_POLICY}"

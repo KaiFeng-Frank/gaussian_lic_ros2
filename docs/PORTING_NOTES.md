@@ -180,10 +180,12 @@ enable_torch_camera_conversion:=true
 enable_torch_gaussian_init:=true
 enable_torch_gaussian_extend:=true
 enable_torch_gaussian_optimization:=true
-torch_gaussian_optimization_steps:=2
+torch_gaussian_optimization_steps:=100
+torch_gaussian_optimization_sampling:=upstream_random
+torch_gaussian_optimization_seed:=20260505
 enable_torch_gaussian_pruning:=true
-torch_gaussian_max_foreground:=200000
-torch_gaussian_device:=cpu
+torch_gaussian_max_foreground:=1500000
+torch_gaussian_device:=cuda
 ```
 
 The Gaussian initialization mirrors the tensor boundary of upstream `GaussianModel::initialize()` and is gated on keyframes to match the upstream mapping loop:

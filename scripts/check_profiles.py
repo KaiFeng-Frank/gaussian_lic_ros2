@@ -66,6 +66,8 @@ REQUIRED_PARAMS = {
     "enable_torch_gaussian_optimization": bool,
     "torch_gaussian_optimization_steps": int,
     "torch_gaussian_optimization_max_samples": int,
+    "torch_gaussian_optimization_sampling": str,
+    "torch_gaussian_optimization_seed": int,
     "enable_torch_gaussian_pruning": bool,
     "torch_gaussian_prune_min_opacity": (int, float),
     "torch_gaussian_max_foreground": int,
@@ -208,12 +210,21 @@ def check_profile(path: Path) -> list[str]:
     for key in (
         "torch_gaussian_optimization_steps",
         "torch_gaussian_optimization_max_samples",
+        "torch_gaussian_optimization_seed",
         "torch_gaussian_max_foreground",
         "torch_gaussian_opacity_reset_interval",
     ):
         value = params.get(key)
         if isinstance(value, int) and value < 0:
             errors.append(f"{key} must be non-negative")
+
+    sampling = params.get("torch_gaussian_optimization_sampling")
+    allowed_sampling = {"upstream_random", "random", "even", "latest_even", "deterministic_even"}
+    if isinstance(sampling, str) and sampling not in allowed_sampling:
+        errors.append(
+            "torch_gaussian_optimization_sampling must be one of "
+            f"{', '.join(sorted(allowed_sampling))}"
+        )
 
     value = params.get("skybox_points_num")
     if isinstance(value, int) and value < 0:
