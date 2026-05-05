@@ -74,7 +74,8 @@ Current ROS2 implementation status:
   tracking-node path while the production Coco-LIC2 BA factors are ported.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual, integer/subpixel image-alignment foundation, and 2-DoF photometric
-  translation linearization. `tracking_node` subscribes to
+  translation linearization, plus an analytic SE3 camera photometric pixel
+  Jacobian validated against finite differences. `tracking_node` subscribes to
   `/gaussian_lic/rendered_image`, publishes the visual alignment and photometric
   linearization through `TrackingStatus`, and the launch smoke gate now proves
   the mapper-render comparison reaches the optional sliding window.
@@ -83,6 +84,6 @@ Current ROS2 implementation status:
   the frontend a native Gaussian-map reverse channel. Cached Gaussian centers
   can now generate optional point-to-point tracking-window factors while the
   full photometric Gaussian residual is ported.
-- Production sliding-window BA, full SE3 camera photometric Jacobians, and
+- Production sliding-window BA, dense camera photometric factor integration, and
   Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be ported
   from the audited Coco-LIC modules.

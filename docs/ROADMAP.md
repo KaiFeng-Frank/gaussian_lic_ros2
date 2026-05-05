@@ -173,6 +173,7 @@ baseline_manifest.json
 - [x] Add LiDAR point-to-plane tracking-window factors from local plane fits with deterministic CTest coverage.
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
 - [x] Add subpixel refinement for visual alignment factors before they enter the optional tracking window.
+- [x] Add analytic SE3 camera photometric pixel Jacobians with finite-difference CTest coverage.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks and cache chunk-complete Gaussian-map snapshots for the reverse channel.
 - [x] Build optional Gaussian-map point-to-point tracking-window factors from cached `GaussianArray` snapshots.

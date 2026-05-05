@@ -49,6 +49,26 @@ struct VisualPhotometricLinearization
   Eigen::Vector2d gauss_newton_step{Eigen::Vector2d::Zero()};
 };
 
+struct VisualCameraIntrinsics
+{
+  double fx{0.0};
+  double fy{0.0};
+  double cx{0.0};
+  double cy{0.0};
+};
+
+struct VisualSe3PhotometricJacobian
+{
+  bool valid{false};
+  Eigen::Matrix<double, 2, 6> pixel_jacobian{Eigen::Matrix<double, 2, 6>::Zero()};
+  Eigen::Matrix<double, 1, 6> intensity_jacobian{Eigen::Matrix<double, 1, 6>::Zero()};
+};
+
+VisualSe3PhotometricJacobian linearize_se3_photometric_pixel(
+  const VisualCameraIntrinsics & intrinsics,
+  const Eigen::Vector3d & point_camera,
+  const Eigen::Vector2d & image_gradient);
+
 class VisualFactor
 {
 public:

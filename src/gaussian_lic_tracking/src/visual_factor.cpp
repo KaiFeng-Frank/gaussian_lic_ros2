@@ -44,6 +44,45 @@ VisualResidual VisualFactor::evaluate(const VisualFrame & reference, const Visua
   return evaluate_shifted(reference, candidate, 0, 0);
 }
 
+VisualSe3PhotometricJacobian linearize_se3_photometric_pixel(
+  const VisualCameraIntrinsics & intrinsics,
+  const Eigen::Vector3d & point_camera,
+  const Eigen::Vector2d & image_gradient)
+{
+  VisualSe3PhotometricJacobian output;
+  if (!point_camera.allFinite() || !image_gradient.allFinite() ||
+    intrinsics.fx <= 0.0 || intrinsics.fy <= 0.0 ||
+    std::abs(point_camera.z()) < 1.0e-12)
+  {
+    return output;
+  }
+
+  const double x = point_camera.x();
+  const double y = point_camera.y();
+  const double z = point_camera.z();
+  const double z_inv = 1.0 / z;
+  const double z_inv_sq = z_inv * z_inv;
+
+  // Tangent order is [rx, ry, rz, tx, ty, tz] for a left camera-frame SE3 perturbation.
+  output.pixel_jacobian(0, 0) = -intrinsics.fx * x * y * z_inv_sq;
+  output.pixel_jacobian(0, 1) = intrinsics.fx * (1.0 + x * x * z_inv_sq);
+  output.pixel_jacobian(0, 2) = -intrinsics.fx * y * z_inv;
+  output.pixel_jacobian(0, 3) = intrinsics.fx * z_inv;
+  output.pixel_jacobian(0, 4) = 0.0;
+  output.pixel_jacobian(0, 5) = -intrinsics.fx * x * z_inv_sq;
+
+  output.pixel_jacobian(1, 0) = -intrinsics.fy * (1.0 + y * y * z_inv_sq);
+  output.pixel_jacobian(1, 1) = intrinsics.fy * x * y * z_inv_sq;
+  output.pixel_jacobian(1, 2) = intrinsics.fy * x * z_inv;
+  output.pixel_jacobian(1, 3) = 0.0;
+  output.pixel_jacobian(1, 4) = intrinsics.fy * z_inv;
+  output.pixel_jacobian(1, 5) = -intrinsics.fy * y * z_inv_sq;
+
+  output.intensity_jacobian = image_gradient.transpose() * output.pixel_jacobian;
+  output.valid = output.pixel_jacobian.allFinite() && output.intensity_jacobian.allFinite();
+  return output;
+}
+
 VisualPhotometricLinearization VisualFactor::linearize_translation(
   const VisualFrame & reference,
   const VisualFrame & candidate) const
