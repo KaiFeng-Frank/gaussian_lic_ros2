@@ -174,6 +174,7 @@ baseline_manifest.json
 - [x] Add ROS2-configurable LiDAR-to-IMU extrinsics before LIO, deskew, and mapper point publication.
 - [x] Reject malformed or non-finite LiDAR-to-IMU and camera-to-IMU extrinsics before tracker startup.
 - [x] Reject non-finite IMU gravity and LiDAR keyframe threshold parameters before propagation/keyframe logic.
+- [x] Hard-validate native tracking QoS depths, visual/SE3 photometric gates, LiDAR factor thresholds, cache sizes, and sliding-window BA bounds before runtime clamps can hide bad configs.
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
 - [x] Reject invalid reference/per-point deskew poses so zero quaternions cannot inject NaNs into LiDAR points before LIO/BA.
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, window trimming, and deterministic convergence probes.

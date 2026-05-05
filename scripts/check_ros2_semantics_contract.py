@@ -181,6 +181,14 @@ def main() -> int:
         errors.append("tracking_node must validate finite LiDAR/camera extrinsic parameters")
     if "finite_nonnegative_parameter" not in tracking_node_text or 'vector3_from_parameter("imu_gravity_w"' not in tracking_node_text:
         errors.append("tracking_node must validate finite IMU gravity and LiDAR keyframe thresholds")
+    if (
+        "integer_parameter_at_least" not in tracking_node_text
+        or "finite_positive_parameter" not in tracking_node_text
+        or "finite_unit_interval_parameter" not in tracking_node_text
+        or "se3_photometric_max_samples must be >= se3_photometric_min_samples" not in tracking_node_text
+        or "se3_photometric_max_depth_m must be greater than se3_photometric_min_depth_m" not in tracking_node_text
+    ):
+        errors.append("tracking_node must hard-validate tracking window, LiDAR, visual, and BA numeric parameter ranges")
     if 'declare_parameter<bool>("enable_sliding_window_optimizer", true)' not in tracking_node_text:
         errors.append("tracking_node must default production sliding-window BA to true")
     if 'DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="true")' not in tracking_launch_text:

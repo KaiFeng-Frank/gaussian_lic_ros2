@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -60,64 +61,107 @@ public:
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
     child_frame_ = declare_parameter<std::string>("child_frame", "base_link");
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
-    max_path_length_ = declare_parameter<int>("max_path_length", 5000);
-    sensor_qos_depth_ = declare_parameter<int>("sensor_qos_depth", 5);
+    max_path_length_ = integer_parameter_at_least(
+      "max_path_length", declare_parameter<int>("max_path_length", 5000), 1);
+    sensor_qos_depth_ = integer_parameter_at_least(
+      "sensor_qos_depth", declare_parameter<int>("sensor_qos_depth", 5), 1);
     sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
     serialize_callbacks_ = declare_parameter<bool>("serialize_callbacks", true);
     enable_visual_factor_ = declare_parameter<bool>("enable_visual_factor", true);
     enable_gaussian_snapshot_ = declare_parameter<bool>("enable_gaussian_snapshot", true);
-    visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
-    visual_factor_max_dt_ns_ =
-      declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL);
-    depth_frame_cache_size_ = declare_parameter<int>("depth_frame_cache_size", 8);
-    rendered_frame_cache_size_ = declare_parameter<int>("rendered_frame_cache_size", 8);
+    visual_max_pixels_ = integer_parameter_at_least(
+      "visual_max_pixels", declare_parameter<int>("visual_max_pixels", 200000), 1);
+    visual_factor_max_dt_ns_ = integer_parameter_at_least(
+      "visual_factor_max_dt_ns",
+      declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL), 0LL);
+    depth_frame_cache_size_ = integer_parameter_at_least(
+      "depth_frame_cache_size", declare_parameter<int>("depth_frame_cache_size", 8), 1);
+    rendered_frame_cache_size_ = integer_parameter_at_least(
+      "rendered_frame_cache_size", declare_parameter<int>("rendered_frame_cache_size", 8), 1);
     const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
       "camera_to_imu_rpy_rad", std::vector<double>{0.0, 0.0, 0.0});
     p_i_c_ = vector3_from_parameter("camera_to_imu_translation_m", camera_to_imu_translation);
     q_i_c_ = quaternion_from_rpy_parameter("camera_to_imu_rpy_rad", camera_to_imu_rpy);
-    visual_alignment_max_shift_px_ = declare_parameter<int>("visual_alignment_max_shift_px", 8);
+    visual_alignment_max_shift_px_ = integer_parameter_at_least(
+      "visual_alignment_max_shift_px",
+      declare_parameter<int>("visual_alignment_max_shift_px", 8), 0);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
-    visual_alignment_meters_per_pixel_ =
-      declare_parameter<double>("visual_alignment_meters_per_pixel", 0.01);
-    visual_alignment_window_weight_ =
-      declare_parameter<double>("visual_alignment_window_weight", 1.0);
-    visual_alignment_huber_delta_m_ =
-      declare_parameter<double>("visual_alignment_huber_delta_m", 0.05);
+    visual_alignment_meters_per_pixel_ = finite_positive_parameter(
+      "visual_alignment_meters_per_pixel",
+      declare_parameter<double>("visual_alignment_meters_per_pixel", 0.01));
+    visual_alignment_window_weight_ = finite_positive_parameter(
+      "visual_alignment_window_weight",
+      declare_parameter<double>("visual_alignment_window_weight", 1.0));
+    visual_alignment_huber_delta_m_ = finite_nonnegative_parameter(
+      "visual_alignment_huber_delta_m",
+      declare_parameter<double>("visual_alignment_huber_delta_m", 0.05));
     enable_se3_photometric_window_factor_ =
       declare_parameter<bool>("enable_se3_photometric_window_factor", true);
-    se3_photometric_window_weight_ =
-      declare_parameter<double>("se3_photometric_window_weight", 1.0);
-    se3_photometric_factor_huber_delta_ =
-      declare_parameter<double>("se3_photometric_factor_huber_delta", 1.0);
-    se3_photometric_max_samples_ =
-      declare_parameter<int>("se3_photometric_max_samples", 2000);
-    se3_photometric_min_samples_ =
-      declare_parameter<int>("se3_photometric_min_samples", 16);
-    se3_photometric_min_depth_m_ =
-      declare_parameter<double>("se3_photometric_min_depth_m", 0.05);
-    se3_photometric_max_depth_m_ =
-      declare_parameter<double>("se3_photometric_max_depth_m", 200.0);
-    se3_photometric_min_gradient_ =
-      declare_parameter<double>("se3_photometric_min_gradient", 1.0e-4);
-    se3_photometric_huber_delta_ =
-      declare_parameter<double>("se3_photometric_huber_delta", 0.15);
-    se3_photometric_max_abs_residual_ =
-      declare_parameter<double>("se3_photometric_max_abs_residual", 1.0);
+    se3_photometric_window_weight_ = finite_positive_parameter(
+      "se3_photometric_window_weight",
+      declare_parameter<double>("se3_photometric_window_weight", 1.0));
+    se3_photometric_factor_huber_delta_ = finite_nonnegative_parameter(
+      "se3_photometric_factor_huber_delta",
+      declare_parameter<double>("se3_photometric_factor_huber_delta", 1.0));
+    se3_photometric_max_samples_ = integer_parameter_at_least(
+      "se3_photometric_max_samples",
+      declare_parameter<int>("se3_photometric_max_samples", 2000), 1);
+    se3_photometric_min_samples_ = integer_parameter_at_least(
+      "se3_photometric_min_samples",
+      declare_parameter<int>("se3_photometric_min_samples", 16), 1);
+    if (se3_photometric_max_samples_ < se3_photometric_min_samples_) {
+      throw std::runtime_error("se3_photometric_max_samples must be >= se3_photometric_min_samples");
+    }
+    se3_photometric_min_depth_m_ = finite_positive_parameter(
+      "se3_photometric_min_depth_m",
+      declare_parameter<double>("se3_photometric_min_depth_m", 0.05));
+    se3_photometric_max_depth_m_ = finite_positive_parameter(
+      "se3_photometric_max_depth_m",
+      declare_parameter<double>("se3_photometric_max_depth_m", 200.0));
+    if (se3_photometric_max_depth_m_ <= se3_photometric_min_depth_m_) {
+      throw std::runtime_error("se3_photometric_max_depth_m must be greater than se3_photometric_min_depth_m");
+    }
+    se3_photometric_min_gradient_ = finite_nonnegative_parameter(
+      "se3_photometric_min_gradient",
+      declare_parameter<double>("se3_photometric_min_gradient", 1.0e-4));
+    se3_photometric_huber_delta_ = finite_nonnegative_parameter(
+      "se3_photometric_huber_delta",
+      declare_parameter<double>("se3_photometric_huber_delta", 0.15));
+    se3_photometric_max_abs_residual_ = finite_nonnegative_parameter(
+      "se3_photometric_max_abs_residual",
+      declare_parameter<double>("se3_photometric_max_abs_residual", 1.0));
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
     enable_lidar_plane_factor_ = declare_parameter<bool>("enable_lidar_plane_factor", true);
-    lidar_min_points_ = declare_parameter<int>("lidar_min_points", 32);
-    lidar_max_frame_points_ = declare_parameter<int>("lidar_max_frame_points", 2000);
-    lidar_max_map_points_ = declare_parameter<int>("lidar_max_map_points", 20000);
-    lidar_nearest_distance_m_ = declare_parameter<double>("lidar_nearest_distance_m", 0.35);
-    lidar_correction_gain_ = declare_parameter<double>("lidar_correction_gain", 0.7);
-    lidar_max_correction_m_ = declare_parameter<double>("lidar_max_correction_m", 0.25);
-    lidar_max_rotation_rad_ = declare_parameter<double>("lidar_max_rotation_rad", 0.08);
-    lidar_robust_kernel_m_ = declare_parameter<double>("lidar_robust_kernel_m", 0.15);
-    lidar_plane_min_neighbors_ = declare_parameter<int>("lidar_plane_min_neighbors", 5);
-    lidar_plane_max_condition_ = declare_parameter<double>("lidar_plane_max_condition", 0.2);
+    lidar_min_points_ = integer_parameter_at_least(
+      "lidar_min_points", declare_parameter<int>("lidar_min_points", 32), 1);
+    lidar_max_frame_points_ = integer_parameter_at_least(
+      "lidar_max_frame_points", declare_parameter<int>("lidar_max_frame_points", 2000), 1);
+    lidar_max_map_points_ = integer_parameter_at_least(
+      "lidar_max_map_points", declare_parameter<int>("lidar_max_map_points", 20000), 1);
+    lidar_nearest_distance_m_ = finite_positive_parameter(
+      "lidar_nearest_distance_m",
+      declare_parameter<double>("lidar_nearest_distance_m", 0.35));
+    lidar_correction_gain_ = finite_nonnegative_parameter(
+      "lidar_correction_gain",
+      declare_parameter<double>("lidar_correction_gain", 0.7));
+    lidar_max_correction_m_ = finite_nonnegative_parameter(
+      "lidar_max_correction_m",
+      declare_parameter<double>("lidar_max_correction_m", 0.25));
+    lidar_max_rotation_rad_ = finite_nonnegative_parameter(
+      "lidar_max_rotation_rad",
+      declare_parameter<double>("lidar_max_rotation_rad", 0.08));
+    lidar_robust_kernel_m_ = finite_nonnegative_parameter(
+      "lidar_robust_kernel_m",
+      declare_parameter<double>("lidar_robust_kernel_m", 0.15));
+    lidar_plane_min_neighbors_ = integer_parameter_at_least(
+      "lidar_plane_min_neighbors",
+      declare_parameter<int>("lidar_plane_min_neighbors", 5), 3);
+    lidar_plane_max_condition_ = finite_positive_parameter(
+      "lidar_plane_max_condition",
+      declare_parameter<double>("lidar_plane_max_condition", 0.2));
     lidar_keyframe_translation_m_ = finite_nonnegative_parameter(
       "lidar_keyframe_translation_m",
       declare_parameter<double>("lidar_keyframe_translation_m", 0.25));
@@ -131,81 +175,105 @@ public:
     lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
     lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
     lidar_time_mode_ = declare_parameter<std::string>("lidar_time_mode", "auto");
-    imu_history_size_ = declare_parameter<int>("imu_history_size", 4000);
-    trajectory_control_interval_ns_ =
-      declare_parameter<int64_t>("trajectory_control_interval_ns", 50000000LL);
+    imu_history_size_ = integer_parameter_at_least(
+      "imu_history_size", declare_parameter<int>("imu_history_size", 4000), 2);
+    trajectory_control_interval_ns_ = integer_parameter_at_least(
+      "trajectory_control_interval_ns",
+      declare_parameter<int64_t>("trajectory_control_interval_ns", 50000000LL), 1LL);
     enable_sliding_window_optimizer_ = declare_parameter<bool>("enable_sliding_window_optimizer", true);
     enable_gaussian_snapshot_lidar_factor_ =
       declare_parameter<bool>("enable_gaussian_snapshot_lidar_factor", true);
-    gaussian_snapshot_lidar_min_opacity_ =
-      declare_parameter<double>("gaussian_snapshot_lidar_min_opacity", 0.01);
-    sliding_window_max_states_ = declare_parameter<int>("sliding_window_max_states", 12);
-    sliding_window_max_iterations_ = declare_parameter<int>("sliding_window_max_iterations", 3);
-    sliding_window_max_rotation_step_rad_ =
-      declare_parameter<double>("sliding_window_max_rotation_step_rad", 0.5);
-    sliding_window_max_translation_step_m_ =
-      declare_parameter<double>("sliding_window_max_translation_step_m", 1.0);
-    sliding_window_max_velocity_step_mps_ =
-      declare_parameter<double>("sliding_window_max_velocity_step_mps", 5.0);
-    sliding_window_max_bias_step_ =
-      declare_parameter<double>("sliding_window_max_bias_step", 1.0);
-    sliding_window_max_normal_equation_condition_ =
-      declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e12);
-    sliding_window_min_normal_equation_rank_ratio_ =
-      declare_parameter<double>("sliding_window_min_normal_equation_rank_ratio", 0.0);
-    sliding_window_imu_weight_ = declare_parameter<double>("sliding_window_imu_weight", 1.0);
-    sliding_window_imu_rotation_weight_ =
-      declare_parameter<double>("sliding_window_imu_rotation_weight", 1.0);
-    sliding_window_imu_velocity_weight_ =
-      declare_parameter<double>("sliding_window_imu_velocity_weight", 1.0);
-    sliding_window_imu_position_weight_ =
-      declare_parameter<double>("sliding_window_imu_position_weight", 1.0);
-    sliding_window_bias_weight_ = declare_parameter<double>("sliding_window_bias_weight", 1.0);
-    sliding_window_pose_translation_weight_ =
-      declare_parameter<double>("sliding_window_pose_translation_weight", 2.0);
-    sliding_window_pose_rotation_weight_ =
-      declare_parameter<double>("sliding_window_pose_rotation_weight", 2.0);
+    gaussian_snapshot_lidar_min_opacity_ = finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_min_opacity",
+      declare_parameter<double>("gaussian_snapshot_lidar_min_opacity", 0.01));
+    sliding_window_max_states_ = integer_parameter_at_least(
+      "sliding_window_max_states",
+      declare_parameter<int>("sliding_window_max_states", 12), 2);
+    sliding_window_max_iterations_ = integer_parameter_at_least(
+      "sliding_window_max_iterations",
+      declare_parameter<int>("sliding_window_max_iterations", 3), 1);
+    sliding_window_max_rotation_step_rad_ = finite_nonnegative_parameter(
+      "sliding_window_max_rotation_step_rad",
+      declare_parameter<double>("sliding_window_max_rotation_step_rad", 0.5));
+    sliding_window_max_translation_step_m_ = finite_nonnegative_parameter(
+      "sliding_window_max_translation_step_m",
+      declare_parameter<double>("sliding_window_max_translation_step_m", 1.0));
+    sliding_window_max_velocity_step_mps_ = finite_nonnegative_parameter(
+      "sliding_window_max_velocity_step_mps",
+      declare_parameter<double>("sliding_window_max_velocity_step_mps", 5.0));
+    sliding_window_max_bias_step_ = finite_nonnegative_parameter(
+      "sliding_window_max_bias_step",
+      declare_parameter<double>("sliding_window_max_bias_step", 1.0));
+    sliding_window_max_normal_equation_condition_ = finite_positive_parameter(
+      "sliding_window_max_normal_equation_condition",
+      declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e12));
+    sliding_window_min_normal_equation_rank_ratio_ = finite_unit_interval_parameter(
+      "sliding_window_min_normal_equation_rank_ratio",
+      declare_parameter<double>("sliding_window_min_normal_equation_rank_ratio", 0.0));
+    sliding_window_imu_weight_ = finite_nonnegative_parameter(
+      "sliding_window_imu_weight",
+      declare_parameter<double>("sliding_window_imu_weight", 1.0));
+    sliding_window_imu_rotation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_imu_rotation_weight",
+      declare_parameter<double>("sliding_window_imu_rotation_weight", 1.0));
+    sliding_window_imu_velocity_weight_ = finite_nonnegative_parameter(
+      "sliding_window_imu_velocity_weight",
+      declare_parameter<double>("sliding_window_imu_velocity_weight", 1.0));
+    sliding_window_imu_position_weight_ = finite_nonnegative_parameter(
+      "sliding_window_imu_position_weight",
+      declare_parameter<double>("sliding_window_imu_position_weight", 1.0));
+    sliding_window_bias_weight_ = finite_nonnegative_parameter(
+      "sliding_window_bias_weight",
+      declare_parameter<double>("sliding_window_bias_weight", 1.0));
+    sliding_window_pose_translation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_pose_translation_weight",
+      declare_parameter<double>("sliding_window_pose_translation_weight", 2.0));
+    sliding_window_pose_rotation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_pose_rotation_weight",
+      declare_parameter<double>("sliding_window_pose_rotation_weight", 2.0));
     enable_sliding_window_smoothness_factor_ =
       declare_parameter<bool>("enable_sliding_window_smoothness_factor", true);
-    sliding_window_smoothness_rotation_weight_ =
-      declare_parameter<double>("sliding_window_smoothness_rotation_weight", 0.1);
-    sliding_window_smoothness_position_weight_ =
-      declare_parameter<double>("sliding_window_smoothness_position_weight", 0.1);
-    sliding_window_smoothness_velocity_weight_ =
-      declare_parameter<double>("sliding_window_smoothness_velocity_weight", 0.1);
-    sliding_window_smoothness_bias_weight_ =
-      declare_parameter<double>("sliding_window_smoothness_bias_weight", 0.1);
+    sliding_window_smoothness_rotation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_smoothness_rotation_weight",
+      declare_parameter<double>("sliding_window_smoothness_rotation_weight", 0.1));
+    sliding_window_smoothness_position_weight_ = finite_nonnegative_parameter(
+      "sliding_window_smoothness_position_weight",
+      declare_parameter<double>("sliding_window_smoothness_position_weight", 0.1));
+    sliding_window_smoothness_velocity_weight_ = finite_nonnegative_parameter(
+      "sliding_window_smoothness_velocity_weight",
+      declare_parameter<double>("sliding_window_smoothness_velocity_weight", 0.1));
+    sliding_window_smoothness_bias_weight_ = finite_nonnegative_parameter(
+      "sliding_window_smoothness_bias_weight",
+      declare_parameter<double>("sliding_window_smoothness_bias_weight", 0.1));
     const auto gravity =
       declare_parameter<std::vector<double>>("imu_gravity_w", std::vector<double>{0.0, 0.0, 0.0});
     imu_propagator_.set_gravity_w(vector3_from_parameter("imu_gravity_w", gravity));
-    imu_propagator_.set_max_history_size(static_cast<size_t>(std::max(imu_history_size_, 2)));
-    trajectory_manager_.set_control_interval_ns(std::max<int64_t>(trajectory_control_interval_ns_, 1LL));
+    imu_propagator_.set_max_history_size(static_cast<size_t>(imu_history_size_));
+    trajectory_manager_.set_control_interval_ns(trajectory_control_interval_ns_);
     gaussian_lic_tracking::SlidingWindowConfig window_config;
-    window_config.max_states = static_cast<size_t>(std::max(sliding_window_max_states_, 2));
-    window_config.max_iterations = static_cast<size_t>(std::max(sliding_window_max_iterations_, 1));
-    window_config.max_rotation_step_rad = std::max(sliding_window_max_rotation_step_rad_, 0.0);
-    window_config.max_translation_step_m = std::max(sliding_window_max_translation_step_m_, 0.0);
-    window_config.max_velocity_step_mps = std::max(sliding_window_max_velocity_step_mps_, 0.0);
-    window_config.max_bias_step = std::max(sliding_window_max_bias_step_, 0.0);
-    window_config.max_normal_equation_condition =
-      std::max(sliding_window_max_normal_equation_condition_, 0.0);
-    window_config.min_normal_equation_rank_ratio =
-      std::clamp(sliding_window_min_normal_equation_rank_ratio_, 0.0, 1.0);
+    window_config.max_states = static_cast<size_t>(sliding_window_max_states_);
+    window_config.max_iterations = static_cast<size_t>(sliding_window_max_iterations_);
+    window_config.max_rotation_step_rad = sliding_window_max_rotation_step_rad_;
+    window_config.max_translation_step_m = sliding_window_max_translation_step_m_;
+    window_config.max_velocity_step_mps = sliding_window_max_velocity_step_mps_;
+    window_config.max_bias_step = sliding_window_max_bias_step_;
+    window_config.max_normal_equation_condition = sliding_window_max_normal_equation_condition_;
+    window_config.min_normal_equation_rank_ratio = sliding_window_min_normal_equation_rank_ratio_;
     sliding_window_optimizer_.set_config(window_config);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
-    lidar_config.min_points = static_cast<size_t>(std::max(lidar_min_points_, 1));
-    lidar_config.max_frame_points = static_cast<size_t>(std::max(lidar_max_frame_points_, 1));
-    lidar_config.max_map_points = static_cast<size_t>(std::max(lidar_max_map_points_, 1));
+    lidar_config.min_points = static_cast<size_t>(lidar_min_points_);
+    lidar_config.max_frame_points = static_cast<size_t>(lidar_max_frame_points_);
+    lidar_config.max_map_points = static_cast<size_t>(lidar_max_map_points_);
     lidar_config.nearest_distance_m = lidar_nearest_distance_m_;
     lidar_config.correction_gain = lidar_correction_gain_;
     lidar_config.max_correction_m = lidar_max_correction_m_;
     lidar_config.max_rotation_rad = lidar_max_rotation_rad_;
     lidar_config.robust_kernel_m = lidar_robust_kernel_m_;
-    lidar_config.plane_min_neighbors = static_cast<size_t>(std::max(lidar_plane_min_neighbors_, 3));
+    lidar_config.plane_min_neighbors = static_cast<size_t>(lidar_plane_min_neighbors_);
     lidar_config.plane_max_condition = lidar_plane_max_condition_;
     lidar_factor_.set_config(lidar_config);
-    visual_factor_.set_max_pixels(static_cast<size_t>(std::max(visual_max_pixels_, 1)));
+    visual_factor_.set_max_pixels(static_cast<size_t>(visual_max_pixels_));
 
     auto qos = make_sensor_qos();
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
@@ -327,8 +395,8 @@ private:
 
   rclcpp::QoS make_sensor_qos() const
   {
-    rclcpp::QoS qos(static_cast<size_t>(std::max(sensor_qos_depth_, 1)));
-    qos.keep_last(static_cast<size_t>(std::max(sensor_qos_depth_, 1)));
+    rclcpp::QoS qos(static_cast<size_t>(sensor_qos_depth_));
+    qos.keep_last(static_cast<size_t>(sensor_qos_depth_));
     qos.durability_volatile();
     if (sensor_qos_reliability_ == "reliable") {
       qos.reliable();
@@ -438,6 +506,35 @@ private:
     return value;
   }
 
+  static double finite_positive_parameter(const char * parameter_name, const double value)
+  {
+    if (!std::isfinite(value) || value <= 0.0) {
+      throw std::runtime_error(std::string(parameter_name) + " must be finite and positive");
+    }
+    return value;
+  }
+
+  static double finite_unit_interval_parameter(const char * parameter_name, const double value)
+  {
+    if (!std::isfinite(value) || value < 0.0 || value > 1.0) {
+      throw std::runtime_error(std::string(parameter_name) + " must be finite and in [0, 1]");
+    }
+    return value;
+  }
+
+  template<typename ValueT, typename MinimumT>
+  static ValueT integer_parameter_at_least(
+    const char * parameter_name,
+    const ValueT value,
+    const MinimumT minimum_value)
+  {
+    const ValueT typed_minimum = static_cast<ValueT>(minimum_value);
+    if (value < typed_minimum) {
+      throw std::runtime_error(std::string(parameter_name) + " is below its minimum value");
+    }
+    return value;
+  }
+
   void handle_depth(const sensor_msgs::msg::Image & msg)
   {
     depth_pub_->publish(msg);
@@ -484,7 +581,7 @@ private:
       last_visual_alignment_ = visual_factor_.estimate_translation(
         *rendered_frame,
         observed,
-        std::max(visual_alignment_max_shift_px_, 0));
+        visual_alignment_max_shift_px_);
       last_visual_photometric_linearization_ =
         visual_factor_.linearize_translation(*rendered_frame, observed);
       if (enable_se3_photometric_window_factor_) {
@@ -499,7 +596,7 @@ private:
           gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
         if (last_visual_se3_photometric_linearization_.valid &&
           last_visual_se3_photometric_linearization_.sample_count >=
-          static_cast<size_t>(std::max(se3_photometric_min_samples_, 1)))
+          static_cast<size_t>(se3_photometric_min_samples_))
         {
           pending_visual_se3_photometric_linearization_ = last_visual_se3_photometric_linearization_;
           pending_visual_se3_photometric_stamp_ns_ = observed.stamp_ns;
@@ -633,8 +730,8 @@ private:
           auto gaussian_window_factor = gaussian_snapshot_.build_point_to_point_factor(
             lidar_points,
             tracking_pose,
-            static_cast<size_t>(std::max(lidar_min_points_, 1)),
-            static_cast<size_t>(std::max(lidar_max_frame_points_, 1)),
+            static_cast<size_t>(lidar_min_points_),
+            static_cast<size_t>(lidar_max_frame_points_),
             lidar_nearest_distance_m_,
             gaussian_snapshot_lidar_min_opacity_);
           if (!gaussian_window_factor.frame_points_i.empty()) {
@@ -995,7 +1092,7 @@ private:
     const int64_t max_delta_ns)
   {
     const int64_t delta_ns = stamp_delta_ns(lhs_stamp_ns, rhs_stamp_ns);
-    return delta_ns <= std::max<int64_t>(max_delta_ns, 0LL);
+    return delta_ns <= max_delta_ns;
   }
 
   static int64_t stamp_delta_ns(const int64_t lhs_stamp_ns, const int64_t rhs_stamp_ns)
@@ -1018,7 +1115,7 @@ private:
       depth_frame_cache_.insert(insert_it, std::move(frame));
     }
 
-    const auto max_cache_size = static_cast<size_t>(std::max(depth_frame_cache_size_, 1));
+    const auto max_cache_size = static_cast<size_t>(depth_frame_cache_size_);
     while (depth_frame_cache_.size() > max_cache_size) {
       depth_frame_cache_.pop_front();
     }
@@ -1037,7 +1134,7 @@ private:
       rendered_frame_cache_.insert(insert_it, std::move(frame));
     }
 
-    const auto max_cache_size = static_cast<size_t>(std::max(rendered_frame_cache_size_, 1));
+    const auto max_cache_size = static_cast<size_t>(rendered_frame_cache_size_);
     while (rendered_frame_cache_.size() > max_cache_size) {
       rendered_frame_cache_.pop_front();
     }
@@ -1254,7 +1351,7 @@ private:
     {
       return batch;
     }
-    const size_t max_samples = static_cast<size_t>(std::max(se3_photometric_max_samples_, 1));
+    const size_t max_samples = static_cast<size_t>(se3_photometric_max_samples_);
     const size_t stride = pixel_count > max_samples
       ? static_cast<size_t>(std::ceil(static_cast<double>(pixel_count) / static_cast<double>(max_samples)))
       : 1U;
@@ -1637,7 +1734,7 @@ private:
     status.header.frame_id = world_frame_;
     status.executor_callback_serialization_enabled = serialize_callbacks_;
     status.sensor_qos_reliability = sensor_qos_reliability_;
-    status.sensor_qos_depth = static_cast<uint32_t>(std::max(sensor_qos_depth_, 1));
+    status.sensor_qos_depth = static_cast<uint32_t>(sensor_qos_depth_);
     status.signed_nanosecond_time_math_enabled = true;
     status.last_image_stamp_ns = last_image_stamp_ns_;
     status.last_pointcloud_stamp_ns = last_pointcloud_stamp_ns_;
@@ -1776,7 +1873,7 @@ private:
       : 0.0;
     const bool se3_photometric_valid = last_visual_se3_photometric_linearization_.valid &&
       last_visual_se3_photometric_linearization_.sample_count >=
-      static_cast<size_t>(std::max(se3_photometric_min_samples_, 1));
+      static_cast<size_t>(se3_photometric_min_samples_);
     status.visual_se3_photometric_valid = se3_photometric_valid;
     status.visual_se3_photometric_candidates =
       static_cast<uint64_t>(last_visual_se3_photometric_candidate_pixels_);
