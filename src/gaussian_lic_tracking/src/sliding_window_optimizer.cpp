@@ -59,6 +59,24 @@ Eigen::Matrix3d left_perturbation_rotation_residual_jacobian(
   return reference_q.normalized().inverse().toRotationMatrix();
 }
 
+Eigen::Matrix3d rotation_residual_middle_perturbation_jacobian(
+  const Eigen::Quaterniond & measured_delta_q,
+  const Eigen::Quaterniond & predicted_delta_q)
+{
+  const Eigen::Quaterniond measured_inv = measured_delta_q.normalized().inverse();
+  const Eigen::Quaterniond predicted = predicted_delta_q.normalized();
+  const Eigen::Quaterniond error = (measured_inv * predicted).normalized();
+  const double sign = error.w() < 0.0 ? -1.0 : 1.0;
+  Eigen::Matrix3d jacobian;
+  for (Eigen::Index column = 0; column < 3; ++column) {
+    Eigen::Vector3d basis = Eigen::Vector3d::Zero();
+    basis[column] = 1.0;
+    const Eigen::Quaterniond pure_delta(0.0, basis.x(), basis.y(), basis.z());
+    jacobian.col(column) = sign * (measured_inv * pure_delta * predicted).vec();
+  }
+  return jacobian;
+}
+
 Eigen::Matrix<double, 15, 15> state_delta_left_perturbation_jacobian(
   const Eigen::Quaterniond & reference_q)
 {
@@ -663,21 +681,26 @@ double SlidingWindowOptimizer::compute_cost(const Eigen::VectorXd & residual) co
   return 0.5 * residual.squaredNorm();
 }
 
-std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_analytic_jacobian(
+std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer::fill_analytic_jacobian(
   const std::vector<SlidingWindowState> & states,
   const std::vector<VariableBlock> & variables,
   Eigen::MatrixXd & jacobian) const
 {
-  std::vector<std::pair<Eigen::Index, Eigen::Index>> numeric_row_ranges;
-  auto mark_numeric = [&numeric_row_ranges](const Eigen::Index start, const Eigen::Index size) {
-      if (size > 0) {
-        numeric_row_ranges.emplace_back(start, size);
+  std::vector<NumericJacobianBlock> numeric_blocks;
+  auto mark_numeric = [&numeric_blocks](
+      const Eigen::Index row_start,
+      const Eigen::Index row_size,
+      const Eigen::Index column_start,
+      const Eigen::Index column_size) {
+      if (row_size > 0 && column_size > 0) {
+        numeric_blocks.push_back(NumericJacobianBlock{
+            row_start, row_size, column_start, column_size});
       }
     };
-  auto fallback_to_numeric = [&numeric_row_ranges, &mark_numeric, &jacobian]() {
-      numeric_row_ranges.clear();
-      mark_numeric(0, jacobian.rows());
-      return numeric_row_ranges;
+  auto fallback_to_numeric = [&numeric_blocks, &mark_numeric, &jacobian]() {
+      numeric_blocks.clear();
+      mark_numeric(0, jacobian.rows(), 0, jacobian.cols());
+      return numeric_blocks;
     };
   auto rows_available = [&jacobian](const Eigen::Index start, const Eigen::Index size) {
       return start >= 0 && size >= 0 && start + size <= jacobian.rows();
@@ -708,7 +731,25 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
     if (from < 0 || to < 0) {
       continue;
     }
-    mark_numeric(row, 9);
+    const auto & from_state = states[static_cast<size_t>(from)];
+    const auto & to_state = states[static_cast<size_t>(to)];
+    const ImuBias start_bias{from_state.gyro_bias, from_state.accel_bias};
+    const auto corrected_preintegration = factor.preintegration.reintegrated(start_bias);
+    const double residual_scale = std::sqrt(factor.weight);
+    const Eigen::Matrix3d r_i_w = from_state.q_w_i.normalized().inverse().toRotationMatrix();
+    const Eigen::Quaterniond predicted_delta_q =
+      from_state.q_w_i.normalized().inverse() * to_state.q_w_i.normalized();
+    const Eigen::Matrix3d rotation_middle_jacobian =
+      rotation_residual_middle_perturbation_jacobian(
+      corrected_preintegration.delta_q(), predicted_delta_q);
+    const Eigen::Vector3d delta_v_w =
+      to_state.v_w_i - from_state.v_w_i -
+      factor.gravity_w * corrected_preintegration.delta_t_s();
+    const Eigen::Vector3d delta_p_w =
+      to_state.p_w_i - from_state.p_w_i -
+      from_state.v_w_i * corrected_preintegration.delta_t_s() -
+      0.5 * factor.gravity_w * corrected_preintegration.delta_t_s() *
+      corrected_preintegration.delta_t_s();
     if (!rows_available(row + 9, 6)) {
       return fallback_to_numeric();
     }
@@ -716,12 +757,31 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
     const Eigen::Index from_offset = variable_offsets[static_cast<size_t>(from)];
     const Eigen::Index to_offset = variable_offsets[static_cast<size_t>(to)];
     if (from_offset >= 0) {
+      jacobian.template block<3, 3>(row, from_offset) =
+        residual_scale * rotation_middle_jacobian * (-r_i_w);
+      jacobian.template block<3, 3>(row + 3, from_offset) =
+        residual_scale * r_i_w * skew_symmetric(delta_v_w);
+      jacobian.template block<3, 3>(row + 3, from_offset + 3) =
+        -residual_scale * r_i_w;
+      jacobian.template block<3, 3>(row + 6, from_offset) =
+        residual_scale * r_i_w * skew_symmetric(delta_p_w);
+      jacobian.template block<3, 3>(row + 6, from_offset + 3) =
+        -residual_scale * corrected_preintegration.delta_t_s() * r_i_w;
+      jacobian.template block<3, 3>(row + 6, from_offset + 6) =
+        -residual_scale * r_i_w;
+      mark_numeric(row, 9, from_offset + 9, 6);
       jacobian.template block<3, 3>(row + 9, from_offset + 9) =
         -bias_scale * Eigen::Matrix3d::Identity();
       jacobian.template block<3, 3>(row + 12, from_offset + 12) =
         -bias_scale * Eigen::Matrix3d::Identity();
     }
     if (to_offset >= 0) {
+      jacobian.template block<3, 3>(row, to_offset) =
+        residual_scale * rotation_middle_jacobian * r_i_w;
+      jacobian.template block<3, 3>(row + 3, to_offset + 3) =
+        residual_scale * r_i_w;
+      jacobian.template block<3, 3>(row + 6, to_offset + 6) =
+        residual_scale * r_i_w;
       jacobian.template block<3, 3>(row + 9, to_offset + 9) =
         bias_scale * Eigen::Matrix3d::Identity();
       jacobian.template block<3, 3>(row + 12, to_offset + 12) =
@@ -894,10 +954,10 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
   }
 
   if (row != jacobian.rows()) {
-    numeric_row_ranges.clear();
-    mark_numeric(0, jacobian.rows());
+    numeric_blocks.clear();
+    mark_numeric(0, jacobian.rows(), 0, jacobian.cols());
   }
-  return numeric_row_ranges;
+  return numeric_blocks;
 }
 
 bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
@@ -1014,10 +1074,20 @@ SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
     return output;
   }
 
-  const auto numeric_row_ranges = fill_analytic_jacobian(states, variables, output.jacobian);
-  for (size_t column = 0; column < output.variable_count && !numeric_row_ranges.empty(); ++column) {
+  const auto numeric_blocks = fill_analytic_jacobian(states, variables, output.jacobian);
+  for (size_t column = 0; column < output.variable_count && !numeric_blocks.empty(); ++column) {
+    const auto column_index = static_cast<Eigen::Index>(column);
+    const bool column_needs_numeric = std::any_of(
+      numeric_blocks.begin(), numeric_blocks.end(),
+      [column_index](const NumericJacobianBlock & block) {
+        return column_index >= block.column_start &&
+               column_index < block.column_start + block.column_size;
+      });
+    if (!column_needs_numeric) {
+      continue;
+    }
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(variable_count);
-    delta[static_cast<Eigen::Index>(column)] = config_.numeric_epsilon;
+    delta[column_index] = config_.numeric_epsilon;
     auto plus_states = states;
     auto minus_states = states;
     apply_delta(plus_states, variables, delta, 1.0);
@@ -1025,9 +1095,14 @@ SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
     const Eigen::VectorXd numeric_column =
       (build_residual(plus_states) - build_residual(minus_states)) /
       (2.0 * config_.numeric_epsilon);
-    for (const auto & range : numeric_row_ranges) {
-      output.jacobian.block(range.first, static_cast<Eigen::Index>(column), range.second, 1) =
-        numeric_column.segment(range.first, range.second);
+    for (const auto & block : numeric_blocks) {
+      if (column_index < block.column_start ||
+        column_index >= block.column_start + block.column_size)
+      {
+        continue;
+      }
+      output.jacobian.block(block.row_start, column_index, block.row_size, 1) =
+        numeric_column.segment(block.row_start, block.row_size);
     }
   }
 

@@ -201,6 +201,13 @@ private:
     size_t state_index{0};
     size_t offset{0};
   };
+  struct NumericJacobianBlock
+  {
+    Eigen::Index row_start{0};
+    Eigen::Index row_size{0};
+    Eigen::Index column_start{0};
+    Eigen::Index column_size{0};
+  };
 
   static Eigen::Vector3d rotation_residual(
     const Eigen::Quaterniond & measured_q,
@@ -218,7 +225,7 @@ private:
   SlidingWindowStatePrior make_state_prior(const SlidingWindowState & state) const;
   std::vector<VariableBlock> variable_layout() const;
   Eigen::VectorXd build_residual(const std::vector<SlidingWindowState> & states) const;
-  std::vector<std::pair<Eigen::Index, Eigen::Index>> fill_analytic_jacobian(
+  std::vector<NumericJacobianBlock> fill_analytic_jacobian(
     const std::vector<SlidingWindowState> & states,
     const std::vector<VariableBlock> & variables,
     Eigen::MatrixXd & jacobian) const;
