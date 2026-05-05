@@ -45,6 +45,7 @@ def generate_launch_description():
     enable_visual_alignment_window_factor = LaunchConfiguration("enable_visual_alignment_window_factor")
     visual_alignment_meters_per_pixel = LaunchConfiguration("visual_alignment_meters_per_pixel")
     visual_alignment_window_weight = LaunchConfiguration("visual_alignment_window_weight")
+    visual_alignment_huber_delta_m = LaunchConfiguration("visual_alignment_huber_delta_m")
     enable_se3_photometric_window_factor = LaunchConfiguration("enable_se3_photometric_window_factor")
     se3_photometric_window_weight = LaunchConfiguration("se3_photometric_window_weight")
     se3_photometric_max_samples = LaunchConfiguration("se3_photometric_max_samples")
@@ -117,6 +118,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="true"),
             DeclareLaunchArgument("visual_alignment_meters_per_pixel", default_value="0.01"),
             DeclareLaunchArgument("visual_alignment_window_weight", default_value="1.0"),
+            DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05"),
             DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true"),
             DeclareLaunchArgument("se3_photometric_window_weight", default_value="0.5"),
             DeclareLaunchArgument("se3_photometric_max_samples", default_value="2000"),
@@ -192,6 +194,7 @@ def generate_launch_description():
                         "enable_visual_alignment_window_factor": enable_visual_alignment_window_factor,
                         "visual_alignment_meters_per_pixel": visual_alignment_meters_per_pixel,
                         "visual_alignment_window_weight": visual_alignment_window_weight,
+                        "visual_alignment_huber_delta_m": visual_alignment_huber_delta_m,
                         "enable_se3_photometric_window_factor": enable_se3_photometric_window_factor,
                         "se3_photometric_window_weight": se3_photometric_window_weight,
                         "se3_photometric_max_samples": se3_photometric_max_samples,

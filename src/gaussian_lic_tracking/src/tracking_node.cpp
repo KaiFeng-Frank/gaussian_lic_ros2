@@ -92,6 +92,8 @@ public:
       declare_parameter<double>("visual_alignment_meters_per_pixel", 0.01);
     visual_alignment_window_weight_ =
       declare_parameter<double>("visual_alignment_window_weight", 1.0);
+    visual_alignment_huber_delta_m_ =
+      declare_parameter<double>("visual_alignment_huber_delta_m", 0.05);
     enable_se3_photometric_window_factor_ =
       declare_parameter<bool>("enable_se3_photometric_window_factor", true);
     se3_photometric_window_weight_ =
@@ -581,6 +583,7 @@ private:
           pending_visual_alignment_.subpixel_dy};
         visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
         visual_factor.weight = visual_alignment_window_weight_;
+        visual_factor.huber_delta_m = visual_alignment_huber_delta_m_;
         visual_window_factors.push_back(visual_factor);
       }
       has_pending_visual_alignment_ = false;
@@ -1612,6 +1615,7 @@ private:
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
+  double visual_alignment_huber_delta_m_{0.05};
   bool enable_se3_photometric_window_factor_{true};
   double se3_photometric_window_weight_{1.0};
   int se3_photometric_max_samples_{2000};

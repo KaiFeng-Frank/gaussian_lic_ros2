@@ -97,6 +97,7 @@ struct SlidingWindowVisualAlignmentFactor
   Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
   double meters_per_pixel{0.01};
   double weight{1.0};
+  double huber_delta_m{0.0};
 };
 
 struct SlidingWindowSe3PhotometricFactor

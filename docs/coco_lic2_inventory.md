@@ -81,7 +81,7 @@ Current ROS2 implementation status:
   optimization container for IMU preintegration factors, raw-sample bias
   reintegration, bias continuity residuals, bias observability metrics/probes,
   pose priors, full-state priors, and marginalization-prior anchoring, plus direct LiDAR point-to-point,
-  point-to-plane, visual-alignment, SE3 photometric, and default-enabled
+  point-to-plane, Huber-robust visual-alignment, SE3 photometric, and default-enabled
   three-state continuous-time trajectory smoothness factors with analytic
   linear Jacobian blocks. Geometric, prior, retained
   dense-prior, IMU bias-continuity, full current IMU preintegration factors,

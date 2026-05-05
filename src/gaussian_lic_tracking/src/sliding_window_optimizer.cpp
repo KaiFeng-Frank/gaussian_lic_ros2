@@ -106,6 +106,14 @@ Eigen::Matrix3d skew_symmetric(const Eigen::Vector3d & value)
   return skew;
 }
 
+double huber_weight(const double residual_norm, const double huber_delta)
+{
+  if (huber_delta <= 0.0 || residual_norm <= huber_delta) {
+    return 1.0;
+  }
+  return huber_delta / std::max(residual_norm, std::numeric_limits<double>::epsilon());
+}
+
 Eigen::Vector3d quaternion_log_vector(Eigen::Quaterniond quaternion)
 {
   quaternion.normalize();
@@ -547,6 +555,9 @@ void SlidingWindowOptimizer::add_visual_alignment_factor(const SlidingWindowVisu
   if (factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0) {
     throw std::runtime_error("visual alignment factor weight and meters_per_pixel must be positive");
   }
+  if (!std::isfinite(factor.huber_delta_m) || factor.huber_delta_m < 0.0) {
+    throw std::runtime_error("visual alignment factor Huber delta must be finite and non-negative");
+  }
   if (!factor.measured_shift_px.allFinite() || !factor.reference_p_w_i.allFinite()) {
     throw std::runtime_error("visual alignment factor values must be finite");
   }
@@ -907,7 +918,8 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     Eigen::Vector2d residual;
     residual.x() = state.p_w_i.x() - target_xy.x();
     residual.y() = state.p_w_i.y() - target_xy.y();
-    append(std::sqrt(factor.weight) * residual);
+    const double robust_weight = huber_weight(residual.norm(), factor.huber_delta_m);
+    append(std::sqrt(factor.weight * robust_weight) * residual);
   }
 
   for (const auto & factor : se3_photometric_factors_) {
@@ -1197,7 +1209,12 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       return fallback_to_numeric();
     }
     if (offset >= 0) {
-      const double scale = std::sqrt(factor.weight);
+      const auto & state = states[static_cast<size_t>(index)];
+      Eigen::Vector2d target_xy;
+      target_xy.x() = factor.reference_p_w_i.x() + factor.measured_shift_px.x() * factor.meters_per_pixel;
+      target_xy.y() = factor.reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
+      const Eigen::Vector2d residual = state.p_w_i.head<2>() - target_xy;
+      const double scale = std::sqrt(factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
       jacobian(row, offset + 6) = scale;
       jacobian(row + 1, offset + 7) = scale;
     }

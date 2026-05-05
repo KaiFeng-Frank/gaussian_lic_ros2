@@ -109,6 +109,9 @@ def main() -> int:
         "visual_factor_max_dt_ns",
         "depth_frame_cache_size",
         "rendered_frame_cache_size",
+        "visual_alignment_meters_per_pixel",
+        "visual_alignment_window_weight",
+        "visual_alignment_huber_delta_m",
         "sliding_window_max_states",
         "sliding_window_max_iterations",
         "sliding_window_imu_weight",
@@ -134,6 +137,10 @@ def main() -> int:
         errors.append("tracking.launch.py must default production sliding-window BA to true")
     if 'DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default visual alignment window factors to true")
+    if 'declare_parameter<double>("visual_alignment_huber_delta_m", 0.05)' not in tracking_node_text:
+        errors.append("tracking_node must default visual alignment Huber delta to 0.05m")
+    if 'DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose visual alignment Huber delta")
     if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default SE3 photometric window factors to true")
     if 'declare_parameter<int>("depth_frame_cache_size", 8)' not in tracking_node_text:
