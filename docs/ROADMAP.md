@@ -219,6 +219,7 @@ baseline_manifest.json
 - [x] Publish Schur marginalization vs fallback prior counters for sliding-window BA.
 - [x] Reject and publish linearization/linear-solve failures instead of silently breaking the BA loop.
 - [x] Bound SE3 photometric sample weights to `(0, 1]` before accumulating Hessians.
+- [x] Publish accepted sliding-window feedback count, stamp, and correction magnitudes.
 - [x] Validate dense marginalization-prior stamp/reference ordering and reject duplicate or mismatched retained states.
 - [x] Replace same-stamp pose/state priors instead of accumulating duplicate residual weight.
 - [x] Replace duplicate IMU spans and smoothness triplets while preserving legitimate same-frame LiDAR/visual residual blocks.

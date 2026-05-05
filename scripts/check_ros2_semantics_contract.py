@@ -286,6 +286,8 @@ def main() -> int:
         errors.append("tracking_node must publish invalid camera/image/depth/rendered-frame counters")
     if "sliding_window_invalid_optimized_states_" not in tracking_node_text or "valid_sliding_window_state" not in tracking_node_text:
         errors.append("tracking_node must reject invalid optimized sliding-window states before feedback")
+    if "sliding_window_feedback_update_count_" not in tracking_node_text or "last_sliding_window_feedback_stamp_ns_" not in tracking_node_text:
+        errors.append("tracking_node must publish accepted sliding-window feedback health")
     if "invalid_candidate_steps" not in sliding_window_text or "states_are_finite(candidate_states)" not in sliding_window_text:
         errors.append("sliding_window_optimizer must explicitly reject invalid candidate states")
     if "linearization_failure_count" not in sliding_window_text or "linear_solve_failure_count" not in sliding_window_text:
@@ -360,6 +362,11 @@ def main() -> int:
         "sliding_window_last_imu_preintegration_end_stamp_ns",
         "sliding_window_optimization_skip_count",
         "sliding_window_invalid_optimized_states",
+        "sliding_window_feedback_updates",
+        "sliding_window_last_feedback_stamp_ns",
+        "sliding_window_last_feedback_translation_delta_m",
+        "sliding_window_last_feedback_rotation_delta_rad",
+        "sliding_window_last_feedback_velocity_delta_mps",
         "sliding_window_schur_marginalizations",
         "sliding_window_fallback_marginalization_priors",
         "sliding_window_normal_equation_rows",

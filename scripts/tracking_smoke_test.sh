@@ -207,6 +207,11 @@ status_matches() {
     rg -q "sliding_window_last_imu_preintegration_end_stamp_ns:" "${status_file}" &&
     rg -q "sliding_window_optimization_skip_count:" "${status_file}" &&
     rg -q "sliding_window_invalid_optimized_states: 0" "${status_file}" &&
+    rg -q "sliding_window_feedback_updates:" "${status_file}" &&
+    rg -q "sliding_window_last_feedback_stamp_ns:" "${status_file}" &&
+    rg -q "sliding_window_last_feedback_translation_delta_m:" "${status_file}" &&
+    rg -q "sliding_window_last_feedback_rotation_delta_rad:" "${status_file}" &&
+    rg -q "sliding_window_last_feedback_velocity_delta_mps:" "${status_file}" &&
     rg -q "sliding_window_schur_marginalizations:" "${status_file}" &&
     rg -q "sliding_window_fallback_marginalization_priors:" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rows: [1-9]" "${status_file}" &&
@@ -231,6 +236,8 @@ status_matches() {
   if [[ "${EXPECT_IMU_FACTOR}" == "true" ]]; then
     rg -q "state: 2" "${status_file}" &&
       rg -q "sliding_window_accepted_steps: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_feedback_updates: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_last_feedback_stamp_ns: [1-9]" "${status_file}" &&
       rg -q "sliding_window_normal_equation_degenerate: false" "${status_file}" &&
       rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
       rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&

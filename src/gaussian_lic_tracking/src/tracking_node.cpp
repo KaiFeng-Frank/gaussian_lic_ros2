@@ -1146,6 +1146,16 @@ private:
               get_logger(), *get_clock(), 2000,
               "sliding window optimized state rejected before odometry/IMU feedback");
           } else {
+            const Eigen::Quaterniond feedback_delta_q =
+              (input_pose.q_w_i.normalized().inverse() * optimized.q_w_i.normalized()).normalized();
+            last_sliding_window_feedback_translation_delta_m_ =
+              (optimized.p_w_i - input_pose.p_w_i).norm();
+            last_sliding_window_feedback_rotation_delta_rad_ =
+              2.0 * std::atan2(feedback_delta_q.vec().norm(), std::abs(feedback_delta_q.w()));
+            last_sliding_window_feedback_velocity_delta_mps_ =
+              (optimized.v_w_i - imu_state.v_w_i).norm();
+            last_sliding_window_feedback_stamp_ns_ = optimized.stamp_ns;
+            ++sliding_window_feedback_update_count_;
             output_pose.p_w_i = optimized.p_w_i;
             output_pose.q_w_i = optimized.q_w_i;
             output_pose.v_w_i = optimized.v_w_i;
@@ -2083,6 +2093,14 @@ private:
       last_sliding_window_imu_preintegration_end_stamp_ns_;
     status.sliding_window_optimization_skip_count = sliding_window_optimization_skip_count_;
     status.sliding_window_invalid_optimized_states = sliding_window_invalid_optimized_states_;
+    status.sliding_window_feedback_updates = sliding_window_feedback_update_count_;
+    status.sliding_window_last_feedback_stamp_ns = last_sliding_window_feedback_stamp_ns_;
+    status.sliding_window_last_feedback_translation_delta_m =
+      last_sliding_window_feedback_translation_delta_m_;
+    status.sliding_window_last_feedback_rotation_delta_rad =
+      last_sliding_window_feedback_rotation_delta_rad_;
+    status.sliding_window_last_feedback_velocity_delta_mps =
+      last_sliding_window_feedback_velocity_delta_mps_;
     status.sliding_window_marginalized_states = static_cast<uint64_t>(summary.marginalized_state_count);
     status.sliding_window_schur_marginalizations =
       static_cast<uint64_t>(summary.schur_marginalization_count);
@@ -2339,6 +2357,11 @@ private:
   uint64_t sliding_window_smoothness_factor_skip_count_{0};
   uint64_t sliding_window_imu_factor_skip_count_{0};
   uint64_t sliding_window_imu_time_gap_skip_count_{0};
+  uint64_t sliding_window_feedback_update_count_{0};
+  int64_t last_sliding_window_feedback_stamp_ns_{0};
+  double last_sliding_window_feedback_translation_delta_m_{0.0};
+  double last_sliding_window_feedback_rotation_delta_rad_{0.0};
+  double last_sliding_window_feedback_velocity_delta_mps_{0.0};
   uint64_t last_sliding_window_imu_preintegration_samples_{0};
   double last_sliding_window_imu_preintegration_dt_s_{0.0};
   double last_sliding_window_imu_preintegration_extrapolated_dt_s_{0.0};
