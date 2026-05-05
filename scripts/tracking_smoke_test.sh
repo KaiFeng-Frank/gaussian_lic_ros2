@@ -163,6 +163,14 @@ status_file=/tmp/gaussian_lic_tracking_smoke_status.txt
 status_tmp=/tmp/gaussian_lic_tracking_smoke_status.tmp
 rm -f "${status_file}" "${status_tmp}"
 
+status_has_finite_number() {
+  local key="$1"
+  local value
+  value="$(awk -v key="${key}:" '$1 == key {print $2; found=1; exit} END {if (!found) exit 1}' "${status_file}")" ||
+    return 1
+  [[ "${value}" =~ ^[-+]?(([0-9]+([.][0-9]*)?)|([.][0-9]+))([eE][-+]?[0-9]+)?$ ]]
+}
+
 status_matches() {
   rg -q "executor_callback_serialization_enabled: true" "${status_file}" &&
     rg -q "sensor_qos_reliability: best_effort" "${status_file}" &&
@@ -219,6 +227,17 @@ status_matches() {
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_condition_number: .*[1-9]" "${status_file}" &&
+    status_has_finite_number "sliding_window_initial_cost" &&
+    status_has_finite_number "sliding_window_final_cost" &&
+    status_has_finite_number "sliding_window_imu_cost" &&
+    status_has_finite_number "sliding_window_pose_prior_cost" &&
+    status_has_finite_number "sliding_window_state_prior_cost" &&
+    status_has_finite_number "sliding_window_dense_prior_cost" &&
+    status_has_finite_number "sliding_window_point_factor_cost" &&
+    status_has_finite_number "sliding_window_plane_factor_cost" &&
+    status_has_finite_number "sliding_window_visual_factor_cost" &&
+    status_has_finite_number "sliding_window_se3_photometric_factor_cost" &&
+    status_has_finite_number "sliding_window_smoothness_factor_cost" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_smoothness_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_imu_factor_replacement_count:" "${status_file}" &&
