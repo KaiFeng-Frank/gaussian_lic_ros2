@@ -38,6 +38,12 @@ def generate_launch_description():
     enable_se3_photometric_window_factor = LaunchConfiguration("enable_se3_photometric_window_factor")
     se3_photometric_window_weight = LaunchConfiguration("se3_photometric_window_weight")
     se3_photometric_max_samples = LaunchConfiguration("se3_photometric_max_samples")
+    se3_photometric_min_samples = LaunchConfiguration("se3_photometric_min_samples")
+    se3_photometric_min_depth_m = LaunchConfiguration("se3_photometric_min_depth_m")
+    se3_photometric_max_depth_m = LaunchConfiguration("se3_photometric_max_depth_m")
+    se3_photometric_min_gradient = LaunchConfiguration("se3_photometric_min_gradient")
+    se3_photometric_huber_delta = LaunchConfiguration("se3_photometric_huber_delta")
+    se3_photometric_max_abs_residual = LaunchConfiguration("se3_photometric_max_abs_residual")
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
     enable_sliding_window_optimizer = LaunchConfiguration("enable_sliding_window_optimizer")
     sliding_window_max_states = LaunchConfiguration("sliding_window_max_states")
@@ -88,6 +94,12 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="false"),
             DeclareLaunchArgument("se3_photometric_window_weight", default_value="0.5"),
             DeclareLaunchArgument("se3_photometric_max_samples", default_value="2000"),
+            DeclareLaunchArgument("se3_photometric_min_samples", default_value="16"),
+            DeclareLaunchArgument("se3_photometric_min_depth_m", default_value="0.05"),
+            DeclareLaunchArgument("se3_photometric_max_depth_m", default_value="200.0"),
+            DeclareLaunchArgument("se3_photometric_min_gradient", default_value="0.0001"),
+            DeclareLaunchArgument("se3_photometric_huber_delta", default_value="0.15"),
+            DeclareLaunchArgument("se3_photometric_max_abs_residual", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="false"),
             DeclareLaunchArgument("sliding_window_max_states", default_value="12"),
@@ -143,6 +155,12 @@ def generate_launch_description():
                         "enable_se3_photometric_window_factor": enable_se3_photometric_window_factor,
                         "se3_photometric_window_weight": se3_photometric_window_weight,
                         "se3_photometric_max_samples": se3_photometric_max_samples,
+                        "se3_photometric_min_samples": se3_photometric_min_samples,
+                        "se3_photometric_min_depth_m": se3_photometric_min_depth_m,
+                        "se3_photometric_max_depth_m": se3_photometric_max_depth_m,
+                        "se3_photometric_min_gradient": se3_photometric_min_gradient,
+                        "se3_photometric_huber_delta": se3_photometric_huber_delta,
+                        "se3_photometric_max_abs_residual": se3_photometric_max_abs_residual,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "enable_sliding_window_optimizer": enable_sliding_window_optimizer,
                         "sliding_window_max_states": sliding_window_max_states,

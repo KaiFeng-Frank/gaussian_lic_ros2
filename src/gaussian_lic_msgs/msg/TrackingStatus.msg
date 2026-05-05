@@ -61,3 +61,11 @@ uint64 visual_photometric_pixels
 float64 visual_photometric_cost
 float64 visual_photometric_step_dx
 float64 visual_photometric_step_dy
+
+bool visual_se3_photometric_valid
+uint64 visual_se3_photometric_candidates
+uint64 visual_se3_photometric_samples
+float64 visual_se3_photometric_inlier_ratio
+float64 visual_se3_photometric_mean_abs_residual
+float64 visual_se3_photometric_cost
+float64 visual_se3_photometric_step_norm

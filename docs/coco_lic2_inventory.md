@@ -78,7 +78,8 @@ Current ROS2 implementation status:
   residual, integer/subpixel image-alignment foundation, and 2-DoF photometric
   translation linearization, plus analytic SE3 camera photometric pixel
   Jacobians and multi-sample normal equations validated against finite
-  differences. `tracking_node` subscribes to
+  differences. Runtime SE3 samples are depth/gradient/residual gated with Huber
+  weights and status-reported sample quality. `tracking_node` subscribes to
   `/gaussian_lic/rendered_image`, publishes the visual alignment and photometric
   linearization through `TrackingStatus`, and the launch smoke gate now proves
   the mapper-render comparison reaches the optional sliding window.
@@ -87,6 +88,6 @@ Current ROS2 implementation status:
   the frontend a native Gaussian-map reverse channel. Cached Gaussian centers
   can now generate optional point-to-point tracking-window factors while the
   full photometric Gaussian residual is ported.
-- Production sliding-window BA, production-scale photometric sampling policy,
-  and Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be
-  ported from the audited Coco-LIC modules.
+- Production sliding-window BA, production-scale marginalization policy, and
+  Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be ported
+  from the audited Coco-LIC modules.

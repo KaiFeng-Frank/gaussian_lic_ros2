@@ -75,6 +75,18 @@ public:
       declare_parameter<double>("se3_photometric_window_weight", 1.0);
     se3_photometric_max_samples_ =
       declare_parameter<int>("se3_photometric_max_samples", 2000);
+    se3_photometric_min_samples_ =
+      declare_parameter<int>("se3_photometric_min_samples", 16);
+    se3_photometric_min_depth_m_ =
+      declare_parameter<double>("se3_photometric_min_depth_m", 0.05);
+    se3_photometric_max_depth_m_ =
+      declare_parameter<double>("se3_photometric_max_depth_m", 200.0);
+    se3_photometric_min_gradient_ =
+      declare_parameter<double>("se3_photometric_min_gradient", 1.0e-4);
+    se3_photometric_huber_delta_ =
+      declare_parameter<double>("se3_photometric_huber_delta", 0.15);
+    se3_photometric_max_abs_residual_ =
+      declare_parameter<double>("se3_photometric_max_abs_residual", 1.0);
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
     enable_lidar_plane_factor_ = declare_parameter<bool>("enable_lidar_plane_factor", true);
     lidar_min_points_ = declare_parameter<int>("lidar_min_points", 32);
@@ -212,6 +224,14 @@ private:
     std::vector<float> depth_m;
   };
 
+  struct Se3PhotometricSampleBatch
+  {
+    std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> samples;
+    size_t candidate_pixels{0};
+    size_t accepted_pixels{0};
+    double mean_abs_residual{0.0};
+  };
+
   rclcpp::QoS make_sensor_qos() const
   {
     rclcpp::QoS qos(static_cast<size_t>(std::max(sensor_qos_depth_, 1)));
@@ -303,9 +323,15 @@ private:
         visual_factor_.linearize_translation(latest_rendered_frame_, observed);
       if (enable_se3_photometric_window_factor_) {
         const auto se3_samples = build_se3_photometric_samples(latest_rendered_frame_, observed);
+        last_visual_se3_photometric_candidate_pixels_ = se3_samples.candidate_pixels;
+        last_visual_se3_photometric_accepted_pixels_ = se3_samples.accepted_pixels;
+        last_visual_se3_photometric_mean_abs_residual_ = se3_samples.mean_abs_residual;
         last_visual_se3_photometric_linearization_ =
-          gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples);
-        if (last_visual_se3_photometric_linearization_.valid) {
+          gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
+        if (last_visual_se3_photometric_linearization_.valid &&
+          last_visual_se3_photometric_linearization_.sample_count >=
+          static_cast<size_t>(std::max(se3_photometric_min_samples_, 1)))
+        {
           pending_visual_se3_photometric_linearization_ = last_visual_se3_photometric_linearization_;
           has_pending_visual_se3_photometric_ = true;
         }
@@ -317,7 +343,7 @@ private:
       if (last_visual_residual_.valid) {
         RCLCPP_DEBUG_THROTTLE(
           get_logger(), *get_clock(), 2000,
-          "visual residual pixels=%zu mae=%.6f rmse=%.6f align_valid=%s dx=%d dy=%d align_rmse=%.6f photo_valid=%s photo_step=(%.4f, %.4f)",
+          "visual residual pixels=%zu mae=%.6f rmse=%.6f align_valid=%s dx=%d dy=%d align_rmse=%.6f photo_valid=%s photo_step=(%.4f, %.4f) se3_photo_valid=%s se3_samples=%zu/%zu se3_mae=%.6f",
           last_visual_residual_.compared_pixels,
           last_visual_residual_.mean_abs_error,
           last_visual_residual_.rmse,
@@ -327,7 +353,11 @@ private:
           last_visual_alignment_.rmse,
           last_visual_photometric_linearization_.valid ? "true" : "false",
           last_visual_photometric_linearization_.gauss_newton_step.x(),
-          last_visual_photometric_linearization_.gauss_newton_step.y());
+          last_visual_photometric_linearization_.gauss_newton_step.y(),
+          last_visual_se3_photometric_linearization_.valid ? "true" : "false",
+          last_visual_se3_photometric_linearization_.sample_count,
+          last_visual_se3_photometric_candidate_pixels_,
+          last_visual_se3_photometric_mean_abs_residual_);
       }
     }
   }
@@ -768,37 +798,42 @@ private:
     return false;
   }
 
-  std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> build_se3_photometric_samples(
+  Se3PhotometricSampleBatch build_se3_photometric_samples(
     const gaussian_lic_tracking::VisualFrame & rendered,
     const gaussian_lic_tracking::VisualFrame & observed) const
   {
-    std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> samples;
+    Se3PhotometricSampleBatch batch;
     if (!has_camera_intrinsics_ || !has_depth_frame_ ||
       rendered.width < 3U || rendered.height < 3U ||
       rendered.width != observed.width || rendered.height != observed.height ||
       latest_depth_frame_.width != observed.width || latest_depth_frame_.height != observed.height)
     {
-      return samples;
+      return batch;
     }
     const size_t pixel_count = observed.width * observed.height;
     if (rendered.gray.size() != pixel_count || observed.gray.size() != pixel_count ||
       latest_depth_frame_.depth_m.size() != pixel_count)
     {
-      return samples;
+      return batch;
     }
     const size_t max_samples = static_cast<size_t>(std::max(se3_photometric_max_samples_, 1));
     const size_t stride = pixel_count > max_samples
       ? static_cast<size_t>(std::ceil(static_cast<double>(pixel_count) / static_cast<double>(max_samples)))
       : 1U;
-    samples.reserve(std::min(pixel_count, max_samples));
+    batch.samples.reserve(std::min(pixel_count, max_samples));
+    double abs_residual_sum = 0.0;
     for (size_t index = 0; index < pixel_count; index += stride) {
       const size_t x = index % observed.width;
       const size_t y = index / observed.width;
       if (x == 0U || y == 0U || x + 1U >= observed.width || y + 1U >= observed.height) {
         continue;
       }
+      ++batch.candidate_pixels;
       const float depth = latest_depth_frame_.depth_m[index];
-      if (!std::isfinite(depth) || depth <= 0.0F) {
+      if (!std::isfinite(depth) ||
+        static_cast<double>(depth) < se3_photometric_min_depth_m_ ||
+        static_cast<double>(depth) > se3_photometric_max_depth_m_)
+      {
         continue;
       }
       auto at = [&observed](const size_t px, const size_t py) {
@@ -814,10 +849,29 @@ private:
         0.5 * (at(x + 1U, y) - at(x - 1U, y)),
         0.5 * (at(x, y + 1U) - at(x, y - 1U))};
       sample.residual = static_cast<double>(observed.gray[index] - rendered.gray[index]);
+      const double gradient_norm = sample.image_gradient.norm();
+      if (!std::isfinite(gradient_norm) || gradient_norm < se3_photometric_min_gradient_) {
+        continue;
+      }
+      const double abs_residual = std::abs(sample.residual);
+      if (!std::isfinite(abs_residual) ||
+        (se3_photometric_max_abs_residual_ > 0.0 &&
+        abs_residual > se3_photometric_max_abs_residual_))
+      {
+        continue;
+      }
       sample.weight = 1.0;
-      samples.push_back(sample);
+      if (se3_photometric_huber_delta_ > 0.0 && abs_residual > se3_photometric_huber_delta_) {
+        sample.weight = se3_photometric_huber_delta_ / abs_residual;
+      }
+      batch.samples.push_back(sample);
+      ++batch.accepted_pixels;
+      abs_residual_sum += abs_residual;
     }
-    return samples;
+    if (batch.accepted_pixels > 0U) {
+      batch.mean_abs_residual = abs_residual_sum / static_cast<double>(batch.accepted_pixels);
+    }
+    return batch;
   }
 
   const sensor_msgs::msg::PointField * find_field(
@@ -1210,6 +1264,26 @@ private:
     status.visual_photometric_step_dy = last_visual_photometric_linearization_.valid
       ? last_visual_photometric_linearization_.gauss_newton_step.y()
       : 0.0;
+    const bool se3_photometric_valid = last_visual_se3_photometric_linearization_.valid &&
+      last_visual_se3_photometric_linearization_.sample_count >=
+      static_cast<size_t>(std::max(se3_photometric_min_samples_, 1));
+    status.visual_se3_photometric_valid = se3_photometric_valid;
+    status.visual_se3_photometric_candidates =
+      static_cast<uint64_t>(last_visual_se3_photometric_candidate_pixels_);
+    status.visual_se3_photometric_samples =
+      static_cast<uint64_t>(last_visual_se3_photometric_accepted_pixels_);
+    status.visual_se3_photometric_inlier_ratio = last_visual_se3_photometric_candidate_pixels_ > 0U
+      ? static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
+      static_cast<double>(last_visual_se3_photometric_candidate_pixels_)
+      : 0.0;
+    status.visual_se3_photometric_mean_abs_residual =
+      last_visual_se3_photometric_mean_abs_residual_;
+    status.visual_se3_photometric_cost = se3_photometric_valid
+      ? last_visual_se3_photometric_linearization_.cost
+      : 0.0;
+    status.visual_se3_photometric_step_norm = se3_photometric_valid
+      ? last_visual_se3_photometric_linearization_.gauss_newton_step.norm()
+      : 0.0;
     tracking_status_pub_->publish(status);
   }
 
@@ -1244,6 +1318,12 @@ private:
   bool enable_se3_photometric_window_factor_{false};
   double se3_photometric_window_weight_{1.0};
   int se3_photometric_max_samples_{2000};
+  int se3_photometric_min_samples_{16};
+  double se3_photometric_min_depth_m_{0.05};
+  double se3_photometric_max_depth_m_{200.0};
+  double se3_photometric_min_gradient_{1.0e-4};
+  double se3_photometric_huber_delta_{0.15};
+  double se3_photometric_max_abs_residual_{1.0};
   bool enable_lio_factor_{true};
   bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
@@ -1307,6 +1387,9 @@ private:
   gaussian_lic_tracking::VisualSe3PhotometricLinearization last_visual_se3_photometric_linearization_;
   gaussian_lic_tracking::VisualSe3PhotometricLinearization pending_visual_se3_photometric_linearization_;
   gaussian_lic_tracking::VisualAlignment pending_visual_alignment_;
+  size_t last_visual_se3_photometric_candidate_pixels_{0};
+  size_t last_visual_se3_photometric_accepted_pixels_{0};
+  double last_visual_se3_photometric_mean_abs_residual_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   DepthFrame latest_depth_frame_;
   bool has_camera_intrinsics_{false};

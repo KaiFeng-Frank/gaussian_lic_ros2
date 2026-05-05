@@ -156,7 +156,8 @@ and checks `/pose_for_gs`, `/points_for_gs`, `/gaussian_lic/frontend/odometry`,
 gate requires `STATE_TRACKING`, nonzero IMU factors, nonzero LiDAR point factors,
 nonzero bias observability, nonzero visual factors, valid visual subpixel
 alignment, valid photometric Gauss-Newton linearization, nonzero SE3
-photometric window factors extracted from rendered/current/depth images, and
+photometric window factors extracted from rendered/current/depth images, nonzero
+SE3 candidate/sample counts, nonzero robust inlier ratio and SE3 step norm, and
 nonzero LiDAR keyframes. The script lowers the synthetic LiDAR threshold to one
 point because the default demo bag is intentionally tiny; dataset profiles keep
 their production thresholds.

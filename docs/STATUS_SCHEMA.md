@@ -103,6 +103,13 @@ visual_photometric_pixels
 visual_photometric_cost
 visual_photometric_step_dx
 visual_photometric_step_dy
+visual_se3_photometric_valid
+visual_se3_photometric_candidates
+visual_se3_photometric_samples
+visual_se3_photometric_inlier_ratio
+visual_se3_photometric_mean_abs_residual
+visual_se3_photometric_cost
+visual_se3_photometric_step_norm
 ```
 
 `scripts/tracking_smoke_test.sh` asserts that the synthetic frontend bag reaches
@@ -112,8 +119,11 @@ The visual gate replays a 32x32 Gaussian-pattern image bag while a
 transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment and photometric Gauss-Newton linearization
 status, plus nonzero SE3 photometric window factors extracted from
-rendered/current/depth images. The synthetic bag intentionally lowers the LiDAR
-point threshold to one point; dataset profiles keep production thresholds.
+rendered/current/depth images. The SE3 status fields expose candidate pixels,
+accepted robust samples, inlier ratio, mean absolute residual, cost, and
+Gauss-Newton step norm so bad depth, flat gradients, or large photometric
+outliers are visible in CI logs. The synthetic bag intentionally lowers the
+LiDAR point threshold to one point; dataset profiles keep production thresholds.
 
 ## Render Mode Policy
 
