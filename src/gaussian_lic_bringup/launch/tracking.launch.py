@@ -16,6 +16,17 @@ def generate_launch_description():
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
+    lidar_min_points = LaunchConfiguration("lidar_min_points")
+    lidar_max_frame_points = LaunchConfiguration("lidar_max_frame_points")
+    lidar_max_map_points = LaunchConfiguration("lidar_max_map_points")
+    lidar_nearest_distance_m = LaunchConfiguration("lidar_nearest_distance_m")
+    lidar_correction_gain = LaunchConfiguration("lidar_correction_gain")
+    lidar_max_correction_m = LaunchConfiguration("lidar_max_correction_m")
+    lidar_max_rotation_rad = LaunchConfiguration("lidar_max_rotation_rad")
+    lidar_robust_kernel_m = LaunchConfiguration("lidar_robust_kernel_m")
+    lidar_plane_min_neighbors = LaunchConfiguration("lidar_plane_min_neighbors")
+    lidar_plane_max_condition = LaunchConfiguration("lidar_plane_max_condition")
+    lidar_keyframe_translation_m = LaunchConfiguration("lidar_keyframe_translation_m")
     enable_lidar_deskew = LaunchConfiguration("enable_lidar_deskew")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     visual_alignment_max_shift_px = LaunchConfiguration("visual_alignment_max_shift_px")
@@ -24,7 +35,12 @@ def generate_launch_description():
     visual_alignment_window_weight = LaunchConfiguration("visual_alignment_window_weight")
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
     enable_sliding_window_optimizer = LaunchConfiguration("enable_sliding_window_optimizer")
+    sliding_window_max_states = LaunchConfiguration("sliding_window_max_states")
+    sliding_window_max_iterations = LaunchConfiguration("sliding_window_max_iterations")
+    sliding_window_imu_weight = LaunchConfiguration("sliding_window_imu_weight")
     sliding_window_bias_weight = LaunchConfiguration("sliding_window_bias_weight")
+    sliding_window_pose_translation_weight = LaunchConfiguration("sliding_window_pose_translation_weight")
+    sliding_window_pose_rotation_weight = LaunchConfiguration("sliding_window_pose_rotation_weight")
     enable_gaussian_snapshot_lidar_factor = LaunchConfiguration("enable_gaussian_snapshot_lidar_factor")
     gaussian_snapshot_lidar_min_opacity = LaunchConfiguration("gaussian_snapshot_lidar_min_opacity")
     lidar_time_field = LaunchConfiguration("lidar_time_field")
@@ -42,6 +58,17 @@ def generate_launch_description():
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
+            DeclareLaunchArgument("lidar_min_points", default_value="32"),
+            DeclareLaunchArgument("lidar_max_frame_points", default_value="2000"),
+            DeclareLaunchArgument("lidar_max_map_points", default_value="20000"),
+            DeclareLaunchArgument("lidar_nearest_distance_m", default_value="0.35"),
+            DeclareLaunchArgument("lidar_correction_gain", default_value="0.7"),
+            DeclareLaunchArgument("lidar_max_correction_m", default_value="0.25"),
+            DeclareLaunchArgument("lidar_max_rotation_rad", default_value="0.08"),
+            DeclareLaunchArgument("lidar_robust_kernel_m", default_value="0.15"),
+            DeclareLaunchArgument("lidar_plane_min_neighbors", default_value="5"),
+            DeclareLaunchArgument("lidar_plane_max_condition", default_value="0.2"),
+            DeclareLaunchArgument("lidar_keyframe_translation_m", default_value="0.25"),
             DeclareLaunchArgument("enable_lidar_deskew", default_value="true"),
             DeclareLaunchArgument("lidar_time_field", default_value="auto"),
             DeclareLaunchArgument("lidar_time_unit", default_value="auto"),
@@ -53,7 +80,12 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_alignment_window_weight", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="false"),
+            DeclareLaunchArgument("sliding_window_max_states", default_value="12"),
+            DeclareLaunchArgument("sliding_window_max_iterations", default_value="3"),
+            DeclareLaunchArgument("sliding_window_imu_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_bias_weight", default_value="1.0"),
+            DeclareLaunchArgument("sliding_window_pose_translation_weight", default_value="2.0"),
+            DeclareLaunchArgument("sliding_window_pose_rotation_weight", default_value="2.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot_lidar_factor", default_value="true"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_min_opacity", default_value="0.01"),
             Node(
@@ -76,6 +108,17 @@ def generate_launch_description():
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,
                         "enable_lio_factor": enable_lio_factor,
+                        "lidar_min_points": lidar_min_points,
+                        "lidar_max_frame_points": lidar_max_frame_points,
+                        "lidar_max_map_points": lidar_max_map_points,
+                        "lidar_nearest_distance_m": lidar_nearest_distance_m,
+                        "lidar_correction_gain": lidar_correction_gain,
+                        "lidar_max_correction_m": lidar_max_correction_m,
+                        "lidar_max_rotation_rad": lidar_max_rotation_rad,
+                        "lidar_robust_kernel_m": lidar_robust_kernel_m,
+                        "lidar_plane_min_neighbors": lidar_plane_min_neighbors,
+                        "lidar_plane_max_condition": lidar_plane_max_condition,
+                        "lidar_keyframe_translation_m": lidar_keyframe_translation_m,
                         "enable_lidar_deskew": enable_lidar_deskew,
                         "lidar_time_field": lidar_time_field,
                         "lidar_time_unit": lidar_time_unit,
@@ -87,7 +130,12 @@ def generate_launch_description():
                         "visual_alignment_window_weight": visual_alignment_window_weight,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "enable_sliding_window_optimizer": enable_sliding_window_optimizer,
+                        "sliding_window_max_states": sliding_window_max_states,
+                        "sliding_window_max_iterations": sliding_window_max_iterations,
+                        "sliding_window_imu_weight": sliding_window_imu_weight,
                         "sliding_window_bias_weight": sliding_window_bias_weight,
+                        "sliding_window_pose_translation_weight": sliding_window_pose_translation_weight,
+                        "sliding_window_pose_rotation_weight": sliding_window_pose_rotation_weight,
                         "enable_gaussian_snapshot_lidar_factor": enable_gaussian_snapshot_lidar_factor,
                         "gaussian_snapshot_lidar_min_opacity": gaussian_snapshot_lidar_min_opacity,
                     }
