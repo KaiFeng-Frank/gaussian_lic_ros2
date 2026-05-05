@@ -30,6 +30,8 @@ struct VisualAlignment
   bool valid{false};
   int dx{0};
   int dy{0};
+  double subpixel_dx{0.0};
+  double subpixel_dy{0.0};
   size_t compared_pixels{0};
   double mean_abs_error{0.0};
   double rmse{0.0};

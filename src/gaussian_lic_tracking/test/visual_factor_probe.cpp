@@ -62,9 +62,72 @@ int main()
   const auto alignment = factor.estimate_translation(alignment_reference, alignment_candidate, 2);
   std::cout << " visual_alignment dx=" << alignment.dx
             << " dy=" << alignment.dy
+            << " subpixel_dx=" << alignment.subpixel_dx
+            << " subpixel_dy=" << alignment.subpixel_dy
             << " rmse=" << alignment.rmse;
-  if (!alignment.valid || alignment.dx != 1 || alignment.dy != 0 || alignment.rmse > 1.0e-6) {
+  if (!alignment.valid || alignment.dx != 1 || alignment.dy != 0 ||
+    std::abs(alignment.subpixel_dx - 1.0) > 1.0e-6 ||
+    std::abs(alignment.subpixel_dy) > 1.0e-6 ||
+    alignment.rmse > 1.0e-6)
+  {
     std::cerr << "visual alignment failed to recover integer translation\n";
+    return 1;
+  }
+
+  gaussian_lic_tracking::VisualFrame subpixel_reference;
+  subpixel_reference.width = 32;
+  subpixel_reference.height = 32;
+  subpixel_reference.gray.resize(subpixel_reference.width * subpixel_reference.height);
+  for (size_t y = 0; y < subpixel_reference.height; ++y) {
+    for (size_t x = 0; x < subpixel_reference.width; ++x) {
+      const double dx = static_cast<double>(x) - 15.0;
+      const double dy = static_cast<double>(y) - 16.0;
+      subpixel_reference.gray[y * subpixel_reference.width + x] =
+        static_cast<float>(std::exp(-(dx * dx + dy * dy) / 40.0));
+    }
+  }
+  auto bilinear = [&subpixel_reference](const double x, const double y) -> float {
+      if (x < 0.0 || y < 0.0 ||
+        x >= static_cast<double>(subpixel_reference.width - 1U) ||
+        y >= static_cast<double>(subpixel_reference.height - 1U))
+      {
+        return 0.0F;
+      }
+      const auto x0 = static_cast<size_t>(std::floor(x));
+      const auto y0 = static_cast<size_t>(std::floor(y));
+      const double tx = x - static_cast<double>(x0);
+      const double ty = y - static_cast<double>(y0);
+      auto at = [&subpixel_reference](const size_t px, const size_t py) {
+          return subpixel_reference.gray[py * subpixel_reference.width + px];
+        };
+      return static_cast<float>(
+        (1.0 - tx) * (1.0 - ty) * at(x0, y0) +
+        tx * (1.0 - ty) * at(x0 + 1U, y0) +
+        (1.0 - tx) * ty * at(x0, y0 + 1U) +
+        tx * ty * at(x0 + 1U, y0 + 1U));
+    };
+  gaussian_lic_tracking::VisualFrame subpixel_candidate = subpixel_reference;
+  constexpr double expected_subpixel_dx = 1.25;
+  constexpr double expected_subpixel_dy = -0.35;
+  for (size_t y = 0; y < subpixel_candidate.height; ++y) {
+    for (size_t x = 0; x < subpixel_candidate.width; ++x) {
+      subpixel_candidate.gray[y * subpixel_candidate.width + x] =
+        bilinear(
+        static_cast<double>(x) - expected_subpixel_dx,
+        static_cast<double>(y) - expected_subpixel_dy);
+    }
+  }
+  gaussian_lic_tracking::VisualFactor dense_factor(
+    subpixel_reference.width * subpixel_reference.height);
+  const auto subpixel_alignment =
+    dense_factor.estimate_translation(subpixel_reference, subpixel_candidate, 3);
+  std::cout << " subpixel_alignment dx=" << subpixel_alignment.subpixel_dx
+            << " dy=" << subpixel_alignment.subpixel_dy;
+  if (!subpixel_alignment.valid ||
+    std::abs(subpixel_alignment.subpixel_dx - expected_subpixel_dx) > 0.15 ||
+    std::abs(subpixel_alignment.subpixel_dy - expected_subpixel_dy) > 0.15)
+  {
+    std::cerr << "visual alignment failed to recover subpixel translation\n";
     return 1;
   }
 

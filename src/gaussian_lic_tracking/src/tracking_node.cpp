@@ -377,8 +377,8 @@ private:
       visual_factor.stamp_ns = tracking_pose.stamp_ns;
       visual_factor.reference_p_w_i = tracking_pose.p_w_i;
       visual_factor.measured_shift_px = Eigen::Vector2d{
-        static_cast<double>(pending_visual_alignment_.dx),
-        static_cast<double>(pending_visual_alignment_.dy)};
+        pending_visual_alignment_.subpixel_dx,
+        pending_visual_alignment_.subpixel_dy};
       visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
       visual_factor.weight = visual_alignment_window_weight_;
       visual_window_factors.push_back(visual_factor);

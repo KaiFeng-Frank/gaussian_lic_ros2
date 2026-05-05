@@ -2,11 +2,27 @@
 
 #include <gaussian_lic_tracking/visual_factor.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
 namespace gaussian_lic_tracking
 {
+namespace
+{
+double parabolic_subpixel_offset(
+  const double minus_cost,
+  const double center_cost,
+  const double plus_cost)
+{
+  const double denominator = minus_cost - 2.0 * center_cost + plus_cost;
+  if (std::abs(denominator) < 1.0e-12) {
+    return 0.0;
+  }
+  const double offset = 0.5 * (minus_cost - plus_cost) / denominator;
+  return std::clamp(offset, -0.5, 0.5);
+}
+}  // namespace
 
 VisualFactor::VisualFactor(const size_t max_pixels)
 {
@@ -98,10 +114,26 @@ VisualAlignment VisualFactor::estimate_translation(
         best.valid = true;
         best.dx = dx;
         best.dy = dy;
+        best.subpixel_dx = static_cast<double>(dx);
+        best.subpixel_dy = static_cast<double>(dy);
         best.compared_pixels = residual.compared_pixels;
         best.mean_abs_error = residual.mean_abs_error;
         best.rmse = residual.rmse;
       }
+    }
+  }
+  if (best.valid && best.rmse > 1.0e-9) {
+    const auto x_minus = evaluate_shifted(reference, candidate, best.dx - 1, best.dy);
+    const auto x_plus = evaluate_shifted(reference, candidate, best.dx + 1, best.dy);
+    if (x_minus.valid && x_plus.valid) {
+      best.subpixel_dx =
+        static_cast<double>(best.dx) + parabolic_subpixel_offset(x_minus.rmse, best.rmse, x_plus.rmse);
+    }
+    const auto y_minus = evaluate_shifted(reference, candidate, best.dx, best.dy - 1);
+    const auto y_plus = evaluate_shifted(reference, candidate, best.dx, best.dy + 1);
+    if (y_minus.valid && y_plus.valid) {
+      best.subpixel_dy =
+        static_cast<double>(best.dy) + parabolic_subpixel_offset(y_minus.rmse, best.rmse, y_plus.rmse);
     }
   }
   return best;
