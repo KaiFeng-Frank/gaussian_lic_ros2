@@ -109,6 +109,7 @@ rg -q "state: 2" /tmp/gaussian_lic_tracking_smoke_status.txt
 rg -q "sliding_window_enabled: true" /tmp/gaussian_lic_tracking_smoke_status.txt
 rg -q "sliding_window_imu_factors: [1-9]" /tmp/gaussian_lic_tracking_smoke_status.txt
 rg -q "sliding_window_point_factors: [1-9]" /tmp/gaussian_lic_tracking_smoke_status.txt
+rg -q "total_window_point_correspondences: [1-9]" /tmp/gaussian_lic_tracking_smoke_status.txt
 rg -q "num_lidar_keyframes: [1-9]" /tmp/gaussian_lic_tracking_smoke_status.txt
 
 echo "[tracking-smoke] passed"

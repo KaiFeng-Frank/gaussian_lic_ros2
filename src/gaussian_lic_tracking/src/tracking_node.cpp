@@ -354,15 +354,19 @@ private:
 
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> window_point_factors;
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> window_plane_factors;
+    size_t window_point_correspondences = 0U;
+    size_t window_plane_correspondences = 0U;
     if (enable_lio_factor_) {
       if (enable_sliding_window_optimizer_) {
         auto lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
         if (!lidar_window_factor.frame_points_i.empty()) {
+          window_point_correspondences += lidar_window_factor.frame_points_i.size();
           window_point_factors.push_back(std::move(lidar_window_factor));
         }
         if (enable_lidar_plane_factor_) {
           auto lidar_plane_factor = lidar_factor_.build_point_to_plane_factor(lidar_points, tracking_pose);
           if (!lidar_plane_factor.frame_points_i.empty()) {
+            window_plane_correspondences += lidar_plane_factor.frame_points_i.size();
             window_plane_factors.push_back(std::move(lidar_plane_factor));
           }
         }
@@ -375,12 +379,18 @@ private:
             lidar_nearest_distance_m_,
             gaussian_snapshot_lidar_min_opacity_);
           if (!gaussian_window_factor.frame_points_i.empty()) {
+            window_point_correspondences += gaussian_window_factor.frame_points_i.size();
             window_point_factors.push_back(std::move(gaussian_window_factor));
           }
         }
       }
       const auto correction = lidar_factor_.compute_pose_correction(lidar_points, tracking_pose);
-      last_lidar_matches_ = correction.matched_points;
+      last_window_point_correspondences_ = window_point_correspondences;
+      last_window_plane_correspondences_ = window_plane_correspondences;
+      total_window_point_correspondences_ += window_point_correspondences;
+      total_window_plane_correspondences_ += window_plane_correspondences;
+      last_lidar_matches_ = std::max(
+        correction.matched_points, window_point_correspondences + window_plane_correspondences);
       last_lidar_mean_residual_m_ = correction.mean_residual_m;
       if (correction.applied) {
         tracking_pose.p_w_i += correction.delta_p_w;
@@ -973,6 +983,14 @@ private:
     status.lidar_map_points = static_cast<uint64_t>(lidar_factor_.map_size());
     status.last_lidar_points = static_cast<uint64_t>(last_lidar_points_);
     status.last_lidar_matches = static_cast<uint64_t>(last_lidar_matches_);
+    status.last_window_point_correspondences =
+      static_cast<uint64_t>(last_window_point_correspondences_);
+    status.last_window_plane_correspondences =
+      static_cast<uint64_t>(last_window_plane_correspondences_);
+    status.total_window_point_correspondences =
+      static_cast<uint64_t>(total_window_point_correspondences_);
+    status.total_window_plane_correspondences =
+      static_cast<uint64_t>(total_window_plane_correspondences_);
     status.last_lidar_mean_residual_m = last_lidar_mean_residual_m_;
 
     const auto & summary = last_sliding_window_summary_;
@@ -1105,6 +1123,10 @@ private:
   uint64_t num_lidar_keyframes_{0};
   size_t last_lidar_points_{0};
   size_t last_lidar_matches_{0};
+  size_t last_window_point_correspondences_{0};
+  size_t last_window_plane_correspondences_{0};
+  uint64_t total_window_point_correspondences_{0};
+  uint64_t total_window_plane_correspondences_{0};
   double last_lidar_mean_residual_m_{0.0};
   int64_t last_gaussian_snapshot_stamp_ns_{0};
   uint32_t last_gaussian_total_count_{0};

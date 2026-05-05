@@ -65,6 +65,10 @@ num_lidar_keyframes
 lidar_map_points
 last_lidar_points
 last_lidar_matches
+last_window_point_correspondences
+last_window_plane_correspondences
+total_window_point_correspondences
+total_window_plane_correspondences
 last_lidar_mean_residual_m
 sliding_window_enabled
 sliding_window_states
