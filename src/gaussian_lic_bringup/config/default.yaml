@@ -48,6 +48,48 @@ lic2_contract_adapter:
     sensor_qos_reliability: best_effort
     sensor_qos_history: keep_last
     sensor_qos_depth: 5
+    raw_image_qos_reliability: best_effort
+    raw_image_qos_history: keep_last
+    raw_image_qos_depth: 5
+    raw_camera_info_qos_reliability: best_effort
+    raw_camera_info_qos_history: keep_last
+    raw_camera_info_qos_depth: 5
+    raw_depth_qos_reliability: best_effort
+    raw_depth_qos_history: keep_last
+    raw_depth_qos_depth: 5
+    raw_pointcloud_qos_reliability: best_effort
+    raw_pointcloud_qos_history: keep_last
+    raw_pointcloud_qos_depth: 5
+    raw_imu_qos_reliability: best_effort
+    raw_imu_qos_history: keep_last
+    raw_imu_qos_depth: 5
+    pose_stamped_qos_reliability: best_effort
+    pose_stamped_qos_history: keep_last
+    pose_stamped_qos_depth: 5
+    raw_odometry_qos_reliability: best_effort
+    raw_odometry_qos_history: keep_last
+    raw_odometry_qos_depth: 5
+    image_qos_reliability: best_effort
+    image_qos_history: keep_last
+    image_qos_depth: 5
+    camera_info_qos_reliability: best_effort
+    camera_info_qos_history: keep_last
+    camera_info_qos_depth: 5
+    depth_qos_reliability: best_effort
+    depth_qos_history: keep_last
+    depth_qos_depth: 5
+    pointcloud_qos_reliability: best_effort
+    pointcloud_qos_history: keep_last
+    pointcloud_qos_depth: 5
+    pose_qos_reliability: best_effort
+    pose_qos_history: keep_last
+    pose_qos_depth: 5
+    imu_qos_reliability: best_effort
+    imu_qos_history: keep_last
+    imu_qos_depth: 5
+    frontend_odometry_qos_reliability: best_effort
+    frontend_odometry_qos_history: keep_last
+    frontend_odometry_qos_depth: 5
     enable_depth_passthrough: true
     enable_imu_passthrough: true
     identity_pose_fallback: false

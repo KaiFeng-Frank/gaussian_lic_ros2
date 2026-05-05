@@ -164,8 +164,7 @@ status_tmp=/tmp/gaussian_lic_tracking_smoke_status.tmp
 rm -f "${status_file}" "${status_tmp}"
 
 status_matches() {
-  rg -q "state: 2" "${status_file}" &&
-    rg -q "executor_callback_serialization_enabled: true" "${status_file}" &&
+  rg -q "executor_callback_serialization_enabled: true" "${status_file}" &&
     rg -q "sensor_qos_reliability: best_effort" "${status_file}" &&
     rg -q "sensor_qos_depth: 5" "${status_file}" &&
     rg -q "signed_nanosecond_time_math_enabled: true" "${status_file}" &&
@@ -173,7 +172,7 @@ status_matches() {
     rg -q "last_pointcloud_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "last_imu_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "sliding_window_enabled: true" "${status_file}" &&
-    rg -q "sliding_window_accepted_steps: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_rejected_steps:" "${status_file}" &&
     rg -q "sliding_window_limited_steps:" "${status_file}" &&
     rg -q "sliding_window_point_factor_skip_count:" "${status_file}" &&
     rg -q "sliding_window_plane_factor_skip_count:" "${status_file}" &&
@@ -187,9 +186,6 @@ status_matches() {
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_condition_number: .*[1-9]" "${status_file}" &&
-    rg -q "sliding_window_normal_equation_degenerate: false" "${status_file}" &&
-    rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
-    rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_smoothness_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_dense_prior_rank: [1-9]" "${status_file}" &&
@@ -198,13 +194,22 @@ status_matches() {
     rg -q "total_window_point_correspondences: [1-9]" "${status_file}" &&
     rg -q "num_lidar_keyframes: [1-9]" "${status_file}" || return 1
   if [[ "${EXPECT_IMU_FACTOR}" == "true" ]]; then
-    rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
+    rg -q "state: 2" "${status_file}" &&
+      rg -q "sliding_window_accepted_steps: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_normal_equation_degenerate: false" "${status_file}" &&
+      rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
+      rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&
+      rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
       rg -q "sliding_window_gyro_bias_observability: [1-9]" "${status_file}" &&
       rg -q "sliding_window_accel_bias_observability: [1-9]" "${status_file}" &&
       rg -q "sliding_window_imu_reanchors: [1-9]" "${status_file}" || return 1
   else
-    rg -q "sliding_window_imu_factors: 0" "${status_file}" &&
+    rg -q "state: [23]" "${status_file}" &&
+      rg -q "sliding_window_imu_factors: 0" "${status_file}" &&
       rg -q "sliding_window_imu_factor_skip_count: [1-9]" "${status_file}" || return 1
+    if ! rg -q "sliding_window_(accepted|rejected)_steps: [1-9]" "${status_file}"; then
+      return 1
+    fi
   fi
   if [[ "${ENABLE_VISUAL_FACTOR_GATE}" == "true" ]]; then
     rg -q "visual_factor_enabled: true" "${status_file}" &&

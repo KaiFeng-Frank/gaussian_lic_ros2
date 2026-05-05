@@ -105,6 +105,7 @@ baseline_manifest.json
 - [x] Add calibration file schema.
 - [x] Add dataset-specific ROS2 mapping profiles for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - [x] Add a native ROS2 frontend contract adapter from raw sensor/pose topics to mapper topics.
+- [x] Add per-stream input/output QoS controls to the frontend contract adapter so mapper QoS overrides can be matched without forcing all streams reliable.
 - [x] Add a `frontend_raw` bag contract for raw camera/LiDAR/IMU/pose validation before adapter replay.
 - [x] Add a `frontend_sensor_raw` contract and FAST-LIVO2 ROS1-to-ROS2 converter for real camera/LiDAR/IMU bags without pose.
 - [x] Add IMU gyro orientation fallback for raw frontend bags without odometry.

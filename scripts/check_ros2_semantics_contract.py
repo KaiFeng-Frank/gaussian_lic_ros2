@@ -86,6 +86,27 @@ def main() -> int:
         errors.append("lic2_contract_adapter does not store IMU stamps in nanoseconds")
     if nanosecond_guard not in frontend_text:
         errors.append("lic2_contract_adapter stamp_to_nsec must reject ROS2 stamps with nanosec >= 1e9")
+    for suffix in ("_qos_reliability", "_qos_history", "_qos_depth"):
+        if f"prefix + \"{suffix}\"" not in frontend_text:
+            errors.append(f"lic2_contract_adapter declare_topic_qos must expose per-stream {suffix}")
+    for stream in (
+        "raw_image",
+        "raw_camera_info",
+        "raw_depth",
+        "raw_pointcloud",
+        "raw_imu",
+        "pose_stamped",
+        "raw_odometry",
+        "image",
+        "camera_info",
+        "depth",
+        "pointcloud",
+        "pose",
+        "imu",
+        "frontend_odometry",
+    ):
+        if f'declare_topic_qos("{stream}")' not in frontend_text:
+            errors.append(f"lic2_contract_adapter must declare per-stream QoS for {stream}")
 
     if 'executable="component_container_mt"' in launch_text or "component_container_mt" in launch_text:
         errors.append("run_bag.launch.py must default strict composition to single-threaded component_container")

@@ -40,6 +40,13 @@ std::string lowercase(std::string value)
 
 constexpr int64_t kNanosecondsPerSecond = 1000000000LL;
 
+struct QosProfileParams
+{
+  std::string reliability{"best_effort"};
+  std::string history{"keep_last"};
+  int depth{5};
+};
+
 int64_t stamp_to_nsec(const builtin_interfaces::msg::Time & stamp)
 {
   if (stamp.nanosec >= static_cast<uint32_t>(kNanosecondsPerSecond)) {
@@ -219,29 +226,62 @@ public:
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
     report_period_sec_ = declare_parameter<double>("report_period_sec", 2.0);
+    sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
+    sensor_qos_history_ = declare_parameter<std::string>("sensor_qos_history", "keep_last");
+    sensor_qos_depth_ = declare_parameter<int>("sensor_qos_depth", 5);
+    raw_image_qos_ = declare_topic_qos("raw_image");
+    raw_camera_info_qos_ = declare_topic_qos("raw_camera_info");
+    raw_depth_qos_ = declare_topic_qos("raw_depth");
+    raw_pointcloud_qos_ = declare_topic_qos("raw_pointcloud");
+    raw_imu_qos_ = declare_topic_qos("raw_imu");
+    pose_stamped_qos_ = declare_topic_qos("pose_stamped");
+    raw_odometry_qos_ = declare_topic_qos("raw_odometry");
+    image_qos_ = declare_topic_qos("image");
+    camera_info_qos_ = declare_topic_qos("camera_info");
+    depth_qos_ = declare_topic_qos("depth");
+    pointcloud_qos_ = declare_topic_qos("pointcloud");
+    pose_qos_ = declare_topic_qos("pose");
+    imu_qos_ = declare_topic_qos("imu");
+    frontend_odometry_qos_ = declare_topic_qos("frontend_odometry");
     if (max_path_length_ <= 0) {
       RCLCPP_WARN(get_logger(), "max_path_length must be positive; using 1");
       max_path_length_ = 1;
     }
 
-    const auto qos = make_sensor_qos();
+    const auto raw_image_qos = make_sensor_qos("raw_image", raw_image_qos_);
+    const auto raw_camera_info_qos = make_sensor_qos("raw_camera_info", raw_camera_info_qos_);
+    const auto raw_depth_qos = make_sensor_qos("raw_depth", raw_depth_qos_);
+    const auto raw_pointcloud_qos = make_sensor_qos("raw_pointcloud", raw_pointcloud_qos_);
+    const auto raw_imu_qos = make_sensor_qos("raw_imu", raw_imu_qos_);
+    const auto pose_stamped_qos = make_sensor_qos("pose_stamped", pose_stamped_qos_);
+    const auto raw_odometry_qos = make_sensor_qos("raw_odometry", raw_odometry_qos_);
+    const auto image_qos = make_sensor_qos("image", image_qos_);
+    const auto camera_info_qos = make_sensor_qos("camera_info", camera_info_qos_);
+    const auto depth_qos = make_sensor_qos("depth", depth_qos_);
+    const auto pointcloud_qos = make_sensor_qos("pointcloud", pointcloud_qos_);
+    const auto pose_qos = make_sensor_qos("pose", pose_qos_);
+    const auto imu_qos = make_sensor_qos("imu", imu_qos_);
+    const auto frontend_odometry_qos =
+      make_sensor_qos("frontend_odometry", frontend_odometry_qos_);
     const rclcpp::QoS path_qos = rclcpp::QoS(1).reliable().transient_local();
 
-    image_pub_ = create_publisher<sensor_msgs::msg::Image>(image_topic_, qos);
-    camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic_, qos);
-    depth_pub_ = create_publisher<sensor_msgs::msg::Image>(depth_topic_, qos);
-    pointcloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(pointcloud_topic_, qos);
-    pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic_, qos);
-    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(imu_topic_, qos);
+    image_pub_ = create_publisher<sensor_msgs::msg::Image>(image_topic_, image_qos);
+    camera_info_pub_ =
+      create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic_, camera_info_qos);
+    depth_pub_ = create_publisher<sensor_msgs::msg::Image>(depth_topic_, depth_qos);
+    pointcloud_pub_ =
+      create_publisher<sensor_msgs::msg::PointCloud2>(pointcloud_topic_, pointcloud_qos);
+    pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic_, pose_qos);
+    imu_pub_ = create_publisher<sensor_msgs::msg::Imu>(imu_topic_, imu_qos);
     frontend_odometry_pub_ =
-      create_publisher<nav_msgs::msg::Odometry>(frontend_odometry_topic_, qos);
+      create_publisher<nav_msgs::msg::Odometry>(frontend_odometry_topic_, frontend_odometry_qos);
     frontend_path_pub_ = create_publisher<nav_msgs::msg::Path>(frontend_path_topic_, path_qos);
     if (publish_tf_) {
       tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     }
 
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
-      raw_image_topic_, qos,
+      raw_image_topic_, raw_image_qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
         if (sync_image_to_pointcloud_) {
           std::lock_guard<std::mutex> lock(latest_visual_mutex_);
@@ -252,7 +292,7 @@ public:
         }
       });
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-      raw_camera_info_topic_, qos,
+      raw_camera_info_topic_, raw_camera_info_qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
         if (sync_image_to_pointcloud_) {
           std::lock_guard<std::mutex> lock(latest_visual_mutex_);
@@ -263,7 +303,7 @@ public:
         }
       });
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      raw_pointcloud_topic_, qos,
+      raw_pointcloud_topic_, raw_pointcloud_qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
         sensor_msgs::msg::PointCloud2 cloud;
         if (needs_pointcloud_transform()) {
@@ -290,12 +330,12 @@ public:
         }
       });
     pose_stamped_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-      pose_stamped_topic_, qos,
+      pose_stamped_topic_, pose_stamped_qos,
       [this](geometry_msgs::msg::PoseStamped::ConstSharedPtr msg) {
         publish_frontend_pose(*msg, false, true);
       });
     odometry_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      raw_odometry_topic_, qos,
+      raw_odometry_topic_, raw_odometry_qos,
       [this](nav_msgs::msg::Odometry::ConstSharedPtr msg) {
         geometry_msgs::msg::PoseStamped pose;
         pose.header = msg->header;
@@ -306,7 +346,7 @@ public:
 
     if (enable_depth_passthrough_) {
       depth_sub_ = create_subscription<sensor_msgs::msg::Image>(
-        raw_depth_topic_, qos,
+        raw_depth_topic_, raw_depth_qos,
         [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
           depth_pub_->publish(*msg);
           ++depth_count_;
@@ -314,7 +354,7 @@ public:
     }
     if (enable_imu_passthrough_) {
       imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
-        raw_imu_topic_, qos,
+        raw_imu_topic_, raw_imu_qos,
         [this](sensor_msgs::msg::Imu::ConstSharedPtr msg) {
           imu_pub_->publish(*msg);
           ++imu_count_;
@@ -410,32 +450,37 @@ private:
     }
   }
 
-  rclcpp::QoS make_sensor_qos()
+  QosProfileParams declare_topic_qos(const std::string & prefix)
   {
-    int depth = declare_parameter<int>("sensor_qos_depth", 5);
-    if (depth <= 0) {
-      RCLCPP_WARN(get_logger(), "sensor_qos_depth must be positive; using 1");
-      depth = 1;
-    }
+    QosProfileParams params;
+    params.reliability =
+      declare_parameter<std::string>(prefix + "_qos_reliability", sensor_qos_reliability_);
+    params.history = declare_parameter<std::string>(prefix + "_qos_history", sensor_qos_history_);
+    params.depth = declare_parameter<int>(prefix + "_qos_depth", sensor_qos_depth_);
+    return params;
+  }
 
-    const auto history = lowercase(declare_parameter<std::string>("sensor_qos_history", "keep_last"));
-    const auto reliability =
-      lowercase(declare_parameter<std::string>("sensor_qos_reliability", "best_effort"));
-
+  rclcpp::QoS make_sensor_qos(const char * stream_name, const QosProfileParams & params)
+  {
+    const int depth = std::max(params.depth, 1);
     rclcpp::QoS qos(static_cast<size_t>(depth));
+    const auto history = lowercase(params.history);
     if (history == "keep_all") {
       qos.keep_all();
     } else if (history != "keep_last") {
-      RCLCPP_WARN(get_logger(), "unknown sensor_qos_history '%s'; using keep_last", history.c_str());
+      RCLCPP_WARN(
+        get_logger(), "unknown %s_qos_history '%s'; using keep_last",
+        stream_name, history.c_str());
     }
 
+    const auto reliability = lowercase(params.reliability);
     if (reliability == "reliable") {
       qos.reliable();
     } else {
       if (reliability != "best_effort") {
         RCLCPP_WARN(
-          get_logger(), "unknown sensor_qos_reliability '%s'; using best_effort",
-          reliability.c_str());
+          get_logger(), "unknown %s_qos_reliability '%s'; using best_effort",
+          stream_name, reliability.c_str());
       }
       qos.best_effort();
     }
@@ -628,6 +673,23 @@ private:
   bool publish_tf_{false};
   int max_path_length_{5000};
   double report_period_sec_{2.0};
+  std::string sensor_qos_reliability_{"best_effort"};
+  std::string sensor_qos_history_{"keep_last"};
+  int sensor_qos_depth_{5};
+  QosProfileParams raw_image_qos_;
+  QosProfileParams raw_camera_info_qos_;
+  QosProfileParams raw_depth_qos_;
+  QosProfileParams raw_pointcloud_qos_;
+  QosProfileParams raw_imu_qos_;
+  QosProfileParams pose_stamped_qos_;
+  QosProfileParams raw_odometry_qos_;
+  QosProfileParams image_qos_;
+  QosProfileParams camera_info_qos_;
+  QosProfileParams depth_qos_;
+  QosProfileParams pointcloud_qos_;
+  QosProfileParams pose_qos_;
+  QosProfileParams imu_qos_;
+  QosProfileParams frontend_odometry_qos_;
   double imu_integration_max_dt_sec_{0.05};
   std::string pointcloud_transform_profile_{"identity"};
   std::string pointcloud_transform_target_frame_{"camera"};

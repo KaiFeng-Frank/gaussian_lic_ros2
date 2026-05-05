@@ -30,6 +30,10 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
   high-rate image/LiDAR can remain bounded `best_effort` while controlled replay
   or low-rate keyframe/control topics can be promoted independently to
   `reliable` without forcing reliable delivery onto every sensor stream.
+- `lic2_contract_adapter` exposes the same fallback pattern separately for raw
+  inputs and mapper-contract outputs, so adapter publisher QoS can be matched to
+  mapper subscriber QoS when a replay profile promotes selected low-rate streams
+  to `reliable`.
 - `gaussian_lic_tracking/tracking.launch.py` exposes `sensor_qos_reliability`
   and `sensor_qos_depth`, defaults them to `best_effort` and `5`, and publishes
   the effective values on `/gaussian_lic/frontend/status` for smoke gating.
