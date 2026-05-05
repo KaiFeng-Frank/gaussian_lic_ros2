@@ -15,6 +15,12 @@ namespace gaussian_lic_tracking
 namespace
 {
 constexpr double kPi = 3.14159265358979323846;
+
+bool pose_is_finite(const TrajectoryPose & pose)
+{
+  return pose.p_w_i.allFinite() && pose.q_w_i.coeffs().allFinite() &&
+         pose.q_w_i.norm() > std::numeric_limits<double>::epsilon();
+}
 }
 
 LidarFactor::LidarFactor(LidarFactorConfig config)
@@ -60,15 +66,23 @@ std::vector<Eigen::Vector3d> LidarFactor::sample_points(
   const std::vector<Eigen::Vector3d> & points,
   const size_t max_points)
 {
-  if (max_points == 0U || points.size() <= max_points) {
-    return points;
-  }
-  const size_t stride = static_cast<size_t>(
-    std::ceil(static_cast<double>(points.size()) / static_cast<double>(max_points)));
   std::vector<Eigen::Vector3d> sampled;
-  sampled.reserve(max_points);
+  sampled.reserve(max_points == 0U ? points.size() : std::min(points.size(), max_points));
+  const size_t stride = max_points == 0U || points.size() <= max_points
+    ? 1U
+    : static_cast<size_t>(
+      std::ceil(static_cast<double>(points.size()) / static_cast<double>(max_points)));
   for (size_t index = 0; index < points.size() && sampled.size() < max_points; index += stride) {
-    sampled.push_back(points[index]);
+    if (points[index].allFinite()) {
+      sampled.push_back(points[index]);
+    }
+  }
+  if (max_points == 0U) {
+    for (size_t index = sampled.size(); index < points.size(); ++index) {
+      if (points[index].allFinite()) {
+        sampled.push_back(points[index]);
+      }
+    }
   }
   return sampled;
 }
@@ -78,11 +92,14 @@ LidarCorrection LidarFactor::compute_translation_correction(
   const TrajectoryPose & predicted_pose) const
 {
   LidarCorrection correction;
-  if (frame_points_i.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+  if (!pose_is_finite(predicted_pose)) {
     return correction;
   }
 
   const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  if (sampled.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+    return correction;
+  }
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
   Eigen::Vector3d residual_sum = Eigen::Vector3d::Zero();
   double residual_norm_sum = 0.0;
@@ -127,11 +144,14 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
   const TrajectoryPose & predicted_pose) const
 {
   LidarPoseCorrection correction;
-  if (frame_points_i.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+  if (!pose_is_finite(predicted_pose)) {
     return correction;
   }
 
   const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  if (sampled.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+    return correction;
+  }
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
   std::vector<Eigen::Vector3d> source_w;
   std::vector<Eigen::Vector3d> target_w;
@@ -229,11 +249,14 @@ SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
 {
   SlidingWindowPointToPointFactor factor;
   factor.stamp_ns = predicted_pose.stamp_ns;
-  if (frame_points_i.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+  if (!pose_is_finite(predicted_pose)) {
     return factor;
   }
 
   const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  if (sampled.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+    return factor;
+  }
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
   factor.frame_points_i.reserve(sampled.size());
   factor.target_points_w.reserve(sampled.size());
@@ -272,11 +295,14 @@ SlidingWindowPointToPlaneFactor LidarFactor::build_point_to_plane_factor(
 {
   SlidingWindowPointToPlaneFactor factor;
   factor.stamp_ns = predicted_pose.stamp_ns;
-  if (frame_points_i.size() < config_.min_points || map_points_w_.size() < config_.plane_min_neighbors) {
+  if (!pose_is_finite(predicted_pose)) {
     return factor;
   }
 
   const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  if (sampled.size() < config_.min_points || map_points_w_.size() < config_.plane_min_neighbors) {
+    return factor;
+  }
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
   factor.frame_points_i.reserve(sampled.size());
   factor.target_points_w.reserve(sampled.size());
@@ -356,10 +382,13 @@ void LidarFactor::insert_keyframe(
   const std::vector<Eigen::Vector3d> & frame_points_i,
   const TrajectoryPose & pose)
 {
-  if (frame_points_i.size() < config_.min_points) {
+  if (!pose_is_finite(pose)) {
     return;
   }
   const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  if (sampled.size() < config_.min_points) {
+    return;
+  }
   map_points_w_.reserve(std::min(config_.max_map_points, map_points_w_.size() + sampled.size()));
   for (const auto & point_i : sampled) {
     map_points_w_.push_back(pose.q_w_i * point_i + pose.p_w_i);

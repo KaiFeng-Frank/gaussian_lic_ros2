@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 int main()
@@ -35,10 +36,32 @@ int main()
     return 1;
   }
 
+  std::vector<Eigen::Vector3d> scan_with_nan = scan;
+  scan_with_nan.front().x() = std::numeric_limits<double>::quiet_NaN();
+  factor.clear();
+  factor.insert_keyframe(scan_with_nan, identity);
+  if (factor.map_size() != scan.size() - 1U) {
+    std::cerr << "LiDAR factor failed to filter non-finite keyframe points\n";
+    return 1;
+  }
+  gaussian_lic_tracking::TrajectoryPose bad_pose = identity;
+  bad_pose.q_w_i.coeffs().setZero();
+  factor.insert_keyframe(scan, bad_pose);
+  if (factor.map_size() != scan.size() - 1U) {
+    std::cerr << "LiDAR factor accepted an invalid-pose keyframe\n";
+    return 1;
+  }
+  factor.clear();
+  factor.insert_keyframe(scan, identity);
+
   gaussian_lic_tracking::TrajectoryPose predicted;
   predicted.stamp_ns = 100000000LL;
   predicted.q_w_i = Eigen::Quaterniond::Identity();
   predicted.p_w_i = Eigen::Vector3d(0.05, 0.0, 0.0);
+  if (factor.compute_translation_correction(scan, bad_pose).applied) {
+    std::cerr << "LiDAR factor corrected with an invalid pose\n";
+    return 1;
+  }
   const auto correction = factor.compute_translation_correction(scan, predicted);
   const double x_error = std::abs(correction.delta_p_w.x() + 0.05);
   const double yz_error = std::abs(correction.delta_p_w.y()) + std::abs(correction.delta_p_w.z());
