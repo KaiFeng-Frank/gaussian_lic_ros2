@@ -14,6 +14,7 @@ TORCH_PRUNE_MIN_OPACITY=0.005
 TORCH_PRUNE_COUNT_POLICY=opacity
 TORCH_EXTEND_VISIBILITY_FILTER=true
 TORCH_EXTEND_ALPHA_THRESHOLD=0.99
+TORCH_OPACITY_RESET_INTERVAL=0
 TORCH_DEVICE="cpu"
 ENABLE_TORCH_DENSIFICATION=false
 FINAL_RENDER_EVAL=false
@@ -65,6 +66,8 @@ Options:
                                Append all pending points instead of filtering to current-view alpha holes.
   --torch-extend-alpha-threshold X
                                Alpha threshold for Torch extension visibility filtering. Default: 0.99.
+  --torch-opacity-reset-interval N
+                               Optimization steps between foreground opacity resets; 0 disables. Default: 0.
   --torch-device DEVICE        Torch Gaussian device: cpu, cuda, or auto. Default: cpu.
   --torch-densification        Enable gradient-aware Gaussian densification in the Torch backend.
   --final-render-eval          Save final-map train/test renders during SaveMap instead of using live preview frames.
@@ -137,6 +140,11 @@ while [[ $# -gt 0 ]]; do
     --torch-extend-alpha-threshold)
       ENABLE_TORCH=true
       TORCH_EXTEND_ALPHA_THRESHOLD="$2"
+      shift 2
+      ;;
+    --torch-opacity-reset-interval)
+      ENABLE_TORCH=true
+      TORCH_OPACITY_RESET_INTERVAL="$2"
       shift 2
       ;;
     --torch-device)
@@ -329,6 +337,7 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
     torch_gaussian_prune_count_policy:="${TORCH_PRUNE_COUNT_POLICY}"
     enable_torch_gaussian_extend_visibility_filter:="${TORCH_EXTEND_VISIBILITY_FILTER}"
     torch_gaussian_extend_alpha_threshold:="${TORCH_EXTEND_ALPHA_THRESHOLD}"
+    torch_gaussian_opacity_reset_interval:="${TORCH_OPACITY_RESET_INTERVAL}"
     torch_gaussian_device:="${TORCH_DEVICE}"
     publish_gaussian_map:="${PUBLISH_GAUSSIAN_MAP}"
     save_map_render_evaluation:="${FINAL_RENDER_EVAL}"
@@ -527,7 +536,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -566,6 +575,7 @@ metrics.update(
         "torch_extend_visibility_filter": sys.argv[22] == "true",
         "torch_extend_alpha_threshold": float(sys.argv[23]),
         "pytorch_cuda_alloc_conf": sys.argv[24],
+        "torch_opacity_reset_interval": int(sys.argv[25]),
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

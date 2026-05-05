@@ -58,7 +58,7 @@ struct GaussianBackendConfig
   double prune_max_screen_radius{0.0};
   double prune_max_world_scale{0.0};
   int prune_invisible_steps{0};
-  int opacity_reset_interval{3000};
+  int opacity_reset_interval{0};
   double opacity_reset_value{0.01};
 };
 

@@ -167,7 +167,7 @@ public:
     backend_config_.prune_invisible_steps =
       declare_parameter<int>("torch_gaussian_prune_invisible_steps", 0);
     backend_config_.opacity_reset_interval =
-      declare_parameter<int>("torch_gaussian_opacity_reset_interval", 3000);
+      declare_parameter<int>("torch_gaussian_opacity_reset_interval", 0);
     backend_config_.opacity_reset_value =
       declare_parameter<double>("torch_gaussian_opacity_reset_value", 0.01);
     torch_gaussian_device_name_ = declare_parameter<std::string>("torch_gaussian_device", "cpu");

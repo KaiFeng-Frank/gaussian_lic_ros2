@@ -550,19 +550,23 @@ The strict script defaults to CUDA rasterizer mode, `torch_gaussian_device=cuda`
 `--current-torch-optimization-steps 100`, a slowed current playback rate of
 `0.25`, a 60 second post-playback settle window, a 1.5M foreground Gaussian cap,
 uniform foreground count-cap pruning, upstream-style alpha-hole filtering before
-Gaussian extension, and disabled high-rate `GaussianArray` publication. In this
-path the step count means up to 100 accumulated train-frame optimizer samples per
-keyframe, matching the upstream Gaussian-LIC `optimize()` scheduler instead of
-repeating 100 steps on only the newest frame. The slowed playback is deliberate:
-the strict CUDA path is heavier than the live preview path, so 1x rosbag2 replay
-can underfeed the final-map metric gate by dropping unprocessed frames. The
-settle window lets the mapper consume queued frames before `SaveMap` writes
-final-map render pairs. Disabling the visualization Gaussian map topic keeps the
-strict recorder from writing tens of GiB of high-frequency chunked Gaussian
-messages that are not used by the metric gate. CUDA current collection also
-defaults `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` unless the caller has
-already set it, which reduces late-run allocator fragmentation around million
-Gaussian maps.
+Gaussian extension, disabled opacity resets, and disabled high-rate
+`GaussianArray` publication. In this path the step count means up to 100
+accumulated train-frame optimizer samples per keyframe, matching the upstream
+Gaussian-LIC `optimize()` scheduler instead of repeating 100 steps on only the
+newest frame. Opacity reset is off by default because Gaussian-LIC2's released
+optimizer does not run a periodic reset; leaving the ROS2 recovery heuristic on
+can reset the whole foreground to opacity 0.01 immediately before final-map
+evaluation. The slowed playback is deliberate: the strict CUDA path is heavier
+than the live preview path, so 1x rosbag2 replay can underfeed the final-map
+metric gate by dropping unprocessed frames. The settle window lets the mapper
+consume queued frames before `SaveMap` writes final-map render pairs. Disabling
+the visualization Gaussian map topic keeps the strict recorder from writing tens
+of GiB of high-frequency chunked Gaussian messages that are not used by the
+metric gate. CUDA current collection also defaults
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` unless the caller has already
+set it, which reduces late-run allocator fragmentation around million Gaussian
+maps.
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
 `frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
@@ -579,20 +583,23 @@ Latest local strict run, 2026-05-05:
 - ROS2 current strict path: CUDA rasterizer, final-map evaluation, IMU-fallback
   world-frame point-cloud rotation enabled, high-rate GaussianArray publication
   disabled, 1.5M foreground cap with uniform count-cap pruning, alpha-hole
-  extension filtering enabled at threshold `0.99`, 1021 render/GT pairs, 204
-  train and 817 novel frames, trajectory coverage 86.09%. The trajectory gate
-  passes.
-- Current vs ROS1 quality remains below the paper gate: ROS2 novel PSNR 10.37 dB
-  vs ROS1 12.70 dB, ROS2 novel SSIM 0.0705 vs ROS1 0.3644, and ROS2 novel
-  LPIPS 0.744. The 64-pair strict render summary reports mean PSNR 11.87 dB and
-  mean SSIM 0.288.
+  extension filtering enabled at threshold `0.99`, opacity reset disabled,
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, 975 render/GT pairs, 195
+  train and 780 novel frames, trajectory coverage 82.21%. The trajectory gate
+  passes and the optimizer finishes with `gaussian_opt_errors=0` and
+  `gaussian_opacity_resets=0`.
+- Current vs ROS1 quality remains below the paper gate: ROS2 novel PSNR 8.68 dB
+  vs ROS1 12.70 dB, ROS2 novel SSIM 0.0482 vs ROS1 0.3644, and ROS2 novel
+  LPIPS 0.827 vs ROS1 0.751. The 64-pair strict render summary reports mean
+  PSNR 8.30 dB and mean SSIM 0.115.
 - Chamfer/point-cloud parity still fails, but upstream-style alpha-hole extension
-  filtering made the geometry much closer than the uniform-only run: centroid
-  drift is 1.26 m, bidirectional nearest mean is 0.131 m, bidirectional nearest
-  RMSE is 0.192 m, and unmatched ratio is 8.29%. Two late optimizer calls still
-  skipped after CUDA allocator-fragmentation OOMs near 1.15M Gaussians; the next
-  blocker is memory-fragmentation-safe optimization plus visual quality recovery,
-  not missing render pairs or a disabled CUDA runtime.
+  filtering plus disabled opacity reset keeps the geometry close to the gate:
+  centroid drift is 1.60 m, bidirectional nearest mean is 0.115 m,
+  bidirectional nearest RMSE is 0.172 m, and unmatched ratio is 6.00%. The saved
+  renders are no longer empty or reset-to-low-opacity, but they are still large
+  blurred color blobs, so the next blocker is scale/covariance/rasterizer-camera
+  parity and visual-quality recovery, not missing render pairs, OOM, or a
+  disabled CUDA runtime.
 
 So the strict chain now produces full-frame, same-cadence numbers and passes the
 strict trajectory coverage gate, but the remaining blocker is algorithmic parity
