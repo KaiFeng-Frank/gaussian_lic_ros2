@@ -152,6 +152,7 @@ struct SlidingWindowSummary
   size_t visual_factor_count{0};
   size_t se3_photometric_factor_count{0};
   size_t smoothness_factor_count{0};
+  size_t orphan_factor_count{0};
   size_t marginalized_state_count{0};
   size_t dense_prior_rows{0};
   size_t dense_prior_cols{0};
@@ -274,6 +275,7 @@ private:
     double damping) const;
   double compute_cost(const Eigen::VectorXd & residual) const;
   bool add_schur_marginalization_prior_for_front();
+  size_t count_orphan_factors() const;
   size_t enforce_window_size();
 
   SlidingWindowConfig config_;

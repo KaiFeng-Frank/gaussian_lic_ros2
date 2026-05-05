@@ -1550,6 +1550,62 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
   return true;
 }
 
+size_t SlidingWindowOptimizer::count_orphan_factors() const
+{
+  auto missing_state = [this](const int64_t stamp_ns) {
+      return find_state_index(stamp_ns) < 0;
+    };
+  size_t count = 0U;
+  for (const auto & factor : imu_factors_) {
+    if (missing_state(factor.from_stamp_ns) || missing_state(factor.to_stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & prior : pose_priors_) {
+    if (missing_state(prior.stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & prior : state_priors_) {
+    if (missing_state(prior.stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & prior : dense_priors_) {
+    if (std::any_of(prior.stamp_ns.begin(), prior.stamp_ns.end(), missing_state)) {
+      ++count;
+    }
+  }
+  for (const auto & factor : point_factors_) {
+    if (missing_state(factor.stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & factor : plane_factors_) {
+    if (missing_state(factor.stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & factor : visual_factors_) {
+    if (missing_state(factor.stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & factor : se3_photometric_factors_) {
+    if (missing_state(factor.stamp_ns)) {
+      ++count;
+    }
+  }
+  for (const auto & factor : smoothness_factors_) {
+    if (missing_state(factor.previous_stamp_ns) || missing_state(factor.current_stamp_ns) ||
+      missing_state(factor.next_stamp_ns))
+    {
+      ++count;
+    }
+  }
+  return count;
+}
+
 SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
   const std::vector<SlidingWindowState> & states,
   const std::vector<VariableBlock> & variables,
@@ -1659,6 +1715,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.visual_factor_count = visual_factors_.size();
   summary.se3_photometric_factor_count = se3_photometric_factors_.size();
   summary.smoothness_factor_count = smoothness_factors_.size();
+  summary.orphan_factor_count = count_orphan_factors();
   Eigen::VectorXd residual = build_residual(states_);
   summary.initial_cost = compute_cost(residual);
   summary.final_cost = summary.initial_cost;
@@ -1801,6 +1858,12 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
       return config_.max_normal_equation_condition > 0.0 &&
              summary.normal_equation_condition_number > config_.max_normal_equation_condition;
     };
+  if (summary.orphan_factor_count > 0U) {
+    summary.normal_equation_degenerate = true;
+    ++summary.rejected_steps;
+    refresh_bias_summary();
+    return summary;
+  }
   if (residual.size() == 0 || variable_count == 0U) {
     summary.converged = true;
     refresh_bias_summary();

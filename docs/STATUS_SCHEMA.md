@@ -103,6 +103,7 @@ sliding_window_plane_factors
 sliding_window_visual_factors
 sliding_window_se3_photometric_factors
 sliding_window_smoothness_factors
+sliding_window_orphan_factors
 sliding_window_point_factor_skip_count
 sliding_window_plane_factor_skip_count
 sliding_window_visual_factor_skip_count
@@ -186,6 +187,9 @@ observable rather than only present by count; the optimizer itself bounds LM
 rotation, translation, velocity, and bias increments before applying a candidate
 state update and reports accepted/rejected step counts, final step norm/scale,
 and damping for runtime diagnosis.
+It also reports and gates orphan factors whose referenced states are no longer
+inside the active window, preventing silently skipped residual blocks from
+looking like healthy optimization.
 It also gates nonzero trajectory smoothness factors, which constrain adjacent
 three-state rotation-rate, position-rate, velocity-acceleration, and bias-rate
 continuity in the native joint BA window.

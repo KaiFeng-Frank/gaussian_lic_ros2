@@ -294,6 +294,8 @@ def main() -> int:
         errors.append("tracking_node must publish last consumed IMU preintegration block health")
     if "sliding_window_imu_max_extrapolation_s" not in tracking_node_text or "preintegration span must match factor timestamps" not in sliding_window_text:
         errors.append("tracking_node/optimizer must gate IMU preintegration span against factor timestamps")
+    if "orphan_factor_count" not in sliding_window_text or "count_orphan_factors" not in sliding_window_text:
+        errors.append("sliding_window_optimizer must expose and gate orphan factor references")
     if 'DeclareLaunchArgument("sliding_window_imu_max_extrapolation_s", default_value="0.02")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose bounded IMU preintegration extrapolation")
     for field in [
@@ -326,6 +328,7 @@ def main() -> int:
         "sliding_window_visual_factor_skip_count",
         "sliding_window_se3_photometric_factor_skip_count",
         "sliding_window_smoothness_factor_skip_count",
+        "sliding_window_orphan_factors",
         "sliding_window_imu_factor_skip_count",
         "sliding_window_imu_time_gap_skip_count",
         "sliding_window_last_imu_preintegration_samples",

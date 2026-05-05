@@ -172,6 +172,23 @@ int main()
     factor.preintegration = preintegration;
     invalid_optimizer.add_imu_factor(factor);
   });
+  {
+    gaussian_lic_tracking::SlidingWindowOptimizer orphan_optimizer;
+    orphan_optimizer.add_or_update_state(state);
+    gaussian_lic_tracking::SlidingWindowPointToPointFactor orphan_factor;
+    orphan_factor.stamp_ns = state.stamp_ns + 1;
+    orphan_factor.frame_points_i.push_back(Eigen::Vector3d::Zero());
+    orphan_factor.target_points_w.push_back(Eigen::Vector3d::Zero());
+    orphan_optimizer.add_point_to_point_factor(orphan_factor);
+    const auto orphan_summary = orphan_optimizer.optimize();
+    if (orphan_summary.orphan_factor_count != 1U ||
+      !orphan_summary.normal_equation_degenerate ||
+      orphan_summary.accepted_steps != 0U)
+    {
+      std::cerr << "sliding window optimizer did not gate orphan factors\n";
+      return 1;
+    }
+  }
   validation_ok &= expect_throw("zero pose-prior quaternion", [pose_prior, zero_quaternion]() {
     gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
     auto invalid_prior = pose_prior;

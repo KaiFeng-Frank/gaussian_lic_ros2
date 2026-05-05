@@ -212,6 +212,7 @@ status_matches() {
     rg -q "sliding_window_normal_equation_condition_number: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_smoothness_factors: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_orphan_factors: 0" "${status_file}" &&
     rg -q "sliding_window_dense_prior_rank: [1-9]" "${status_file}" &&
     rg -q "sliding_window_dense_prior_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "trajectory_control_poses: [1-9]" "${status_file}" &&
