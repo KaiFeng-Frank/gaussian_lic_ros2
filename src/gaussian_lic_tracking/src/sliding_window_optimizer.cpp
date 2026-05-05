@@ -601,9 +601,10 @@ void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointT
       throw std::runtime_error("point-to-point factor correspondences must be finite");
     }
     if (!factor.point_weights.empty() &&
-      (!std::isfinite(factor.point_weights[index]) || factor.point_weights[index] < 0.0))
+      (!std::isfinite(factor.point_weights[index]) || factor.point_weights[index] <= 0.0 ||
+      factor.point_weights[index] > 1.0))
     {
-      throw std::runtime_error("point-to-point factor weights must be finite and non-negative");
+      throw std::runtime_error("point-to-point factor weights must be finite and in (0, 1]");
     }
   }
   if (factor.frame_points_i.empty()) {
@@ -636,9 +637,10 @@ void SlidingWindowOptimizer::add_point_to_plane_factor(const SlidingWindowPointT
       throw std::runtime_error("point-to-plane factor normals must be non-zero");
     }
     if (!factor.point_weights.empty() &&
-      (!std::isfinite(factor.point_weights[index]) || factor.point_weights[index] < 0.0))
+      (!std::isfinite(factor.point_weights[index]) || factor.point_weights[index] <= 0.0 ||
+      factor.point_weights[index] > 1.0))
     {
-      throw std::runtime_error("point-to-plane factor weights must be finite and non-negative");
+      throw std::runtime_error("point-to-plane factor weights must be finite and in (0, 1]");
     }
   }
   if (factor.frame_points_i.empty()) {

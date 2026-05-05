@@ -196,6 +196,7 @@ baseline_manifest.json
 - [x] Trigger sliding-window BA from any accepted LiDAR, plane, visual, SE3 photometric, smoothness, or IMU factor instead of silently waiting for a valid IMU factor.
 - [x] Publish per-factor skip counters for LiDAR point/plane, visual, SE3 photometric, smoothness, IMU, and optimizer failures.
 - [x] Reject non-finite LiDAR point/plane correspondences, zero plane normals, and invalid robust weights before they enter the BA normal equation.
+- [x] Bound LiDAR/Gaussian robust correspondence weights to `(0, 1]` so bad external factors cannot amplify outliers.
 - [x] Filter non-finite LiDAR keyframe/factor samples and reject invalid-pose LiDAR factors before they contaminate the map or BA window.
 - [x] Reject non-finite LiDAR factor configuration values before runtime correction/factor construction.
 - [x] Reject non-finite IMU preintegration samples, non-finite residual states, and zero-norm IMU residual quaternions before BA consumes them.

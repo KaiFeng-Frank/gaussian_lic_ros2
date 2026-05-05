@@ -190,6 +190,14 @@ int main()
     factor.target_points_w.emplace_back(0.0, 0.0, 0.0);
     invalid_optimizer.add_point_to_point_factor(factor);
   });
+  validation_ok &= expect_throw("out-of-range point robust weight", []() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowPointToPointFactor factor;
+    factor.frame_points_i.emplace_back(0.0, 0.0, 0.0);
+    factor.target_points_w.emplace_back(0.0, 0.0, 0.0);
+    factor.point_weights.push_back(1.5);
+    invalid_optimizer.add_point_to_point_factor(factor);
+  });
   validation_ok &= expect_throw("non-finite plane-factor weight", [nan]() {
     gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
     gaussian_lic_tracking::SlidingWindowPointToPlaneFactor factor;
@@ -197,6 +205,15 @@ int main()
     factor.frame_points_i.emplace_back(0.0, 0.0, 0.0);
     factor.target_points_w.emplace_back(0.0, 0.0, 0.0);
     factor.target_normals_w.emplace_back(0.0, 0.0, 1.0);
+    invalid_optimizer.add_point_to_plane_factor(factor);
+  });
+  validation_ok &= expect_throw("out-of-range plane robust weight", []() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowPointToPlaneFactor factor;
+    factor.frame_points_i.emplace_back(0.0, 0.0, 0.0);
+    factor.target_points_w.emplace_back(0.0, 0.0, 0.0);
+    factor.target_normals_w.emplace_back(0.0, 0.0, 1.0);
+    factor.point_weights.push_back(0.0);
     invalid_optimizer.add_point_to_plane_factor(factor);
   });
   validation_ok &= expect_throw("non-finite visual alignment scale", [state, nan]() {
