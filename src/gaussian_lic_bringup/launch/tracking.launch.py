@@ -35,6 +35,9 @@ def generate_launch_description():
     enable_visual_alignment_window_factor = LaunchConfiguration("enable_visual_alignment_window_factor")
     visual_alignment_meters_per_pixel = LaunchConfiguration("visual_alignment_meters_per_pixel")
     visual_alignment_window_weight = LaunchConfiguration("visual_alignment_window_weight")
+    enable_se3_photometric_window_factor = LaunchConfiguration("enable_se3_photometric_window_factor")
+    se3_photometric_window_weight = LaunchConfiguration("se3_photometric_window_weight")
+    se3_photometric_max_samples = LaunchConfiguration("se3_photometric_max_samples")
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
     enable_sliding_window_optimizer = LaunchConfiguration("enable_sliding_window_optimizer")
     sliding_window_max_states = LaunchConfiguration("sliding_window_max_states")
@@ -82,6 +85,9 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="false"),
             DeclareLaunchArgument("visual_alignment_meters_per_pixel", default_value="0.01"),
             DeclareLaunchArgument("visual_alignment_window_weight", default_value="1.0"),
+            DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="false"),
+            DeclareLaunchArgument("se3_photometric_window_weight", default_value="0.5"),
+            DeclareLaunchArgument("se3_photometric_max_samples", default_value="2000"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="false"),
             DeclareLaunchArgument("sliding_window_max_states", default_value="12"),
@@ -134,6 +140,9 @@ def generate_launch_description():
                         "enable_visual_alignment_window_factor": enable_visual_alignment_window_factor,
                         "visual_alignment_meters_per_pixel": visual_alignment_meters_per_pixel,
                         "visual_alignment_window_weight": visual_alignment_window_weight,
+                        "enable_se3_photometric_window_factor": enable_se3_photometric_window_factor,
+                        "se3_photometric_window_weight": se3_photometric_window_weight,
+                        "se3_photometric_max_samples": se3_photometric_max_samples,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "enable_sliding_window_optimizer": enable_sliding_window_optimizer,
                         "sliding_window_max_states": sliding_window_max_states,

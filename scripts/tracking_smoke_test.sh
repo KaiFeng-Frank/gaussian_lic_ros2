@@ -106,6 +106,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_sliding_window_optimizer:="${ENABLE_SLIDING_WINDOW}" \
   enable_lidar_plane_factor:="${ENABLE_LIDAR_PLANE_FACTOR}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTOR_GATE}" \
+  enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTOR_GATE}" \
   lidar_min_points:=1 \
   lidar_nearest_distance_m:=2.0 \
   lidar_keyframe_translation_m:=0.0 \
@@ -162,7 +163,8 @@ status_matches() {
       rg -q "visual_alignment_valid: true" "${status_file}" &&
       rg -q "visual_photometric_valid: true" "${status_file}" &&
       rg -q "visual_photometric_pixels: [1-9]" "${status_file}" &&
-      rg -q "sliding_window_visual_factors: [1-9]" "${status_file}" || return 1
+      rg -q "sliding_window_visual_factors: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_se3_photometric_factors: [1-9]" "${status_file}" || return 1
   fi
 }
 

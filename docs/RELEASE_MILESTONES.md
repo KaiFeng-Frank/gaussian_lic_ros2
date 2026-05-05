@@ -75,5 +75,5 @@ native tracking path now has a launch smoke gate and analytic geometric
 Jacobians for point-to-point, point-to-plane, and visual-alignment residuals,
 plus runtime-gated bias observability and 2-DoF photometric translation
 linearization status, plus analytic SE3 photometric normal-equation and
-sliding-window factor coverage; full native Coco-LIC2 frontend parity remains
-follow-up work.
+runtime sliding-window factor coverage from rendered/current/depth images; full
+native Coco-LIC2 frontend parity remains follow-up work.

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -68,6 +69,12 @@ public:
       declare_parameter<double>("visual_alignment_meters_per_pixel", 0.01);
     visual_alignment_window_weight_ =
       declare_parameter<double>("visual_alignment_window_weight", 1.0);
+    enable_se3_photometric_window_factor_ =
+      declare_parameter<bool>("enable_se3_photometric_window_factor", false);
+    se3_photometric_window_weight_ =
+      declare_parameter<double>("se3_photometric_window_weight", 1.0);
+    se3_photometric_max_samples_ =
+      declare_parameter<int>("se3_photometric_max_samples", 2000);
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
     enable_lidar_plane_factor_ = declare_parameter<bool>("enable_lidar_plane_factor", true);
     lidar_min_points_ = declare_parameter<int>("lidar_min_points", 32);
@@ -132,12 +139,12 @@ public:
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
       raw_camera_info_topic_, qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
-        camera_info_pub_->publish(*msg);
+        handle_camera_info(*msg);
       });
     depth_sub_ = create_subscription<sensor_msgs::msg::Image>(
       raw_depth_topic_, qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        depth_pub_->publish(*msg);
+        handle_depth(*msg);
       });
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       raw_pointcloud_topic_, qos,
@@ -197,6 +204,14 @@ private:
     bool xyz_writable{false};
   };
 
+  struct DepthFrame
+  {
+    int64_t stamp_ns{0};
+    size_t width{0};
+    size_t height{0};
+    std::vector<float> depth_m;
+  };
+
   rclcpp::QoS make_sensor_qos() const
   {
     rclcpp::QoS qos(static_cast<size_t>(std::max(sensor_qos_depth_, 1)));
@@ -245,6 +260,28 @@ private:
     }
   }
 
+  void handle_camera_info(const sensor_msgs::msg::CameraInfo & msg)
+  {
+    camera_info_pub_->publish(msg);
+    if (msg.k[0] > 0.0 && msg.k[4] > 0.0) {
+      camera_intrinsics_.fx = msg.k[0];
+      camera_intrinsics_.fy = msg.k[4];
+      camera_intrinsics_.cx = msg.k[2];
+      camera_intrinsics_.cy = msg.k[5];
+      has_camera_intrinsics_ = true;
+    }
+  }
+
+  void handle_depth(const sensor_msgs::msg::Image & msg)
+  {
+    depth_pub_->publish(msg);
+    DepthFrame decoded;
+    if (decode_depth_image(msg, decoded)) {
+      latest_depth_frame_ = std::move(decoded);
+      has_depth_frame_ = true;
+    }
+  }
+
   void handle_image(const sensor_msgs::msg::Image & msg)
   {
     ++num_raw_images_;
@@ -264,6 +301,15 @@ private:
         std::max(visual_alignment_max_shift_px_, 0));
       last_visual_photometric_linearization_ =
         visual_factor_.linearize_translation(latest_rendered_frame_, observed);
+      if (enable_se3_photometric_window_factor_) {
+        const auto se3_samples = build_se3_photometric_samples(latest_rendered_frame_, observed);
+        last_visual_se3_photometric_linearization_ =
+          gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples);
+        if (last_visual_se3_photometric_linearization_.valid) {
+          pending_visual_se3_photometric_linearization_ = last_visual_se3_photometric_linearization_;
+          has_pending_visual_se3_photometric_ = true;
+        }
+      }
       if (last_visual_alignment_.valid) {
         pending_visual_alignment_ = last_visual_alignment_;
         has_pending_visual_alignment_ = true;
@@ -410,6 +456,7 @@ private:
     }
 
     std::vector<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor> visual_window_factors;
+    std::vector<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor> se3_photometric_factors;
     if (enable_sliding_window_optimizer_ && enable_visual_alignment_window_factor_ &&
       has_pending_visual_alignment_)
     {
@@ -424,13 +471,27 @@ private:
       visual_window_factors.push_back(visual_factor);
       has_pending_visual_alignment_ = false;
     }
+    if (enable_sliding_window_optimizer_ && enable_se3_photometric_window_factor_ &&
+      has_pending_visual_se3_photometric_)
+    {
+      gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
+      factor.stamp_ns = tracking_pose.stamp_ns;
+      factor.reference_p_w_i = tracking_pose.p_w_i;
+      factor.reference_q_w_i = tracking_pose.q_w_i;
+      factor.target_delta = pending_visual_se3_photometric_linearization_.gauss_newton_step;
+      factor.sqrt_information.setIdentity();
+      factor.weight = se3_photometric_window_weight_;
+      se3_photometric_factors.push_back(factor);
+      has_pending_visual_se3_photometric_ = false;
+    }
 
     if (enable_sliding_window_optimizer_) {
       tracking_pose = update_sliding_window(
         tracking_pose,
         window_point_factors,
         window_plane_factors,
-        visual_window_factors);
+        visual_window_factors,
+        se3_photometric_factors);
     }
 
     geometry_msgs::msg::PoseStamped pose;
@@ -482,7 +543,8 @@ private:
     const gaussian_lic_tracking::TrajectoryPose & input_pose,
     const std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> & point_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> & plane_factors,
-    const std::vector<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor> & visual_factors)
+    const std::vector<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor> & visual_factors,
+    const std::vector<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor> & se3_photometric_factors)
   {
     gaussian_lic_tracking::TrajectoryPose output_pose = input_pose;
     gaussian_lic_tracking::ImuState imu_state;
@@ -534,7 +596,16 @@ private:
       } catch (const std::exception & ex) {
         RCLCPP_WARN_THROTTLE(
           get_logger(), *get_clock(), 2000,
-          "sliding window visual factor skipped: %s", ex.what());
+        "sliding window visual factor skipped: %s", ex.what());
+      }
+    }
+    for (const auto & se3_factor : se3_photometric_factors) {
+      try {
+        sliding_window_optimizer_.add_se3_photometric_factor(se3_factor);
+      } catch (const std::exception & ex) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window SE3 photometric factor skipped: %s", ex.what());
       }
     }
 
@@ -562,7 +633,7 @@ private:
         }
         RCLCPP_DEBUG_THROTTLE(
           get_logger(), *get_clock(), 2000,
-          "sliding window states=%zu imu=%zu pose_priors=%zu dense_priors=%zu point=%zu plane=%zu visual=%zu cost %.6g -> %.6g",
+          "sliding window states=%zu imu=%zu pose_priors=%zu dense_priors=%zu point=%zu plane=%zu visual=%zu se3_photo=%zu cost %.6g -> %.6g",
           summary.state_count,
           summary.imu_factor_count,
           summary.pose_prior_count,
@@ -570,6 +641,7 @@ private:
           summary.point_factor_count,
           summary.plane_factor_count,
           summary.visual_factor_count,
+          summary.se3_photometric_factor_count,
           summary.initial_cost,
           summary.final_cost);
       } catch (const std::exception & ex) {
@@ -652,6 +724,100 @@ private:
       }
     }
     return true;
+  }
+
+  bool decode_depth_image(const sensor_msgs::msg::Image & msg, DepthFrame & frame) const
+  {
+    const size_t width = static_cast<size_t>(msg.width);
+    const size_t height = static_cast<size_t>(msg.height);
+    if (width == 0U || height == 0U || msg.is_bigendian) {
+      return false;
+    }
+    frame.stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+    frame.width = width;
+    frame.height = height;
+    frame.depth_m.assign(width * height, 0.0F);
+    if (msg.encoding == "32FC1") {
+      if (msg.step < width * sizeof(float) || msg.data.size() < msg.step * height) {
+        return false;
+      }
+      for (size_t row = 0; row < height; ++row) {
+        const size_t row_offset = row * static_cast<size_t>(msg.step);
+        for (size_t col = 0; col < width; ++col) {
+          float value = 0.0F;
+          std::memcpy(&value, &msg.data[row_offset + col * sizeof(float)], sizeof(value));
+          frame.depth_m[row * width + col] = value;
+        }
+      }
+      return true;
+    }
+    if (msg.encoding == "16UC1") {
+      if (msg.step < width * sizeof(uint16_t) || msg.data.size() < msg.step * height) {
+        return false;
+      }
+      for (size_t row = 0; row < height; ++row) {
+        const size_t row_offset = row * static_cast<size_t>(msg.step);
+        for (size_t col = 0; col < width; ++col) {
+          uint16_t value = 0U;
+          std::memcpy(&value, &msg.data[row_offset + col * sizeof(uint16_t)], sizeof(value));
+          frame.depth_m[row * width + col] = static_cast<float>(value) * 0.001F;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> build_se3_photometric_samples(
+    const gaussian_lic_tracking::VisualFrame & rendered,
+    const gaussian_lic_tracking::VisualFrame & observed) const
+  {
+    std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> samples;
+    if (!has_camera_intrinsics_ || !has_depth_frame_ ||
+      rendered.width < 3U || rendered.height < 3U ||
+      rendered.width != observed.width || rendered.height != observed.height ||
+      latest_depth_frame_.width != observed.width || latest_depth_frame_.height != observed.height)
+    {
+      return samples;
+    }
+    const size_t pixel_count = observed.width * observed.height;
+    if (rendered.gray.size() != pixel_count || observed.gray.size() != pixel_count ||
+      latest_depth_frame_.depth_m.size() != pixel_count)
+    {
+      return samples;
+    }
+    const size_t max_samples = static_cast<size_t>(std::max(se3_photometric_max_samples_, 1));
+    const size_t stride = pixel_count > max_samples
+      ? static_cast<size_t>(std::ceil(static_cast<double>(pixel_count) / static_cast<double>(max_samples)))
+      : 1U;
+    samples.reserve(std::min(pixel_count, max_samples));
+    for (size_t index = 0; index < pixel_count; index += stride) {
+      const size_t x = index % observed.width;
+      const size_t y = index / observed.width;
+      if (x == 0U || y == 0U || x + 1U >= observed.width || y + 1U >= observed.height) {
+        continue;
+      }
+      const float depth = latest_depth_frame_.depth_m[index];
+      if (!std::isfinite(depth) || depth <= 0.0F) {
+        continue;
+      }
+      auto at = [&observed](const size_t px, const size_t py) {
+          return static_cast<double>(observed.gray[py * observed.width + px]);
+        };
+      gaussian_lic_tracking::VisualSe3PhotometricSample sample;
+      const double z = static_cast<double>(depth);
+      sample.point_camera = Eigen::Vector3d{
+        (static_cast<double>(x) - camera_intrinsics_.cx) * z / camera_intrinsics_.fx,
+        (static_cast<double>(y) - camera_intrinsics_.cy) * z / camera_intrinsics_.fy,
+        z};
+      sample.image_gradient = Eigen::Vector2d{
+        0.5 * (at(x + 1U, y) - at(x - 1U, y)),
+        0.5 * (at(x, y + 1U) - at(x, y - 1U))};
+      sample.residual = static_cast<double>(observed.gray[index] - rendered.gray[index]);
+      sample.weight = 1.0;
+      samples.push_back(sample);
+    }
+    return samples;
   }
 
   const sensor_msgs::msg::PointField * find_field(
@@ -1075,6 +1241,9 @@ private:
   bool enable_visual_alignment_window_factor_{false};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
+  bool enable_se3_photometric_window_factor_{false};
+  double se3_photometric_window_weight_{1.0};
+  int se3_photometric_max_samples_{2000};
   bool enable_lio_factor_{true};
   bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
@@ -1135,7 +1304,14 @@ private:
   gaussian_lic_tracking::VisualResidual last_visual_residual_;
   gaussian_lic_tracking::VisualAlignment last_visual_alignment_;
   gaussian_lic_tracking::VisualPhotometricLinearization last_visual_photometric_linearization_;
+  gaussian_lic_tracking::VisualSe3PhotometricLinearization last_visual_se3_photometric_linearization_;
+  gaussian_lic_tracking::VisualSe3PhotometricLinearization pending_visual_se3_photometric_linearization_;
   gaussian_lic_tracking::VisualAlignment pending_visual_alignment_;
+  gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
+  DepthFrame latest_depth_frame_;
+  bool has_camera_intrinsics_{false};
+  bool has_depth_frame_{false};
+  bool has_pending_visual_se3_photometric_{false};
   bool has_pending_visual_alignment_{false};
   bool has_rendered_frame_{false};
   gaussian_lic_tracking::SlidingWindowSummary last_sliding_window_summary_;

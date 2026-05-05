@@ -155,10 +155,11 @@ and checks `/pose_for_gs`, `/points_for_gs`, `/gaussian_lic/frontend/odometry`,
 `/gaussian_lic/frontend/path`, and `/gaussian_lic/frontend/status`. The status
 gate requires `STATE_TRACKING`, nonzero IMU factors, nonzero LiDAR point factors,
 nonzero bias observability, nonzero visual factors, valid visual subpixel
-alignment, valid photometric Gauss-Newton linearization, and nonzero LiDAR
-keyframes. The script lowers the synthetic LiDAR threshold to one point because
-the default demo bag is intentionally tiny; dataset profiles keep their
-production thresholds.
+alignment, valid photometric Gauss-Newton linearization, nonzero SE3
+photometric window factors extracted from rendered/current/depth images, and
+nonzero LiDAR keyframes. The script lowers the synthetic LiDAR threshold to one
+point because the default demo bag is intentionally tiny; dataset profiles keep
+their production thresholds.
 
 Optional TF smoke test:
 

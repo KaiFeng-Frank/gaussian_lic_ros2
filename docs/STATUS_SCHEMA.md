@@ -111,8 +111,9 @@ window with nonzero IMU, LiDAR point, bias-observability, and visual factors.
 The visual gate replays a 32x32 Gaussian-pattern image bag while a
 transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment and photometric Gauss-Newton linearization
-status. The synthetic bag intentionally lowers the LiDAR point threshold to one
-point; dataset profiles keep production thresholds.
+status, plus nonzero SE3 photometric window factors extracted from
+rendered/current/depth images. The synthetic bag intentionally lowers the LiDAR
+point threshold to one point; dataset profiles keep production thresholds.
 
 ## Render Mode Policy
 

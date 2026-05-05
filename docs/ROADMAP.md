@@ -175,6 +175,7 @@ baseline_manifest.json
 - [x] Add subpixel refinement for visual alignment factors before they enter the optional tracking window.
 - [x] Add analytic SE3 camera photometric pixel Jacobians and multi-sample normal equations with finite-difference CTest coverage.
 - [x] Add optional SE3 photometric pose factors to the sliding-window optimizer with deterministic CTest coverage.
+- [x] Extract runtime SE3 photometric window factors from rendered/current/depth images and gate them in native tracking smoke.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks and cache chunk-complete Gaussian-map snapshots for the reverse channel.
 - [x] Build optional Gaussian-map point-to-point tracking-window factors from cached `GaussianArray` snapshots.

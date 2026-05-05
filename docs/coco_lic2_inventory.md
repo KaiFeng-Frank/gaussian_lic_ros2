@@ -70,9 +70,10 @@ Current ROS2 implementation status:
   point-to-plane, and visual-alignment factors. Geometric rows now use analytic
   SE3 Jacobians, while IMU and dense-prior rows keep finite-difference fallback.
   The optimizer has bounded window trimming, Schur-complement retained-window
-  priors, optional SE3 photometric pose factors, and deterministic convergence
-  probes. It is exposed as an optional tracking-node path while the production
-  Coco-LIC2 BA factors are ported.
+  priors, optional SE3 photometric pose factors extracted from
+  rendered/current/depth images, and deterministic convergence probes. It is
+  exposed as an optional tracking-node path while the production Coco-LIC2 BA
+  factors are ported.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual, integer/subpixel image-alignment foundation, and 2-DoF photometric
   translation linearization, plus analytic SE3 camera photometric pixel
@@ -86,6 +87,6 @@ Current ROS2 implementation status:
   the frontend a native Gaussian-map reverse channel. Cached Gaussian centers
   can now generate optional point-to-point tracking-window factors while the
   full photometric Gaussian residual is ported.
-- Production sliding-window BA, real rendered-image-to-SE3 photometric factor
-  extraction, and Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need
-  to be ported from the audited Coco-LIC modules.
+- Production sliding-window BA, production-scale photometric sampling policy,
+  and Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be
+  ported from the audited Coco-LIC modules.
