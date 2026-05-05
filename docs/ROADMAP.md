@@ -190,7 +190,8 @@ baseline_manifest.json
 - [x] Strict ROS2 current collection saves final-map train/test re-renders from `SaveMap` instead of judging the live preview topic.
 - [x] Strict `CBD_Building_01` current collection uses the FAST-LIVO2 profile cadence (`select_every_k_frame=5`) so ROS2 train/test render names align with the ROS1 upstream baseline.
 - [x] Strict frontend adapter matches the ROS1 mapper-contract fallback by rotating FAST-LIVO2 point clouds into the IMU-pose world frame before the mapper consumes them.
+- [x] Strict current collection disables high-rate `GaussianArray` visualization publication and uses a 1.5M foreground cap, reducing the local output bag from 38.7 GiB to 3.7 GiB while preserving metric artifacts.
 - [ ] Strict `CBD_Building_01` ROS2 current report with trajectory coverage, render pairs, PSNR/SSIM/LPIPS, and Chamfer within the paper gate.
-  - 2026-05-05 local strict run: trajectory gate passes with 950/1186 matched poses and 80.10% coverage after the 60 second post-playback settle window.
-  - 2026-05-05 local strict run: full-frame quality has real data, but still fails paper parity: ROS2 novel PSNR 9.64 dB vs ROS1 12.70 dB, ROS2 novel SSIM 0.0418 vs ROS1 0.3644, and ROS2 novel LPIPS 0.714.
-  - 2026-05-05 local strict run: point-cloud parity still fails, but the world-frame point-cloud semantic fix reduced drift to centroid 2.43 m, nearest RMSE 0.378 m, and unmatched ratio 45.69%.
+  - 2026-05-05 local strict run: trajectory gate passes with 953/1186 matched poses and 80.35% coverage after the 60 second post-playback settle window.
+  - 2026-05-05 local strict run: full-frame quality has real data, but still fails paper parity: ROS2 novel PSNR 10.17 dB vs ROS1 12.70 dB, ROS2 novel SSIM 0.0455 vs ROS1 0.3644, and ROS2 novel LPIPS 0.709.
+  - 2026-05-05 local strict run: point-cloud parity still fails, but the world-frame point-cloud semantic fix plus the 1.5M cap reduced drift to centroid 1.65 m, nearest RMSE 0.342 m, and unmatched ratio 32.34%.

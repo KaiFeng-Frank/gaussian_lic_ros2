@@ -43,6 +43,7 @@ def generate_launch_description():
     torch_gaussian_prune_min_opacity = LaunchConfiguration("torch_gaussian_prune_min_opacity")
     torch_gaussian_max_foreground = LaunchConfiguration("torch_gaussian_max_foreground")
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
+    publish_gaussian_map = LaunchConfiguration("publish_gaussian_map")
     save_map_render_evaluation = LaunchConfiguration("save_map_render_evaluation")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
     sensor_qos_history = LaunchConfiguration("sensor_qos_history")
@@ -81,6 +82,7 @@ def generate_launch_description():
             "torch_gaussian_prune_min_opacity": torch_gaussian_prune_min_opacity,
             "torch_gaussian_max_foreground": torch_gaussian_max_foreground,
             "torch_gaussian_device": torch_gaussian_device,
+            "publish_gaussian_map": publish_gaussian_map,
             "save_map_render_evaluation": save_map_render_evaluation,
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
@@ -292,6 +294,11 @@ def generate_launch_description():
             "torch_gaussian_device",
             default_value="cpu",
             description="Torch device for Gaussian initialization: cpu, cuda, cuda:0, or auto",
+        ),
+        DeclareLaunchArgument(
+            "publish_gaussian_map",
+            default_value="true",
+            description="Publish full GaussianArray chunks for visualization; strict metric runs can disable this to avoid GPU-to-CPU map transfer overhead",
         ),
         DeclareLaunchArgument(
             "save_map_render_evaluation",

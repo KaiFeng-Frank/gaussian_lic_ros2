@@ -543,19 +543,22 @@ Run or resume the strict chain from the local `CBD_Building_01` bag:
 ```bash
 ./scripts/run_strict_cbd_pipeline.sh \
   --overwrite \
-  --current-torch-max-foreground 800000
+  --current-torch-max-foreground 1500000
 ```
 
 The strict script defaults to CUDA rasterizer mode, `torch_gaussian_device=cuda`,
 `--current-torch-optimization-steps 100`, a slowed current playback rate of
-`0.25`, and a 60 second post-playback settle window. In this path the step count
+`0.25`, a 60 second post-playback settle window, a 1.5M foreground Gaussian cap,
+and disabled high-rate `GaussianArray` publication. In this path the step count
 means up to 100 accumulated train-frame optimizer samples per keyframe, matching
 the upstream Gaussian-LIC `optimize()`
 scheduler instead of repeating 100 steps on only the newest frame. The slowed
 playback is deliberate: the strict CUDA path is heavier than the live preview
 path, so 1x rosbag2 replay can underfeed the final-map metric gate by dropping
 unprocessed frames. The settle window lets the mapper consume queued frames
-before `SaveMap` writes final-map render pairs.
+before `SaveMap` writes final-map render pairs. Disabling the visualization
+Gaussian map topic keeps the strict recorder from writing tens of GiB of
+high-frequency chunked Gaussian messages that are not used by the metric gate.
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
 `frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
@@ -570,15 +573,16 @@ Latest local strict run, 2026-05-05:
 
 - ROS1 baseline visual dump: 1186 render/GT pairs, 237 train and 949 novel frames.
 - ROS2 current strict path: CUDA rasterizer, final-map evaluation, IMU-fallback
-  world-frame point-cloud rotation enabled, 950 render/GT pairs, 190 train and
-  760 novel frames, trajectory coverage 80.10%. The trajectory gate now passes.
-- Current vs ROS1 quality remains below the paper gate: ROS2 novel PSNR 9.64 dB
-  vs ROS1 12.70 dB, ROS2 novel SSIM 0.0418 vs ROS1 0.3644, and ROS2 novel
-  LPIPS 0.714. The 64-pair strict render summary reports mean PSNR 10.03 dB and
-  mean SSIM 0.281.
+  world-frame point-cloud rotation enabled, high-rate GaussianArray publication
+  disabled, 1.5M foreground cap, 953 render/GT pairs, 190 train and 763 novel
+  frames, trajectory coverage 80.35%. The trajectory gate now passes.
+- Current vs ROS1 quality remains below the paper gate: ROS2 novel PSNR 10.17 dB
+  vs ROS1 12.70 dB, ROS2 novel SSIM 0.0455 vs ROS1 0.3644, and ROS2 novel
+  LPIPS 0.709. The 64-pair strict render summary reports mean PSNR 10.81 dB and
+  mean SSIM 0.157.
 - Chamfer/point-cloud parity still fails, but the ROS1/ROS2 point-cloud frame
-  semantics fix reduced the drift: centroid drift is now 2.43 m, bidirectional
-  nearest RMSE is 0.378 m, and unmatched ratio is 45.69%.
+  semantics fix plus the 1.5M cap reduced the drift: centroid drift is now
+  1.65 m, bidirectional nearest RMSE is 0.342 m, and unmatched ratio is 32.34%.
 
 So the strict chain now produces full-frame, same-cadence numbers and passes the
 strict trajectory coverage gate, but the remaining blocker is algorithmic parity

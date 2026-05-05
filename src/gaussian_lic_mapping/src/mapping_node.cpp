@@ -168,6 +168,7 @@ public:
     gaussian_map_chunk_size_ = declare_parameter<int>("gaussian_map_chunk_size", 1024);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
     max_map_points_ = declare_parameter<int>("max_map_points", 200000);
+    publish_gaussian_map_ = declare_parameter<bool>("publish_gaussian_map", true);
     publish_rendered_preview_ = declare_parameter<bool>("publish_rendered_preview", true);
     save_map_render_evaluation_ = declare_parameter<bool>("save_map_render_evaluation", false);
     active_profile_ = declare_parameter<std::string>("active_profile", "default");
@@ -1029,7 +1030,7 @@ private:
 
   void publish_torch_gaussian_map()
   {
-    if (!torch_gaussian_initialized_ || torch_gaussian_count_ == 0) {
+    if (!publish_gaussian_map_ || !torch_gaussian_initialized_ || torch_gaussian_count_ == 0) {
       return;
     }
 
@@ -1988,6 +1989,7 @@ private:
   bool enable_torch_camera_conversion_{false};
   bool enable_torch_gaussian_init_{false};
   bool enable_torch_gaussian_extend_{true};
+  bool publish_gaussian_map_{true};
   bool publish_rendered_preview_{true};
   bool save_map_render_evaluation_{false};
   std::string active_profile_{"default"};

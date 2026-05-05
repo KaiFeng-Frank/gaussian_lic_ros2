@@ -18,7 +18,7 @@ CURRENT_PLAY_RATE=0.25
 CURRENT_POST_PLAY_SETTLE=60
 CURRENT_TORCH_DEVICE=cuda
 CURRENT_TORCH_OPTIMIZATION_STEPS=100
-CURRENT_TORCH_MAX_FOREGROUND=800000
+CURRENT_TORCH_MAX_FOREGROUND=1500000
 CURRENT_TORCH_PRUNE_MIN_OPACITY=0.005
 TIMEOUT_SEC=30
 SAVE_TIMEOUT_SEC=600
@@ -57,7 +57,7 @@ Options:
                             Max accumulated train-frame optimizer samples per keyframe in rasterizer mode.
                             Default: 100, matching upstream Gaussian-LIC optimize() max_iters.
   --current-torch-max-foreground N
-                            Foreground Gaussian cap in rasterizer mode. Default: 800000
+                            Foreground Gaussian cap in rasterizer mode. Default: 1500000
   --current-torch-prune-min-opacity X
                             Foreground opacity pruning threshold in rasterizer mode. Default: 0.005
   --timeout N              Current-result wait timeout. Default: 30
@@ -253,6 +253,7 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
       --torch-prune-min-opacity "${CURRENT_TORCH_PRUNE_MIN_OPACITY}"
       --torch-densification
       --final-render-eval
+      --no-publish-gaussian-map
     )
   fi
   ./scripts/collect_current_results.sh \
