@@ -1217,6 +1217,8 @@ private:
     status.header.stamp = stamp;
     status.header.frame_id = world_frame_;
     status.executor_callback_serialization_enabled = serialize_callbacks_;
+    status.sensor_qos_reliability = sensor_qos_reliability_;
+    status.sensor_qos_depth = static_cast<uint32_t>(std::max(sensor_qos_depth_, 1));
     if (num_published_poses_ == 0U) {
       status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_INITIALIZING;
       status.status_text = "initializing";

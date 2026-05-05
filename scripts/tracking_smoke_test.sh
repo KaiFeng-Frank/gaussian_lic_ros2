@@ -152,6 +152,8 @@ rm -f "${status_file}" "${status_tmp}"
 status_matches() {
   rg -q "state: 2" "${status_file}" &&
     rg -q "executor_callback_serialization_enabled: true" "${status_file}" &&
+    rg -q "sensor_qos_reliability: best_effort" "${status_file}" &&
+    rg -q "sensor_qos_depth: 5" "${status_file}" &&
     rg -q "sliding_window_enabled: true" "${status_file}" &&
     rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&

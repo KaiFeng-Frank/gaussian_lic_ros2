@@ -19,6 +19,9 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
 ## QoS
 
 - Sensor streams default to `best_effort`, `keep_last`, depth `5`.
+- `gaussian_lic_tracking/tracking.launch.py` exposes `sensor_qos_reliability`
+  and `sensor_qos_depth`, defaults them to `best_effort` and `5`, and publishes
+  the effective values on `/gaussian_lic/frontend/status` for smoke gating.
 - High-rate image, LiDAR, IMU, and depth topics should stay volatile and bounded.
 - Reliable QoS is opt-in for controlled local rosbag2 replay or drivers known to
   publish reliable sensor streams.

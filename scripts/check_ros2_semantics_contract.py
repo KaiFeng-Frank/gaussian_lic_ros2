@@ -90,6 +90,8 @@ def main() -> int:
     required_tracking_launch_args = [
         "tracking_status_topic",
         "serialize_callbacks",
+        "sensor_qos_reliability",
+        "sensor_qos_depth",
         "enable_lidar_plane_factor",
         "lidar_robust_kernel_m",
         "lidar_plane_min_neighbors",

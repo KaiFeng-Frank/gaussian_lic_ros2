@@ -158,6 +158,7 @@ baseline_manifest.json
 - [x] Inventory the Coco-LIC continuous-time frontend source surface for the native ROS2 tracker port.
 - [x] Add `gaussian_lic_frontend/lic2_contract_adapter` as the ROS2 boundary for raw camera/LiDAR/IMU/pose inputs.
 - [x] Port Livox/custom point handling to ROS2.
+- [x] Expose tracking sensor QoS through launch/status and gate bounded `best_effort` defaults in native tracking smoke.
 - [x] Add default callback serialization in native tracking so MultiThreadedExecutor use cannot concurrently mutate IMU/LiDAR/image estimator state.
 - [x] Add a native timestamp-safe cubic B-spline trajectory manager foundation with a constant-velocity probe.
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.

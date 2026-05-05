@@ -11,6 +11,8 @@ std_msgs/Header header
 uint8 state
 string status_text
 bool executor_callback_serialization_enabled
+string sensor_qos_reliability
+uint32 sensor_qos_depth
 
 uint64 num_raw_images
 uint64 num_raw_pointclouds

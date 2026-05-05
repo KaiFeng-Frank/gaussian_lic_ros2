@@ -17,6 +17,8 @@ def generate_launch_description():
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     serialize_callbacks = LaunchConfiguration("serialize_callbacks")
+    sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
+    sensor_qos_depth = LaunchConfiguration("sensor_qos_depth")
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
     enable_lidar_plane_factor = LaunchConfiguration("enable_lidar_plane_factor")
     lidar_min_points = LaunchConfiguration("lidar_min_points")
@@ -71,6 +73,8 @@ def generate_launch_description():
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("serialize_callbacks", default_value="true"),
+            DeclareLaunchArgument("sensor_qos_reliability", default_value="best_effort"),
+            DeclareLaunchArgument("sensor_qos_depth", default_value="5"),
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
             DeclareLaunchArgument("enable_lidar_plane_factor", default_value="true"),
             DeclareLaunchArgument("lidar_min_points", default_value="32"),
@@ -120,8 +124,6 @@ def generate_launch_description():
                 parameters=[
                     {
                         "publish_tf": publish_tf,
-                        "sensor_qos_reliability": "best_effort",
-                        "sensor_qos_depth": 5,
                         "world_frame": "map",
                         "child_frame": "base_link",
                         "raw_image_topic": raw_image_topic,
@@ -133,6 +135,8 @@ def generate_launch_description():
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,
                         "serialize_callbacks": serialize_callbacks,
+                        "sensor_qos_reliability": sensor_qos_reliability,
+                        "sensor_qos_depth": sensor_qos_depth,
                         "enable_lio_factor": enable_lio_factor,
                         "enable_lidar_plane_factor": enable_lidar_plane_factor,
                         "lidar_min_points": lidar_min_points,
