@@ -21,6 +21,7 @@ struct SlidingWindowConfig
   double damping{1.0e-6};
   double step_tolerance{1.0e-8};
   double numeric_epsilon{1.0e-6};
+  double marginalization_prior_weight{1.0};
 };
 
 struct SlidingWindowState
@@ -53,11 +54,27 @@ struct SlidingWindowPosePrior
   double rotation_weight{1.0};
 };
 
+struct SlidingWindowStatePrior
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d p_w_i{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_w_i{Eigen::Quaterniond::Identity()};
+  Eigen::Vector3d v_w_i{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d gyro_bias{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d accel_bias{Eigen::Vector3d::Zero()};
+  double rotation_weight{1.0};
+  double velocity_weight{1.0};
+  double position_weight{1.0};
+  double gyro_bias_weight{1.0};
+  double accel_bias_weight{1.0};
+};
+
 struct SlidingWindowSummary
 {
   size_t state_count{0};
   size_t imu_factor_count{0};
   size_t pose_prior_count{0};
+  size_t state_prior_count{0};
   size_t marginalized_state_count{0};
   size_t iterations{0};
   double initial_cost{0.0};
@@ -80,6 +97,7 @@ public:
 
   void add_imu_factor(const SlidingWindowImuFactor & factor);
   void add_pose_prior(const SlidingWindowPosePrior & prior);
+  void add_state_prior(const SlidingWindowStatePrior & prior);
 
   SlidingWindowSummary optimize();
 
@@ -100,6 +118,7 @@ private:
     double scale = 1.0);
 
   int find_state_index(int64_t stamp_ns) const;
+  SlidingWindowStatePrior make_state_prior(const SlidingWindowState & state) const;
   std::vector<VariableBlock> variable_layout() const;
   Eigen::VectorXd build_residual(const std::vector<SlidingWindowState> & states) const;
   double compute_cost(const Eigen::VectorXd & residual) const;
@@ -109,6 +128,8 @@ private:
   std::vector<SlidingWindowState> states_;
   std::vector<SlidingWindowImuFactor> imu_factors_;
   std::vector<SlidingWindowPosePrior> pose_priors_;
+  std::vector<SlidingWindowStatePrior> state_priors_;
+  size_t marginalized_state_count_{0};
 };
 
 }  // namespace gaussian_lic_tracking

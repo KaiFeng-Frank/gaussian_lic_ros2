@@ -102,6 +102,16 @@ target_link_libraries(sliding_window_bias_probe
 )
 ament_target_dependencies(sliding_window_bias_probe builtin_interfaces)
 
+add_executable(sliding_window_marginalization_probe
+  test/sliding_window_marginalization_probe.cpp
+)
+target_include_directories(sliding_window_marginalization_probe PRIVATE include)
+target_link_libraries(sliding_window_marginalization_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(sliding_window_marginalization_probe builtin_interfaces)
+
 add_executable(visual_factor_probe
   test/visual_factor_probe.cpp
 )
@@ -128,7 +138,7 @@ ament_target_dependencies(tracking_node
   tf2_ros
 )
 
-install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe visual_factor_probe tracking_node
+install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_marginalization_probe visual_factor_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

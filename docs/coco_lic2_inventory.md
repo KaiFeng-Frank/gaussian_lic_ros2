@@ -63,10 +63,11 @@ Current ROS2 implementation status:
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native
   optimization container for IMU preintegration factors, raw-sample bias
-  reintegration, bias continuity residuals, and pose priors, with
-  finite-difference Jacobians, bounded window trimming, and deterministic
-  convergence probes. It is exposed as an optional tracking-node path while the
-  production Coco-LIC2 BA factors are ported.
+  reintegration, bias continuity residuals, pose priors, full-state priors, and
+  marginalization-prior anchoring, with finite-difference Jacobians, bounded
+  window trimming, and deterministic convergence probes. It is exposed as an
+  optional tracking-node path while the production Coco-LIC2 BA factors are
+  ported.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual foundation, and `tracking_node` subscribes to
   `/gaussian_lic/rendered_image` so mapper Gaussian renders can be compared
@@ -75,5 +76,6 @@ Current ROS2 implementation status:
   `GaussianArray` chunks, giving the frontend a native Gaussian-map snapshot
   channel for later joint optimization.
 - Production sliding-window BA, VIO Jacobians, robust IMU bias observability
-  from LIO/VIO factors, marginalization, and Coco-LIC2-grade IMU/LiDAR/camera
-  joint optimization still need to be ported from the audited Coco-LIC modules.
+  from LIO/VIO factors, true Schur-complement marginalization, and
+  Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be ported
+  from the audited Coco-LIC modules.

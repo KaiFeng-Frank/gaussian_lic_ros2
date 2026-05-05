@@ -43,6 +43,9 @@ void SlidingWindowOptimizer::set_config(const SlidingWindowConfig & config)
   if (config.damping <= 0.0 || config.step_tolerance <= 0.0 || config.numeric_epsilon <= 0.0) {
     throw std::runtime_error("sliding window optimizer numeric settings must be positive");
   }
+  if (config.marginalization_prior_weight < 0.0) {
+    throw std::runtime_error("sliding window marginalization prior weight must be non-negative");
+  }
   config_ = config;
 }
 
@@ -51,6 +54,8 @@ void SlidingWindowOptimizer::clear()
   states_.clear();
   imu_factors_.clear();
   pose_priors_.clear();
+  state_priors_.clear();
+  marginalized_state_count_ = 0U;
 }
 
 int SlidingWindowOptimizer::find_state_index(const int64_t stamp_ns) const
@@ -117,6 +122,37 @@ void SlidingWindowOptimizer::add_pose_prior(const SlidingWindowPosePrior & prior
   enforce_window_size();
 }
 
+void SlidingWindowOptimizer::add_state_prior(const SlidingWindowStatePrior & prior)
+{
+  if (prior.rotation_weight < 0.0 || prior.velocity_weight < 0.0 ||
+    prior.position_weight < 0.0 || prior.gyro_bias_weight < 0.0 ||
+    prior.accel_bias_weight < 0.0)
+  {
+    throw std::runtime_error("state prior weights must be non-negative");
+  }
+  SlidingWindowStatePrior normalized = prior;
+  normalized.q_w_i.normalize();
+  state_priors_.push_back(normalized);
+  enforce_window_size();
+}
+
+SlidingWindowStatePrior SlidingWindowOptimizer::make_state_prior(const SlidingWindowState & state) const
+{
+  SlidingWindowStatePrior prior;
+  prior.stamp_ns = state.stamp_ns;
+  prior.p_w_i = state.p_w_i;
+  prior.q_w_i = state.q_w_i.normalized();
+  prior.v_w_i = state.v_w_i;
+  prior.gyro_bias = state.gyro_bias;
+  prior.accel_bias = state.accel_bias;
+  prior.rotation_weight = config_.marginalization_prior_weight;
+  prior.velocity_weight = config_.marginalization_prior_weight;
+  prior.position_weight = config_.marginalization_prior_weight;
+  prior.gyro_bias_weight = config_.marginalization_prior_weight;
+  prior.accel_bias_weight = config_.marginalization_prior_weight;
+  return prior;
+}
+
 size_t SlidingWindowOptimizer::enforce_window_size()
 {
   size_t marginalized = 0U;
@@ -124,6 +160,7 @@ size_t SlidingWindowOptimizer::enforce_window_size()
     const int64_t stamp_ns = states_.front().stamp_ns;
     states_.erase(states_.begin());
     ++marginalized;
+    ++marginalized_state_count_;
     imu_factors_.erase(
       std::remove_if(
         imu_factors_.begin(), imu_factors_.end(),
@@ -138,6 +175,24 @@ size_t SlidingWindowOptimizer::enforce_window_size()
           return prior.stamp_ns == stamp_ns;
         }),
       pose_priors_.end());
+    state_priors_.erase(
+      std::remove_if(
+        state_priors_.begin(), state_priors_.end(),
+        [stamp_ns](const SlidingWindowStatePrior & prior) {
+          return prior.stamp_ns == stamp_ns;
+        }),
+      state_priors_.end());
+    if (!states_.empty() && config_.marginalization_prior_weight > 0.0) {
+      const int64_t anchor_stamp_ns = states_.front().stamp_ns;
+      state_priors_.erase(
+        std::remove_if(
+          state_priors_.begin(), state_priors_.end(),
+          [anchor_stamp_ns](const SlidingWindowStatePrior & prior) {
+            return prior.stamp_ns == anchor_stamp_ns;
+          }),
+        state_priors_.end());
+      state_priors_.push_back(make_state_prior(states_.front()));
+    }
   }
   return marginalized;
 }
@@ -172,7 +227,8 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   const std::vector<SlidingWindowState> & states) const
 {
   std::vector<double> values;
-  values.reserve(imu_factors_.size() * 15U + pose_priors_.size() * 6U);
+  values.reserve(
+    imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U);
 
   auto append = [&values](const Eigen::VectorXd & residual) {
       for (Eigen::Index i = 0; i < residual.size(); ++i) {
@@ -229,6 +285,26 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     append(residual);
   }
 
+  for (const auto & prior : state_priors_) {
+    const int index = find_local(prior.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    Eigen::Matrix<double, 15, 1> residual;
+    residual.template segment<3>(0) =
+      std::sqrt(prior.rotation_weight) * rotation_residual(prior.q_w_i, state.q_w_i);
+    residual.template segment<3>(3) =
+      std::sqrt(prior.velocity_weight) * (state.v_w_i - prior.v_w_i);
+    residual.template segment<3>(6) =
+      std::sqrt(prior.position_weight) * (state.p_w_i - prior.p_w_i);
+    residual.template segment<3>(9) =
+      std::sqrt(prior.gyro_bias_weight) * (state.gyro_bias - prior.gyro_bias);
+    residual.template segment<3>(12) =
+      std::sqrt(prior.accel_bias_weight) * (state.accel_bias - prior.accel_bias);
+    append(residual);
+  }
+
   Eigen::VectorXd residual(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     residual[static_cast<Eigen::Index>(i)] = values[i];
@@ -269,10 +345,12 @@ void SlidingWindowOptimizer::apply_delta(
 SlidingWindowSummary SlidingWindowOptimizer::optimize()
 {
   SlidingWindowSummary summary;
-  summary.marginalized_state_count = enforce_window_size();
+  enforce_window_size();
+  summary.marginalized_state_count = marginalized_state_count_;
   summary.state_count = states_.size();
   summary.imu_factor_count = imu_factors_.size();
   summary.pose_prior_count = pose_priors_.size();
+  summary.state_prior_count = state_priors_.size();
   Eigen::VectorXd residual = build_residual(states_);
   summary.initial_cost = compute_cost(residual);
   summary.final_cost = summary.initial_cost;
