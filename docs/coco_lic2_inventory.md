@@ -79,6 +79,9 @@ Current ROS2 implementation status:
   LiDAR, and IMU stamps before estimator mutation and publishes regression
   counters in `TrackingStatus`. LiDAR and IMU are strictly increasing because
   they drive continuous-time state propagation and window factors.
+- Native tracking rejects non-finite IMU angular velocity or acceleration before
+  propagation/preintegration so a single malformed packet cannot poison the
+  B-spline controls or sliding-window residuals.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native

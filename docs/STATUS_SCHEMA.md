@@ -70,6 +70,7 @@ depth_stamp_regressions
 rendered_stamp_regressions
 pointcloud_stamp_regressions
 imu_stamp_regressions
+imu_invalid_measurements
 num_raw_images
 num_raw_pointclouds
 num_raw_imus

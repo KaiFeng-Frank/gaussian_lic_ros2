@@ -169,6 +169,7 @@ baseline_manifest.json
 - [x] Add default callback serialization in native tracking so MultiThreadedExecutor use cannot concurrently mutate IMU/LiDAR/image estimator state.
 - [x] Add a native timestamp-safe cubic B-spline trajectory manager foundation with position/velocity and SO(3) cubic orientation constant-rate probes.
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.
+- [x] Reject non-finite IMU angular velocity or acceleration at the native tracking input boundary before propagation/preintegration.
 - [x] Add signed-nanosecond IMU history interpolation and an IMU preintegration residual foundation with deterministic probes.
 - [x] Add per-block IMU preintegration residual weighting for rotation, velocity, and position constraints with analytic Jacobian coverage.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.

@@ -24,6 +24,8 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
 - Native tracking rejects non-monotonic image, depth, rendered-image, LiDAR, and
   IMU stream stamps before mutating the estimator. Image/depth/rendered streams
   may repeat a stamp, while LiDAR and IMU must be strictly increasing.
+- Native tracking also rejects non-finite IMU angular velocity or acceleration
+  before propagation/preintegration and publishes an invalid-measurement counter.
 
 ## QoS
 

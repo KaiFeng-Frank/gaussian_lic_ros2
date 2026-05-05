@@ -272,6 +272,8 @@ def main() -> int:
         errors.append("tracking_node callbacks must pass through the serialization guard")
     if "accept_stream_stamp" not in tracking_node_text or "non-monotonic stamp" not in tracking_node_text:
         errors.append("tracking_node must reject non-monotonic raw stream stamps before estimator mutation")
+    if "imu_invalid_measurements_" not in tracking_node_text or "non-finite angular velocity" not in tracking_node_text:
+        errors.append("tracking_node must reject non-finite IMU measurements before propagation")
     for field in [
         "signed_nanosecond_time_math_enabled",
         "last_image_stamp_ns",
@@ -282,6 +284,7 @@ def main() -> int:
         "rendered_stamp_regressions",
         "pointcloud_stamp_regressions",
         "imu_stamp_regressions",
+        "imu_invalid_measurements",
         "sliding_window_imu_reanchors",
         "sliding_window_smoothness_factors",
         "sliding_window_accepted_steps",

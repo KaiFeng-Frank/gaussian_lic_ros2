@@ -470,29 +470,27 @@ private:
       if (!accept_stream_stamp("imu", stamp_ns, last_imu_input_stamp_ns_, imu_stamp_regressions_, false)) {
         return;
       }
+      const Eigen::Vector3d angular_velocity{
+        msg.angular_velocity.x,
+        msg.angular_velocity.y,
+        msg.angular_velocity.z};
+      const Eigen::Vector3d linear_acceleration{
+        msg.linear_acceleration.x,
+        msg.linear_acceleration.y,
+        msg.linear_acceleration.z};
+      if (!angular_velocity.allFinite() || !linear_acceleration.allFinite()) {
+        ++imu_invalid_measurements_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "dropping IMU message with non-finite angular velocity or linear acceleration");
+        return;
+      }
       last_imu_stamp_ns_ = stamp_ns;
       ++num_raw_imus_;
-      imu_propagator_.add_measurement(
-        stamp_ns,
-        Eigen::Vector3d{
-          msg.angular_velocity.x,
-          msg.angular_velocity.y,
-          msg.angular_velocity.z},
-        Eigen::Vector3d{
-          msg.linear_acceleration.x,
-          msg.linear_acceleration.y,
-          msg.linear_acceleration.z});
+      imu_propagator_.add_measurement(stamp_ns, angular_velocity, linear_acceleration);
       if (enable_sliding_window_optimizer_) {
         sliding_window_preintegrator_.add_measurement(
-          stamp_ns,
-          Eigen::Vector3d{
-            msg.angular_velocity.x,
-            msg.angular_velocity.y,
-            msg.angular_velocity.z},
-          Eigen::Vector3d{
-            msg.linear_acceleration.x,
-            msg.linear_acceleration.y,
-            msg.linear_acceleration.z});
+          stamp_ns, angular_velocity, linear_acceleration);
         sliding_window_preintegrator_initialized_ = true;
       }
     } catch (const std::exception & ex) {
@@ -1849,6 +1847,7 @@ private:
     status.rendered_stamp_regressions = rendered_stamp_regressions_;
     status.pointcloud_stamp_regressions = pointcloud_stamp_regressions_;
     status.imu_stamp_regressions = imu_stamp_regressions_;
+    status.imu_invalid_measurements = imu_invalid_measurements_;
     if (num_published_poses_ == 0U) {
       status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_INITIALIZING;
       status.status_text = "initializing";
@@ -2205,6 +2204,7 @@ private:
   uint64_t rendered_stamp_regressions_{0};
   uint64_t pointcloud_stamp_regressions_{0};
   uint64_t imu_stamp_regressions_{0};
+  uint64_t imu_invalid_measurements_{0};
   uint64_t num_lidar_keyframes_{0};
   size_t last_lidar_points_{0};
   size_t last_lidar_matches_{0};

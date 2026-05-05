@@ -23,6 +23,7 @@ uint64 depth_stamp_regressions
 uint64 rendered_stamp_regressions
 uint64 pointcloud_stamp_regressions
 uint64 imu_stamp_regressions
+uint64 imu_invalid_measurements
 
 uint64 num_raw_images
 uint64 num_raw_pointclouds
