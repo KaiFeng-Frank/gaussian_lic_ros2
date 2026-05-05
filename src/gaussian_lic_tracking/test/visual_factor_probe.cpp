@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 
 int main()
 {
@@ -39,6 +40,13 @@ int main()
     std::abs(shifted.rmse - 0.1) > 1.0e-6)
   {
     std::cerr << "shifted visual residual is wrong\n";
+    return 1;
+  }
+  auto nan_candidate = candidate;
+  nan_candidate.gray.front() = std::numeric_limits<float>::quiet_NaN();
+  const auto finite_only = factor.evaluate(reference, nan_candidate);
+  if (!finite_only.valid || finite_only.compared_pixels != reference.gray.size() - 1U) {
+    std::cerr << "visual residual failed to skip non-finite pixels\n";
     return 1;
   }
 

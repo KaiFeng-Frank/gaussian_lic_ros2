@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 #include <Eigen/Geometry>
@@ -100,6 +101,14 @@ int main()
     std::cerr << "SE3 photometric sample linearization failed to recover the synthetic step\n";
     return 1;
   }
+  auto samples_with_bad_weight = samples;
+  samples_with_bad_weight.front().weight = std::numeric_limits<double>::quiet_NaN();
+  const auto filtered_linearization =
+    gaussian_lic_tracking::linearize_se3_photometric_samples(intrinsics, samples_with_bad_weight);
+  if (!filtered_linearization.valid || filtered_linearization.sample_count != samples.size() - 1U) {
+    std::cerr << "SE3 photometric linearization failed to skip non-finite sample weights\n";
+    return 1;
+  }
 
   constexpr double kPi = 3.14159265358979323846;
   const Eigen::Quaterniond q_i_c(Eigen::AngleAxisd(0.5 * kPi, Eigen::Vector3d::UnitZ()));
@@ -119,11 +128,25 @@ int main()
     std::cerr << "camera-to-body SE3 delta adjoint is incorrect\n";
     return 1;
   }
+  const auto invalid_body_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
+    Eigen::Quaterniond{0.0, 0.0, 0.0, 0.0}, p_i_c, camera_delta);
+  if (invalid_body_delta.norm() != 0.0) {
+    std::cerr << "invalid camera-to-body extrinsic should produce a zero delta\n";
+    return 1;
+  }
 
   const auto invalid = gaussian_lic_tracking::linearize_se3_photometric_pixel(
     intrinsics, Eigen::Vector3d{0.0, 0.0, 0.0}, image_gradient);
   if (invalid.valid) {
     std::cerr << "zero-depth point should not produce a valid Jacobian\n";
+    return 1;
+  }
+  auto bad_intrinsics = intrinsics;
+  bad_intrinsics.fx = std::numeric_limits<double>::quiet_NaN();
+  const auto invalid_intrinsics = gaussian_lic_tracking::linearize_se3_photometric_pixel(
+    bad_intrinsics, point_camera, image_gradient);
+  if (invalid_intrinsics.valid) {
+    std::cerr << "non-finite intrinsics should not produce a valid Jacobian\n";
     return 1;
   }
 

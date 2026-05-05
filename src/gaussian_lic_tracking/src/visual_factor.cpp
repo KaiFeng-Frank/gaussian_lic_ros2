@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include <Eigen/Cholesky>
@@ -12,6 +13,12 @@ namespace gaussian_lic_tracking
 {
 namespace
 {
+bool intrinsics_are_finite(const VisualCameraIntrinsics & intrinsics)
+{
+  return std::isfinite(intrinsics.fx) && std::isfinite(intrinsics.fy) &&
+         std::isfinite(intrinsics.cx) && std::isfinite(intrinsics.cy);
+}
+
 double parabolic_subpixel_offset(
   const double minus_cost,
   const double center_cost,
@@ -51,6 +58,7 @@ VisualSe3PhotometricJacobian linearize_se3_photometric_pixel(
 {
   VisualSe3PhotometricJacobian output;
   if (!point_camera.allFinite() || !image_gradient.allFinite() ||
+    !intrinsics_are_finite(intrinsics) ||
     intrinsics.fx <= 0.0 || intrinsics.fy <= 0.0 ||
     std::abs(point_camera.z()) < 1.0e-12)
   {
@@ -89,7 +97,9 @@ VisualSe3PhotometricLinearization linearize_se3_photometric_samples(
 {
   VisualSe3PhotometricLinearization output;
   for (const auto & sample : samples) {
-    if (sample.weight <= 0.0 || !std::isfinite(sample.residual)) {
+    if (!std::isfinite(sample.weight) || sample.weight <= 0.0 ||
+      !std::isfinite(sample.residual))
+    {
       continue;
     }
     const auto jacobian = linearize_se3_photometric_pixel(
@@ -122,6 +132,12 @@ Eigen::Matrix<double, 6, 1> transform_camera_delta_to_body(
   const Eigen::Matrix<double, 6, 1> & camera_delta)
 {
   Eigen::Matrix<double, 6, 1> body_delta;
+  body_delta.setZero();
+  if (!q_body_camera.coeffs().allFinite() || q_body_camera.norm() <= std::numeric_limits<double>::epsilon() ||
+    !p_body_camera.allFinite() || !camera_delta.allFinite())
+  {
+    return body_delta;
+  }
   const Eigen::Quaterniond normalized_q = q_body_camera.normalized();
   const Eigen::Vector3d omega_body =
     normalized_q * camera_delta.template segment<3>(0);
@@ -161,9 +177,18 @@ VisualPhotometricLinearization VisualFactor::linearize_translation(
         return static_cast<double>(candidate.gray[py * candidate.width + px]);
       };
     const double residual = static_cast<double>(candidate.gray[index] - reference.gray[index]);
+    const double left = at(x - 1U, y);
+    const double right = at(x + 1U, y);
+    const double up = at(x, y - 1U);
+    const double down = at(x, y + 1U);
+    if (!std::isfinite(residual) || !std::isfinite(left) || !std::isfinite(right) ||
+      !std::isfinite(up) || !std::isfinite(down))
+    {
+      continue;
+    }
     const Eigen::Vector2d jacobian{
-      0.5 * (at(x + 1U, y) - at(x - 1U, y)),
-      0.5 * (at(x, y + 1U) - at(x, y - 1U))};
+      0.5 * (right - left),
+      0.5 * (down - up)};
     output.hessian += jacobian * jacobian.transpose();
     output.rhs.noalias() -= jacobian * residual;
     output.cost += 0.5 * residual * residual;
@@ -220,6 +245,9 @@ VisualResidual VisualFactor::evaluate_shifted(
     const size_t candidate_index =
       static_cast<size_t>(candidate_y) * candidate.width + static_cast<size_t>(candidate_x);
     const double diff = static_cast<double>(candidate.gray[candidate_index] - reference.gray[index]);
+    if (!std::isfinite(diff)) {
+      continue;
+    }
     abs_sum += std::abs(diff);
     sq_sum += diff * diff;
     ++compared;
