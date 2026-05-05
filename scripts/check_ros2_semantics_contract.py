@@ -15,6 +15,7 @@ CONFIG_DIR = ROOT / "src" / "gaussian_lic_bringup" / "config"
 MAPPING_NODE = ROOT / "src" / "gaussian_lic_mapping" / "src" / "mapping_node.cpp"
 FRONTEND_ADAPTER = ROOT / "src" / "gaussian_lic_frontend" / "src" / "lic2_contract_adapter_node.cpp"
 RUN_BAG_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "run_bag.launch.py"
+TRACKING_LAUNCH = ROOT / "src" / "gaussian_lic_bringup" / "launch" / "tracking.launch.py"
 SEMANTICS_DOC = ROOT / "docs" / "ROS2_SEMANTICS.md"
 TIMING_AUDIT = ROOT / "scripts" / "rosbag2_timing_audit.py"
 
@@ -54,6 +55,7 @@ def main() -> int:
     mapping_text = read(MAPPING_NODE)
     frontend_text = read(FRONTEND_ADAPTER)
     launch_text = read(RUN_BAG_LAUNCH)
+    tracking_launch_text = read(TRACKING_LAUNCH)
     timing_audit_text = read(TIMING_AUDIT)
 
     if "stamp_to_sec" in mapping_text:
@@ -82,6 +84,22 @@ def main() -> int:
         errors.append("run_bag.launch.py must default use_sim_time to true")
     if "global_time_regressions" not in timing_audit_text or "strict-storage" not in timing_audit_text:
         errors.append("rosbag2_timing_audit.py must check timestamp regressions and strict storage mode")
+
+    required_tracking_launch_args = [
+        "lidar_robust_kernel_m",
+        "lidar_plane_min_neighbors",
+        "lidar_plane_max_condition",
+        "sliding_window_max_states",
+        "sliding_window_max_iterations",
+        "sliding_window_imu_weight",
+        "sliding_window_pose_translation_weight",
+        "sliding_window_pose_rotation_weight",
+    ]
+    for argument in required_tracking_launch_args:
+        if f'DeclareLaunchArgument("{argument}"' not in tracking_launch_text:
+            errors.append(f"tracking.launch.py must expose {argument}")
+        if f'"{argument}": {argument}' not in tracking_launch_text:
+            errors.append(f"tracking.launch.py must pass {argument} into tracking_node")
 
     for path in sorted(CONFIG_DIR.glob("*.yaml")):
         params = mapping_params(path)
