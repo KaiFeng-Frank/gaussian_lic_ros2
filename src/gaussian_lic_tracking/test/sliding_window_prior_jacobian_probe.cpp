@@ -239,6 +239,22 @@ int main()
     invalid_prior.reference_states[0].q_w_i = zero_quaternion;
     invalid_optimizer.add_dense_prior(invalid_prior);
   });
+  validation_ok &= expect_throw("dense-prior stamp/reference mismatch", [dense_prior]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_prior = dense_prior;
+    invalid_prior.stamp_ns[0] += 1;
+    invalid_optimizer.add_dense_prior(invalid_prior);
+  });
+  validation_ok &= expect_throw("dense-prior duplicate stamps", [dense_prior]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_prior = dense_prior;
+    auto second_state = invalid_prior.reference_states[0];
+    invalid_prior.stamp_ns.push_back(invalid_prior.stamp_ns[0]);
+    invalid_prior.reference_states.push_back(second_state);
+    invalid_prior.sqrt_information = Eigen::MatrixXd::Identity(15, 30);
+    invalid_prior.target_delta = Eigen::VectorXd::Zero(30);
+    invalid_optimizer.add_dense_prior(invalid_prior);
+  });
   validation_ok &= expect_throw("non-finite point-factor weight", [nan]() {
     gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
     gaussian_lic_tracking::SlidingWindowPointToPointFactor factor;

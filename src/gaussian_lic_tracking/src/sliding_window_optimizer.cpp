@@ -590,10 +590,17 @@ void SlidingWindowOptimizer::add_dense_prior(const SlidingWindowDensePrior & pri
     throw std::runtime_error("dense prior values must be finite");
   }
   SlidingWindowDensePrior normalized = prior;
-  for (auto & state : normalized.reference_states) {
+  for (size_t index = 0; index < normalized.reference_states.size(); ++index) {
+    auto & state = normalized.reference_states[index];
     if (!state_is_finite(state)) {
       throw std::runtime_error(
         "dense prior reference states must be finite with non-zero quaternions");
+    }
+    if (normalized.stamp_ns[index] != state.stamp_ns) {
+      throw std::runtime_error("dense prior stamps must match reference-state stamps");
+    }
+    if (index > 0U && normalized.stamp_ns[index] <= normalized.stamp_ns[index - 1U]) {
+      throw std::runtime_error("dense prior stamps must be strictly increasing");
     }
     state.q_w_i.normalize();
   }
