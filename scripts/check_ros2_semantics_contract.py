@@ -274,6 +274,8 @@ def main() -> int:
         errors.append("tracking_node must reject non-monotonic raw stream stamps before estimator mutation")
     if "imu_invalid_measurements_" not in tracking_node_text or "non-finite angular velocity" not in tracking_node_text:
         errors.append("tracking_node must reject non-finite IMU measurements before propagation")
+    if "lidar_invalid_points_" not in tracking_node_text or "invalid_point_times" not in tracking_node_text:
+        errors.append("tracking_node must publish LiDAR invalid point and point-time counters")
     for field in [
         "signed_nanosecond_time_math_enabled",
         "last_image_stamp_ns",
@@ -285,6 +287,8 @@ def main() -> int:
         "pointcloud_stamp_regressions",
         "imu_stamp_regressions",
         "imu_invalid_measurements",
+        "lidar_invalid_points",
+        "lidar_invalid_point_times",
         "sliding_window_imu_reanchors",
         "sliding_window_smoothness_factors",
         "sliding_window_accepted_steps",

@@ -174,6 +174,7 @@ baseline_manifest.json
 - [x] Add per-block IMU preintegration residual weighting for rotation, velocity, and position constraints with analytic Jacobian coverage.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
+- [x] Publish LiDAR invalid xyz and per-point timestamp rejection counters so degraded point/factor counts are visible in native tracking status.
 - [x] Add ROS2-configurable LiDAR-to-IMU extrinsics before LIO, deskew, and mapper point publication.
 - [x] Reject malformed or non-finite LiDAR-to-IMU and camera-to-IMU extrinsics before tracker startup.
 - [x] Reject non-finite IMU gravity and LiDAR keyframe threshold parameters before propagation/keyframe logic.

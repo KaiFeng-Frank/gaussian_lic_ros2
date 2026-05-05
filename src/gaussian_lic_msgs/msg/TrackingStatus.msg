@@ -33,6 +33,8 @@ uint64 num_published_poses
 uint64 num_lidar_keyframes
 uint64 lidar_map_points
 uint64 last_lidar_points
+uint64 lidar_invalid_points
+uint64 lidar_invalid_point_times
 uint64 last_lidar_matches
 uint64 last_window_point_correspondences
 uint64 last_window_plane_correspondences

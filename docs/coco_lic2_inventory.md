@@ -62,6 +62,8 @@ Current ROS2 implementation status:
   bounded 6-DoF correction, direct point-to-point correspondence factors for
   the optional sliding window, point-to-plane correspondence factors, robust
   per-correspondence weights, and deterministic probes.
+  Native PointCloud2 decoding publishes invalid xyz and invalid per-point time
+  counters so LiDAR degradation is visible before deskew/LIO/BA metrics drift.
 - `tracking_node` applies ROS2-configurable LiDAR-to-IMU extrinsics before LIO
   correction, per-point deskew, sliding-window factor creation, and mapper point
   publication. The default is identity so existing synthetic and mapper-contract

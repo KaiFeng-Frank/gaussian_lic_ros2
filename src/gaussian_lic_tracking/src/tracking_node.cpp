@@ -1724,6 +1724,8 @@ private:
     const size_t count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
     points.reserve(count);
     const int64_t cloud_stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+    size_t invalid_points = 0U;
+    size_t invalid_point_times = 0U;
     for (size_t index = 0; index < count; ++index) {
       const size_t base = index * static_cast<size_t>(msg.point_step);
       if (base + max_offset > msg.data.size()) {
@@ -1737,6 +1739,7 @@ private:
         !read_numeric_field(point_base, *fields.y_field, y) ||
         !read_numeric_field(point_base, *fields.z_field, z))
       {
+        ++invalid_points;
         continue;
       }
       if (std::isfinite(x) && std::isfinite(y) && std::isfinite(z)) {
@@ -1750,11 +1753,25 @@ private:
             if (stamp_ns.has_value()) {
               point.stamp_ns = stamp_ns.value();
               point.has_stamp = true;
+            } else {
+              ++invalid_point_times;
             }
+          } else {
+            ++invalid_point_times;
           }
         }
         points.push_back(point);
+      } else {
+        ++invalid_points;
       }
+    }
+    lidar_invalid_points_ += invalid_points;
+    lidar_invalid_point_times_ += invalid_point_times;
+    if (invalid_points > 0U || invalid_point_times > 0U) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "PointCloud2 decode skipped invalid_points=%zu invalid_point_times=%zu",
+        invalid_points, invalid_point_times);
     }
     return points;
   }
@@ -1872,6 +1889,8 @@ private:
     status.num_lidar_keyframes = num_lidar_keyframes_;
     status.lidar_map_points = static_cast<uint64_t>(lidar_factor_.map_size());
     status.last_lidar_points = static_cast<uint64_t>(last_lidar_points_);
+    status.lidar_invalid_points = lidar_invalid_points_;
+    status.lidar_invalid_point_times = lidar_invalid_point_times_;
     status.last_lidar_matches = static_cast<uint64_t>(last_lidar_matches_);
     status.last_window_point_correspondences =
       static_cast<uint64_t>(last_window_point_correspondences_);
@@ -2191,6 +2210,8 @@ private:
   uint64_t num_raw_pointclouds_{0};
   uint64_t num_raw_imus_{0};
   uint64_t num_published_poses_{0};
+  uint64_t lidar_invalid_points_{0};
+  uint64_t lidar_invalid_point_times_{0};
   int64_t last_image_stamp_ns_{0};
   int64_t last_pointcloud_stamp_ns_{0};
   int64_t last_imu_stamp_ns_{0};

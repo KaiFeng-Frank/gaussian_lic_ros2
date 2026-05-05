@@ -172,6 +172,8 @@ status_matches() {
     rg -q "last_image_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "last_pointcloud_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "last_imu_stamp_ns: [1-9]" "${status_file}" &&
+    rg -q "lidar_invalid_points: 0" "${status_file}" &&
+    rg -q "lidar_invalid_point_times: 0" "${status_file}" &&
     rg -q "image_stamp_regressions: 0" "${status_file}" &&
     rg -q "depth_stamp_regressions: 0" "${status_file}" &&
     rg -q "rendered_stamp_regressions: 0" "${status_file}" &&

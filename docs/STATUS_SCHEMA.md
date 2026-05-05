@@ -78,6 +78,8 @@ num_published_poses
 num_lidar_keyframes
 lidar_map_points
 last_lidar_points
+lidar_invalid_points
+lidar_invalid_point_times
 last_lidar_matches
 last_window_point_correspondences
 last_window_plane_correspondences
