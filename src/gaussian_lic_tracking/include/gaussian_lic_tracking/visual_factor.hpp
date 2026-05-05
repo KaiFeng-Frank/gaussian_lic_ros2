@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 namespace gaussian_lic_tracking
 {
@@ -90,6 +91,11 @@ VisualSe3PhotometricJacobian linearize_se3_photometric_pixel(
 VisualSe3PhotometricLinearization linearize_se3_photometric_samples(
   const VisualCameraIntrinsics & intrinsics,
   const std::vector<VisualSe3PhotometricSample> & samples);
+
+Eigen::Matrix<double, 6, 1> transform_camera_delta_to_body(
+  const Eigen::Quaterniond & q_body_camera,
+  const Eigen::Vector3d & p_body_camera,
+  const Eigen::Matrix<double, 6, 1> & camera_delta);
 
 class VisualFactor
 {

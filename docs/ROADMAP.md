@@ -178,6 +178,7 @@ baseline_manifest.json
 - [x] Add per-correspondence robust weighting for LiDAR and Gaussian-map point-to-point tracking-window factors.
 - [x] Add LiDAR point-to-plane tracking-window factors from local plane fits with deterministic CTest coverage.
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
+- [x] Add ROS2-configurable camera-to-IMU extrinsics and apply their SE3 adjoint to photometric BA deltas.
 - [x] Add subpixel refinement for visual alignment factors before they enter the optional tracking window.
 - [x] Add analytic SE3 camera photometric pixel Jacobians and multi-sample normal equations with finite-difference CTest coverage.
 - [x] Default-enable native sliding-window BA plus visual-alignment and SE3 photometric window factors in `tracking.launch.py`, while preserving bounded best-effort QoS and serialized callbacks.

@@ -66,6 +66,9 @@ Current ROS2 implementation status:
   correction, per-point deskew, sliding-window factor creation, and mapper point
   publication. The default is identity so existing synthetic and mapper-contract
   bags stay bit-compatible.
+- `tracking_node` applies ROS2-configurable camera-to-IMU extrinsics to convert
+  camera-frame SE3 photometric Gauss-Newton deltas into body-frame sliding-window
+  deltas before adding SE3 photometric BA factors.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native

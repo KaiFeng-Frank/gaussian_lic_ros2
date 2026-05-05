@@ -36,6 +36,8 @@ def generate_launch_description():
     lidar_to_imu_rpy_rad = LaunchConfiguration("lidar_to_imu_rpy_rad")
     enable_lidar_deskew = LaunchConfiguration("enable_lidar_deskew")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
+    camera_to_imu_translation_m = LaunchConfiguration("camera_to_imu_translation_m")
+    camera_to_imu_rpy_rad = LaunchConfiguration("camera_to_imu_rpy_rad")
     visual_alignment_max_shift_px = LaunchConfiguration("visual_alignment_max_shift_px")
     enable_visual_alignment_window_factor = LaunchConfiguration("enable_visual_alignment_window_factor")
     visual_alignment_meters_per_pixel = LaunchConfiguration("visual_alignment_meters_per_pixel")
@@ -103,6 +105,8 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_time_unit", default_value="auto"),
             DeclareLaunchArgument("lidar_time_mode", default_value="auto"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
+            DeclareLaunchArgument("camera_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
+            DeclareLaunchArgument("camera_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("visual_alignment_max_shift_px", default_value="8"),
             DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="true"),
             DeclareLaunchArgument("visual_alignment_meters_per_pixel", default_value="0.01"),
@@ -173,6 +177,8 @@ def generate_launch_description():
                         "lidar_time_unit": lidar_time_unit,
                         "lidar_time_mode": lidar_time_mode,
                         "enable_visual_factor": enable_visual_factor,
+                        "camera_to_imu_translation_m": camera_to_imu_translation_m,
+                        "camera_to_imu_rpy_rad": camera_to_imu_rpy_rad,
                         "visual_alignment_max_shift_px": visual_alignment_max_shift_px,
                         "enable_visual_alignment_window_factor": enable_visual_alignment_window_factor,
                         "visual_alignment_meters_per_pixel": visual_alignment_meters_per_pixel,

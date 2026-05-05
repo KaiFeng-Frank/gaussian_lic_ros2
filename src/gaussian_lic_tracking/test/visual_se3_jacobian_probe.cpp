@@ -101,6 +101,25 @@ int main()
     return 1;
   }
 
+  constexpr double kPi = 3.14159265358979323846;
+  const Eigen::Quaterniond q_i_c(Eigen::AngleAxisd(0.5 * kPi, Eigen::Vector3d::UnitZ()));
+  const Eigen::Vector3d p_i_c{1.0, 2.0, -0.5};
+  Eigen::Matrix<double, 6, 1> camera_delta;
+  camera_delta << 0.1, -0.2, 0.3, 0.4, -0.5, 0.6;
+  const auto body_delta =
+    gaussian_lic_tracking::transform_camera_delta_to_body(q_i_c, p_i_c, camera_delta);
+  Eigen::Matrix<double, 6, 1> expected_body_delta;
+  const Eigen::Vector3d expected_omega = q_i_c * camera_delta.segment<3>(0);
+  expected_body_delta.segment<3>(0) = expected_omega;
+  expected_body_delta.segment<3>(3) =
+    p_i_c.cross(expected_omega) + q_i_c * camera_delta.segment<3>(3);
+  const double adjoint_error = (body_delta - expected_body_delta).norm();
+  std::cout << " camera_to_body_adjoint_error=" << adjoint_error;
+  if (adjoint_error > 1.0e-12) {
+    std::cerr << "camera-to-body SE3 delta adjoint is incorrect\n";
+    return 1;
+  }
+
   const auto invalid = gaussian_lic_tracking::linearize_se3_photometric_pixel(
     intrinsics, Eigen::Vector3d{0.0, 0.0, 0.0}, image_gradient);
   if (invalid.valid) {

@@ -116,6 +116,23 @@ VisualSe3PhotometricLinearization linearize_se3_photometric_samples(
   return output;
 }
 
+Eigen::Matrix<double, 6, 1> transform_camera_delta_to_body(
+  const Eigen::Quaterniond & q_body_camera,
+  const Eigen::Vector3d & p_body_camera,
+  const Eigen::Matrix<double, 6, 1> & camera_delta)
+{
+  Eigen::Matrix<double, 6, 1> body_delta;
+  const Eigen::Quaterniond normalized_q = q_body_camera.normalized();
+  const Eigen::Vector3d omega_body =
+    normalized_q * camera_delta.template segment<3>(0);
+  const Eigen::Vector3d translation_body =
+    p_body_camera.cross(omega_body) +
+    normalized_q * camera_delta.template segment<3>(3);
+  body_delta.template segment<3>(0) = omega_body;
+  body_delta.template segment<3>(3) = translation_body;
+  return body_delta;
+}
+
 VisualPhotometricLinearization VisualFactor::linearize_translation(
   const VisualFrame & reference,
   const VisualFrame & candidate) const

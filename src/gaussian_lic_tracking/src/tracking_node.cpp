@@ -65,6 +65,20 @@ public:
     enable_visual_factor_ = declare_parameter<bool>("enable_visual_factor", true);
     enable_gaussian_snapshot_ = declare_parameter<bool>("enable_gaussian_snapshot", true);
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
+    const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
+      "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
+    const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
+      "camera_to_imu_rpy_rad", std::vector<double>{0.0, 0.0, 0.0});
+    if (camera_to_imu_translation.size() == 3U && camera_to_imu_rpy.size() == 3U) {
+      p_i_c_ = Eigen::Vector3d{
+        camera_to_imu_translation[0],
+        camera_to_imu_translation[1],
+        camera_to_imu_translation[2]};
+      q_i_c_ = (
+        Eigen::AngleAxisd(camera_to_imu_rpy[2], Eigen::Vector3d::UnitZ()) *
+        Eigen::AngleAxisd(camera_to_imu_rpy[1], Eigen::Vector3d::UnitY()) *
+        Eigen::AngleAxisd(camera_to_imu_rpy[0], Eigen::Vector3d::UnitX())).normalized();
+    }
     visual_alignment_max_shift_px_ = declare_parameter<int>("visual_alignment_max_shift_px", 8);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
@@ -568,7 +582,10 @@ private:
       factor.stamp_ns = tracking_pose.stamp_ns;
       factor.reference_p_w_i = tracking_pose.p_w_i;
       factor.reference_q_w_i = tracking_pose.q_w_i;
-      factor.target_delta = pending_visual_se3_photometric_linearization_.gauss_newton_step;
+      factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
+        q_i_c_,
+        p_i_c_,
+        pending_visual_se3_photometric_linearization_.gauss_newton_step);
       factor.sqrt_information.setIdentity();
       factor.weight = se3_photometric_window_weight_;
       se3_photometric_factors.push_back(factor);
@@ -1461,6 +1478,8 @@ private:
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
+  Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
