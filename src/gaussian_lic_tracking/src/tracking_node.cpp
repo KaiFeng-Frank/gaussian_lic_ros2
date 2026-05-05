@@ -2057,6 +2057,10 @@ private:
       static_cast<uint64_t>(summary.se3_photometric_factor_count);
     status.sliding_window_smoothness_factors =
       static_cast<uint64_t>(summary.smoothness_factor_count);
+    status.sliding_window_imu_factor_replacement_count =
+      static_cast<uint64_t>(summary.imu_factor_replacement_count);
+    status.sliding_window_smoothness_factor_replacement_count =
+      static_cast<uint64_t>(summary.smoothness_factor_replacement_count);
     status.sliding_window_orphan_factors = static_cast<uint64_t>(summary.orphan_factor_count);
     status.sliding_window_point_factor_skip_count = sliding_window_point_factor_skip_count_;
     status.sliding_window_plane_factor_skip_count = sliding_window_plane_factor_skip_count_;

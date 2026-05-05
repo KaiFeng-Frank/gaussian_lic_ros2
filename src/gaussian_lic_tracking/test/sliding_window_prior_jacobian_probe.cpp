@@ -224,10 +224,41 @@ int main()
     dedupe_optimizer.add_pose_prior(repeated_pose_prior);
     dedupe_optimizer.add_state_prior(state_prior);
     dedupe_optimizer.add_state_prior(state_prior);
+    gaussian_lic_tracking::SlidingWindowState previous_state = state;
+    previous_state.stamp_ns = 0;
+    gaussian_lic_tracking::SlidingWindowState next_state = state;
+    next_state.stamp_ns = 2'000'000'000;
+    dedupe_optimizer.add_or_update_state(previous_state);
+    dedupe_optimizer.add_or_update_state(next_state);
+    gaussian_lic_tracking::ImuPreintegrator duplicate_preintegration;
+    duplicate_preintegration.reset(previous_state.stamp_ns);
+    duplicate_preintegration.add_measurement(
+      state.stamp_ns,
+      Eigen::Vector3d::Zero(),
+      Eigen::Vector3d::Zero());
+    gaussian_lic_tracking::SlidingWindowImuFactor duplicate_imu_factor;
+    duplicate_imu_factor.from_stamp_ns = previous_state.stamp_ns;
+    duplicate_imu_factor.to_stamp_ns = state.stamp_ns;
+    duplicate_imu_factor.preintegration = duplicate_preintegration;
+    auto replacement_imu_factor = duplicate_imu_factor;
+    replacement_imu_factor.weight = 0.5;
+    dedupe_optimizer.add_imu_factor(duplicate_imu_factor);
+    dedupe_optimizer.add_imu_factor(replacement_imu_factor);
+    gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor smoothness;
+    smoothness.previous_stamp_ns = previous_state.stamp_ns;
+    smoothness.current_stamp_ns = state.stamp_ns;
+    smoothness.next_stamp_ns = next_state.stamp_ns;
+    auto duplicate_smoothness = smoothness;
+    duplicate_smoothness.position_rate_weight = 0.25;
+    dedupe_optimizer.add_trajectory_smoothness_factor(smoothness);
+    dedupe_optimizer.add_trajectory_smoothness_factor(duplicate_smoothness);
     const auto dedupe_summary = dedupe_optimizer.optimize();
-    if (dedupe_summary.pose_prior_count != 1U || dedupe_summary.state_prior_count != 1U)
+    if (dedupe_summary.pose_prior_count != 1U || dedupe_summary.state_prior_count != 1U ||
+      dedupe_summary.imu_factor_count != 1U || dedupe_summary.smoothness_factor_count != 1U ||
+      dedupe_summary.imu_factor_replacement_count != 1U ||
+      dedupe_summary.smoothness_factor_replacement_count != 1U)
     {
-      std::cerr << "sliding window optimizer duplicated same-stamp priors\n";
+      std::cerr << "sliding window optimizer failed to replace duplicate priors/factors\n";
       return 1;
     }
   }

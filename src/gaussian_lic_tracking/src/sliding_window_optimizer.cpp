@@ -456,6 +456,8 @@ void SlidingWindowOptimizer::clear()
   visual_factors_.clear();
   se3_photometric_factors_.clear();
   smoothness_factors_.clear();
+  imu_factor_replacement_count_ = 0U;
+  smoothness_factor_replacement_count_ = 0U;
   marginalized_state_count_ = 0U;
 }
 
@@ -543,6 +545,7 @@ void SlidingWindowOptimizer::add_imu_factor(const SlidingWindowImuFactor & facto
     imu_factors_.push_back(factor);
   } else {
     *existing = factor;
+    ++imu_factor_replacement_count_;
   }
   enforce_window_size();
 }
@@ -775,6 +778,7 @@ void SlidingWindowOptimizer::add_trajectory_smoothness_factor(
     smoothness_factors_.push_back(factor);
   } else {
     *existing = factor;
+    ++smoothness_factor_replacement_count_;
   }
   enforce_window_size();
 }
@@ -1763,6 +1767,8 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.visual_factor_count = visual_factors_.size();
   summary.se3_photometric_factor_count = se3_photometric_factors_.size();
   summary.smoothness_factor_count = smoothness_factors_.size();
+  summary.imu_factor_replacement_count = imu_factor_replacement_count_;
+  summary.smoothness_factor_replacement_count = smoothness_factor_replacement_count_;
   summary.orphan_factor_count = count_orphan_factors();
   if (states_.size() >= 2U) {
     summary.min_state_dt_s = std::numeric_limits<double>::infinity();

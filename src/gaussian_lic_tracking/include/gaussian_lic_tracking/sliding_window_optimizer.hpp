@@ -153,6 +153,8 @@ struct SlidingWindowSummary
   size_t visual_factor_count{0};
   size_t se3_photometric_factor_count{0};
   size_t smoothness_factor_count{0};
+  size_t imu_factor_replacement_count{0};
+  size_t smoothness_factor_replacement_count{0};
   size_t orphan_factor_count{0};
   size_t marginalized_state_count{0};
   size_t dense_prior_rows{0};
@@ -293,6 +295,8 @@ private:
   std::vector<SlidingWindowVisualAlignmentFactor> visual_factors_;
   std::vector<SlidingWindowSe3PhotometricFactor> se3_photometric_factors_;
   std::vector<SlidingWindowTrajectorySmoothnessFactor> smoothness_factors_;
+  size_t imu_factor_replacement_count_{0};
+  size_t smoothness_factor_replacement_count_{0};
   size_t marginalized_state_count_{0};
 };
 
