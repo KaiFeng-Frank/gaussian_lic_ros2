@@ -25,6 +25,8 @@ struct LidarFactorConfig
   double max_correction_m{0.25};
   double max_rotation_rad{0.08};
   double robust_kernel_m{0.15};
+  size_t plane_min_neighbors{5};
+  double plane_max_condition{0.2};
 };
 
 struct LidarCorrection
@@ -63,6 +65,10 @@ public:
     const TrajectoryPose & predicted_pose) const;
 
   SlidingWindowPointToPointFactor build_point_to_point_factor(
+    const std::vector<Eigen::Vector3d> & frame_points_i,
+    const TrajectoryPose & predicted_pose) const;
+
+  SlidingWindowPointToPlaneFactor build_point_to_plane_factor(
     const std::vector<Eigen::Vector3d> & frame_points_i,
     const TrajectoryPose & predicted_pose) const;
 

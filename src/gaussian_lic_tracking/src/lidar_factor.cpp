@@ -7,6 +7,7 @@
 #include <limits>
 #include <stdexcept>
 
+#include <Eigen/Eigenvalues>
 #include <Eigen/SVD>
 
 namespace gaussian_lic_tracking
@@ -40,6 +41,12 @@ void LidarFactor::set_config(const LidarFactorConfig & config)
   }
   if (config.robust_kernel_m <= 0.0) {
     throw std::runtime_error("LiDAR factor robust kernel must be positive");
+  }
+  if (config.plane_min_neighbors < 3U) {
+    throw std::runtime_error("LiDAR plane factor needs at least three neighbors");
+  }
+  if (config.plane_max_condition <= 0.0) {
+    throw std::runtime_error("LiDAR plane condition threshold must be positive");
   }
   config_ = config;
 }
@@ -254,6 +261,92 @@ SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
   if (factor.frame_points_i.size() < config_.min_points) {
     factor.frame_points_i.clear();
     factor.target_points_w.clear();
+    factor.point_weights.clear();
+  }
+  return factor;
+}
+
+SlidingWindowPointToPlaneFactor LidarFactor::build_point_to_plane_factor(
+  const std::vector<Eigen::Vector3d> & frame_points_i,
+  const TrajectoryPose & predicted_pose) const
+{
+  SlidingWindowPointToPlaneFactor factor;
+  factor.stamp_ns = predicted_pose.stamp_ns;
+  if (frame_points_i.size() < config_.min_points || map_points_w_.size() < config_.plane_min_neighbors) {
+    return factor;
+  }
+
+  const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
+  factor.frame_points_i.reserve(sampled.size());
+  factor.target_points_w.reserve(sampled.size());
+  factor.target_normals_w.reserve(sampled.size());
+  factor.point_weights.reserve(sampled.size());
+  factor.weight = 1.0 / std::max(config_.nearest_distance_m * config_.nearest_distance_m, 1.0e-12);
+
+  for (const auto & point_i : sampled) {
+    const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
+    std::vector<std::pair<double, Eigen::Vector3d>> neighbors;
+    neighbors.reserve(config_.plane_min_neighbors);
+    for (const auto & map_point_w : map_points_w_) {
+      const double distance_sq = (map_point_w - point_w).squaredNorm();
+      if (distance_sq > max_distance_sq) {
+        continue;
+      }
+      neighbors.emplace_back(distance_sq, map_point_w);
+      std::sort(
+        neighbors.begin(), neighbors.end(),
+        [](const auto & lhs, const auto & rhs) {
+          return lhs.first < rhs.first;
+        });
+      if (neighbors.size() > config_.plane_min_neighbors) {
+        neighbors.pop_back();
+      }
+    }
+    if (neighbors.size() < config_.plane_min_neighbors) {
+      continue;
+    }
+
+    Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
+    for (const auto & neighbor : neighbors) {
+      centroid += neighbor.second;
+    }
+    centroid /= static_cast<double>(neighbors.size());
+    Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
+    for (const auto & neighbor : neighbors) {
+      const Eigen::Vector3d centered = neighbor.second - centroid;
+      covariance += centered * centered.transpose();
+    }
+    covariance /= static_cast<double>(neighbors.size());
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(covariance);
+    if (solver.info() != Eigen::Success) {
+      continue;
+    }
+    const auto eigenvalues = solver.eigenvalues();
+    const double condition = eigenvalues[1] > 1.0e-12
+      ? eigenvalues[0] / eigenvalues[1]
+      : std::numeric_limits<double>::infinity();
+    if (condition > config_.plane_max_condition) {
+      continue;
+    }
+    Eigen::Vector3d normal = solver.eigenvectors().col(0).normalized();
+    const double signed_distance = normal.dot(point_w - centroid);
+    if (std::abs(signed_distance) > config_.nearest_distance_m) {
+      continue;
+    }
+    if (signed_distance > 0.0) {
+      normal *= -1.0;
+    }
+    factor.frame_points_i.push_back(point_i);
+    factor.target_points_w.push_back(centroid);
+    factor.target_normals_w.push_back(normal);
+    factor.point_weights.push_back(
+      std::min(1.0, config_.robust_kernel_m / std::max(std::abs(signed_distance), 1.0e-12)));
+  }
+  if (factor.frame_points_i.size() < config_.min_points) {
+    factor.frame_points_i.clear();
+    factor.target_points_w.clear();
+    factor.target_normals_w.clear();
     factor.point_weights.clear();
   }
   return factor;

@@ -73,6 +73,8 @@ public:
     lidar_max_correction_m_ = declare_parameter<double>("lidar_max_correction_m", 0.25);
     lidar_max_rotation_rad_ = declare_parameter<double>("lidar_max_rotation_rad", 0.08);
     lidar_robust_kernel_m_ = declare_parameter<double>("lidar_robust_kernel_m", 0.15);
+    lidar_plane_min_neighbors_ = declare_parameter<int>("lidar_plane_min_neighbors", 5);
+    lidar_plane_max_condition_ = declare_parameter<double>("lidar_plane_max_condition", 0.2);
     lidar_keyframe_translation_m_ = declare_parameter<double>("lidar_keyframe_translation_m", 0.25);
     enable_lidar_deskew_ = declare_parameter<bool>("enable_lidar_deskew", true);
     lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
@@ -111,6 +113,8 @@ public:
     lidar_config.max_correction_m = lidar_max_correction_m_;
     lidar_config.max_rotation_rad = lidar_max_rotation_rad_;
     lidar_config.robust_kernel_m = lidar_robust_kernel_m_;
+    lidar_config.plane_min_neighbors = static_cast<size_t>(std::max(lidar_plane_min_neighbors_, 3));
+    lidar_config.plane_max_condition = lidar_plane_max_condition_;
     lidar_factor_.set_config(lidar_config);
     visual_factor_.set_max_pixels(static_cast<size_t>(std::max(visual_max_pixels_, 1)));
 
@@ -338,11 +342,16 @@ private:
     pointcloud_pub_->publish(output_cloud);
 
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> window_point_factors;
+    std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> window_plane_factors;
     if (enable_lio_factor_) {
       if (enable_sliding_window_optimizer_) {
         auto lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
         if (!lidar_window_factor.frame_points_i.empty()) {
           window_point_factors.push_back(std::move(lidar_window_factor));
+        }
+        auto lidar_plane_factor = lidar_factor_.build_point_to_plane_factor(lidar_points, tracking_pose);
+        if (!lidar_plane_factor.frame_points_i.empty()) {
+          window_plane_factors.push_back(std::move(lidar_plane_factor));
         }
         if (enable_gaussian_snapshot_lidar_factor_ && gaussian_snapshot_.complete()) {
           auto gaussian_window_factor = gaussian_snapshot_.build_point_to_point_factor(
@@ -389,6 +398,7 @@ private:
       tracking_pose = update_sliding_window(
         tracking_pose,
         window_point_factors,
+        window_plane_factors,
         visual_window_factors);
     }
 
@@ -438,6 +448,7 @@ private:
   gaussian_lic_tracking::TrajectoryPose update_sliding_window(
     const gaussian_lic_tracking::TrajectoryPose & input_pose,
     const std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> & point_factors,
+    const std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> & plane_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor> & visual_factors)
   {
     gaussian_lic_tracking::TrajectoryPose output_pose = input_pose;
@@ -475,6 +486,15 @@ private:
           "sliding window point factor skipped: %s", ex.what());
       }
     }
+    for (const auto & plane_factor : plane_factors) {
+      try {
+        sliding_window_optimizer_.add_point_to_plane_factor(plane_factor);
+      } catch (const std::exception & ex) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window plane factor skipped: %s", ex.what());
+      }
+    }
     for (const auto & visual_factor : visual_factors) {
       try {
         sliding_window_optimizer_.add_visual_alignment_factor(visual_factor);
@@ -507,10 +527,14 @@ private:
         }
         RCLCPP_DEBUG_THROTTLE(
           get_logger(), *get_clock(), 2000,
-          "sliding window states=%zu imu_factors=%zu priors=%zu cost %.6g -> %.6g",
+          "sliding window states=%zu imu=%zu pose_priors=%zu dense_priors=%zu point=%zu plane=%zu visual=%zu cost %.6g -> %.6g",
           summary.state_count,
           summary.imu_factor_count,
           summary.pose_prior_count,
+          summary.dense_prior_count,
+          summary.point_factor_count,
+          summary.plane_factor_count,
+          summary.visual_factor_count,
           summary.initial_cost,
           summary.final_cost);
       } catch (const std::exception & ex) {
@@ -954,6 +978,8 @@ private:
   double lidar_max_correction_m_{0.25};
   double lidar_max_rotation_rad_{0.08};
   double lidar_robust_kernel_m_{0.15};
+  int lidar_plane_min_neighbors_{5};
+  double lidar_plane_max_condition_{0.2};
   double lidar_keyframe_translation_m_{0.25};
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;

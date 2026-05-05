@@ -79,6 +79,16 @@ struct SlidingWindowPointToPointFactor
   double weight{1.0};
 };
 
+struct SlidingWindowPointToPlaneFactor
+{
+  int64_t stamp_ns{0};
+  std::vector<Eigen::Vector3d> frame_points_i;
+  std::vector<Eigen::Vector3d> target_points_w;
+  std::vector<Eigen::Vector3d> target_normals_w;
+  std::vector<double> point_weights;
+  double weight{1.0};
+};
+
 struct SlidingWindowVisualAlignmentFactor
 {
   int64_t stamp_ns{0};
@@ -104,6 +114,7 @@ struct SlidingWindowSummary
   size_t state_prior_count{0};
   size_t dense_prior_count{0};
   size_t point_factor_count{0};
+  size_t plane_factor_count{0};
   size_t visual_factor_count{0};
   size_t marginalized_state_count{0};
   size_t iterations{0};
@@ -156,6 +167,7 @@ public:
   void add_state_prior(const SlidingWindowStatePrior & prior);
   void add_dense_prior(const SlidingWindowDensePrior & prior);
   void add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor);
+  void add_point_to_plane_factor(const SlidingWindowPointToPlaneFactor & factor);
   void add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor);
 
   SlidingWindowNormalEquation build_normal_equation(double damping = 0.0) const;
@@ -199,6 +211,7 @@ private:
   std::vector<SlidingWindowStatePrior> state_priors_;
   std::vector<SlidingWindowDensePrior> dense_priors_;
   std::vector<SlidingWindowPointToPointFactor> point_factors_;
+  std::vector<SlidingWindowPointToPlaneFactor> plane_factors_;
   std::vector<SlidingWindowVisualAlignmentFactor> visual_factors_;
   size_t marginalized_state_count_{0};
 };

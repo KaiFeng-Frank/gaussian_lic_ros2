@@ -119,6 +119,36 @@ int main()
     return 1;
   }
 
+  std::vector<Eigen::Vector3d> plane_scan;
+  for (int y = 0; y < 6; ++y) {
+    for (int x = 0; x < 6; ++x) {
+      plane_scan.emplace_back(0.1 * static_cast<double>(x), 0.1 * static_cast<double>(y), 0.0);
+    }
+  }
+  factor.clear();
+  factor.insert_keyframe(plane_scan, identity);
+  gaussian_lic_tracking::TrajectoryPose plane_prediction;
+  plane_prediction.stamp_ns = 300000000LL;
+  plane_prediction.q_w_i = Eigen::Quaterniond::Identity();
+  plane_prediction.p_w_i = Eigen::Vector3d{0.0, 0.0, 0.05};
+  const auto plane_factor = factor.build_point_to_plane_factor(plane_scan, plane_prediction);
+  std::cout << " lidar_plane_factor correspondences=" << plane_factor.frame_points_i.size()
+            << " normals=" << plane_factor.target_normals_w.size() << "\n";
+  if (plane_factor.frame_points_i.size() < config.min_points ||
+    plane_factor.frame_points_i.size() != plane_factor.target_points_w.size() ||
+    plane_factor.frame_points_i.size() != plane_factor.target_normals_w.size() ||
+    plane_factor.point_weights.size() != plane_factor.frame_points_i.size())
+  {
+    std::cerr << "LiDAR point-to-plane window factor is invalid\n";
+    return 1;
+  }
+  for (const auto & normal : plane_factor.target_normals_w) {
+    if (std::abs(std::abs(normal.z()) - 1.0) > 1.0e-6) {
+      std::cerr << "LiDAR plane normal is not aligned with the fitted plane\n";
+      return 1;
+    }
+  }
+
   factor.clear();
   const auto empty_correction = factor.compute_translation_correction(scan, predicted);
   if (empty_correction.applied) {

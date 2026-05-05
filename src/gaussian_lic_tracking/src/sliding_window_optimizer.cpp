@@ -111,6 +111,7 @@ void SlidingWindowOptimizer::clear()
   state_priors_.clear();
   dense_priors_.clear();
   point_factors_.clear();
+  plane_factors_.clear();
   visual_factors_.clear();
   marginalized_state_count_ = 0U;
 }
@@ -232,6 +233,26 @@ void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointT
   enforce_window_size();
 }
 
+void SlidingWindowOptimizer::add_point_to_plane_factor(const SlidingWindowPointToPlaneFactor & factor)
+{
+  if (factor.weight <= 0.0) {
+    throw std::runtime_error("point-to-plane factor weight must be positive");
+  }
+  if (factor.frame_points_i.size() != factor.target_points_w.size() ||
+    factor.frame_points_i.size() != factor.target_normals_w.size())
+  {
+    throw std::runtime_error("point-to-plane factor source/target/normal sizes must match");
+  }
+  if (!factor.point_weights.empty() && factor.point_weights.size() != factor.frame_points_i.size()) {
+    throw std::runtime_error("point-to-plane factor weights must match correspondences");
+  }
+  if (factor.frame_points_i.empty()) {
+    return;
+  }
+  plane_factors_.push_back(factor);
+  enforce_window_size();
+}
+
 void SlidingWindowOptimizer::add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor)
 {
   if (factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0) {
@@ -317,6 +338,13 @@ size_t SlidingWindowOptimizer::enforce_window_size()
           return factor.stamp_ns == stamp_ns;
         }),
       point_factors_.end());
+    plane_factors_.erase(
+      std::remove_if(
+        plane_factors_.begin(), plane_factors_.end(),
+        [stamp_ns](const SlidingWindowPointToPlaneFactor & factor) {
+          return factor.stamp_ns == stamp_ns;
+        }),
+      plane_factors_.end());
     visual_factors_.erase(
       std::remove_if(
         visual_factors_.begin(), visual_factors_.end(),
@@ -384,7 +412,8 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   std::vector<double> values;
   values.reserve(
     imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
-    dense_priors_.size() * 30U + point_factors_.size() * 300U + visual_factors_.size() * 2U);
+    dense_priors_.size() * 30U + point_factors_.size() * 300U + plane_factors_.size() * 100U +
+    visual_factors_.size() * 2U);
 
   auto append = [&values](const Eigen::VectorXd & residual) {
       for (Eigen::Index i = 0; i < residual.size(); ++i) {
@@ -512,6 +541,27 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
         factor.target_points_w[point_index];
       append(scale * residual);
     }
+  }
+
+  for (const auto & factor : plane_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    Eigen::VectorXd residual(static_cast<Eigen::Index>(factor.frame_points_i.size()));
+    for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      const double robust_weight = factor.point_weights.empty()
+        ? 1.0
+        : std::max(0.0, factor.point_weights[point_index]);
+      const double scale = std::sqrt(factor.weight * robust_weight);
+      const Eigen::Vector3d point_w =
+        state.q_w_i * factor.frame_points_i[point_index] + state.p_w_i;
+      residual[static_cast<Eigen::Index>(point_index)] =
+        scale * factor.target_normals_w[point_index].normalized().dot(
+        point_w - factor.target_points_w[point_index]);
+    }
+    append(residual);
   }
 
   for (const auto & factor : visual_factors_) {
@@ -719,6 +769,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.state_prior_count = state_priors_.size();
   summary.dense_prior_count = dense_priors_.size();
   summary.point_factor_count = point_factors_.size();
+  summary.plane_factor_count = plane_factors_.size();
   summary.visual_factor_count = visual_factors_.size();
   Eigen::VectorXd residual = build_residual(states_);
   summary.initial_cost = compute_cost(residual);

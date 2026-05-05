@@ -170,6 +170,7 @@ baseline_manifest.json
 - [x] Feed Schur-complement marginalization back into the live sliding window as retained-state dense priors, with fallback to diagonal anchoring when the marginalized block has no information.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
 - [x] Add per-correspondence robust weighting for LiDAR and Gaussian-map point-to-point tracking-window factors.
+- [x] Add LiDAR point-to-plane tracking-window factors from local plane fits with deterministic CTest coverage.
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
 - [x] Add subpixel refinement for visual alignment factors before they enter the optional tracking window.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.

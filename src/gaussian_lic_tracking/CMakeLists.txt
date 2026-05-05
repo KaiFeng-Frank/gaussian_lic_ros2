@@ -174,6 +174,16 @@ target_link_libraries(sliding_window_point_factor_probe
 )
 ament_target_dependencies(sliding_window_point_factor_probe builtin_interfaces)
 
+add_executable(sliding_window_plane_factor_probe
+  test/sliding_window_plane_factor_probe.cpp
+)
+target_include_directories(sliding_window_plane_factor_probe PRIVATE include)
+target_link_libraries(sliding_window_plane_factor_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(sliding_window_plane_factor_probe builtin_interfaces)
+
 add_executable(sliding_window_visual_factor_probe
   test/sliding_window_visual_factor_probe.cpp
 )
@@ -210,7 +220,7 @@ ament_target_dependencies(tracking_node
   tf2_ros
 )
 
-install(TARGETS trajectory_manager trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_marginalization_probe sliding_window_dense_prior_probe schur_complement_probe sliding_window_normal_equation_probe sliding_window_schur_marginalization_probe sliding_window_point_factor_probe sliding_window_visual_factor_probe visual_factor_probe tracking_node
+install(TARGETS trajectory_manager trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_marginalization_probe sliding_window_dense_prior_probe schur_complement_probe sliding_window_normal_equation_probe sliding_window_schur_marginalization_probe sliding_window_point_factor_probe sliding_window_plane_factor_probe sliding_window_visual_factor_probe visual_factor_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -232,6 +242,7 @@ if(BUILD_TESTING)
   add_test(NAME sliding_window_normal_equation_probe COMMAND $<TARGET_FILE:sliding_window_normal_equation_probe>)
   add_test(NAME sliding_window_schur_marginalization_probe COMMAND $<TARGET_FILE:sliding_window_schur_marginalization_probe>)
   add_test(NAME sliding_window_point_factor_probe COMMAND $<TARGET_FILE:sliding_window_point_factor_probe>)
+  add_test(NAME sliding_window_plane_factor_probe COMMAND $<TARGET_FILE:sliding_window_plane_factor_probe>)
   add_test(NAME sliding_window_visual_factor_probe COMMAND $<TARGET_FILE:sliding_window_visual_factor_probe>)
   add_test(NAME visual_factor_probe COMMAND $<TARGET_FILE:visual_factor_probe>)
 endif()
