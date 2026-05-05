@@ -43,6 +43,7 @@ def generate_launch_description():
     torch_gaussian_prune_min_opacity = LaunchConfiguration("torch_gaussian_prune_min_opacity")
     torch_gaussian_max_foreground = LaunchConfiguration("torch_gaussian_max_foreground")
     torch_gaussian_prune_count_policy = LaunchConfiguration("torch_gaussian_prune_count_policy")
+    torch_gaussian_prune_max_world_scale = LaunchConfiguration("torch_gaussian_prune_max_world_scale")
     enable_torch_gaussian_extend_visibility_filter = LaunchConfiguration("enable_torch_gaussian_extend_visibility_filter")
     torch_gaussian_extend_alpha_threshold = LaunchConfiguration("torch_gaussian_extend_alpha_threshold")
     torch_gaussian_opacity_reset_interval = LaunchConfiguration("torch_gaussian_opacity_reset_interval")
@@ -86,6 +87,7 @@ def generate_launch_description():
             "torch_gaussian_prune_min_opacity": torch_gaussian_prune_min_opacity,
             "torch_gaussian_max_foreground": torch_gaussian_max_foreground,
             "torch_gaussian_prune_count_policy": torch_gaussian_prune_count_policy,
+            "torch_gaussian_prune_max_world_scale": torch_gaussian_prune_max_world_scale,
             "enable_torch_gaussian_extend_visibility_filter": enable_torch_gaussian_extend_visibility_filter,
             "torch_gaussian_extend_alpha_threshold": torch_gaussian_extend_alpha_threshold,
             "torch_gaussian_opacity_reset_interval": torch_gaussian_opacity_reset_interval,
@@ -250,12 +252,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "enable_torch_camera_conversion",
-            default_value="false",
+            default_value="true",
             description="Enable optional TorchCamera creation when mapping_node was built with torch support",
         ),
         DeclareLaunchArgument(
             "enable_torch_gaussian_init",
-            default_value="false",
+            default_value="true",
             description="Enable optional Torch Gaussian map initialization when mapping_node was built with torch support",
         ),
         DeclareLaunchArgument(
@@ -275,12 +277,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "enable_torch_gaussian_optimization",
-            default_value="false",
+            default_value="true",
             description="Run the optional Torch photometric Gaussian tensor update on keyframes",
         ),
         DeclareLaunchArgument(
             "torch_gaussian_optimization_steps",
-            default_value="0",
+            default_value="100",
             description="Max accumulated train-frame optimizer samples per keyframe when enabled",
         ),
         DeclareLaunchArgument(
@@ -290,7 +292,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "enable_torch_gaussian_pruning",
-            default_value="false",
+            default_value="true",
             description="Prune low-opacity or excess foreground Gaussians after keyframe updates",
         ),
         DeclareLaunchArgument(
@@ -305,13 +307,18 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "torch_gaussian_max_foreground",
-            default_value="0",
+            default_value="1500000",
             description="Maximum foreground Gaussians retained by pruning; 0 disables count cap",
         ),
         DeclareLaunchArgument(
             "torch_gaussian_prune_count_policy",
-            default_value="opacity",
+            default_value="uniform",
             description="Foreground count-cap policy: opacity keeps highest-opacity Gaussians; uniform preserves insertion-order spatial coverage",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_prune_max_world_scale",
+            default_value="0.0",
+            description="Maximum foreground Gaussian world scale retained by pruning; 0 disables this gate",
         ),
         DeclareLaunchArgument(
             "torch_gaussian_opacity_reset_interval",
@@ -320,7 +327,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "torch_gaussian_device",
-            default_value="cpu",
+            default_value="cuda",
             description="Torch device for Gaussian initialization: cpu, cuda, cuda:0, or auto",
         ),
         DeclareLaunchArgument(
@@ -355,7 +362,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "render_mode",
-            default_value="debug_cpu",
+            default_value="rasterizer",
             description="Rendered output mode: debug_cpu, debug_input, rasterizer, or off",
         ),
         DeclareLaunchArgument(

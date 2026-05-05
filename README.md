@@ -394,13 +394,23 @@ Current outputs:
 /gaussian_lic/save_map
 ```
 
-`/gaussian_lic/rendered_image` currently defaults to:
+`/gaussian_lic/rendered_image` currently defaults to the CUDA rasterizer path:
 
 ```text
-render_mode:=debug_cpu
+render_mode:=rasterizer
+torch_gaussian_device:=cuda
 ```
 
-That mode is a CPU projected-map preview for normal lightweight launches. The strict CBD reproduction entrypoint overrides this to `render_mode:=rasterizer`, `torch_gaussian_device:=cuda`, Torch pruning, append-only upstream-style extension, and final-map render evaluation. ROS2 gradient split/clone densification is available as an explicit diagnostic switch, but it is off in the strict default because the released Gaussian-LIC2 path uses append-only `extend()`. `rendered_image_mode` is kept only as a deprecated compatibility alias.
+The packaged dataset profiles and launch defaults are biased toward the paper
+gate path now: Torch camera conversion, Gaussian initialization, CUDA device,
+photometric optimization, pruning, append-only upstream-style extension, and
+rasterizer preview are on by default. `scripts/collect_current_results.sh`
+still preserves its explicit `--torch` contract: when the script is called
+without `--torch`, it passes launch overrides that disable Torch even though the
+general launch defaults are CUDA-first. ROS2 gradient split/clone densification
+is available as an explicit diagnostic switch, but it is off by default because
+the released Gaussian-LIC2 path uses append-only `extend()`.
+`rendered_image_mode` is kept only as a deprecated compatibility alias.
 
 See [docs/STATUS_SCHEMA.md](docs/STATUS_SCHEMA.md) for the status topic schema.
 
@@ -596,14 +606,17 @@ Latest local strict run, 2026-05-05:
 - Current vs ROS1 quality is close but still below the paper gate: ROS2 novel
   PSNR 12.14 dB vs ROS1 12.70 dB passes the 5% gate, ROS2 novel LPIPS 0.751 vs
   ROS1 0.751 passes, but ROS2 novel SSIM 0.297 vs ROS1 0.364 still fails with
-  an 18.43% regression. The 64-pair strict render summary reports mean PSNR
-  22.67 dB and mean SSIM 0.954.
+  an 18.43% regression. After hardening the render-pair gate to sample evenly
+  across the whole sequence instead of the first sorted frames, the 64-pair
+  ROS1-vs-ROS2 render summary is mean PSNR 19.80 dB and mean SSIM 0.625.
 - Chamfer/point-cloud parity still fails, but only three point-cloud thresholds
   remain over the line: centroid drift is 1.07 m, bidirectional nearest mean is
   0.1068 m, and bidirectional nearest RMSE is 0.1521 m. The unmatched ratio
-  passes at 2.88%. The next blocker is residual scale/camera/geometry parity,
-  not missing render pairs, OOM, ROS2-only densification, opacity reset, or a
-  disabled CUDA runtime.
+  passes at 2.88%. The point-count gate now uses declared PLY vertices instead
+  of the downsampled load count; the current declared count ratio is 0.609
+  while the diagnostic loaded sample ratio is 0.974. The next blocker is
+  residual scale/camera/geometry parity, not missing render pairs, OOM,
+  ROS2-only densification, opacity reset, or a disabled CUDA runtime.
 
 So the strict chain now produces full-frame, same-cadence numbers and passes the
 strict trajectory coverage gate, but the remaining blocker is algorithmic parity

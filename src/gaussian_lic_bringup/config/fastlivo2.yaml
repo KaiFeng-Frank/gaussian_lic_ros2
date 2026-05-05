@@ -27,6 +27,8 @@ mapping_node:
     depth_completion_engine_path: ""
     patch_size: 10
     max_depth: 20.0
+    enable_torch_camera_conversion: true
+    enable_torch_gaussian_init: true
     sh_degree: 3
     white_background: false
     random_background: false
@@ -48,20 +50,26 @@ mapping_node:
     gaussian_init_min_points: 1
     gaussian_init_min_keyframes: 1
     enable_torch_gaussian_extend: true
-    enable_torch_gaussian_optimization: false
-    torch_gaussian_optimization_steps: 0
+    enable_torch_gaussian_extend_visibility_filter: true
+    torch_gaussian_extend_alpha_threshold: 0.99
+    enable_torch_gaussian_optimization: true
+    torch_gaussian_optimization_steps: 100
     torch_gaussian_optimization_max_samples: 4096
-    enable_torch_gaussian_pruning: false
+    enable_torch_gaussian_pruning: true
     torch_gaussian_prune_min_opacity: 0.005
-    torch_gaussian_max_foreground: 0
+    torch_gaussian_max_foreground: 1500000
+    torch_gaussian_prune_count_policy: uniform
+    torch_gaussian_prune_max_world_scale: 0.0
+    enable_torch_gaussian_densification: false
+    torch_gaussian_opacity_reset_interval: 0
     skybox_points_num: 0
     skybox_radius: 1000.0
-    torch_gaussian_device: cpu
+    torch_gaussian_device: cuda
     gaussian_map_chunk_size: 1024
     max_path_length: 5000
     max_map_points: 200000
     publish_rendered_preview: true
-    render_mode: debug_cpu
+    render_mode: rasterizer
     active_profile: fastlivo2
     odometry_topic: /gaussian_lic/odometry
     path_topic: /gaussian_lic/path

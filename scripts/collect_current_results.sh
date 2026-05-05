@@ -12,6 +12,7 @@ TORCH_OPTIMIZATION_STEPS=0
 TORCH_MAX_FOREGROUND=0
 TORCH_PRUNE_MIN_OPACITY=0.005
 TORCH_PRUNE_COUNT_POLICY=opacity
+TORCH_PRUNE_MAX_WORLD_SCALE=0.0
 TORCH_EXTEND_VISIBILITY_FILTER=true
 TORCH_EXTEND_ALPHA_THRESHOLD=0.99
 TORCH_OPACITY_RESET_INTERVAL=0
@@ -62,6 +63,8 @@ Options:
   --torch-max-foreground N     Enable Torch pruning and retain at most N foreground Gaussians.
   --torch-prune-min-opacity X  Enable Torch pruning and drop foreground Gaussians below opacity X.
   --torch-prune-count-policy P Count-cap policy: opacity or uniform. Default: opacity.
+  --torch-prune-max-world-scale X
+                               Enable Torch pruning and drop foreground Gaussians whose max scale exceeds X meters; 0 disables.
   --no-torch-extend-visibility-filter
                                Append all pending points instead of filtering to current-view alpha holes.
   --torch-extend-alpha-threshold X
@@ -130,6 +133,11 @@ while [[ $# -gt 0 ]]; do
     --torch-prune-count-policy)
       ENABLE_TORCH=true
       TORCH_PRUNE_COUNT_POLICY="$2"
+      shift 2
+      ;;
+    --torch-prune-max-world-scale)
+      ENABLE_TORCH=true
+      TORCH_PRUNE_MAX_WORLD_SCALE="$2"
       shift 2
       ;;
     --no-torch-extend-visibility-filter)
@@ -335,12 +343,22 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
     torch_gaussian_prune_min_opacity:="${TORCH_PRUNE_MIN_OPACITY}"
     torch_gaussian_max_foreground:="${TORCH_MAX_FOREGROUND}"
     torch_gaussian_prune_count_policy:="${TORCH_PRUNE_COUNT_POLICY}"
+    torch_gaussian_prune_max_world_scale:="${TORCH_PRUNE_MAX_WORLD_SCALE}"
     enable_torch_gaussian_extend_visibility_filter:="${TORCH_EXTEND_VISIBILITY_FILTER}"
     torch_gaussian_extend_alpha_threshold:="${TORCH_EXTEND_ALPHA_THRESHOLD}"
     torch_gaussian_opacity_reset_interval:="${TORCH_OPACITY_RESET_INTERVAL}"
     torch_gaussian_device:="${TORCH_DEVICE}"
     publish_gaussian_map:="${PUBLISH_GAUSSIAN_MAP}"
     save_map_render_evaluation:="${FINAL_RENDER_EVAL}"
+  )
+else
+  launch_args+=(
+    enable_torch_camera_conversion:=false
+    enable_torch_gaussian_init:=false
+    enable_torch_gaussian_optimization:=false
+    enable_torch_gaussian_pruning:=false
+    enable_torch_gaussian_densification:=false
+    torch_gaussian_device:=cpu
   )
 fi
 
@@ -536,7 +554,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -576,6 +594,7 @@ metrics.update(
         "torch_extend_alpha_threshold": float(sys.argv[23]),
         "pytorch_cuda_alloc_conf": sys.argv[24],
         "torch_opacity_reset_interval": int(sys.argv[25]),
+        "torch_prune_max_world_scale": float(sys.argv[26]),
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

@@ -249,6 +249,20 @@ def match_render_pairs(baseline_images, current_images, baseline_root, current_r
     return pairs
 
 
+def sample_evenly(items, max_items):
+    if max_items <= 0 or len(items) <= max_items:
+        return list(items)
+    if max_items == 1:
+        return [items[0]]
+
+    sampled = []
+    last_index = len(items) - 1
+    for sample_index in range(max_items):
+        item_index = round(sample_index * last_index / (max_items - 1))
+        sampled.append(items[item_index])
+    return sampled
+
+
 def load_image_rgb(path):
     try:
         from PIL import Image  # noqa: PLC0415
@@ -317,7 +331,11 @@ def compare_render_pairs(args, baseline_dir, current_dir):
 
     psnr_values = []
     ssim_values = []
-    for baseline_path, current_path in pairs[: args.max_render_pairs]:
+    sampled_pairs = sample_evenly(pairs, args.max_render_pairs)
+    report["sampled_pair_count"] = len(sampled_pairs)
+    report["sampling"] = "evenly_spaced_full_sequence"
+
+    for baseline_path, current_path in sampled_pairs:
         try:
             baseline_image = load_image_rgb(baseline_path)
             current_image = load_image_rgb(current_path)
@@ -541,6 +559,8 @@ def render_markdown(report):
                     "## Render Pairs",
                     "",
                     f"Matched pairs: {render_pairs['matched_pair_count']}",
+                    f"Evaluated pairs: {render_pairs.get('sampled_pair_count', len(render_pairs.get('pairs', [])))}",
+                    f"Sampling: {render_pairs.get('sampling', 'first_n')}",
                     f"Mean PSNR: {summary['mean_psnr_db']:.3f} dB",
                     f"Mean SSIM: {summary['mean_ssim']:.6f}",
                 ]
@@ -567,6 +587,7 @@ def render_markdown(report):
                 "## Point Cloud",
                 "",
                 f"Count ratio: {point_cloud['count_ratio']:.3f}",
+                f"Loaded sample ratio: {point_cloud.get('loaded_count_ratio', point_cloud['count_ratio']):.3f}",
                 f"Centroid drift: {point_cloud['centroid_drift_m']:.6f} m",
                 f"Bidirectional nearest RMSE: {point_cloud['nearest']['bidirectional']['rmse_m']:.6f} m",
             ]

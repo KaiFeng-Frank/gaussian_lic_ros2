@@ -405,7 +405,8 @@ def compute_report(args):
     )
     bidirectional = forward + reverse
 
-    count_ratio = len(current.points) / max(1, len(baseline.points))
+    declared_count_ratio = current.declared_vertices / max(1, baseline.declared_vertices)
+    loaded_count_ratio = len(current.points) / max(1, len(baseline.points))
     unmatched_ratio = (forward_unmatched + reverse_unmatched) / max(1, len(bidirectional))
     color_report = {
         "compared": bool(baseline.colors and current.colors),
@@ -421,10 +422,14 @@ def compute_report(args):
 
     distance_summary = summarize_distances(bidirectional)
     errors = []
-    if count_ratio < args.min_count_ratio:
-        errors.append(f"point count ratio {count_ratio:.3f} < {args.min_count_ratio:.3f}")
-    if count_ratio > args.max_count_ratio:
-        errors.append(f"point count ratio {count_ratio:.3f} > {args.max_count_ratio:.3f}")
+    if declared_count_ratio < args.min_count_ratio:
+        errors.append(
+            f"declared point count ratio {declared_count_ratio:.3f} < {args.min_count_ratio:.3f}"
+        )
+    if declared_count_ratio > args.max_count_ratio:
+        errors.append(
+            f"declared point count ratio {declared_count_ratio:.3f} > {args.max_count_ratio:.3f}"
+        )
     if centroid_drift > args.max_centroid_drift_m:
         errors.append(f"centroid drift {centroid_drift:.6f} m > {args.max_centroid_drift_m:.6f} m")
     if distance_summary["rmse_m"] > args.max_chamfer_rmse_m:
@@ -474,7 +479,9 @@ def compute_report(args):
             "current_offset_removed": list(offset),
         },
         "voxel_size_m": args.voxel_size,
-        "count_ratio": count_ratio,
+        "count_ratio": declared_count_ratio,
+        "declared_count_ratio": declared_count_ratio,
+        "loaded_count_ratio": loaded_count_ratio,
         "centroid_drift_m": centroid_drift,
         "nearest": {
             "forward": {

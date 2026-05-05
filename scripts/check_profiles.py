@@ -58,13 +58,21 @@ REQUIRED_PARAMS = {
     "exposure_lr": (int, float),
     "gaussian_init_min_points": int,
     "gaussian_init_min_keyframes": int,
+    "enable_torch_camera_conversion": bool,
+    "enable_torch_gaussian_init": bool,
     "enable_torch_gaussian_extend": bool,
+    "enable_torch_gaussian_extend_visibility_filter": bool,
+    "torch_gaussian_extend_alpha_threshold": (int, float),
     "enable_torch_gaussian_optimization": bool,
     "torch_gaussian_optimization_steps": int,
     "torch_gaussian_optimization_max_samples": int,
     "enable_torch_gaussian_pruning": bool,
     "torch_gaussian_prune_min_opacity": (int, float),
     "torch_gaussian_max_foreground": int,
+    "torch_gaussian_prune_count_policy": str,
+    "torch_gaussian_prune_max_world_scale": (int, float),
+    "enable_torch_gaussian_densification": bool,
+    "torch_gaussian_opacity_reset_interval": int,
     "skybox_points_num": int,
     "skybox_radius": (int, float),
     "torch_gaussian_device": str,
@@ -142,6 +150,8 @@ def check_profile(path: Path) -> list[str]:
         errors.append("sensor_qos_history must be keep_last or keep_all")
     if params.get("render_mode") not in {"debug_cpu", "debug_input", "rasterizer", "off"}:
         errors.append("render_mode must be debug_cpu, debug_input, rasterizer, or off")
+    if params.get("torch_gaussian_prune_count_policy") not in {"opacity", "uniform"}:
+        errors.append("torch_gaussian_prune_count_policy must be opacity or uniform")
     if "rendered_image_mode" in params:
         errors.append("rendered_image_mode is deprecated; use render_mode")
 
@@ -168,6 +178,18 @@ def check_profile(path: Path) -> list[str]:
             errors.append(f"{key} must be non-negative")
 
     for key in (
+        "torch_gaussian_extend_alpha_threshold",
+        "torch_gaussian_prune_min_opacity",
+    ):
+        value = params.get(key)
+        if isinstance(value, (int, float)) and not 0.0 <= value <= 1.0:
+            errors.append(f"{key} must be in [0, 1]")
+
+    value = params.get("torch_gaussian_prune_max_world_scale")
+    if isinstance(value, (int, float)) and value < 0:
+        errors.append("torch_gaussian_prune_max_world_scale must be non-negative")
+
+    for key in (
         "max_queue_size",
         "sensor_qos_depth",
         "process_period_ms",
@@ -182,6 +204,16 @@ def check_profile(path: Path) -> list[str]:
         value = params.get(key)
         if isinstance(value, int) and value <= 0:
             errors.append(f"{key} must be positive")
+
+    for key in (
+        "torch_gaussian_optimization_steps",
+        "torch_gaussian_optimization_max_samples",
+        "torch_gaussian_max_foreground",
+        "torch_gaussian_opacity_reset_interval",
+    ):
+        value = params.get(key)
+        if isinstance(value, int) and value < 0:
+            errors.append(f"{key} must be non-negative")
 
     value = params.get("skybox_points_num")
     if isinstance(value, int) and value < 0:
