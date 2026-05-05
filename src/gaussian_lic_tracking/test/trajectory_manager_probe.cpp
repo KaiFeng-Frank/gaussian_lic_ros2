@@ -11,18 +11,21 @@ int main()
   constexpr int64_t dt_ns = 50000000LL;
   gaussian_lic_tracking::TrajectoryManager trajectory(dt_ns);
   const Eigen::Vector3d velocity(2.0, -0.5, 0.25);
+  constexpr double kYawRateRadS = 0.4;
 
   for (int i = 0; i < 8; ++i) {
     const int64_t stamp_ns = static_cast<int64_t>(i) * dt_ns;
+    const double t_s = static_cast<double>(stamp_ns) / 1.0e9;
     gaussian_lic_tracking::TrajectoryPose pose;
     pose.stamp_ns = stamp_ns;
-    pose.p_w_i = velocity * (static_cast<double>(stamp_ns) / 1.0e9);
-    pose.q_w_i = Eigen::Quaterniond::Identity();
+    pose.p_w_i = velocity * t_s;
+    pose.q_w_i = Eigen::Quaterniond(Eigen::AngleAxisd(kYawRateRadS * t_s, Eigen::Vector3d::UnitZ()));
     trajectory.add_control_pose(pose);
   }
 
   double max_position_error = 0.0;
   double max_velocity_error = 0.0;
+  double max_yaw_error = 0.0;
   for (int i = 2; i <= 8; ++i) {
     const int64_t stamp_ns = static_cast<int64_t>(i) * dt_ns / 2;
     gaussian_lic_tracking::TrajectoryPose query;
@@ -33,10 +36,15 @@ int main()
     const Eigen::Vector3d expected = velocity * (static_cast<double>(stamp_ns) / 1.0e9);
     max_position_error = std::max(max_position_error, (query.p_w_i - expected).norm());
     max_velocity_error = std::max(max_velocity_error, (query.v_w_i - velocity).norm());
-    if (std::abs(query.q_w_i.w() - 1.0) > 1.0e-12) {
-      std::cerr << "orientation drifted for constant-orientation trajectory\n";
-      return 1;
+    const Eigen::Quaterniond expected_q(
+      Eigen::AngleAxisd(
+        kYawRateRadS * static_cast<double>(stamp_ns) / 1.0e9,
+        Eigen::Vector3d::UnitZ()));
+    Eigen::Quaterniond yaw_error = (expected_q.inverse() * query.q_w_i).normalized();
+    if (yaw_error.w() < 0.0) {
+      yaw_error.coeffs() *= -1.0;
     }
+    max_yaw_error = std::max(max_yaw_error, 2.0 * yaw_error.vec().norm());
   }
 
   builtin_interfaces::msg::Time negative_stamp;
@@ -53,8 +61,11 @@ int main()
             << " dt_ns=" << trajectory.control_interval_ns()
             << " max_position_error=" << max_position_error
             << " max_velocity_error=" << max_velocity_error
+            << " max_yaw_error=" << max_yaw_error
             << " negative_ns=" << negative_ns << "\n";
-  if (max_position_error > 1.0e-9 || max_velocity_error > 1.0e-9) {
+  if (max_position_error > 1.0e-9 || max_velocity_error > 1.0e-9 ||
+    max_yaw_error > 1.0e-9)
+  {
     std::cerr << "constant-velocity cubic B-spline query error is too large\n";
     return 1;
   }

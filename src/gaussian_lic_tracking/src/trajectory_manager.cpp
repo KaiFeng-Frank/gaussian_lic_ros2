@@ -72,6 +72,66 @@ double TrajectoryManager::cubic_basis_derivative(const size_t basis_index, const
   }
 }
 
+Eigen::Vector3d quaternion_log(Eigen::Quaterniond quaternion)
+{
+  quaternion.normalize();
+  if (quaternion.w() < 0.0) {
+    quaternion.coeffs() *= -1.0;
+  }
+  const Eigen::Vector3d vector = quaternion.vec();
+  const double vector_norm = vector.norm();
+  if (vector_norm < 1.0e-12) {
+    return Eigen::Vector3d::Zero();
+  }
+  return std::atan2(vector_norm, quaternion.w()) * vector / vector_norm;
+}
+
+Eigen::Quaterniond quaternion_exp(const Eigen::Vector3d & tangent)
+{
+  const double theta = tangent.norm();
+  if (theta < 1.0e-12) {
+    return Eigen::Quaterniond::Identity();
+  }
+  return Eigen::Quaterniond(
+    std::cos(theta),
+    std::sin(theta) * tangent.x() / theta,
+    std::sin(theta) * tangent.y() / theta,
+    std::sin(theta) * tangent.z() / theta).normalized();
+}
+
+Eigen::Quaterniond shortest_relative(
+  const Eigen::Quaterniond & from,
+  const Eigen::Quaterniond & to)
+{
+  Eigen::Quaterniond relative = (from.normalized().inverse() * to.normalized()).normalized();
+  if (relative.w() < 0.0) {
+    relative.coeffs() *= -1.0;
+  }
+  return relative;
+}
+
+Eigen::Quaterniond squad_control(
+  const Eigen::Quaterniond & previous,
+  const Eigen::Quaterniond & current,
+  const Eigen::Quaterniond & next)
+{
+  const Eigen::Vector3d log_next = quaternion_log(shortest_relative(current, next));
+  const Eigen::Vector3d log_previous = quaternion_log(shortest_relative(current, previous));
+  return (current.normalized() * quaternion_exp(-0.25 * (log_next + log_previous))).normalized();
+}
+
+Eigen::Quaterniond squad(
+  const Eigen::Quaterniond & q0,
+  const Eigen::Quaterniond & q1,
+  const Eigen::Quaterniond & s0,
+  const Eigen::Quaterniond & s1,
+  const double u)
+{
+  const Eigen::Quaterniond geodesic = q0.normalized().slerp(u, q1.normalized());
+  const Eigen::Quaterniond control = s0.normalized().slerp(u, s1.normalized());
+  return geodesic.slerp(2.0 * u * (1.0 - u), control).normalized();
+}
+
 bool TrajectoryManager::find_segment(int64_t stamp_ns, size_t & segment_index, double & u) const
 {
   if (control_poses_.size() < 4) {
@@ -112,8 +172,16 @@ bool TrajectoryManager::query_pose(const int64_t stamp_ns, TrajectoryPose & pose
     pose.p_w_i += cubic_basis(basis, u) * control_pose.p_w_i;
     pose.v_w_i += cubic_basis_derivative(basis, u) * control_pose.p_w_i * inv_dt_s;
   }
-  pose.q_w_i = control_poses_[segment_index].q_w_i.slerp(
-    u, control_poses_[segment_index + 1U].q_w_i);
+  const auto & previous = control_poses_[segment_index - 1U].q_w_i;
+  const auto & start = control_poses_[segment_index].q_w_i;
+  const auto & end = control_poses_[segment_index + 1U].q_w_i;
+  const auto & next = control_poses_[segment_index + 2U].q_w_i;
+  pose.q_w_i = squad(
+    start,
+    end,
+    squad_control(previous, start, end),
+    squad_control(start, end, next),
+    u);
   pose.q_w_i.normalize();
   return true;
 }

@@ -50,8 +50,9 @@ ROS2 porting guardrails:
 Current ROS2 implementation status:
 
 - `gaussian_lic_tracking::TrajectoryManager` provides the first native
-  timestamp-safe cubic B-spline trajectory primitive with a constant-velocity
-  pose/velocity probe and negative-time roundtrip coverage.
+  timestamp-safe cubic B-spline trajectory primitive with position/velocity and
+  SO(3) cubic orientation constant-rate probes plus negative-time roundtrip
+  coverage.
 - `gaussian_lic_tracking::ImuPropagator` now keeps a bounded signed-nanosecond
   IMU state history for interpolation, and `ImuPreintegrator` stores raw IMU
   samples so the sliding window can reintegrate factors with candidate gyro and
