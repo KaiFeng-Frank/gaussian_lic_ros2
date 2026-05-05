@@ -166,6 +166,7 @@ baseline_manifest.json
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, pose/state priors, dense marginalization-prior anchoring, finite-difference Jacobians, window trimming, and deterministic convergence probes.
 - [x] Add Schur-complement normal-equation math coverage for the tracking marginalization path, with deterministic equivalence against the full normal-equation solve.
+- [x] Expose reusable sliding-window residual/Jacobian/Hessian/RHS normal-equation linearization and cover it with CTest.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.

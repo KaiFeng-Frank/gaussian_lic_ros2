@@ -453,6 +453,55 @@ double SlidingWindowOptimizer::compute_cost(const Eigen::VectorXd & residual) co
   return 0.5 * residual.squaredNorm();
 }
 
+SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
+  const std::vector<SlidingWindowState> & states,
+  const std::vector<VariableBlock> & variables,
+  const double damping) const
+{
+  SlidingWindowNormalEquation output;
+  if (damping < 0.0) {
+    return output;
+  }
+  output.residual = build_residual(states);
+  output.cost = compute_cost(output.residual);
+  output.variable_count = variables.size() * kStateDof;
+  const auto variable_count = static_cast<Eigen::Index>(output.variable_count);
+  output.jacobian = Eigen::MatrixXd::Zero(output.residual.size(), variable_count);
+  output.hessian = Eigen::MatrixXd::Zero(variable_count, variable_count);
+  output.rhs = Eigen::VectorXd::Zero(variable_count);
+  if (output.variable_count == 0U) {
+    output.valid = output.residual.allFinite();
+    return output;
+  }
+
+  for (size_t column = 0; column < output.variable_count; ++column) {
+    Eigen::VectorXd delta = Eigen::VectorXd::Zero(variable_count);
+    delta[static_cast<Eigen::Index>(column)] = config_.numeric_epsilon;
+    auto plus_states = states;
+    auto minus_states = states;
+    apply_delta(plus_states, variables, delta, 1.0);
+    apply_delta(minus_states, variables, delta, -1.0);
+    output.jacobian.col(static_cast<Eigen::Index>(column)) =
+      (build_residual(plus_states) - build_residual(minus_states)) /
+      (2.0 * config_.numeric_epsilon);
+  }
+
+  output.hessian = output.jacobian.transpose() * output.jacobian;
+  if (damping > 0.0) {
+    output.hessian += damping * Eigen::MatrixXd::Identity(variable_count, variable_count);
+  }
+  output.rhs = -output.jacobian.transpose() * output.residual;
+  output.valid = output.residual.allFinite() && output.jacobian.allFinite() &&
+    output.hessian.allFinite() && output.rhs.allFinite();
+  return output;
+}
+
+SlidingWindowNormalEquation SlidingWindowOptimizer::build_normal_equation(
+  const double damping) const
+{
+  return linearize(states_, variable_layout(), damping);
+}
+
 void SlidingWindowOptimizer::apply_delta(
   std::vector<SlidingWindowState> & states,
   const std::vector<VariableBlock> & variables,
@@ -502,28 +551,12 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
 
   double damping = config_.damping;
   for (size_t iteration = 0; iteration < config_.max_iterations; ++iteration) {
-    residual = build_residual(states_);
-    const double current_cost = compute_cost(residual);
-    Eigen::MatrixXd jacobian(residual.size(), static_cast<Eigen::Index>(variable_count));
-    for (size_t column = 0; column < variable_count; ++column) {
-      Eigen::VectorXd delta = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(variable_count));
-      delta[static_cast<Eigen::Index>(column)] = config_.numeric_epsilon;
-      auto plus_states = states_;
-      auto minus_states = states_;
-      apply_delta(plus_states, variables, delta, 1.0);
-      apply_delta(minus_states, variables, delta, -1.0);
-      jacobian.col(static_cast<Eigen::Index>(column)) =
-        (build_residual(plus_states) - build_residual(minus_states)) /
-        (2.0 * config_.numeric_epsilon);
+    const auto normal_equation = linearize(states_, variables, damping);
+    if (!normal_equation.valid) {
+      break;
     }
-
-    Eigen::MatrixXd normal =
-      jacobian.transpose() * jacobian +
-      damping * Eigen::MatrixXd::Identity(
-        static_cast<Eigen::Index>(variable_count),
-        static_cast<Eigen::Index>(variable_count));
-    const Eigen::VectorXd rhs = -jacobian.transpose() * residual;
-    const Eigen::VectorXd step = normal.ldlt().solve(rhs);
+    const double current_cost = normal_equation.cost;
+    const Eigen::VectorXd step = normal_equation.hessian.ldlt().solve(normal_equation.rhs);
     if (!step.allFinite()) {
       break;
     }

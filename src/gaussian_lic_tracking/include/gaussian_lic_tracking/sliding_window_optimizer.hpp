@@ -109,6 +109,17 @@ struct SchurComplementResult
   Eigen::VectorXd rhs;
 };
 
+struct SlidingWindowNormalEquation
+{
+  bool valid{false};
+  size_t variable_count{0};
+  Eigen::VectorXd residual;
+  Eigen::MatrixXd jacobian;
+  Eigen::MatrixXd hessian;
+  Eigen::VectorXd rhs;
+  double cost{0.0};
+};
+
 SchurComplementResult compute_schur_complement(
   const Eigen::MatrixXd & h_mm,
   const Eigen::MatrixXd & h_mr,
@@ -136,6 +147,7 @@ public:
   void add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor);
   void add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor);
 
+  SlidingWindowNormalEquation build_normal_equation(double damping = 0.0) const;
   SlidingWindowSummary optimize();
 
 private:
@@ -158,6 +170,10 @@ private:
   SlidingWindowStatePrior make_state_prior(const SlidingWindowState & state) const;
   std::vector<VariableBlock> variable_layout() const;
   Eigen::VectorXd build_residual(const std::vector<SlidingWindowState> & states) const;
+  SlidingWindowNormalEquation linearize(
+    const std::vector<SlidingWindowState> & states,
+    const std::vector<VariableBlock> & variables,
+    double damping) const;
   double compute_cost(const Eigen::VectorXd & residual) const;
   size_t enforce_window_size();
 
