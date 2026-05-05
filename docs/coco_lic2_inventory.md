@@ -69,6 +69,9 @@ Current ROS2 implementation status:
 - `tracking_node` applies ROS2-configurable camera-to-IMU extrinsics to convert
   camera-frame SE3 photometric Gauss-Newton deltas into body-frame sliding-window
   deltas before adding SE3 photometric BA factors.
+- Pending visual-alignment and SE3 photometric factors are consumed only when
+  their image stamps are within `visual_factor_max_dt_ns` of the LiDAR/window
+  state stamp, preserving signed-nanosecond rosbag2 replay semantics.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native

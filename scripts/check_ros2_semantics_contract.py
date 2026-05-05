@@ -106,6 +106,7 @@ def main() -> int:
         "lidar_to_imu_rpy_rad",
         "camera_to_imu_translation_m",
         "camera_to_imu_rpy_rad",
+        "visual_factor_max_dt_ns",
         "sliding_window_max_states",
         "sliding_window_max_iterations",
         "sliding_window_imu_weight",

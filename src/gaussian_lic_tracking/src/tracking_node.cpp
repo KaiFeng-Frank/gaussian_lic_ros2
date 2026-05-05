@@ -65,6 +65,8 @@ public:
     enable_visual_factor_ = declare_parameter<bool>("enable_visual_factor", true);
     enable_gaussian_snapshot_ = declare_parameter<bool>("enable_gaussian_snapshot", true);
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
+    visual_factor_max_dt_ns_ =
+      declare_parameter<int64_t>("visual_factor_max_dt_ns", 50000000LL);
     const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
@@ -404,11 +406,13 @@ private:
           static_cast<size_t>(std::max(se3_photometric_min_samples_, 1)))
         {
           pending_visual_se3_photometric_linearization_ = last_visual_se3_photometric_linearization_;
+          pending_visual_se3_photometric_stamp_ns_ = observed.stamp_ns;
           has_pending_visual_se3_photometric_ = true;
         }
       }
       if (last_visual_alignment_.valid) {
         pending_visual_alignment_ = last_visual_alignment_;
+        pending_visual_alignment_stamp_ns_ = observed.stamp_ns;
         has_pending_visual_alignment_ = true;
       }
       if (last_visual_residual_.valid) {
@@ -564,32 +568,40 @@ private:
     if (enable_sliding_window_optimizer_ && enable_visual_alignment_window_factor_ &&
       has_pending_visual_alignment_)
     {
-      gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor visual_factor;
-      visual_factor.stamp_ns = tracking_pose.stamp_ns;
-      visual_factor.reference_p_w_i = tracking_pose.p_w_i;
-      visual_factor.measured_shift_px = Eigen::Vector2d{
-        pending_visual_alignment_.subpixel_dx,
-        pending_visual_alignment_.subpixel_dy};
-      visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
-      visual_factor.weight = visual_alignment_window_weight_;
-      visual_window_factors.push_back(visual_factor);
+      if (pending_factor_stamp_is_fresh(pending_visual_alignment_stamp_ns_, tracking_pose.stamp_ns)) {
+        gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor visual_factor;
+        visual_factor.stamp_ns = tracking_pose.stamp_ns;
+        visual_factor.reference_p_w_i = tracking_pose.p_w_i;
+        visual_factor.measured_shift_px = Eigen::Vector2d{
+          pending_visual_alignment_.subpixel_dx,
+          pending_visual_alignment_.subpixel_dy};
+        visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
+        visual_factor.weight = visual_alignment_window_weight_;
+        visual_window_factors.push_back(visual_factor);
+      }
       has_pending_visual_alignment_ = false;
+      pending_visual_alignment_stamp_ns_.reset();
     }
     if (enable_sliding_window_optimizer_ && enable_se3_photometric_window_factor_ &&
       has_pending_visual_se3_photometric_)
     {
-      gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
-      factor.stamp_ns = tracking_pose.stamp_ns;
-      factor.reference_p_w_i = tracking_pose.p_w_i;
-      factor.reference_q_w_i = tracking_pose.q_w_i;
-      factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
-        q_i_c_,
-        p_i_c_,
-        pending_visual_se3_photometric_linearization_.gauss_newton_step);
-      factor.sqrt_information.setIdentity();
-      factor.weight = se3_photometric_window_weight_;
-      se3_photometric_factors.push_back(factor);
+      if (pending_factor_stamp_is_fresh(
+          pending_visual_se3_photometric_stamp_ns_, tracking_pose.stamp_ns))
+      {
+        gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
+        factor.stamp_ns = tracking_pose.stamp_ns;
+        factor.reference_p_w_i = tracking_pose.p_w_i;
+        factor.reference_q_w_i = tracking_pose.q_w_i;
+        factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
+          q_i_c_,
+          p_i_c_,
+          pending_visual_se3_photometric_linearization_.gauss_newton_step);
+        factor.sqrt_information.setIdentity();
+        factor.weight = se3_photometric_window_weight_;
+        se3_photometric_factors.push_back(factor);
+      }
       has_pending_visual_se3_photometric_ = false;
+      pending_visual_se3_photometric_stamp_ns_.reset();
     }
 
     if (enable_sliding_window_optimizer_) {
@@ -828,6 +840,19 @@ private:
       pose.v_w_i = state.v_w_i;
       append_trajectory_control_pose(pose);
     }
+  }
+
+  bool pending_factor_stamp_is_fresh(
+    const std::optional<int64_t> & factor_stamp_ns,
+    const int64_t target_stamp_ns) const
+  {
+    if (!factor_stamp_ns.has_value()) {
+      return false;
+    }
+    const int64_t delta_ns = factor_stamp_ns.value() > target_stamp_ns
+      ? factor_stamp_ns.value() - target_stamp_ns
+      : target_stamp_ns - factor_stamp_ns.value();
+    return delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL);
   }
 
   bool decode_image_gray(
@@ -1478,6 +1503,7 @@ private:
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
+  int64_t visual_factor_max_dt_ns_{50000000LL};
   Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};
@@ -1571,6 +1597,8 @@ private:
   gaussian_lic_tracking::VisualSe3PhotometricLinearization last_visual_se3_photometric_linearization_;
   gaussian_lic_tracking::VisualSe3PhotometricLinearization pending_visual_se3_photometric_linearization_;
   gaussian_lic_tracking::VisualAlignment pending_visual_alignment_;
+  std::optional<int64_t> pending_visual_alignment_stamp_ns_;
+  std::optional<int64_t> pending_visual_se3_photometric_stamp_ns_;
   size_t last_visual_se3_photometric_candidate_pixels_{0};
   size_t last_visual_se3_photometric_accepted_pixels_{0};
   double last_visual_se3_photometric_mean_abs_residual_{0.0};
