@@ -20,6 +20,7 @@ def generate_launch_description():
     frontend_adapter = LaunchConfiguration("frontend_adapter")
     adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
     adapter_imu_pose_fallback = LaunchConfiguration("adapter_imu_pose_fallback")
+    adapter_rotate_pointcloud_with_imu_pose = LaunchConfiguration("adapter_rotate_pointcloud_with_imu_pose")
     adapter_sync_image_to_pointcloud = LaunchConfiguration("adapter_sync_image_to_pointcloud")
     adapter_pointcloud_transform_profile = LaunchConfiguration("adapter_pointcloud_transform_profile")
     adapter_raw_pointcloud_topic = LaunchConfiguration("adapter_raw_pointcloud_topic")
@@ -129,6 +130,7 @@ def generate_launch_description():
             "raw_pointcloud_topic": adapter_raw_pointcloud_topic,
             "identity_pose_fallback": adapter_identity_pose_fallback,
             "imu_pose_fallback": adapter_imu_pose_fallback,
+            "rotate_pointcloud_with_imu_pose": adapter_rotate_pointcloud_with_imu_pose,
             "sync_image_to_pointcloud": adapter_sync_image_to_pointcloud,
             "pointcloud_transform_profile": adapter_pointcloud_transform_profile,
             "publish_tf": publish_tf,
@@ -175,6 +177,11 @@ def generate_launch_description():
             "adapter_imu_pose_fallback",
             default_value="false",
             description="Let the adapter integrate IMU gyro orientation for pose fallback when no odometry is available",
+        ),
+        DeclareLaunchArgument(
+            "adapter_rotate_pointcloud_with_imu_pose",
+            default_value="true",
+            description="Rotate adapter point clouds into the IMU fallback world frame, matching the ROS1 mapper-contract converter",
         ),
         DeclareLaunchArgument(
             "adapter_sync_image_to_pointcloud",

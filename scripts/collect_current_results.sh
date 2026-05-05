@@ -17,6 +17,7 @@ FINAL_RENDER_EVAL=false
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
+ROTATE_POINTCLOUD_WITH_IMU_POSE=true
 SYNC_IMAGE_TO_POINTCLOUD=false
 POINTCLOUD_TRANSFORM_PROFILE="identity"
 LIVOX_CUSTOM_BRIDGE=false
@@ -61,6 +62,8 @@ Options:
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
+  --no-rotate-pointcloud-with-imu-pose
+                               Keep adapter point clouds in the camera frame when IMU pose fallback is enabled.
   --sync-image-to-pointcloud   Re-stamp latest raw image/camera_info to each point-cloud stamp in the adapter.
   --fastlivo2-camera-lidar-transform
                                Transform raw FAST-LIVO2 LiDAR points into camera frame in the adapter.
@@ -134,6 +137,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --imu-pose-fallback)
       IMU_POSE_FALLBACK=true
+      shift
+      ;;
+    --no-rotate-pointcloud-with-imu-pose)
+      ROTATE_POINTCLOUD_WITH_IMU_POSE=false
       shift
       ;;
     --sync-image-to-pointcloud)
@@ -236,6 +243,7 @@ launch_args=(
   frontend_adapter:="${FRONTEND_ADAPTER}"
   adapter_identity_pose_fallback:="${IDENTITY_POSE_FALLBACK}"
   adapter_imu_pose_fallback:="${IMU_POSE_FALLBACK}"
+  adapter_rotate_pointcloud_with_imu_pose:="${ROTATE_POINTCLOUD_WITH_IMU_POSE}"
   adapter_sync_image_to_pointcloud:="${SYNC_IMAGE_TO_POINTCLOUD}"
   adapter_pointcloud_transform_profile:="${POINTCLOUD_TRANSFORM_PROFILE}"
   livox_custom_bridge:="${LIVOX_CUSTOM_BRIDGE}"
@@ -483,7 +491,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -516,6 +524,7 @@ metrics.update(
         "torch_device": sys.argv[16],
         "final_render_eval": sys.argv[17] == "true",
         "torch_densification": sys.argv[18] == "true",
+        "rotate_pointcloud_with_imu_pose": sys.argv[19] == "true",
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

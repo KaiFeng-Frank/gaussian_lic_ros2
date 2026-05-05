@@ -15,7 +15,7 @@ RENDER_MODE="rasterizer"
 UPSTREAM_RUNTIME_SEC=0
 CURRENT_RECORD_SEC=600
 CURRENT_PLAY_RATE=0.25
-CURRENT_POST_PLAY_SETTLE=8
+CURRENT_POST_PLAY_SETTLE=60
 CURRENT_TORCH_DEVICE=cuda
 CURRENT_TORCH_OPTIMIZATION_STEPS=100
 CURRENT_TORCH_MAX_FOREGROUND=800000
@@ -50,7 +50,7 @@ Options:
   --current-record-sec N   Pass to collect_current_results.sh. Default: 600
   --current-play-rate R    Pass to collect_current_results.sh. Default: 0.25
   --current-post-play-settle SEC
-                            Pass to collect_current_results.sh. Default: 8
+                            Pass to collect_current_results.sh. Default: 60
   --current-torch-device DEVICE
                             Pass to collect_current_results.sh when --render-mode rasterizer is used.
   --current-torch-optimization-steps N

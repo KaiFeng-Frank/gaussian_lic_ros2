@@ -95,6 +95,20 @@ UnitQuaternion delta_quaternion(
   return dq;
 }
 
+std::array<double, 9> rotation_matrix(const UnitQuaternion & q)
+{
+  return {
+    1.0 - 2.0 * (q.y * q.y + q.z * q.z),
+    2.0 * (q.x * q.y - q.z * q.w),
+    2.0 * (q.x * q.z + q.y * q.w),
+    2.0 * (q.x * q.y + q.z * q.w),
+    1.0 - 2.0 * (q.x * q.x + q.z * q.z),
+    2.0 * (q.y * q.z - q.x * q.w),
+    2.0 * (q.x * q.z - q.y * q.w),
+    2.0 * (q.y * q.z + q.x * q.w),
+    1.0 - 2.0 * (q.x * q.x + q.y * q.y)};
+}
+
 const sensor_msgs::msg::PointField * find_field(
   const sensor_msgs::msg::PointCloud2 & cloud,
   const char * name)
@@ -185,6 +199,8 @@ public:
     enable_imu_passthrough_ = declare_parameter<bool>("enable_imu_passthrough", true);
     identity_pose_fallback_ = declare_parameter<bool>("identity_pose_fallback", false);
     imu_pose_fallback_ = declare_parameter<bool>("imu_pose_fallback", false);
+    rotate_pointcloud_with_imu_pose_ =
+      declare_parameter<bool>("rotate_pointcloud_with_imu_pose", true);
     sync_image_to_pointcloud_ = declare_parameter<bool>("sync_image_to_pointcloud", false);
     imu_integration_max_dt_sec_ = declare_parameter<double>("imu_integration_max_dt_sec", 0.05);
     pointcloud_transform_profile_ =
@@ -246,7 +262,7 @@ public:
       raw_pointcloud_topic_, qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
         sensor_msgs::msg::PointCloud2 cloud;
-        if (transform_pointcloud_to_camera_frame_) {
+        if (needs_pointcloud_transform()) {
           try {
             cloud = transform_pointcloud(*msg);
             ++transformed_pointcloud_count_;
@@ -321,11 +337,17 @@ public:
       pose_topic_.c_str(), frontend_odometry_topic_.c_str(), frontend_path_topic_.c_str(),
       identity_pose_fallback_ ? "true" : "false", imu_pose_fallback_ ? "true" : "false",
       sync_image_to_pointcloud_ ? "true" : "false",
-      transform_pointcloud_to_camera_frame_ ? "true" : "false",
+      needs_pointcloud_transform() ? "true" : "false",
       pointcloud_transform_profile_.c_str());
   }
 
 private:
+  bool needs_pointcloud_transform() const
+  {
+    return transform_pointcloud_to_camera_frame_ ||
+      (imu_pose_fallback_ && rotate_pointcloud_with_imu_pose_);
+  }
+
   void publish_synced_visuals(const builtin_interfaces::msg::Time & stamp)
   {
     if (!sync_image_to_pointcloud_) {
@@ -421,7 +443,12 @@ private:
   sensor_msgs::msg::PointCloud2 transform_pointcloud(const sensor_msgs::msg::PointCloud2 & cloud)
   {
     sensor_msgs::msg::PointCloud2 out = cloud;
-    if (!pointcloud_transform_target_frame_.empty()) {
+    const bool rotate_with_imu = imu_pose_fallback_ && rotate_pointcloud_with_imu_pose_;
+    const UnitQuaternion imu_orientation = current_imu_orientation();
+    const auto imu_rotation = rotation_matrix(imu_orientation);
+    if (rotate_with_imu) {
+      out.header.frame_id = world_frame_;
+    } else if (!pointcloud_transform_target_frame_.empty()) {
       out.header.frame_id = pointcloud_transform_target_frame_;
     }
 
@@ -440,9 +467,22 @@ private:
       const double z = read_float_field(base, *z_field);
       const auto & r = pointcloud_transform_rotation_;
       const auto & t = pointcloud_transform_translation_;
-      const double tx = r[0] * x + r[1] * y + r[2] * z + t[0];
-      const double ty = r[3] * x + r[4] * y + r[5] * z + t[1];
-      const double tz = r[6] * x + r[7] * y + r[8] * z + t[2];
+      double tx = x;
+      double ty = y;
+      double tz = z;
+      if (transform_pointcloud_to_camera_frame_) {
+        tx = r[0] * x + r[1] * y + r[2] * z + t[0];
+        ty = r[3] * x + r[4] * y + r[5] * z + t[1];
+        tz = r[6] * x + r[7] * y + r[8] * z + t[2];
+      }
+      if (rotate_with_imu) {
+        const double wx = imu_rotation[0] * tx + imu_rotation[1] * ty + imu_rotation[2] * tz;
+        const double wy = imu_rotation[3] * tx + imu_rotation[4] * ty + imu_rotation[5] * tz;
+        const double wz = imu_rotation[6] * tx + imu_rotation[7] * ty + imu_rotation[8] * tz;
+        tx = wx;
+        ty = wy;
+        tz = wz;
+      }
       write_float_field(base, *x_field, tx);
       write_float_field(base, *y_field, ty);
       write_float_field(base, *z_field, tz);
@@ -462,13 +502,14 @@ private:
 
   void publish_imu_pose_fallback(const builtin_interfaces::msg::Time & stamp)
   {
+    const UnitQuaternion imu_orientation = current_imu_orientation();
     geometry_msgs::msg::PoseStamped pose;
     pose.header.stamp = stamp;
     pose.header.frame_id = world_frame_;
-    pose.pose.orientation.w = imu_orientation_.w;
-    pose.pose.orientation.x = imu_orientation_.x;
-    pose.pose.orientation.y = imu_orientation_.y;
-    pose.pose.orientation.z = imu_orientation_.z;
+    pose.pose.orientation.w = imu_orientation.w;
+    pose.pose.orientation.x = imu_orientation.x;
+    pose.pose.orientation.y = imu_orientation.y;
+    pose.pose.orientation.z = imu_orientation.z;
     publish_frontend_pose(pose, false, false);
     ++imu_pose_fallback_count_;
   }
@@ -476,6 +517,7 @@ private:
   void integrate_imu_orientation(const sensor_msgs::msg::Imu & imu)
   {
     const int64_t stamp_nsec = stamp_to_nsec(imu.header.stamp);
+    std::lock_guard<std::mutex> lock(imu_mutex_);
     if (!have_last_imu_stamp_) {
       last_imu_stamp_nsec_ = stamp_nsec;
       have_last_imu_stamp_ = true;
@@ -499,6 +541,12 @@ private:
     imu_orientation_ = multiply(imu_orientation_, delta_quaternion(wx, wy, wz, dt));
     normalize(imu_orientation_);
     ++imu_integration_count_;
+  }
+
+  UnitQuaternion current_imu_orientation() const
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    return imu_orientation_;
   }
 
   void publish_frontend_pose(
@@ -570,6 +618,7 @@ private:
   bool enable_imu_passthrough_{true};
   bool identity_pose_fallback_{false};
   bool imu_pose_fallback_{false};
+  bool rotate_pointcloud_with_imu_pose_{true};
   bool sync_image_to_pointcloud_{false};
   bool transform_pointcloud_to_camera_frame_{false};
   bool publish_tf_{false};
@@ -583,6 +632,7 @@ private:
   bool have_last_imu_stamp_{false};
   int64_t last_imu_stamp_nsec_{0};
   UnitQuaternion imu_orientation_;
+  mutable std::mutex imu_mutex_;
   std::mutex latest_visual_mutex_;
   std::shared_ptr<sensor_msgs::msg::Image> latest_image_;
   std::shared_ptr<sensor_msgs::msg::CameraInfo> latest_camera_info_;
