@@ -161,9 +161,12 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
   std::vector<Eigen::Vector3d> source_w;
   std::vector<Eigen::Vector3d> target_w;
+  std::vector<double> match_weights;
   source_w.reserve(sampled.size());
   target_w.reserve(sampled.size());
+  match_weights.reserve(sampled.size());
   double residual_norm_sum = 0.0;
+  double match_weight_sum = 0.0;
 
   for (const auto & point_i : sampled) {
     const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
@@ -177,28 +180,35 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
       }
     }
     if (best_distance_sq <= max_distance_sq) {
+      const double residual_norm = std::sqrt(best_distance_sq);
+      const double match_weight =
+        std::min(1.0, config_.robust_kernel_m / std::max(residual_norm, 1.0e-12));
       source_w.push_back(point_w);
       target_w.push_back(best_point_w);
-      residual_norm_sum += std::sqrt(best_distance_sq);
+      match_weights.push_back(match_weight);
+      residual_norm_sum += match_weight * residual_norm;
+      match_weight_sum += match_weight;
     }
   }
 
-  if (source_w.size() < config_.min_points) {
+  if (source_w.size() < config_.min_points ||
+    match_weight_sum <= std::numeric_limits<double>::epsilon())
+  {
     return correction;
   }
 
   Eigen::Vector3d source_centroid = Eigen::Vector3d::Zero();
   Eigen::Vector3d target_centroid = Eigen::Vector3d::Zero();
   for (size_t index = 0; index < source_w.size(); ++index) {
-    source_centroid += source_w[index];
-    target_centroid += target_w[index];
+    source_centroid += match_weights[index] * source_w[index];
+    target_centroid += match_weights[index] * target_w[index];
   }
-  source_centroid /= static_cast<double>(source_w.size());
-  target_centroid /= static_cast<double>(target_w.size());
+  source_centroid /= match_weight_sum;
+  target_centroid /= match_weight_sum;
 
   Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
   for (size_t index = 0; index < source_w.size(); ++index) {
-    covariance +=
+    covariance += match_weights[index] *
       (target_w[index] - target_centroid) * (source_w[index] - source_centroid).transpose();
   }
 
@@ -243,7 +253,7 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
 
   correction.applied = true;
   correction.matched_points = source_w.size();
-  correction.mean_residual_m = residual_norm_sum / static_cast<double>(source_w.size());
+  correction.mean_residual_m = residual_norm_sum / match_weight_sum;
   correction.delta_p_w = delta_p;
   correction.delta_q = delta_q;
   return correction;

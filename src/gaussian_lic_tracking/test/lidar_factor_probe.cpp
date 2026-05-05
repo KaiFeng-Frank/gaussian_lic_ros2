@@ -130,6 +130,50 @@ int main()
     std::cerr << "LiDAR 6-DoF pose correction is wrong\n";
     return 1;
   }
+
+  std::vector<Eigen::Vector3d> contaminated_scan = structured_scan;
+  for (size_t index = 0; index < 24U && index < contaminated_scan.size(); ++index) {
+    contaminated_scan[index] = Eigen::Vector3d(
+      1.05 + 0.02 * static_cast<double>(index % 6U),
+      0.65 + 0.01 * static_cast<double>(index / 6U),
+      0.28);
+  }
+  auto robust_config = config;
+  robust_config.robust_kernel_m = 0.01;
+  auto unweighted_config = config;
+  unweighted_config.robust_kernel_m = 100.0;
+  gaussian_lic_tracking::LidarFactor robust_factor(robust_config);
+  gaussian_lic_tracking::LidarFactor unweighted_factor(unweighted_config);
+  robust_factor.insert_keyframe(structured_scan, identity);
+  unweighted_factor.insert_keyframe(structured_scan, identity);
+  const auto robust_pose_correction =
+    robust_factor.compute_pose_correction(contaminated_scan, rotated_prediction);
+  const auto unweighted_pose_correction =
+    unweighted_factor.compute_pose_correction(contaminated_scan, rotated_prediction);
+  const Eigen::Quaterniond robust_corrected_q =
+    (robust_pose_correction.delta_q * rotated_prediction.q_w_i).normalized();
+  const Eigen::Quaterniond unweighted_corrected_q =
+    (unweighted_pose_correction.delta_q * rotated_prediction.q_w_i).normalized();
+  const double robust_error =
+    (rotated_prediction.p_w_i + robust_pose_correction.delta_p_w).norm() +
+    Eigen::AngleAxisd(robust_corrected_q).angle();
+  const double unweighted_error =
+    (rotated_prediction.p_w_i + unweighted_pose_correction.delta_p_w).norm() +
+    Eigen::AngleAxisd(unweighted_corrected_q).angle();
+  std::cout << "lidar_pose_robust_kabsch robust_error=" << robust_error
+            << " unweighted_error=" << unweighted_error
+            << " robust_mean_residual_m=" << robust_pose_correction.mean_residual_m
+            << " unweighted_mean_residual_m=" << unweighted_pose_correction.mean_residual_m
+            << "\n";
+  if (!robust_pose_correction.applied || !unweighted_pose_correction.applied) {
+    std::cerr << "LiDAR robust pose correction did not apply\n";
+    return 1;
+  }
+  if (robust_error + 1.0e-6 >= unweighted_error) {
+    std::cerr << "LiDAR robust Kabsch weighting did not improve contaminated pose correction\n";
+    return 1;
+  }
+
   const auto point_factor = factor.build_point_to_point_factor(structured_scan, rotated_prediction);
   std::cout << "lidar_point_factor correspondences=" << point_factor.frame_points_i.size()
             << " weight=" << point_factor.weight

@@ -177,6 +177,7 @@ baseline_manifest.json
 - [x] Publish dense-prior marginalization rank and singular-value health, and gate it in native tracking smoke.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
 - [x] Add per-correspondence robust weighting for LiDAR and Gaussian-map point-to-point tracking-window factors.
+- [x] Apply Huber weights inside bounded LiDAR 6-DoF pose-correction Kabsch centroids/covariance so outlier correspondences cannot dominate pre-BA pose feedback.
 - [x] Add LiDAR point-to-plane tracking-window factors from local plane fits with deterministic CTest coverage.
 - [x] Add a native visual photometric residual/alignment factor and subscribe tracking to mapper rendered-image output.
 - [x] Add ROS2-configurable camera-to-IMU extrinsics and apply their SE3 adjoint to photometric BA deltas.
