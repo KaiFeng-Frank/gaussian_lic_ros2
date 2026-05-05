@@ -14,6 +14,24 @@ mapping_node:
     sensor_qos_reliability: best_effort
     sensor_qos_history: keep_last
     sensor_qos_depth: 5
+    pointcloud_qos_reliability: best_effort
+    pointcloud_qos_history: keep_last
+    pointcloud_qos_depth: 5
+    pose_qos_reliability: best_effort
+    pose_qos_history: keep_last
+    pose_qos_depth: 5
+    image_qos_reliability: best_effort
+    image_qos_history: keep_last
+    image_qos_depth: 5
+    camera_info_qos_reliability: best_effort
+    camera_info_qos_history: keep_last
+    camera_info_qos_depth: 5
+    depth_qos_reliability: best_effort
+    depth_qos_history: keep_last
+    depth_qos_depth: 5
+    imu_qos_reliability: best_effort
+    imu_qos_history: keep_last
+    imu_qos_depth: 5
     process_period_ms: 5
     select_every_k_frame: 5
     require_depth_topic: false

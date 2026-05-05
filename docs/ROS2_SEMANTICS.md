@@ -25,6 +25,11 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
 ## QoS
 
 - Sensor streams default to `best_effort`, `keep_last`, depth `5`.
+- `mapping_node` exposes per-input overrides for point cloud, pose, image,
+  camera info, depth, and IMU QoS. Each stream falls back to `sensor_qos_*`, so
+  high-rate image/LiDAR can remain bounded `best_effort` while controlled replay
+  or low-rate keyframe/control topics can be promoted independently to
+  `reliable` without forcing reliable delivery onto every sensor stream.
 - `gaussian_lic_tracking/tracking.launch.py` exposes `sensor_qos_reliability`
   and `sensor_qos_depth`, defaults them to `best_effort` and `5`, and publishes
   the effective values on `/gaussian_lic/frontend/status` for smoke gating.
@@ -91,7 +96,8 @@ Run:
 ./scripts/check_ros2_semantics_contract.py
 ```
 
-The check fails if timestamp helpers regress to double-second math, dataset
-profiles stop using bounded best-effort sensor QoS, composition defaults back to
-the multi-threaded component container, launch replay drops `/clock`, or tf2
-lookup consumption is introduced without a semantic wrapper.
+The check fails if timestamp helpers regress to double-second math, mapper
+per-input QoS controls disappear, dataset profiles stop using bounded
+best-effort sensor QoS, composition defaults back to the multi-threaded
+component container, launch replay drops `/clock`, or tf2 lookup consumption is
+introduced without a semantic wrapper.

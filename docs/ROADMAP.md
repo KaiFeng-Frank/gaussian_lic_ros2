@@ -136,6 +136,7 @@ baseline_manifest.json
 - [x] Add optional Torch Gaussian pruning by opacity and foreground count cap.
 - [x] Register `mapping_node` as an `rclcpp_components` composable node.
 - [x] Add configurable input sensor QoS for ROS2 driver/rosbag2 compatibility.
+- [x] Add mapper per-input QoS controls so high-rate image/LiDAR and lower-rate pose/CameraInfo streams are not forced into one reliability policy.
 - [x] Fill `MappingStatus` tracking/mapping rate fields from live frame counters.
 - [x] Make TensorRT depth completion optional at the ROS2 mapper input boundary.
 - [x] Port the native TensorRT/SPNet depth completion wrapper and mapper lazy-loading path.

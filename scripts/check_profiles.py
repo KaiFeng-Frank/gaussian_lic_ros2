@@ -12,6 +12,7 @@ except ImportError as exc:
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "src" / "gaussian_lic_bringup" / "config"
+MAPPER_INPUT_STREAMS = ("pointcloud", "pose", "image", "camera_info", "depth", "imu")
 
 REQUIRED_PARAMS = {
     "image_topic": str,
@@ -96,6 +97,11 @@ REQUIRED_PARAMS = {
     "camera_frame": str,
 }
 
+for stream in MAPPER_INPUT_STREAMS:
+    REQUIRED_PARAMS[f"{stream}_qos_reliability"] = str
+    REQUIRED_PARAMS[f"{stream}_qos_history"] = str
+    REQUIRED_PARAMS[f"{stream}_qos_depth"] = int
+
 TOPIC_KEYS = {
     "image_topic",
     "camera_info_topic",
@@ -150,6 +156,13 @@ def check_profile(path: Path) -> list[str]:
         errors.append("sensor_qos_reliability must be best_effort or reliable")
     if params.get("sensor_qos_history") not in {"keep_last", "keep_all"}:
         errors.append("sensor_qos_history must be keep_last or keep_all")
+    for stream in MAPPER_INPUT_STREAMS:
+        reliability = params.get(f"{stream}_qos_reliability")
+        history = params.get(f"{stream}_qos_history")
+        if reliability not in {"best_effort", "reliable"}:
+            errors.append(f"{stream}_qos_reliability must be best_effort or reliable")
+        if history not in {"keep_last", "keep_all"}:
+            errors.append(f"{stream}_qos_history must be keep_last or keep_all")
     if params.get("render_mode") not in {"debug_cpu", "debug_input", "rasterizer", "off"}:
         errors.append("render_mode must be debug_cpu, debug_input, rasterizer, or off")
     if params.get("torch_gaussian_prune_count_policy") not in {"opacity", "uniform"}:
@@ -194,6 +207,12 @@ def check_profile(path: Path) -> list[str]:
     for key in (
         "max_queue_size",
         "sensor_qos_depth",
+        "pointcloud_qos_depth",
+        "pose_qos_depth",
+        "image_qos_depth",
+        "camera_info_qos_depth",
+        "depth_qos_depth",
+        "imu_qos_depth",
         "process_period_ms",
         "select_every_k_frame",
         "width",

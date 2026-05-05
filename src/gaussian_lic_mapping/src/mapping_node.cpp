@@ -59,6 +59,13 @@ using gaussian_lic_mapping::AlignedRosFrame;
 using gaussian_lic_mapping::MapperDataset;
 using gaussian_lic_mapping::MapperFrameData;
 
+struct QosProfileParams
+{
+  std::string reliability{"best_effort"};
+  std::string history{"keep_last"};
+  int depth{5};
+};
+
 class MappingNode final : public rclcpp::Node
 {
 public:
@@ -87,6 +94,12 @@ public:
     sensor_qos_reliability_ = declare_parameter<std::string>("sensor_qos_reliability", "best_effort");
     sensor_qos_history_ = declare_parameter<std::string>("sensor_qos_history", "keep_last");
     sensor_qos_depth_ = declare_parameter<int>("sensor_qos_depth", 5);
+    pointcloud_qos_ = declare_topic_qos("pointcloud");
+    pose_qos_ = declare_topic_qos("pose");
+    image_qos_ = declare_topic_qos("image");
+    camera_info_qos_ = declare_topic_qos("camera_info");
+    depth_qos_ = declare_topic_qos("depth");
+    imu_qos_ = declare_topic_qos("imu");
     process_period_ms_ = declare_parameter<int>("process_period_ms", 5);
     select_every_k_frame_ = declare_parameter<int>("select_every_k_frame", 8);
     require_depth_topic_ = declare_parameter<bool>("require_depth_topic", true);
@@ -196,9 +209,14 @@ public:
         "rendered_image_mode is deprecated; use render_mode:=debug_cpu, rasterizer, debug_input, or off");
     }
 
-    auto sensor_qos = make_sensor_qos();
+    auto pointcloud_qos = make_sensor_qos("pointcloud", pointcloud_qos_);
+    auto pose_qos = make_sensor_qos("pose", pose_qos_);
+    auto image_qos = make_sensor_qos("image", image_qos_);
+    auto camera_info_qos = make_sensor_qos("camera_info", camera_info_qos_);
+    auto depth_qos = make_sensor_qos("depth", depth_qos_);
+    auto imu_qos = make_sensor_qos("imu", imu_qos_);
     points_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      pointcloud_topic_, sensor_qos,
+      pointcloud_topic_, pointcloud_qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
         ++pointcloud_count_;
         {
@@ -208,7 +226,7 @@ public:
       });
 
     pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-      pose_topic_, sensor_qos,
+      pose_topic_, pose_qos,
       [this](geometry_msgs::msg::PoseStamped::ConstSharedPtr msg) {
         ++pose_count_;
         {
@@ -218,7 +236,7 @@ public:
       });
 
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
-      image_topic_, sensor_qos,
+      image_topic_, image_qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
         ++image_count_;
         {
@@ -228,7 +246,7 @@ public:
       });
 
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-      camera_info_topic_, sensor_qos,
+      camera_info_topic_, camera_info_qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
         ++camera_info_count_;
         if (msg->k[0] <= 0.0 || msg->k[4] <= 0.0) {
@@ -248,7 +266,7 @@ public:
       });
 
     depth_sub_ = create_subscription<sensor_msgs::msg::Image>(
-      depth_topic_, sensor_qos,
+      depth_topic_, depth_qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
         ++depth_count_;
         {
@@ -258,7 +276,7 @@ public:
       });
 
     imu_sub_ = create_subscription<sensor_msgs::msg::Imu>(
-      imu_topic_, sensor_qos,
+      imu_topic_, imu_qos,
       [this](sensor_msgs::msg::Imu::ConstSharedPtr msg) {
         ++imu_count_;
         last_imu_stamp_ = msg->header.stamp;
@@ -311,6 +329,15 @@ public:
       require_depth_topic_ ? "required" : "optional; projected point depth fallback enabled");
     RCLCPP_INFO(get_logger(), "Sensor QoS reliability=%s history=%s depth=%d",
       sensor_qos_reliability_.c_str(), sensor_qos_history_.c_str(), sensor_qos_depth_);
+    RCLCPP_INFO(
+      get_logger(),
+      "Mapper input QoS pointcloud=%s/%s/%d pose=%s/%s/%d image=%s/%s/%d camera_info=%s/%s/%d depth=%s/%s/%d imu=%s/%s/%d",
+      pointcloud_qos_.reliability.c_str(), pointcloud_qos_.history.c_str(), pointcloud_qos_.depth,
+      pose_qos_.reliability.c_str(), pose_qos_.history.c_str(), pose_qos_.depth,
+      image_qos_.reliability.c_str(), image_qos_.history.c_str(), image_qos_.depth,
+      camera_info_qos_.reliability.c_str(), camera_info_qos_.history.c_str(), camera_info_qos_.depth,
+      depth_qos_.reliability.c_str(), depth_qos_.history.c_str(), depth_qos_.depth,
+      imu_qos_.reliability.c_str(), imu_qos_.history.c_str(), imu_qos_.depth);
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     RCLCPP_INFO(get_logger(), "Torch camera conversion %s",
       enable_torch_camera_conversion_ ? "enabled" : "disabled");
@@ -443,30 +470,42 @@ private:
     return gaussian_lic_msgs::msg::MappingStatus::RENDER_MODE_DEBUG_CPU;
   }
 
-  rclcpp::QoS make_sensor_qos() const
+  QosProfileParams declare_topic_qos(const std::string & prefix)
   {
-    const auto depth = static_cast<size_t>(std::max(sensor_qos_depth_, 1));
+    QosProfileParams params;
+    params.reliability =
+      declare_parameter<std::string>(prefix + "_qos_reliability", sensor_qos_reliability_);
+    params.history = declare_parameter<std::string>(prefix + "_qos_history", sensor_qos_history_);
+    params.depth = declare_parameter<int>(prefix + "_qos_depth", sensor_qos_depth_);
+    return params;
+  }
+
+  rclcpp::QoS make_sensor_qos(const char * stream_name, const QosProfileParams & params) const
+  {
+    const auto depth = static_cast<size_t>(std::max(params.depth, 1));
     rclcpp::QoS qos{rclcpp::KeepLast(depth)};
     qos.durability_volatile();
 
-    const std::string reliability = normalized_qos_token(sensor_qos_reliability_);
+    const std::string reliability = normalized_qos_token(params.reliability);
     if (reliability == "besteffort") {
       qos.best_effort();
     } else if (reliability == "reliable") {
       qos.reliable();
     } else {
       throw std::runtime_error(
-        "sensor_qos_reliability must be best_effort or reliable, got " + sensor_qos_reliability_);
+        std::string(stream_name) + "_qos_reliability must be best_effort or reliable, got " +
+        params.reliability);
     }
 
-    const std::string history = normalized_qos_token(sensor_qos_history_);
+    const std::string history = normalized_qos_token(params.history);
     if (history == "keeplast") {
       qos.keep_last(depth);
     } else if (history == "keepall") {
       qos.keep_all();
     } else {
       throw std::runtime_error(
-        "sensor_qos_history must be keep_last or keep_all, got " + sensor_qos_history_);
+        std::string(stream_name) + "_qos_history must be keep_last or keep_all, got " +
+        params.history);
     }
 
     return qos;
@@ -2101,6 +2140,12 @@ private:
   std::string sensor_qos_reliability_{"best_effort"};
   std::string sensor_qos_history_{"keep_last"};
   int sensor_qos_depth_{5};
+  QosProfileParams pointcloud_qos_;
+  QosProfileParams pose_qos_;
+  QosProfileParams image_qos_;
+  QosProfileParams camera_info_qos_;
+  QosProfileParams depth_qos_;
+  QosProfileParams imu_qos_;
   int process_period_ms_{5};
   int select_every_k_frame_{8};
   bool require_depth_topic_{true};

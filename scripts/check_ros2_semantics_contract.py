@@ -71,6 +71,12 @@ def main() -> int:
     nanosecond_guard = "stamp.nanosec >= static_cast<uint32_t>(kNanosecondsPerSecond)"
     if nanosecond_guard not in mapping_text:
         errors.append("mapping_node stamp_to_nsec must reject ROS2 stamps with nanosec >= 1e9")
+    for suffix in ("_qos_reliability", "_qos_history", "_qos_depth"):
+        if f"prefix + \"{suffix}\"" not in mapping_text:
+            errors.append(f"mapping_node declare_topic_qos must expose per-stream {suffix}")
+    for stream in ("pointcloud", "pose", "image", "camera_info", "depth", "imu"):
+        if f'declare_topic_qos("{stream}")' not in mapping_text:
+            errors.append(f"mapping_node must declare per-stream QoS for {stream}")
 
     if "stamp_to_sec" in frontend_text:
         errors.append("lic2_contract_adapter still exposes stamp_to_sec; use int64 nanoseconds")
@@ -249,6 +255,13 @@ def main() -> int:
             errors.append(f"{path.name}: sensor_qos_history must default to keep_last")
         if params.get("sensor_qos_depth") != 5:
             errors.append(f"{path.name}: sensor_qos_depth must default to 5")
+        for stream in ("pointcloud", "pose", "image", "camera_info", "depth", "imu"):
+            if params.get(f"{stream}_qos_reliability") != "best_effort":
+                errors.append(f"{path.name}: {stream}_qos_reliability must default to best_effort")
+            if params.get(f"{stream}_qos_history") != "keep_last":
+                errors.append(f"{path.name}: {stream}_qos_history must default to keep_last")
+            if params.get(f"{stream}_qos_depth") != 5:
+                errors.append(f"{path.name}: {stream}_qos_depth must default to 5")
 
     for path in source_files():
         text = read(path)
