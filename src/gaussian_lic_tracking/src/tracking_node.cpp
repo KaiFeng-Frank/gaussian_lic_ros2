@@ -98,6 +98,8 @@ public:
       declare_parameter<bool>("enable_se3_photometric_window_factor", true);
     se3_photometric_window_weight_ =
       declare_parameter<double>("se3_photometric_window_weight", 1.0);
+    se3_photometric_factor_huber_delta_ =
+      declare_parameter<double>("se3_photometric_factor_huber_delta", 1.0);
     se3_photometric_max_samples_ =
       declare_parameter<int>("se3_photometric_max_samples", 2000);
     se3_photometric_min_samples_ =
@@ -605,6 +607,7 @@ private:
           pending_visual_se3_photometric_linearization_.gauss_newton_step);
         factor.sqrt_information.setIdentity();
         factor.weight = se3_photometric_window_weight_;
+        factor.huber_delta = se3_photometric_factor_huber_delta_;
         se3_photometric_factors.push_back(factor);
       }
       has_pending_visual_se3_photometric_ = false;
@@ -1618,6 +1621,7 @@ private:
   double visual_alignment_huber_delta_m_{0.05};
   bool enable_se3_photometric_window_factor_{true};
   double se3_photometric_window_weight_{1.0};
+  double se3_photometric_factor_huber_delta_{1.0};
   int se3_photometric_max_samples_{2000};
   int se3_photometric_min_samples_{16};
   double se3_photometric_min_depth_m_{0.05};

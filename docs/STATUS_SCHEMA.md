@@ -143,7 +143,7 @@ continuity in the native joint BA window.
 The visual gate replays a 32x32 Gaussian-pattern image bag while a
 transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment, Huber-robust visual-alignment factors, and
-photometric Gauss-Newton linearization status, plus nonzero SE3 photometric window factors extracted from
+photometric Gauss-Newton linearization status, plus nonzero Huber-robust SE3 photometric window factors extracted from
 nearest-fresh-render/current/depth images. The SE3 status fields expose candidate pixels,
 accepted robust samples, inlier ratio, mean absolute residual, cost, and
 Gauss-Newton step norm so bad depth, flat gradients, or large photometric

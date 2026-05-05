@@ -570,6 +570,9 @@ void SlidingWindowOptimizer::add_se3_photometric_factor(const SlidingWindowSe3Ph
   if (factor.weight <= 0.0) {
     throw std::runtime_error("SE3 photometric factor weight must be positive");
   }
+  if (!std::isfinite(factor.huber_delta) || factor.huber_delta < 0.0) {
+    throw std::runtime_error("SE3 photometric factor Huber delta must be finite and non-negative");
+  }
   if (!factor.reference_p_w_i.allFinite() || !factor.target_delta.allFinite() ||
     !factor.sqrt_information.allFinite())
   {
@@ -931,7 +934,10 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     Eigen::Matrix<double, 6, 1> delta;
     delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, state.q_w_i);
     delta.template segment<3>(3) = state.p_w_i - factor.reference_p_w_i;
-    append(std::sqrt(factor.weight) * factor.sqrt_information * (delta - factor.target_delta));
+    const Eigen::Matrix<double, 6, 1> whitened_residual =
+      factor.sqrt_information * (delta - factor.target_delta);
+    const double robust_weight = huber_weight(whitened_residual.norm(), factor.huber_delta);
+    append(std::sqrt(factor.weight * robust_weight) * whitened_residual);
   }
 
   for (const auto & factor : smoothness_factors_) {
@@ -1231,12 +1237,20 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       return fallback_to_numeric();
     }
     if (offset >= 0) {
+      const auto & state = states[static_cast<size_t>(index)];
+      Eigen::Matrix<double, 6, 1> delta;
+      delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, state.q_w_i);
+      delta.template segment<3>(3) = state.p_w_i - factor.reference_p_w_i;
+      const Eigen::Matrix<double, 6, 1> whitened_residual =
+        factor.sqrt_information * (delta - factor.target_delta);
+      const double robust_scale =
+        std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
       Eigen::Matrix<double, 6, 15> delta_jacobian = Eigen::Matrix<double, 6, 15>::Zero();
       delta_jacobian.template block<3, 3>(0, 0) =
         left_perturbation_rotation_residual_jacobian(factor.reference_q_w_i);
       delta_jacobian.template block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
       jacobian.block(row, offset, 6, static_cast<Eigen::Index>(kStateDof)) =
-        std::sqrt(factor.weight) * factor.sqrt_information * delta_jacobian;
+        robust_scale * factor.sqrt_information * delta_jacobian;
     }
     row += 6;
   }

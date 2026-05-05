@@ -118,6 +118,7 @@ def main() -> int:
         "sliding_window_pose_translation_weight",
         "sliding_window_pose_rotation_weight",
         "enable_sliding_window_smoothness_factor",
+        "se3_photometric_factor_huber_delta",
         "sliding_window_smoothness_rotation_weight",
         "sliding_window_smoothness_position_weight",
         "sliding_window_smoothness_velocity_weight",
@@ -143,6 +144,10 @@ def main() -> int:
         errors.append("tracking.launch.py must expose visual alignment Huber delta")
     if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default SE3 photometric window factors to true")
+    if 'declare_parameter<double>("se3_photometric_factor_huber_delta", 1.0)' not in tracking_node_text:
+        errors.append("tracking_node must default SE3 photometric factor Huber delta to 1.0")
+    if 'DeclareLaunchArgument("se3_photometric_factor_huber_delta", default_value="1.0")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose SE3 photometric factor Huber delta")
     if 'declare_parameter<int>("depth_frame_cache_size", 8)' not in tracking_node_text:
         errors.append("tracking_node must default the visual depth-frame cache size to 8")
     if 'DeclareLaunchArgument("depth_frame_cache_size", default_value="8")' not in tracking_launch_text:

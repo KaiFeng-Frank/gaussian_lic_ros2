@@ -48,6 +48,7 @@ def generate_launch_description():
     visual_alignment_huber_delta_m = LaunchConfiguration("visual_alignment_huber_delta_m")
     enable_se3_photometric_window_factor = LaunchConfiguration("enable_se3_photometric_window_factor")
     se3_photometric_window_weight = LaunchConfiguration("se3_photometric_window_weight")
+    se3_photometric_factor_huber_delta = LaunchConfiguration("se3_photometric_factor_huber_delta")
     se3_photometric_max_samples = LaunchConfiguration("se3_photometric_max_samples")
     se3_photometric_min_samples = LaunchConfiguration("se3_photometric_min_samples")
     se3_photometric_min_depth_m = LaunchConfiguration("se3_photometric_min_depth_m")
@@ -121,6 +122,7 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05"),
             DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true"),
             DeclareLaunchArgument("se3_photometric_window_weight", default_value="0.5"),
+            DeclareLaunchArgument("se3_photometric_factor_huber_delta", default_value="1.0"),
             DeclareLaunchArgument("se3_photometric_max_samples", default_value="2000"),
             DeclareLaunchArgument("se3_photometric_min_samples", default_value="16"),
             DeclareLaunchArgument("se3_photometric_min_depth_m", default_value="0.05"),
@@ -197,6 +199,7 @@ def generate_launch_description():
                         "visual_alignment_huber_delta_m": visual_alignment_huber_delta_m,
                         "enable_se3_photometric_window_factor": enable_se3_photometric_window_factor,
                         "se3_photometric_window_weight": se3_photometric_window_weight,
+                        "se3_photometric_factor_huber_delta": se3_photometric_factor_huber_delta,
                         "se3_photometric_max_samples": se3_photometric_max_samples,
                         "se3_photometric_min_samples": se3_photometric_min_samples,
                         "se3_photometric_min_depth_m": se3_photometric_min_depth_m,

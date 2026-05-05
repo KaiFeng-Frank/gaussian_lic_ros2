@@ -108,6 +108,7 @@ struct SlidingWindowSe3PhotometricFactor
   Eigen::Matrix<double, 6, 1> target_delta{Eigen::Matrix<double, 6, 1>::Zero()};
   Eigen::Matrix<double, 6, 6> sqrt_information{Eigen::Matrix<double, 6, 6>::Identity()};
   double weight{1.0};
+  double huber_delta{0.0};
 };
 
 struct SlidingWindowTrajectorySmoothnessFactor

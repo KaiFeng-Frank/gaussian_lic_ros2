@@ -57,6 +57,43 @@ int main()
     return 1;
   }
 
+  gaussian_lic_tracking::SlidingWindowOptimizer robust_optimizer(config);
+  gaussian_lic_tracking::SlidingWindowState robust_state;
+  robust_state.stamp_ns = 2000000000LL;
+  robust_optimizer.add_or_update_state(robust_state);
+
+  gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor inlier;
+  inlier.stamp_ns = robust_state.stamp_ns;
+  inlier.reference_p_w_i = Eigen::Vector3d::Zero();
+  inlier.reference_q_w_i = Eigen::Quaterniond::Identity();
+  inlier.target_delta.setZero();
+  inlier.target_delta[3] = 0.02;
+  inlier.sqrt_information.setIdentity();
+  inlier.weight = 10.0;
+  inlier.huber_delta = 0.1;
+  robust_optimizer.add_se3_photometric_factor(inlier);
+
+  gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor outlier = inlier;
+  outlier.target_delta[3] = 2.0;
+  robust_optimizer.add_se3_photometric_factor(outlier);
+
+  const auto robust_summary = robust_optimizer.optimize();
+  gaussian_lic_tracking::SlidingWindowState robust_optimized;
+  if (!robust_optimizer.get_state(robust_state.stamp_ns, robust_optimized)) {
+    std::cerr << "robust optimized SE3 photometric state is missing\n";
+    return 1;
+  }
+  const double robust_x = robust_optimized.p_w_i.x();
+  std::cout << " robust_se3_factors=" << robust_summary.se3_photometric_factor_count
+            << " robust_x=" << robust_x
+            << " robust_final_cost=" << robust_summary.final_cost;
+  if (!robust_summary.converged || robust_summary.se3_photometric_factor_count != 2U ||
+    robust_x > 0.3)
+  {
+    std::cerr << "\nSE3 photometric Huber kernel failed to downweight the outlier\n";
+    return 1;
+  }
+
   std::cout << "sliding_window_se3_photometric_factor_probe OK\n";
   return 0;
 }
