@@ -165,6 +165,7 @@ baseline_manifest.json
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, pose/state priors, marginalization-prior anchoring, finite-difference Jacobians, window trimming, and deterministic convergence probes.
+- [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
 - [x] Add a native visual photometric residual factor and subscribe tracking to mapper rendered-image output.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks for the Gaussian-map reverse channel.
 - [x] Replace dynamic reconfigure/global parameters with ROS2 parameters.

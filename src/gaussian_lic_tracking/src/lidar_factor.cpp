@@ -213,6 +213,45 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
   return correction;
 }
 
+SlidingWindowPointToPointFactor LidarFactor::build_point_to_point_factor(
+  const std::vector<Eigen::Vector3d> & frame_points_i,
+  const TrajectoryPose & predicted_pose) const
+{
+  SlidingWindowPointToPointFactor factor;
+  factor.stamp_ns = predicted_pose.stamp_ns;
+  if (frame_points_i.size() < config_.min_points || map_points_w_.size() < config_.min_points) {
+    return factor;
+  }
+
+  const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
+  factor.frame_points_i.reserve(sampled.size());
+  factor.target_points_w.reserve(sampled.size());
+  factor.weight = 1.0 / std::max(config_.nearest_distance_m * config_.nearest_distance_m, 1.0e-12);
+
+  for (const auto & point_i : sampled) {
+    const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
+    double best_distance_sq = std::numeric_limits<double>::infinity();
+    Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
+    for (const auto & map_point_w : map_points_w_) {
+      const double distance_sq = (map_point_w - point_w).squaredNorm();
+      if (distance_sq < best_distance_sq) {
+        best_distance_sq = distance_sq;
+        best_point_w = map_point_w;
+      }
+    }
+    if (best_distance_sq <= max_distance_sq) {
+      factor.frame_points_i.push_back(point_i);
+      factor.target_points_w.push_back(best_point_w);
+    }
+  }
+  if (factor.frame_points_i.size() < config_.min_points) {
+    factor.frame_points_i.clear();
+    factor.target_points_w.clear();
+  }
+  return factor;
+}
+
 void LidarFactor::insert_keyframe(
   const std::vector<Eigen::Vector3d> & frame_points_i,
   const TrajectoryPose & pose)

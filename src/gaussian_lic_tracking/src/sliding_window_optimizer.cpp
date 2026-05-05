@@ -55,6 +55,7 @@ void SlidingWindowOptimizer::clear()
   imu_factors_.clear();
   pose_priors_.clear();
   state_priors_.clear();
+  point_factors_.clear();
   marginalized_state_count_ = 0U;
 }
 
@@ -136,6 +137,21 @@ void SlidingWindowOptimizer::add_state_prior(const SlidingWindowStatePrior & pri
   enforce_window_size();
 }
 
+void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor)
+{
+  if (factor.weight <= 0.0) {
+    throw std::runtime_error("point-to-point factor weight must be positive");
+  }
+  if (factor.frame_points_i.size() != factor.target_points_w.size()) {
+    throw std::runtime_error("point-to-point factor source/target sizes must match");
+  }
+  if (factor.frame_points_i.empty()) {
+    return;
+  }
+  point_factors_.push_back(factor);
+  enforce_window_size();
+}
+
 SlidingWindowStatePrior SlidingWindowOptimizer::make_state_prior(const SlidingWindowState & state) const
 {
   SlidingWindowStatePrior prior;
@@ -182,6 +198,13 @@ size_t SlidingWindowOptimizer::enforce_window_size()
           return prior.stamp_ns == stamp_ns;
         }),
       state_priors_.end());
+    point_factors_.erase(
+      std::remove_if(
+        point_factors_.begin(), point_factors_.end(),
+        [stamp_ns](const SlidingWindowPointToPointFactor & factor) {
+          return factor.stamp_ns == stamp_ns;
+        }),
+      point_factors_.end());
     if (!states_.empty() && config_.marginalization_prior_weight > 0.0) {
       const int64_t anchor_stamp_ns = states_.front().stamp_ns;
       state_priors_.erase(
@@ -228,7 +251,8 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
 {
   std::vector<double> values;
   values.reserve(
-    imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U);
+    imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
+    point_factors_.size() * 300U);
 
   auto append = [&values](const Eigen::VectorXd & residual) {
       for (Eigen::Index i = 0; i < residual.size(); ++i) {
@@ -305,6 +329,21 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     append(residual);
   }
 
+  for (const auto & factor : point_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    const double scale = std::sqrt(factor.weight);
+    for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      Eigen::Vector3d residual =
+        state.q_w_i * factor.frame_points_i[point_index] + state.p_w_i -
+        factor.target_points_w[point_index];
+      append(scale * residual);
+    }
+  }
+
   Eigen::VectorXd residual(values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     residual[static_cast<Eigen::Index>(i)] = values[i];
@@ -351,6 +390,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.imu_factor_count = imu_factors_.size();
   summary.pose_prior_count = pose_priors_.size();
   summary.state_prior_count = state_priors_.size();
+  summary.point_factor_count = point_factors_.size();
   Eigen::VectorXd residual = build_residual(states_);
   summary.initial_cost = compute_cost(residual);
   summary.final_cost = summary.initial_cost;

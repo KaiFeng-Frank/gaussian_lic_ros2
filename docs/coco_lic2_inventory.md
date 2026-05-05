@@ -58,16 +58,17 @@ Current ROS2 implementation status:
   accelerometer biases.
 - `gaussian_lic_tracking::LidarFactor` provides the first native LIO residual
   foundation: bounded local map insertion, sampled nearest-neighbor residuals,
-  bounded 6-DoF correction, and deterministic probes.
+  bounded 6-DoF correction, direct point-to-point correspondence factors for
+  the optional sliding window, and deterministic probes.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native
   optimization container for IMU preintegration factors, raw-sample bias
   reintegration, bias continuity residuals, pose priors, full-state priors, and
-  marginalization-prior anchoring, with finite-difference Jacobians, bounded
-  window trimming, and deterministic convergence probes. It is exposed as an
-  optional tracking-node path while the production Coco-LIC2 BA factors are
-  ported.
+  marginalization-prior anchoring, plus direct LiDAR point-to-point factors,
+  with finite-difference Jacobians, bounded window trimming, and deterministic
+  convergence probes. It is exposed as an optional tracking-node path while the
+  production Coco-LIC2 BA factors are ported.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual foundation, and `tracking_node` subscribes to
   `/gaussian_lic/rendered_image` so mapper Gaussian renders can be compared

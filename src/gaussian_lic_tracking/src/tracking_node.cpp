@@ -306,7 +306,13 @@ private:
     }
     pointcloud_pub_->publish(output_cloud);
 
+    gaussian_lic_tracking::SlidingWindowPointToPointFactor lidar_window_factor;
+    bool has_lidar_window_factor = false;
     if (enable_lio_factor_) {
+      if (enable_sliding_window_optimizer_) {
+        lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
+        has_lidar_window_factor = !lidar_window_factor.frame_points_i.empty();
+      }
       const auto correction = lidar_factor_.compute_pose_correction(lidar_points, tracking_pose);
       if (correction.applied) {
         tracking_pose.p_w_i += correction.delta_p_w;
@@ -320,7 +326,9 @@ private:
     }
 
     if (enable_sliding_window_optimizer_) {
-      tracking_pose = update_sliding_window(tracking_pose);
+      tracking_pose = update_sliding_window(
+        tracking_pose,
+        has_lidar_window_factor ? &lidar_window_factor : nullptr);
     }
 
     geometry_msgs::msg::PoseStamped pose;
@@ -367,7 +375,8 @@ private:
   }
 
   gaussian_lic_tracking::TrajectoryPose update_sliding_window(
-    const gaussian_lic_tracking::TrajectoryPose & input_pose)
+    const gaussian_lic_tracking::TrajectoryPose & input_pose,
+    const gaussian_lic_tracking::SlidingWindowPointToPointFactor * lidar_factor)
   {
     gaussian_lic_tracking::TrajectoryPose output_pose = input_pose;
     gaussian_lic_tracking::ImuState imu_state;
@@ -395,6 +404,15 @@ private:
     prior.translation_weight = sliding_window_pose_translation_weight_;
     prior.rotation_weight = sliding_window_pose_rotation_weight_;
     sliding_window_optimizer_.add_pose_prior(prior);
+    if (lidar_factor != nullptr) {
+      try {
+        sliding_window_optimizer_.add_point_to_point_factor(*lidar_factor);
+      } catch (const std::exception & ex) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window LiDAR factor skipped: %s", ex.what());
+      }
+    }
 
     if (has_sliding_window_state_ && sliding_window_preintegrator_initialized_ &&
       sliding_window_preintegrator_.delta_t_s() > 0.0)

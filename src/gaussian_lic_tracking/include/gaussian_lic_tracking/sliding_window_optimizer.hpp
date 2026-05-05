@@ -69,12 +69,21 @@ struct SlidingWindowStatePrior
   double accel_bias_weight{1.0};
 };
 
+struct SlidingWindowPointToPointFactor
+{
+  int64_t stamp_ns{0};
+  std::vector<Eigen::Vector3d> frame_points_i;
+  std::vector<Eigen::Vector3d> target_points_w;
+  double weight{1.0};
+};
+
 struct SlidingWindowSummary
 {
   size_t state_count{0};
   size_t imu_factor_count{0};
   size_t pose_prior_count{0};
   size_t state_prior_count{0};
+  size_t point_factor_count{0};
   size_t marginalized_state_count{0};
   size_t iterations{0};
   double initial_cost{0.0};
@@ -98,6 +107,7 @@ public:
   void add_imu_factor(const SlidingWindowImuFactor & factor);
   void add_pose_prior(const SlidingWindowPosePrior & prior);
   void add_state_prior(const SlidingWindowStatePrior & prior);
+  void add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor);
 
   SlidingWindowSummary optimize();
 
@@ -129,6 +139,7 @@ private:
   std::vector<SlidingWindowImuFactor> imu_factors_;
   std::vector<SlidingWindowPosePrior> pose_priors_;
   std::vector<SlidingWindowStatePrior> state_priors_;
+  std::vector<SlidingWindowPointToPointFactor> point_factors_;
   size_t marginalized_state_count_{0};
 };
 

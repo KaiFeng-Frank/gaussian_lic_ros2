@@ -9,6 +9,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 #include <gaussian_lic_tracking/trajectory_manager.hpp>
 
 namespace gaussian_lic_tracking
@@ -57,6 +58,10 @@ public:
     const TrajectoryPose & predicted_pose) const;
 
   LidarPoseCorrection compute_pose_correction(
+    const std::vector<Eigen::Vector3d> & frame_points_i,
+    const TrajectoryPose & predicted_pose) const;
+
+  SlidingWindowPointToPointFactor build_point_to_point_factor(
     const std::vector<Eigen::Vector3d> & frame_points_i,
     const TrajectoryPose & predicted_pose) const;
 

@@ -93,6 +93,16 @@ int main()
     std::cerr << "LiDAR 6-DoF pose correction is wrong\n";
     return 1;
   }
+  const auto point_factor = factor.build_point_to_point_factor(structured_scan, rotated_prediction);
+  std::cout << "lidar_point_factor correspondences=" << point_factor.frame_points_i.size()
+            << " weight=" << point_factor.weight << "\n";
+  if (point_factor.stamp_ns != rotated_prediction.stamp_ns ||
+    point_factor.frame_points_i.size() < config.min_points ||
+    point_factor.frame_points_i.size() != point_factor.target_points_w.size())
+  {
+    std::cerr << "LiDAR point-to-point window factor is invalid\n";
+    return 1;
+  }
 
   factor.clear();
   const auto empty_correction = factor.compute_translation_correction(scan, predicted);
