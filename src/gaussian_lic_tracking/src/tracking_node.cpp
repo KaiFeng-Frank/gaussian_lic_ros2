@@ -513,6 +513,7 @@ private:
       camera_intrinsics_.cy = msg.k[5];
       has_camera_intrinsics_ = true;
     } else {
+      ++camera_info_invalid_intrinsics_;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "ignoring CameraInfo with invalid intrinsics");
@@ -630,6 +631,11 @@ private:
     DepthFrame decoded;
     if (decode_depth_image(msg, decoded)) {
       cache_depth_frame(std::move(decoded));
+    } else {
+      ++depth_invalid_frames_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping depth image with unsupported encoding, layout, or dimensions");
     }
   }
 
@@ -647,6 +653,10 @@ private:
     }
     gaussian_lic_tracking::VisualFrame observed;
     if (!decode_image_gray(msg, observed)) {
+      ++image_invalid_frames_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping camera image with unsupported encoding, layout, or dimensions");
       return;
     }
     int64_t rendered_match_delta_ns = 0;
@@ -737,6 +747,11 @@ private:
     gaussian_lic_tracking::VisualFrame rendered;
     if (decode_image_gray(msg, rendered)) {
       cache_rendered_frame(std::move(rendered));
+    } else {
+      ++rendered_invalid_frames_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping rendered image with unsupported encoding, layout, or dimensions");
     }
   }
 
@@ -1884,6 +1899,10 @@ private:
     status.pointcloud_stamp_regressions = pointcloud_stamp_regressions_;
     status.imu_stamp_regressions = imu_stamp_regressions_;
     status.imu_invalid_measurements = imu_invalid_measurements_;
+    status.camera_info_invalid_intrinsics = camera_info_invalid_intrinsics_;
+    status.image_invalid_frames = image_invalid_frames_;
+    status.depth_invalid_frames = depth_invalid_frames_;
+    status.rendered_invalid_frames = rendered_invalid_frames_;
     if (num_published_poses_ == 0U) {
       status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_INITIALIZING;
       status.status_text = "initializing";
@@ -2250,6 +2269,10 @@ private:
   uint64_t pointcloud_stamp_regressions_{0};
   uint64_t imu_stamp_regressions_{0};
   uint64_t imu_invalid_measurements_{0};
+  uint64_t camera_info_invalid_intrinsics_{0};
+  uint64_t image_invalid_frames_{0};
+  uint64_t depth_invalid_frames_{0};
+  uint64_t rendered_invalid_frames_{0};
   uint64_t num_lidar_keyframes_{0};
   size_t last_lidar_points_{0};
   size_t last_lidar_matches_{0};

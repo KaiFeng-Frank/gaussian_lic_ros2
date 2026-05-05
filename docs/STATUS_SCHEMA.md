@@ -71,6 +71,10 @@ rendered_stamp_regressions
 pointcloud_stamp_regressions
 imu_stamp_regressions
 imu_invalid_measurements
+camera_info_invalid_intrinsics
+image_invalid_frames
+depth_invalid_frames
+rendered_invalid_frames
 num_raw_images
 num_raw_pointclouds
 num_raw_imus

@@ -24,6 +24,10 @@ uint64 rendered_stamp_regressions
 uint64 pointcloud_stamp_regressions
 uint64 imu_stamp_regressions
 uint64 imu_invalid_measurements
+uint64 camera_info_invalid_intrinsics
+uint64 image_invalid_frames
+uint64 depth_invalid_frames
+uint64 rendered_invalid_frames
 
 uint64 num_raw_images
 uint64 num_raw_pointclouds

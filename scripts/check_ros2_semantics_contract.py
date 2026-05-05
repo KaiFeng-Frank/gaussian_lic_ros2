@@ -278,6 +278,8 @@ def main() -> int:
         errors.append("tracking_node must publish LiDAR invalid point and point-time counters")
     if "lidar_out_of_range_point_times_" not in tracking_node_text or "lidar_max_abs_point_time_offset_s" not in tracking_node_text:
         errors.append("tracking_node must gate out-of-range LiDAR per-point time offsets")
+    if "camera_info_invalid_intrinsics_" not in tracking_node_text or "image_invalid_frames_" not in tracking_node_text:
+        errors.append("tracking_node must publish invalid camera/image/depth/rendered-frame counters")
     for field in [
         "signed_nanosecond_time_math_enabled",
         "last_image_stamp_ns",
@@ -289,6 +291,10 @@ def main() -> int:
         "pointcloud_stamp_regressions",
         "imu_stamp_regressions",
         "imu_invalid_measurements",
+        "camera_info_invalid_intrinsics",
+        "image_invalid_frames",
+        "depth_invalid_frames",
+        "rendered_invalid_frames",
         "lidar_invalid_points",
         "lidar_invalid_point_times",
         "lidar_out_of_range_point_times",

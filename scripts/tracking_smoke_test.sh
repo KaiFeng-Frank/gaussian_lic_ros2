@@ -182,6 +182,10 @@ status_matches() {
     rg -q "pointcloud_stamp_regressions: 0" "${status_file}" &&
     rg -q "imu_stamp_regressions: 0" "${status_file}" &&
     rg -q "imu_invalid_measurements: 0" "${status_file}" &&
+    rg -q "camera_info_invalid_intrinsics: 0" "${status_file}" &&
+    rg -q "image_invalid_frames: 0" "${status_file}" &&
+    rg -q "depth_invalid_frames: 0" "${status_file}" &&
+    rg -q "rendered_invalid_frames: 0" "${status_file}" &&
     rg -q "sliding_window_enabled: true" "${status_file}" &&
     rg -q "sliding_window_rejected_steps:" "${status_file}" &&
     rg -q "sliding_window_limited_steps:" "${status_file}" &&
