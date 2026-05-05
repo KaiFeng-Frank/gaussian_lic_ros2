@@ -186,8 +186,10 @@ cv::Mat make_projected_depth_image(
       continue;
     }
 
-    const int u = static_cast<int>(std::floor(u_float));
-    const int v = static_cast<int>(std::floor(v_float));
+    // Match scripts/frontend_raw_to_ros1_mapper_contract.py::make_projected_depth.
+    // RGB sampling intentionally stays floor-based because the ROS1 converter uses floor there.
+    const int u = static_cast<int>(std::nearbyint(u_float));
+    const int v = static_cast<int>(std::nearbyint(v_float));
     if (u < 0 || v < 0 || u >= width || v >= height) {
       continue;
     }

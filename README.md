@@ -600,28 +600,33 @@ Latest local strict run, 2026-05-05:
 
 - ROS1 baseline visual dump: 1186 render/GT pairs, 237 train and 949 novel frames.
 - ROS2 current strict path: CUDA rasterizer, final-map evaluation, IMU-fallback
-  world-frame point-cloud rotation enabled, high-rate GaussianArray publication
-  disabled, 1.5M foreground cap with uniform count-cap pruning, alpha-hole
-  extension filtering enabled at threshold `0.99`, ROS2 gradient split/clone
-  densification disabled, opacity reset disabled, deterministic upstream-random
-  optimization-frame sampling enabled with seed `20260505`,
-  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, 1167 render/GT pairs, 233
-  train and 934 novel frames, trajectory coverage 98.40%. The trajectory gate
+  world-frame point-cloud rotation enabled, ROS1-compatible projected-depth
+  nearest-pixel rounding, high-rate GaussianArray publication disabled, 1.5M
+  foreground cap with uniform count-cap pruning, alpha-hole extension filtering
+  enabled at threshold `0.99`, ROS2 gradient split/clone densification disabled,
+  opacity reset disabled, deterministic upstream-random optimization-frame
+  sampling enabled with seed `20260505`,
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, 1171 render/GT pairs, 234
+  train and 937 novel frames, trajectory coverage 98.74%. The trajectory gate
   passes and the optimizer finishes with `gaussian_opt_errors=0`,
   `gaussian_densified_total=0`, and `gaussian_opacity_resets=0`.
 - Current vs ROS1 quality is closer but still below the paper gate: ROS2 novel
-  PSNR 12.45 dB vs ROS1 12.70 dB passes the 5% gate, ROS2 novel LPIPS 0.747 vs
-  ROS1 0.751 passes, but ROS2 novel SSIM 0.332 vs ROS1 0.364 still fails with
-  an 8.84% regression. The full-sequence 64-pair ROS1-vs-ROS2 render summary
-  improves to mean PSNR 20.15 dB and mean SSIM 0.664.
+  PSNR 12.38 dB vs ROS1 12.70 dB passes the 5% gate, ROS2 novel LPIPS 0.747 vs
+  ROS1 0.751 passes, but ROS2 novel SSIM 0.334 vs ROS1 0.364 still fails with
+  an 8.34% regression. The full-sequence 64-pair ROS1-vs-ROS2 render summary
+  is mean PSNR 20.15 dB and mean SSIM 0.673.
 - Chamfer/point-cloud parity still fails, but only two point-cloud thresholds
-  remain over the line: centroid drift is 0.444 m and bidirectional nearest mean
-  is 0.1022 m. Bidirectional RMSE now passes at 0.1441 m and unmatched ratio
-  passes at 2.17%. The point-count gate uses declared PLY vertices; the current
-  declared count ratio is 0.610 while the diagnostic loaded sample ratio is
-  0.975. The next blocker is residual scale/camera/geometry parity, not missing
-  render pairs, OOM, ROS2-only densification, opacity reset, sorted optimizer
-  frame sampling, or a disabled CUDA runtime.
+  remain over the line: centroid drift is 0.215 m and bidirectional nearest mean
+  is 0.1012 m. Bidirectional RMSE passes at 0.1471 m and unmatched ratio passes
+  at 2.83%. The point-count gate uses declared PLY vertices; the current declared
+  count ratio is 0.551 while the diagnostic loaded sample ratio is 0.882. Follow-up
+  opacity-prune A/B runs showed that disabling opacity pruning makes the
+  point-cloud gate pass (centroid 0.148 m, nearest mean 0.0994 m, count ratio
+  0.978) but badly regresses render quality (novel SSIM 0.245), while a `0.004`
+  opacity threshold still misses both SSIM and point-cloud parity. The next
+  blocker is residual SSIM and geometry parity, not missing render pairs, OOM,
+  ROS2-only densification, opacity reset, sorted optimizer frame sampling, or a
+  disabled CUDA runtime.
 
 So the strict chain now produces full-frame, same-cadence numbers and passes the
 strict trajectory coverage gate, but the remaining blocker is algorithmic parity
