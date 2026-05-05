@@ -37,6 +37,24 @@ void TrajectoryManager::add_control_pose(const TrajectoryPose & pose)
   control_poses_.push_back(normalized);
 }
 
+void TrajectoryManager::add_or_update_control_pose(const TrajectoryPose & pose)
+{
+  TrajectoryPose normalized = pose;
+  normalized.q_w_i.normalize();
+  const auto it = std::lower_bound(
+    control_poses_.begin(),
+    control_poses_.end(),
+    normalized.stamp_ns,
+    [](const TrajectoryPose & lhs, const int64_t stamp_ns) {
+      return lhs.stamp_ns < stamp_ns;
+    });
+  if (it != control_poses_.end() && it->stamp_ns == normalized.stamp_ns) {
+    *it = normalized;
+    return;
+  }
+  control_poses_.insert(it, normalized);
+}
+
 double TrajectoryManager::cubic_basis(const size_t basis_index, const double u)
 {
   const double u2 = u * u;

@@ -47,6 +47,32 @@ int main()
     max_yaw_error = std::max(max_yaw_error, 2.0 * yaw_error.vec().norm());
   }
 
+  gaussian_lic_tracking::TrajectoryPose before_update;
+  if (!trajectory.query_pose(3 * dt_ns, before_update)) {
+    std::cerr << "failed to query trajectory before control-pose update\n";
+    return 1;
+  }
+  gaussian_lic_tracking::TrajectoryPose updated_control;
+  updated_control.stamp_ns = 3 * dt_ns;
+  updated_control.p_w_i = velocity * (static_cast<double>(updated_control.stamp_ns) / 1.0e9) +
+    Eigen::Vector3d{0.0, 0.0, 1.0};
+  updated_control.q_w_i = Eigen::Quaterniond(
+    Eigen::AngleAxisd(
+      kYawRateRadS * static_cast<double>(updated_control.stamp_ns) / 1.0e9,
+      Eigen::Vector3d::UnitZ()));
+  const size_t size_before_update = trajectory.size();
+  trajectory.add_or_update_control_pose(updated_control);
+  gaussian_lic_tracking::TrajectoryPose after_update;
+  if (!trajectory.query_pose(3 * dt_ns, after_update)) {
+    std::cerr << "failed to query trajectory after control-pose update\n";
+    return 1;
+  }
+  const double update_delta_z = after_update.p_w_i.z() - before_update.p_w_i.z();
+  if (trajectory.size() != size_before_update || update_delta_z < 0.5) {
+    std::cerr << "trajectory control-pose update did not replace the existing knot\n";
+    return 1;
+  }
+
   builtin_interfaces::msg::Time negative_stamp;
   negative_stamp.sec = -1;
   negative_stamp.nanosec = 500000000U;
@@ -62,6 +88,7 @@ int main()
             << " max_position_error=" << max_position_error
             << " max_velocity_error=" << max_velocity_error
             << " max_yaw_error=" << max_yaw_error
+            << " update_delta_z=" << update_delta_z
             << " negative_ns=" << negative_ns << "\n";
   if (max_position_error > 1.0e-9 || max_velocity_error > 1.0e-9 ||
     max_yaw_error > 1.0e-9)

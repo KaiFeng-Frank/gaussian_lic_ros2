@@ -76,9 +76,10 @@ Current ROS2 implementation status:
   The ROS2 tracking launch now default-enables the sliding-window optimizer and
   visual/SE3 photometric window factors so the runtime path exercises the joint
   BA surface when rendered/depth inputs are available.
-  Optimized sliding-window velocity and bias now feed back into odometry and
-  safe IMU propagation re-anchoring, and the B-spline trajectory cache is used
-  as the first deskew pose-query source when it is valid.
+  Optimized sliding-window pose, velocity, and bias now feed back into odometry,
+  the continuous-time B-spline trajectory-control cache, and safe IMU propagation
+  re-anchoring. The B-spline trajectory cache is used as the first deskew
+  pose-query source when it is valid.
   `TrackingStatus` exposes optimized IMU re-anchor counts, trajectory-control
   counts, and B-spline deskew lookup query/hit counters for runtime gates.
   The optimizer has bounded window trimming, Schur-complement retained-window

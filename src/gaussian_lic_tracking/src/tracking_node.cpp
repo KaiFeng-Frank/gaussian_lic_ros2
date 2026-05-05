@@ -738,6 +738,7 @@ private:
             ++num_sliding_window_imu_reanchors_;
           }
         }
+        sync_optimized_trajectory_controls();
         RCLCPP_DEBUG_THROTTLE(
           get_logger(), *get_clock(), 2000,
           "sliding window states=%zu imu=%zu pose_priors=%zu dense_priors=%zu point=%zu plane=%zu visual=%zu se3_photo=%zu smooth=%zu cost %.6g -> %.6g",
@@ -772,17 +773,28 @@ private:
   void append_trajectory_control_pose(const gaussian_lic_tracking::TrajectoryPose & pose)
   {
     try {
-      if (last_trajectory_control_stamp_ns_.has_value() &&
-        pose.stamp_ns <= last_trajectory_control_stamp_ns_.value())
+      trajectory_manager_.add_or_update_control_pose(pose);
+      if (!last_trajectory_control_stamp_ns_.has_value() ||
+        pose.stamp_ns > last_trajectory_control_stamp_ns_.value())
       {
-        return;
+        last_trajectory_control_stamp_ns_ = pose.stamp_ns;
       }
-      trajectory_manager_.add_control_pose(pose);
-      last_trajectory_control_stamp_ns_ = pose.stamp_ns;
     } catch (const std::exception & ex) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "trajectory control pose skipped: %s", ex.what());
+    }
+  }
+
+  void sync_optimized_trajectory_controls()
+  {
+    for (const auto & state : sliding_window_optimizer_.states()) {
+      gaussian_lic_tracking::TrajectoryPose pose;
+      pose.stamp_ns = state.stamp_ns;
+      pose.p_w_i = state.p_w_i;
+      pose.q_w_i = state.q_w_i;
+      pose.v_w_i = state.v_w_i;
+      append_trajectory_control_pose(pose);
     }
   }
 

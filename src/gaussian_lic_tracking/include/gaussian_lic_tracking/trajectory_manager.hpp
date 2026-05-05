@@ -30,6 +30,7 @@ public:
 
   void clear();
   void add_control_pose(const TrajectoryPose & pose);
+  void add_or_update_control_pose(const TrajectoryPose & pose);
   bool query_pose(int64_t stamp_ns, TrajectoryPose & pose) const;
   size_t size() const { return control_poses_.size(); }
 
