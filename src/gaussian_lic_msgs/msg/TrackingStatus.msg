@@ -48,6 +48,10 @@ uint64 last_window_plane_correspondences
 uint64 total_window_point_correspondences
 uint64 total_window_plane_correspondences
 float64 last_lidar_mean_residual_m
+float64 last_window_point_confidence_mean
+float64 last_window_point_confidence_min
+float64 last_window_plane_confidence_mean
+float64 last_window_plane_confidence_min
 
 bool sliding_window_enabled
 uint64 sliding_window_states
