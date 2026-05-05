@@ -110,11 +110,12 @@ def compare_metrics(baseline_path, current_path, keys, max_regression, require_k
             }
         )
 
-    if not comparisons:
+    if not comparisons and require_keys:
         errors.append("no comparable metrics")
 
     return {
         "ok": not errors,
+        "skipped": not comparisons and not require_keys,
         "baseline": str(baseline_path),
         "current": str(current_path),
         "comparisons": comparisons,

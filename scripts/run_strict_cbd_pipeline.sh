@@ -24,6 +24,7 @@ CURRENT_TORCH_PRUNE_COUNT_POLICY=uniform
 CURRENT_TORCH_EXTEND_VISIBILITY_FILTER=true
 CURRENT_TORCH_EXTEND_ALPHA_THRESHOLD=0.99
 CURRENT_TORCH_OPACITY_RESET_INTERVAL=0
+CURRENT_TORCH_DENSIFICATION=false
 TIMEOUT_SEC=30
 SAVE_TIMEOUT_SEC=600
 OVERWRITE=false
@@ -72,6 +73,9 @@ Options:
                             Alpha threshold for current-view extension filtering. Default: 0.99
   --current-torch-opacity-reset-interval N
                             Steps between foreground opacity resets in rasterizer mode. Default: 0
+  --current-torch-densification
+                            Enable ROS2 gradient split/clone densification in rasterizer mode.
+                            Default: off, matching released Gaussian-LIC2 append-only extend().
   --timeout N              Current-result wait timeout. Default: 30
   --save-timeout N         SaveMap/final-render timeout. Default: 600
   --overwrite              Recreate converted frontend/mapper-contract outputs.
@@ -167,6 +171,10 @@ while [[ $# -gt 0 ]]; do
     --current-torch-opacity-reset-interval)
       CURRENT_TORCH_OPACITY_RESET_INTERVAL="$2"
       shift 2
+      ;;
+    --current-torch-densification)
+      CURRENT_TORCH_DENSIFICATION=true
+      shift
       ;;
     --timeout)
       TIMEOUT_SEC="$2"
@@ -282,12 +290,14 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
       --torch-prune-count-policy "${CURRENT_TORCH_PRUNE_COUNT_POLICY}"
       --torch-extend-alpha-threshold "${CURRENT_TORCH_EXTEND_ALPHA_THRESHOLD}"
       --torch-opacity-reset-interval "${CURRENT_TORCH_OPACITY_RESET_INTERVAL}"
-      --torch-densification
       --final-render-eval
       --no-publish-gaussian-map
     )
     if [[ "${CURRENT_TORCH_EXTEND_VISIBILITY_FILTER}" != "true" ]]; then
       current_torch_args+=(--no-torch-extend-visibility-filter)
+    fi
+    if [[ "${CURRENT_TORCH_DENSIFICATION}" == "true" ]]; then
+      current_torch_args+=(--torch-densification)
     fi
   fi
   ./scripts/collect_current_results.sh \
