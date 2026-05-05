@@ -201,6 +201,7 @@ def main() -> int:
         "sliding_window_normal_equation_min_singular_value",
         "sliding_window_normal_equation_max_singular_value",
         "sliding_window_normal_equation_condition_number",
+        "sliding_window_normal_equation_degenerate",
         "sliding_window_last_step_norm",
         "sliding_window_last_step_scale",
         "sliding_window_last_damping",

@@ -163,6 +163,10 @@ public:
       declare_parameter<double>("sliding_window_max_velocity_step_mps", 5.0);
     sliding_window_max_bias_step_ =
       declare_parameter<double>("sliding_window_max_bias_step", 1.0);
+    sliding_window_max_normal_equation_condition_ =
+      declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e12);
+    sliding_window_min_normal_equation_rank_ratio_ =
+      declare_parameter<double>("sliding_window_min_normal_equation_rank_ratio", 0.0);
     sliding_window_imu_weight_ = declare_parameter<double>("sliding_window_imu_weight", 1.0);
     sliding_window_bias_weight_ = declare_parameter<double>("sliding_window_bias_weight", 1.0);
     sliding_window_pose_translation_weight_ =
@@ -192,6 +196,10 @@ public:
     window_config.max_translation_step_m = std::max(sliding_window_max_translation_step_m_, 0.0);
     window_config.max_velocity_step_mps = std::max(sliding_window_max_velocity_step_mps_, 0.0);
     window_config.max_bias_step = std::max(sliding_window_max_bias_step_, 0.0);
+    window_config.max_normal_equation_condition =
+      std::max(sliding_window_max_normal_equation_condition_, 0.0);
+    window_config.min_normal_equation_rank_ratio =
+      std::clamp(sliding_window_min_normal_equation_rank_ratio_, 0.0, 1.0);
     sliding_window_optimizer_.set_config(window_config);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
@@ -1588,6 +1596,11 @@ private:
     } else if (enable_sliding_window_optimizer_ && !has_last_sliding_window_summary_) {
       status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_DEGRADED;
       status.status_text = "tracking_waiting_for_sliding_window";
+    } else if (enable_sliding_window_optimizer_ &&
+      last_sliding_window_summary_.normal_equation_degenerate)
+    {
+      status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_DEGRADED;
+      status.status_text = "tracking_degraded_sliding_window_degenerate";
     } else {
       status.state = gaussian_lic_msgs::msg::TrackingStatus::STATE_TRACKING;
       status.status_text = enable_sliding_window_optimizer_ ? "tracking_with_sliding_window" : "tracking";
@@ -1668,6 +1681,7 @@ private:
     status.sliding_window_gyro_bias_observability = summary.gyro_bias_observability;
     status.sliding_window_accel_bias_observability = summary.accel_bias_observability;
     status.sliding_window_converged = summary.converged;
+    status.sliding_window_normal_equation_degenerate = summary.normal_equation_degenerate;
     status.sliding_window_imu_reanchors = num_sliding_window_imu_reanchors_;
     status.trajectory_control_poses = static_cast<uint64_t>(trajectory_manager_.size());
     status.trajectory_deskew_queries = trajectory_deskew_queries_;
@@ -1798,6 +1812,8 @@ private:
   double sliding_window_max_translation_step_m_{1.0};
   double sliding_window_max_velocity_step_mps_{5.0};
   double sliding_window_max_bias_step_{1.0};
+  double sliding_window_max_normal_equation_condition_{1.0e12};
+  double sliding_window_min_normal_equation_rank_ratio_{0.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double sliding_window_imu_weight_{1.0};
   double sliding_window_bias_weight_{1.0};

@@ -76,6 +76,7 @@ float64 sliding_window_accel_bias_norm
 float64 sliding_window_gyro_bias_observability
 float64 sliding_window_accel_bias_observability
 bool sliding_window_converged
+bool sliding_window_normal_equation_degenerate
 uint64 sliding_window_imu_reanchors
 uint64 trajectory_control_poses
 uint64 trajectory_deskew_queries

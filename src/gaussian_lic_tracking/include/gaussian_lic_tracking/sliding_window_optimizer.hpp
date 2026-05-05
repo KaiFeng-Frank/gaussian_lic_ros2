@@ -27,6 +27,8 @@ struct SlidingWindowConfig
   double max_velocity_step_mps{0.0};
   double max_translation_step_m{0.0};
   double max_bias_step{0.0};
+  double max_normal_equation_condition{1.0e12};
+  double min_normal_equation_rank_ratio{0.0};
 };
 
 struct SlidingWindowState
@@ -173,6 +175,7 @@ struct SlidingWindowSummary
   double gyro_bias_observability{0.0};
   double accel_bias_observability{0.0};
   bool converged{false};
+  bool normal_equation_degenerate{false};
 };
 
 struct SchurComplementResult

@@ -175,6 +175,7 @@ status_matches() {
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_max_singular_value: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_condition_number: .*[1-9]" "${status_file}" &&
+    rg -q "sliding_window_normal_equation_degenerate: false" "${status_file}" &&
     rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&

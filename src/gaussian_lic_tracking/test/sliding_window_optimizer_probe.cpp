@@ -69,9 +69,25 @@ int main()
     summary.normal_equation_rank == 0U ||
     summary.normal_equation_min_singular_value <= 0.0 ||
     summary.normal_equation_max_singular_value < summary.normal_equation_min_singular_value ||
-    !std::isfinite(summary.normal_equation_condition_number))
+    !std::isfinite(summary.normal_equation_condition_number) ||
+    summary.normal_equation_degenerate)
   {
     std::cerr << "sliding window optimizer did not report valid normal-equation health\n";
+    return 1;
+  }
+
+  gaussian_lic_tracking::SlidingWindowConfig guarded_config;
+  guarded_config.max_normal_equation_condition = 1.0;
+  gaussian_lic_tracking::SlidingWindowOptimizer guarded_optimizer(guarded_config);
+  guarded_optimizer.add_or_update_state(start);
+  guarded_optimizer.add_or_update_state(end);
+  guarded_optimizer.add_imu_factor(factor);
+  const auto guarded_summary = guarded_optimizer.optimize();
+  if (!guarded_summary.normal_equation_degenerate ||
+    guarded_summary.accepted_steps != 0U ||
+    guarded_summary.rejected_steps == 0U)
+  {
+    std::cerr << "sliding window optimizer did not gate an over-conditioned normal equation\n";
     return 1;
   }
   std::cout << "sliding_window_optimizer_probe OK\n";

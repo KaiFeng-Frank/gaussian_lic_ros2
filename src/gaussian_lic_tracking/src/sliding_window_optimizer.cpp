@@ -421,6 +421,15 @@ void SlidingWindowOptimizer::set_config(const SlidingWindowConfig & config)
   {
     throw std::runtime_error("sliding window step limits must be finite and non-negative");
   }
+  if (!std::isfinite(config.max_normal_equation_condition) ||
+    !std::isfinite(config.min_normal_equation_rank_ratio) ||
+    config.max_normal_equation_condition < 0.0 ||
+    config.min_normal_equation_rank_ratio < 0.0 ||
+    config.min_normal_equation_rank_ratio > 1.0)
+  {
+    throw std::runtime_error(
+      "sliding window normal-equation health gates must be finite and in range");
+  }
   config_ = config;
 }
 
@@ -1736,11 +1745,36 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
     };
   refresh_dense_prior_summary();
   refresh_normal_equation_summary();
+  auto normal_equation_is_degenerate = [&summary, this]() {
+      if (summary.normal_equation_cols == 0U) {
+        return false;
+      }
+      if (summary.normal_equation_rank == 0U) {
+        return true;
+      }
+      if (config_.min_normal_equation_rank_ratio > 0.0) {
+        const auto min_rank = static_cast<size_t>(
+          std::ceil(
+            static_cast<double>(summary.normal_equation_cols) *
+            config_.min_normal_equation_rank_ratio));
+        if (summary.normal_equation_rank < min_rank) {
+          return true;
+        }
+      }
+      return config_.max_normal_equation_condition > 0.0 &&
+             summary.normal_equation_condition_number > config_.max_normal_equation_condition;
+    };
   if (residual.size() == 0 || variable_count == 0U) {
     summary.converged = true;
     refresh_bias_summary();
     refresh_dense_prior_summary();
     refresh_normal_equation_summary();
+    return summary;
+  }
+  if (normal_equation_is_degenerate()) {
+    summary.normal_equation_degenerate = true;
+    ++summary.rejected_steps;
+    refresh_bias_summary();
     return summary;
   }
 
