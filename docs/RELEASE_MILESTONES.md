@@ -72,5 +72,6 @@ chain passes the local trajectory, PSNR/SSIM/LPIPS, GT-associated render-pair,
 and Chamfer gates against the archived ROS1 upstream baseline. SPNet TensorRT
 engine generation is validated locally with TensorRT 10.9 on `sm_120`. The
 native tracking path now has a launch smoke gate and analytic geometric
-Jacobians for point-to-point, point-to-plane, and visual-alignment residuals;
-full native Coco-LIC2 frontend parity remains follow-up work.
+Jacobians for point-to-point, point-to-plane, and visual-alignment residuals,
+plus a 2-DoF photometric translation linearization; full native Coco-LIC2
+frontend parity remains follow-up work.

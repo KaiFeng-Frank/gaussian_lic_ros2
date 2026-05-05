@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <vector>
 
+#include <Eigen/Core>
+
 namespace gaussian_lic_tracking
 {
 
@@ -37,6 +39,16 @@ struct VisualAlignment
   double rmse{0.0};
 };
 
+struct VisualPhotometricLinearization
+{
+  bool valid{false};
+  size_t compared_pixels{0};
+  double cost{0.0};
+  Eigen::Matrix2d hessian{Eigen::Matrix2d::Zero()};
+  Eigen::Vector2d rhs{Eigen::Vector2d::Zero()};
+  Eigen::Vector2d gauss_newton_step{Eigen::Vector2d::Zero()};
+};
+
 class VisualFactor
 {
 public:
@@ -46,6 +58,9 @@ public:
   size_t max_pixels() const { return max_pixels_; }
 
   VisualResidual evaluate(const VisualFrame & reference, const VisualFrame & candidate) const;
+  VisualPhotometricLinearization linearize_translation(
+    const VisualFrame & reference,
+    const VisualFrame & candidate) const;
   VisualAlignment estimate_translation(
     const VisualFrame & reference,
     const VisualFrame & candidate,

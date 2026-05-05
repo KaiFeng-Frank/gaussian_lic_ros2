@@ -6,6 +6,8 @@
 #include <cmath>
 #include <stdexcept>
 
+#include <Eigen/Cholesky>
+
 namespace gaussian_lic_tracking
 {
 namespace
@@ -40,6 +42,54 @@ void VisualFactor::set_max_pixels(const size_t max_pixels)
 VisualResidual VisualFactor::evaluate(const VisualFrame & reference, const VisualFrame & candidate) const
 {
   return evaluate_shifted(reference, candidate, 0, 0);
+}
+
+VisualPhotometricLinearization VisualFactor::linearize_translation(
+  const VisualFrame & reference,
+  const VisualFrame & candidate) const
+{
+  VisualPhotometricLinearization output;
+  if (reference.width < 3U || reference.height < 3U ||
+    reference.width != candidate.width || reference.height != candidate.height)
+  {
+    return output;
+  }
+  const size_t pixel_count = reference.width * reference.height;
+  if (reference.gray.size() != pixel_count || candidate.gray.size() != pixel_count) {
+    return output;
+  }
+
+  const size_t stride = pixel_count > max_pixels_
+    ? static_cast<size_t>(std::ceil(static_cast<double>(pixel_count) / static_cast<double>(max_pixels_)))
+    : 1U;
+  for (size_t index = 0; index < pixel_count; index += stride) {
+    const size_t x = index % reference.width;
+    const size_t y = index / reference.width;
+    if (x == 0U || y == 0U || x + 1U >= reference.width || y + 1U >= reference.height) {
+      continue;
+    }
+    const auto at = [&candidate](const size_t px, const size_t py) {
+        return static_cast<double>(candidate.gray[py * candidate.width + px]);
+      };
+    const double residual = static_cast<double>(candidate.gray[index] - reference.gray[index]);
+    const Eigen::Vector2d jacobian{
+      0.5 * (at(x + 1U, y) - at(x - 1U, y)),
+      0.5 * (at(x, y + 1U) - at(x, y - 1U))};
+    output.hessian += jacobian * jacobian.transpose();
+    output.rhs.noalias() -= jacobian * residual;
+    output.cost += 0.5 * residual * residual;
+    ++output.compared_pixels;
+  }
+  if (output.compared_pixels == 0U || !output.hessian.allFinite() || !output.rhs.allFinite()) {
+    return output;
+  }
+  const Eigen::LDLT<Eigen::Matrix2d> ldlt(output.hessian);
+  if (ldlt.info() != Eigen::Success) {
+    return output;
+  }
+  output.gauss_newton_step = ldlt.solve(output.rhs);
+  output.valid = output.gauss_newton_step.allFinite();
+  return output;
 }
 
 VisualResidual VisualFactor::evaluate_shifted(

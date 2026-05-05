@@ -130,6 +130,18 @@ int main()
     std::cerr << "visual alignment failed to recover subpixel translation\n";
     return 1;
   }
+  const auto linearization =
+    dense_factor.linearize_translation(subpixel_reference, subpixel_candidate);
+  std::cout << " photometric_step=" << linearization.gauss_newton_step.transpose()
+            << " photometric_cost=" << linearization.cost;
+  if (!linearization.valid ||
+    linearization.compared_pixels == 0U ||
+    std::abs(linearization.gauss_newton_step.x() - expected_subpixel_dx) > 0.25 ||
+    std::abs(linearization.gauss_newton_step.y() - expected_subpixel_dy) > 0.25)
+  {
+    std::cerr << "visual photometric linearization failed to recover translation step\n";
+    return 1;
+  }
 
   candidate.width = 2;
   if (factor.evaluate(reference, candidate).valid) {
