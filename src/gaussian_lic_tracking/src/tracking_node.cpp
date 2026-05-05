@@ -309,6 +309,9 @@ private:
     std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> samples;
     size_t candidate_pixels{0};
     size_t accepted_pixels{0};
+    size_t rejected_depth_pixels{0};
+    size_t rejected_gradient_pixels{0};
+    size_t rejected_residual_pixels{0};
     double mean_abs_residual{0.0};
   };
 
@@ -405,8 +408,26 @@ private:
     if (!decode_image_gray(msg, observed)) {
       return;
     }
+    int64_t rendered_match_delta_ns = 0;
+    bool rendered_cache_had_size_match = false;
     const gaussian_lic_tracking::VisualFrame * rendered_frame =
-      select_rendered_frame_for_stamp(observed.stamp_ns, observed.width, observed.height);
+      select_rendered_frame_for_stamp(
+      observed.stamp_ns,
+      observed.width,
+      observed.height,
+      &rendered_match_delta_ns,
+      &rendered_cache_had_size_match);
+    last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
+    last_visual_rendered_match_delta_ns_ = rendered_frame == nullptr ? 0 : rendered_match_delta_ns;
+    if (rendered_frame == nullptr) {
+      if (rendered_frame_cache_.empty()) {
+        ++visual_rendered_miss_count_;
+      } else if (!rendered_cache_had_size_match) {
+        ++visual_rendered_size_mismatch_count_;
+      } else {
+        ++visual_rendered_stale_count_;
+      }
+    }
     if (rendered_frame != nullptr) {
       last_visual_residual_ = visual_factor_.evaluate(*rendered_frame, observed);
       last_visual_alignment_ = visual_factor_.estimate_translation(
@@ -419,6 +440,9 @@ private:
         const auto se3_samples = build_se3_photometric_samples(*rendered_frame, observed);
         last_visual_se3_photometric_candidate_pixels_ = se3_samples.candidate_pixels;
         last_visual_se3_photometric_accepted_pixels_ = se3_samples.accepted_pixels;
+        last_visual_se3_photometric_rejected_depth_pixels_ = se3_samples.rejected_depth_pixels;
+        last_visual_se3_photometric_rejected_gradient_pixels_ = se3_samples.rejected_gradient_pixels;
+        last_visual_se3_photometric_rejected_residual_pixels_ = se3_samples.rejected_residual_pixels;
         last_visual_se3_photometric_mean_abs_residual_ = se3_samples.mean_abs_residual;
         last_visual_se3_photometric_linearization_ =
           gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
@@ -599,6 +623,8 @@ private:
         visual_factor.weight = visual_alignment_window_weight_;
         visual_factor.huber_delta_m = visual_alignment_huber_delta_m_;
         visual_window_factors.push_back(visual_factor);
+      } else {
+        ++visual_alignment_pending_stale_drops_;
       }
       has_pending_visual_alignment_ = false;
       pending_visual_alignment_stamp_ns_.reset();
@@ -621,6 +647,8 @@ private:
         factor.weight = se3_photometric_window_weight_;
         factor.huber_delta = se3_photometric_factor_huber_delta_;
         se3_photometric_factors.push_back(factor);
+      } else {
+        ++visual_se3_photometric_pending_stale_drops_;
       }
       has_pending_visual_se3_photometric_ = false;
       pending_visual_se3_photometric_stamp_ns_.reset();
@@ -931,14 +959,18 @@ private:
   const DepthFrame * select_depth_frame_for_stamp(
     const int64_t image_stamp_ns,
     const size_t width,
-    const size_t height) const
+    const size_t height,
+    int64_t * selected_delta_ns = nullptr,
+    bool * cache_had_size_match = nullptr) const
   {
     const DepthFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    bool had_size_match = false;
     for (const auto & frame : depth_frame_cache_) {
       if (frame.width != width || frame.height != height) {
         continue;
       }
+      had_size_match = true;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
       if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
         delta_ns < best_delta_ns)
@@ -947,20 +979,30 @@ private:
         best_delta_ns = delta_ns;
       }
     }
+    if (selected_delta_ns != nullptr) {
+      *selected_delta_ns = best == nullptr ? 0 : best_delta_ns;
+    }
+    if (cache_had_size_match != nullptr) {
+      *cache_had_size_match = had_size_match;
+    }
     return best;
   }
 
   const gaussian_lic_tracking::VisualFrame * select_rendered_frame_for_stamp(
     const int64_t image_stamp_ns,
     const size_t width,
-    const size_t height) const
+    const size_t height,
+    int64_t * selected_delta_ns = nullptr,
+    bool * cache_had_size_match = nullptr) const
   {
     const gaussian_lic_tracking::VisualFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    bool had_size_match = false;
     for (const auto & frame : rendered_frame_cache_) {
       if (frame.width != width || frame.height != height) {
         continue;
       }
+      had_size_match = true;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
       if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
         delta_ns < best_delta_ns)
@@ -968,6 +1010,12 @@ private:
         best = &frame;
         best_delta_ns = delta_ns;
       }
+    }
+    if (selected_delta_ns != nullptr) {
+      *selected_delta_ns = best == nullptr ? 0 : best_delta_ns;
+    }
+    if (cache_had_size_match != nullptr) {
+      *cache_had_size_match = had_size_match;
     }
     return best;
   }
@@ -1084,11 +1132,29 @@ private:
 
   Se3PhotometricSampleBatch build_se3_photometric_samples(
     const gaussian_lic_tracking::VisualFrame & rendered,
-    const gaussian_lic_tracking::VisualFrame & observed) const
+    const gaussian_lic_tracking::VisualFrame & observed)
   {
     Se3PhotometricSampleBatch batch;
+    int64_t depth_match_delta_ns = 0;
+    bool depth_cache_had_size_match = false;
     const DepthFrame * depth_frame =
-      select_depth_frame_for_stamp(observed.stamp_ns, observed.width, observed.height);
+      select_depth_frame_for_stamp(
+      observed.stamp_ns,
+      observed.width,
+      observed.height,
+      &depth_match_delta_ns,
+      &depth_cache_had_size_match);
+    last_visual_depth_cache_size_ = depth_frame_cache_.size();
+    last_visual_depth_match_delta_ns_ = depth_frame == nullptr ? 0 : depth_match_delta_ns;
+    if (depth_frame == nullptr) {
+      if (depth_frame_cache_.empty()) {
+        ++visual_depth_miss_count_;
+      } else if (!depth_cache_had_size_match) {
+        ++visual_depth_size_mismatch_count_;
+      } else {
+        ++visual_depth_stale_count_;
+      }
+    }
     if (!has_camera_intrinsics_ || depth_frame == nullptr ||
       rendered.width < 3U || rendered.height < 3U ||
       rendered.width != observed.width || rendered.height != observed.height)
@@ -1119,6 +1185,7 @@ private:
         static_cast<double>(depth) < se3_photometric_min_depth_m_ ||
         static_cast<double>(depth) > se3_photometric_max_depth_m_)
       {
+        ++batch.rejected_depth_pixels;
         continue;
       }
       auto at = [&observed](const size_t px, const size_t py) {
@@ -1136,6 +1203,7 @@ private:
       sample.residual = static_cast<double>(observed.gray[index] - rendered.gray[index]);
       const double gradient_norm = sample.image_gradient.norm();
       if (!std::isfinite(gradient_norm) || gradient_norm < se3_photometric_min_gradient_) {
+        ++batch.rejected_gradient_pixels;
         continue;
       }
       const double abs_residual = std::abs(sample.residual);
@@ -1143,6 +1211,7 @@ private:
         (se3_photometric_max_abs_residual_ > 0.0 &&
         abs_residual > se3_photometric_max_abs_residual_))
       {
+        ++batch.rejected_residual_pixels;
         continue;
       }
       sample.weight = 1.0;
@@ -1562,6 +1631,18 @@ private:
     status.gaussian_snapshot_complete = gaussian_snapshot_.complete();
 
     status.visual_factor_enabled = enable_visual_factor_;
+    status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
+    status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
+    status.visual_rendered_miss_count = visual_rendered_miss_count_;
+    status.visual_rendered_stale_count = visual_rendered_stale_count_;
+    status.visual_rendered_size_mismatch_count = visual_rendered_size_mismatch_count_;
+    status.visual_depth_cache_size = static_cast<uint64_t>(last_visual_depth_cache_size_);
+    status.visual_depth_match_delta_ns = last_visual_depth_match_delta_ns_;
+    status.visual_depth_miss_count = visual_depth_miss_count_;
+    status.visual_depth_stale_count = visual_depth_stale_count_;
+    status.visual_depth_size_mismatch_count = visual_depth_size_mismatch_count_;
+    status.visual_alignment_pending_stale_drops = visual_alignment_pending_stale_drops_;
+    status.visual_se3_photometric_pending_stale_drops = visual_se3_photometric_pending_stale_drops_;
     status.visual_alignment_valid = last_visual_alignment_.valid;
     status.visual_rmse = last_visual_residual_.valid ? last_visual_residual_.rmse : 0.0;
     status.visual_subpixel_dx = last_visual_alignment_.valid ? last_visual_alignment_.subpixel_dx : 0.0;
@@ -1586,6 +1667,12 @@ private:
       static_cast<uint64_t>(last_visual_se3_photometric_candidate_pixels_);
     status.visual_se3_photometric_samples =
       static_cast<uint64_t>(last_visual_se3_photometric_accepted_pixels_);
+    status.visual_se3_photometric_rejected_depth =
+      static_cast<uint64_t>(last_visual_se3_photometric_rejected_depth_pixels_);
+    status.visual_se3_photometric_rejected_gradient =
+      static_cast<uint64_t>(last_visual_se3_photometric_rejected_gradient_pixels_);
+    status.visual_se3_photometric_rejected_residual =
+      static_cast<uint64_t>(last_visual_se3_photometric_rejected_residual_pixels_);
     status.visual_se3_photometric_inlier_ratio = last_visual_se3_photometric_candidate_pixels_ > 0U
       ? static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
       static_cast<double>(last_visual_se3_photometric_candidate_pixels_)
@@ -1722,6 +1809,11 @@ private:
   gaussian_lic_tracking::GaussianSnapshot gaussian_snapshot_;
   gaussian_lic_tracking::VisualFactor visual_factor_;
   std::deque<gaussian_lic_tracking::VisualFrame> rendered_frame_cache_;
+  size_t last_visual_rendered_cache_size_{0};
+  int64_t last_visual_rendered_match_delta_ns_{0};
+  uint64_t visual_rendered_miss_count_{0};
+  uint64_t visual_rendered_stale_count_{0};
+  uint64_t visual_rendered_size_mismatch_count_{0};
   gaussian_lic_tracking::VisualResidual last_visual_residual_;
   gaussian_lic_tracking::VisualAlignment last_visual_alignment_;
   gaussian_lic_tracking::VisualPhotometricLinearization last_visual_photometric_linearization_;
@@ -1732,12 +1824,22 @@ private:
   std::optional<int64_t> pending_visual_se3_photometric_stamp_ns_;
   size_t last_visual_se3_photometric_candidate_pixels_{0};
   size_t last_visual_se3_photometric_accepted_pixels_{0};
+  size_t last_visual_se3_photometric_rejected_depth_pixels_{0};
+  size_t last_visual_se3_photometric_rejected_gradient_pixels_{0};
+  size_t last_visual_se3_photometric_rejected_residual_pixels_{0};
   double last_visual_se3_photometric_mean_abs_residual_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   std::deque<DepthFrame> depth_frame_cache_;
+  size_t last_visual_depth_cache_size_{0};
+  int64_t last_visual_depth_match_delta_ns_{0};
+  uint64_t visual_depth_miss_count_{0};
+  uint64_t visual_depth_stale_count_{0};
+  uint64_t visual_depth_size_mismatch_count_{0};
   bool has_camera_intrinsics_{false};
   bool has_pending_visual_se3_photometric_{false};
   bool has_pending_visual_alignment_{false};
+  uint64_t visual_alignment_pending_stale_drops_{0};
+  uint64_t visual_se3_photometric_pending_stale_drops_{0};
   gaussian_lic_tracking::SlidingWindowSummary last_sliding_window_summary_;
   bool has_last_sliding_window_summary_{false};
   uint64_t num_raw_images_{0};

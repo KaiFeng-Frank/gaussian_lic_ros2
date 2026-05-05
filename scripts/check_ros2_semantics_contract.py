@@ -193,6 +193,15 @@ def main() -> int:
         "trajectory_control_poses",
         "trajectory_deskew_queries",
         "trajectory_deskew_hits",
+        "visual_rendered_cache_size",
+        "visual_rendered_match_delta_ns",
+        "visual_depth_cache_size",
+        "visual_depth_match_delta_ns",
+        "visual_alignment_pending_stale_drops",
+        "visual_se3_photometric_pending_stale_drops",
+        "visual_se3_photometric_rejected_depth",
+        "visual_se3_photometric_rejected_gradient",
+        "visual_se3_photometric_rejected_residual",
     ]:
         if field not in tracking_status_msg_text or field not in tracking_node_text:
             errors.append(f"tracking status must publish frontend health field {field}")
