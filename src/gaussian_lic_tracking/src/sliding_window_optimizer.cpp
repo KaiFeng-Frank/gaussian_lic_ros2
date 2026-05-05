@@ -27,6 +27,43 @@ ImuState to_imu_state(const SlidingWindowState & state)
 }
 }  // namespace
 
+SchurComplementResult compute_schur_complement(
+  const Eigen::MatrixXd & h_mm,
+  const Eigen::MatrixXd & h_mr,
+  const Eigen::MatrixXd & h_rr,
+  const Eigen::VectorXd & rhs_m,
+  const Eigen::VectorXd & rhs_r,
+  const double damping)
+{
+  SchurComplementResult result;
+  if (h_mm.rows() != h_mm.cols() || h_rr.rows() != h_rr.cols() ||
+    h_mr.rows() != h_mm.rows() || h_mr.cols() != h_rr.rows() ||
+    rhs_m.size() != h_mm.rows() || rhs_r.size() != h_rr.rows() ||
+    damping < 0.0)
+  {
+    return result;
+  }
+
+  Eigen::MatrixXd regularized_mm = h_mm;
+  if (damping > 0.0) {
+    regularized_mm += damping * Eigen::MatrixXd::Identity(h_mm.rows(), h_mm.cols());
+  }
+  const Eigen::LDLT<Eigen::MatrixXd> ldlt(regularized_mm);
+  if (ldlt.info() != Eigen::Success) {
+    return result;
+  }
+  const Eigen::MatrixXd solved_mr = ldlt.solve(h_mr);
+  const Eigen::VectorXd solved_rhs = ldlt.solve(rhs_m);
+  if (!solved_mr.allFinite() || !solved_rhs.allFinite()) {
+    return result;
+  }
+
+  result.hessian = h_rr - h_mr.transpose() * solved_mr;
+  result.rhs = rhs_r - h_mr.transpose() * solved_rhs;
+  result.valid = result.hessian.allFinite() && result.rhs.allFinite();
+  return result;
+}
+
 SlidingWindowOptimizer::SlidingWindowOptimizer(SlidingWindowConfig config)
 {
   set_config(config);

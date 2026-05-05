@@ -102,6 +102,21 @@ struct SlidingWindowSummary
   bool converged{false};
 };
 
+struct SchurComplementResult
+{
+  bool valid{false};
+  Eigen::MatrixXd hessian;
+  Eigen::VectorXd rhs;
+};
+
+SchurComplementResult compute_schur_complement(
+  const Eigen::MatrixXd & h_mm,
+  const Eigen::MatrixXd & h_mr,
+  const Eigen::MatrixXd & h_rr,
+  const Eigen::VectorXd & rhs_m,
+  const Eigen::VectorXd & rhs_r,
+  double damping);
+
 class SlidingWindowOptimizer
 {
 public:
