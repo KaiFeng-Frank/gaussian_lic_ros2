@@ -70,6 +70,9 @@ Current ROS2 implementation status:
   point-to-plane, and visual-alignment factors. Geometric, prior, retained
   dense-prior, IMU bias-continuity, full current IMU preintegration factors,
   and SE3 photometric rows now use analytic Jacobians.
+  The ROS2 tracking launch now default-enables the sliding-window optimizer and
+  visual/SE3 photometric window factors so the runtime path exercises the joint
+  BA surface when rendered/depth inputs are available.
   The optimizer has bounded window trimming, Schur-complement retained-window
   priors, optional SE3 photometric pose factors extracted from
   rendered/current/depth images, rank/singular-value health for retained dense

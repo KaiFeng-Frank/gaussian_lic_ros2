@@ -95,6 +95,9 @@ def main() -> int:
         "sensor_qos_reliability",
         "sensor_qos_depth",
         "enable_lidar_plane_factor",
+        "enable_visual_alignment_window_factor",
+        "enable_se3_photometric_window_factor",
+        "enable_sliding_window_optimizer",
         "lidar_robust_kernel_m",
         "lidar_plane_min_neighbors",
         "lidar_plane_max_condition",
@@ -112,6 +115,14 @@ def main() -> int:
 
     if 'declare_parameter<bool>("serialize_callbacks", true)' not in tracking_node_text:
         errors.append("tracking_node must default serialize_callbacks to true")
+    if 'declare_parameter<bool>("enable_sliding_window_optimizer", true)' not in tracking_node_text:
+        errors.append("tracking_node must default production sliding-window BA to true")
+    if 'DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must default production sliding-window BA to true")
+    if 'DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must default visual alignment window factors to true")
+    if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must default SE3 photometric window factors to true")
     if "run_serialized_callback" not in tracking_node_text or "std::scoped_lock<std::mutex>" not in tracking_node_text:
         errors.append("tracking_node callbacks must pass through the serialization guard")
     for field in [

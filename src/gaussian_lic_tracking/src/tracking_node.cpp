@@ -67,13 +67,13 @@ public:
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
     visual_alignment_max_shift_px_ = declare_parameter<int>("visual_alignment_max_shift_px", 8);
     enable_visual_alignment_window_factor_ =
-      declare_parameter<bool>("enable_visual_alignment_window_factor", false);
+      declare_parameter<bool>("enable_visual_alignment_window_factor", true);
     visual_alignment_meters_per_pixel_ =
       declare_parameter<double>("visual_alignment_meters_per_pixel", 0.01);
     visual_alignment_window_weight_ =
       declare_parameter<double>("visual_alignment_window_weight", 1.0);
     enable_se3_photometric_window_factor_ =
-      declare_parameter<bool>("enable_se3_photometric_window_factor", false);
+      declare_parameter<bool>("enable_se3_photometric_window_factor", true);
     se3_photometric_window_weight_ =
       declare_parameter<double>("se3_photometric_window_weight", 1.0);
     se3_photometric_max_samples_ =
@@ -108,7 +108,7 @@ public:
     lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
     lidar_time_mode_ = declare_parameter<std::string>("lidar_time_mode", "auto");
     imu_history_size_ = declare_parameter<int>("imu_history_size", 4000);
-    enable_sliding_window_optimizer_ = declare_parameter<bool>("enable_sliding_window_optimizer", false);
+    enable_sliding_window_optimizer_ = declare_parameter<bool>("enable_sliding_window_optimizer", true);
     enable_gaussian_snapshot_lidar_factor_ =
       declare_parameter<bool>("enable_gaussian_snapshot_lidar_factor", true);
     gaussian_snapshot_lidar_min_opacity_ =
@@ -1356,10 +1356,10 @@ private:
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
   int visual_alignment_max_shift_px_{8};
-  bool enable_visual_alignment_window_factor_{false};
+  bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
-  bool enable_se3_photometric_window_factor_{false};
+  bool enable_se3_photometric_window_factor_{true};
   double se3_photometric_window_weight_{1.0};
   int se3_photometric_max_samples_{2000};
   int se3_photometric_min_samples_{16};
@@ -1371,7 +1371,7 @@ private:
   bool enable_lio_factor_{true};
   bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
-  bool enable_sliding_window_optimizer_{false};
+  bool enable_sliding_window_optimizer_{true};
   bool enable_gaussian_snapshot_lidar_factor_{true};
   std::string lidar_time_field_{"auto"};
   std::string lidar_time_unit_{"auto"};

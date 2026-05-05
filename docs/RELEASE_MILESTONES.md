@@ -81,3 +81,7 @@ gates. Full current IMU preintegration factors, pose-prior, state-prior,
 retained dense-prior, IMU bias-continuity, and SE3 photometric window rows now
 have analytic Jacobian coverage; full native Coco-LIC2 frontend parity remains
 follow-up work.
+The native tracking launch now defaults the sliding-window BA, visual-alignment
+window factors, and SE3 photometric window factors to enabled so ordinary
+tracking launch paths exercise the joint optimizer when the corresponding
+sensor/render/depth inputs are present.
