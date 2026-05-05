@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -26,6 +27,12 @@ public:
   void reset(const ImuState & state);
   const ImuState & state() const { return state_; }
   bool initialized() const { return initialized_; }
+  size_t history_size() const { return history_.size(); }
+
+  void set_gravity_w(const Eigen::Vector3d & gravity_w);
+  const Eigen::Vector3d & gravity_w() const { return gravity_w_; }
+  void set_max_history_size(size_t max_history_size);
+  bool query_state(int64_t stamp_ns, ImuState & state) const;
 
   void add_measurement(
     int64_t stamp_ns,
@@ -33,8 +40,16 @@ public:
     const Eigen::Vector3d & linear_acceleration_m_s2);
 
 private:
+  void push_history(const ImuState & state);
+
   ImuState state_;
+  std::deque<ImuState> history_;
+  Eigen::Vector3d gravity_w_{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d last_angular_velocity_rad_s_{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d last_linear_acceleration_m_s2_{Eigen::Vector3d::Zero()};
+  size_t max_history_size_{4000};
   bool initialized_{false};
+  bool has_last_measurement_{false};
 };
 
 }  // namespace gaussian_lic_tracking

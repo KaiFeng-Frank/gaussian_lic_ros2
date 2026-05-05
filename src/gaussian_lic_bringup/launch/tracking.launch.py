@@ -16,8 +16,12 @@ def generate_launch_description():
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
+    enable_lidar_deskew = LaunchConfiguration("enable_lidar_deskew")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
+    lidar_time_field = LaunchConfiguration("lidar_time_field")
+    lidar_time_unit = LaunchConfiguration("lidar_time_unit")
+    lidar_time_mode = LaunchConfiguration("lidar_time_mode")
 
     return LaunchDescription(
         [
@@ -30,6 +34,10 @@ def generate_launch_description():
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
+            DeclareLaunchArgument("enable_lidar_deskew", default_value="true"),
+            DeclareLaunchArgument("lidar_time_field", default_value="auto"),
+            DeclareLaunchArgument("lidar_time_unit", default_value="auto"),
+            DeclareLaunchArgument("lidar_time_mode", default_value="auto"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             Node(
@@ -52,6 +60,10 @@ def generate_launch_description():
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,
                         "enable_lio_factor": enable_lio_factor,
+                        "enable_lidar_deskew": enable_lidar_deskew,
+                        "lidar_time_field": lidar_time_field,
+                        "lidar_time_unit": lidar_time_unit,
+                        "lidar_time_mode": lidar_time_mode,
                         "enable_visual_factor": enable_visual_factor,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                     }

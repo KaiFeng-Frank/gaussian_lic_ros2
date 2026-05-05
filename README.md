@@ -21,7 +21,7 @@ Available now:
   `/points_for_gs`, `/pose_for_gs`, `/image_for_gs`, `/camera_info_for_gs`, `/depth_for_gs`, `/imu_for_gs`.
 - Odometry, path, TF, debug map cloud, rendered debug preview, status, GaussianArray, and SaveMap interfaces.
 - Optional libtorch/CUDA path for keyframe-gated Gaussian tensor initialization, skybox seeding, incremental foreground insertion, CUDA rasterizer preview/loss, fused SSIM, SparseGaussianAdam, gradient-aware densification, multi-criteria pruning, opacity reset, and optional TensorRT/SPNet depth-completion wrapper.
-- Native tracking package with signed-nanosecond trajectory and IMU primitives, bounded 6-DoF LiDAR residual correction, visual residual comparison against mapper renders, GaussianMap snapshot subscription, odometry/path/optional TF publication, and deterministic probes.
+- Native tracking package with signed-nanosecond trajectory and IMU primitives, IMU history interpolation, IMU preintegration residual foundation, per-point LiDAR deskew, bounded 6-DoF LiDAR residual correction, visual residual comparison against mapper renders, GaussianMap snapshot subscription, odometry/path/optional TF publication, and deterministic probes.
 - Dataset profile YAMLs derived from upstream Gaussian-LIC: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - `gaussian_lic_offline` CLI for rosbag2 artifact extraction without launching ROS nodes.
 - FAST-LIVO2 ROS1-to-ROS2 raw frontend conversion, ROS1 mapper-contract conversion, upstream ROS1 baseline runner, strict rosbag2 replay wrapper, baseline manifest/readiness gates, and combined reproduction reports.
@@ -31,7 +31,7 @@ Available now:
 
 Still pending:
 
-- Full Coco-LIC2-grade frontend/tracking algorithm: deskew, LIO/VIO factors, and sliding-window joint optimization.
+- Full Coco-LIC2-grade frontend/tracking algorithm: sliding-window joint optimization, VIO Jacobians, IMU bias optimization, and marginalization.
 - Full native Coco-LIC2 frontend/tracking parity beyond the mapper-contract reproduction path.
 
 ## Progress Ledger
@@ -87,8 +87,8 @@ The latest local report has Torch Gaussian mean RGB drift `11.657 < 40.0`.
 
 The mapper backend now has the major CUDA/Torch surfaces in tree, but the full paper system is not finished.
 
-- The native tracker has timestamp-safe trajectory/IMU primitives plus initial LiDAR/visual/Gaussian snapshot factors, but it is not yet the full continuous-time Coco-LIC2 sliding-window optimizer.
-- LiDAR deskew, VIO residual Jacobians, IMU bias optimization, and joint BA remain to be ported beyond the current bounded 6-DoF LiDAR correction foundation.
+- The native tracker has timestamp-safe trajectory/IMU primitives, IMU history interpolation, IMU preintegration residuals, per-point LiDAR deskew, and initial LiDAR/visual/Gaussian snapshot factors, but it is not yet the full continuous-time Coco-LIC2 sliding-window optimizer.
+- VIO residual Jacobians, IMU bias optimization, marginalization, and joint BA remain to be ported beyond the current deskewed bounded 6-DoF LiDAR correction foundation.
 - TensorRT/SPNet depth completion has a native optional wrapper and a local TensorRT 10.9 FP16 engine benchmark; the generated `.engine` is hardware/runtime-specific and intentionally not checked in.
 - Strict paper reproduction now has the local `CBD_Building_01` bag, ROS1 upstream baseline artifacts, strict CUDA current collection, final-map render-pair extraction, and a passing local strict report. Full native tracker parity remains outside this mapper-contract gate.
 
@@ -459,7 +459,7 @@ Validate profile schema:
 ./scripts/check_profiles.py
 ```
 
-These profiles currently cover the native mapper surface: topic names, QoS, synchronization, upstream camera intrinsics, image size, depth-completion toggles, Gaussian initialization/map-growth parameters, upstream optimizer/loss/exposure parameter names, output topics, and active profile labels. Full real-dataset replay still needs the native Gaussian-LIC2 frontend/tracking port, real bag/topic adapters, and the CUDA rasterizer/optimizer port.
+These profiles currently cover the native mapper surface: topic names, QoS, synchronization, upstream camera intrinsics, image size, depth-completion toggles, Gaussian initialization/map-growth parameters, upstream optimizer/loss/exposure parameter names, output topics, and active profile labels. The native tracking launch also exposes per-point LiDAR deskew controls for common `offset_time`, `time`, `timestamp`, and `t` fields while preserving signed-nanosecond estimator math. Full real-dataset frontend parity still needs Coco-LIC2-grade sliding-window BA, VIO Jacobians, IMU bias optimization, and marginalization.
 
 ## Performance Regression
 

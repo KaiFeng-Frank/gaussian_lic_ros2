@@ -4,10 +4,12 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <gaussian_lic_tracking/imu_propagator.hpp>
+#include <gaussian_lic_tracking/lidar_deskew.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
@@ -62,6 +64,16 @@ public:
     lidar_max_correction_m_ = declare_parameter<double>("lidar_max_correction_m", 0.25);
     lidar_max_rotation_rad_ = declare_parameter<double>("lidar_max_rotation_rad", 0.08);
     lidar_keyframe_translation_m_ = declare_parameter<double>("lidar_keyframe_translation_m", 0.25);
+    enable_lidar_deskew_ = declare_parameter<bool>("enable_lidar_deskew", true);
+    lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
+    lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
+    lidar_time_mode_ = declare_parameter<std::string>("lidar_time_mode", "auto");
+    imu_history_size_ = declare_parameter<int>("imu_history_size", 4000);
+    const auto gravity = declare_parameter<std::vector<double>>("imu_gravity_w", std::vector<double>{0.0, 0.0, 0.0});
+    if (gravity.size() == 3U) {
+      imu_propagator_.set_gravity_w(Eigen::Vector3d{gravity[0], gravity[1], gravity[2]});
+    }
+    imu_propagator_.set_max_history_size(static_cast<size_t>(std::max(imu_history_size_, 2)));
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
     lidar_config.min_points = static_cast<size_t>(std::max(lidar_min_points_, 1));
@@ -126,6 +138,26 @@ public:
   }
 
 private:
+  struct DecodedLidarPoint
+  {
+    Eigen::Vector3d point_i{Eigen::Vector3d::Zero()};
+    int64_t stamp_ns{0};
+    bool has_stamp{false};
+    size_t index{0};
+  };
+
+  struct PointCloudFields
+  {
+    const sensor_msgs::msg::PointField * x_field{nullptr};
+    const sensor_msgs::msg::PointField * y_field{nullptr};
+    const sensor_msgs::msg::PointField * z_field{nullptr};
+    const sensor_msgs::msg::PointField * time_field{nullptr};
+    int x_offset{-1};
+    int y_offset{-1};
+    int z_offset{-1};
+    bool xyz_writable{false};
+  };
+
   rclcpp::QoS make_sensor_qos() const
   {
     rclcpp::QoS qos(static_cast<size_t>(std::max(sensor_qos_depth_, 1)));
@@ -213,8 +245,6 @@ private:
 
   void handle_pointcloud(const sensor_msgs::msg::PointCloud2 & msg)
   {
-    pointcloud_pub_->publish(msg);
-
     gaussian_lic_tracking::TrajectoryPose tracking_pose;
     tracking_pose.stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
     tracking_pose.q_w_i = Eigen::Quaterniond::Identity();
@@ -224,9 +254,32 @@ private:
       tracking_pose.q_w_i = state.q_w_i;
     }
 
+    sensor_msgs::msg::PointCloud2 output_cloud = msg;
     std::vector<Eigen::Vector3d> lidar_points;
+    if (enable_lio_factor_ || enable_lidar_deskew_) {
+      PointCloudFields fields;
+      const auto decoded_points = decode_pointcloud(msg, fields);
+      lidar_points.reserve(decoded_points.size());
+      for (const auto & point : decoded_points) {
+        lidar_points.push_back(point.point_i);
+      }
+      if (enable_lidar_deskew_ && fields.xyz_writable && !decoded_points.empty()) {
+        const auto deskew_result = deskew_decoded_points(decoded_points, tracking_pose);
+        if (deskew_result.deskewed_count > 0U) {
+          lidar_points = deskew_result.points_i;
+          write_deskewed_points(output_cloud, fields, decoded_points, deskew_result.points_i);
+          RCLCPP_DEBUG_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "deskewed %zu/%zu LiDAR points with max offset %.6fs",
+            deskew_result.deskewed_count,
+            decoded_points.size(),
+            deskew_result.max_abs_time_offset_s);
+        }
+      }
+    }
+    pointcloud_pub_->publish(output_cloud);
+
     if (enable_lio_factor_) {
-      lidar_points = decode_pointcloud_xyz(msg);
       const auto correction = lidar_factor_.compute_pose_correction(lidar_points, tracking_pose);
       if (correction.applied) {
         tracking_pose.p_w_i += correction.delta_p_w;
@@ -350,9 +403,162 @@ private:
     return true;
   }
 
-  std::vector<Eigen::Vector3d> decode_pointcloud_xyz(const sensor_msgs::msg::PointCloud2 & msg)
+  const sensor_msgs::msg::PointField * find_field(
+    const sensor_msgs::msg::PointCloud2 & msg,
+    const std::string & field_name) const
   {
-    std::vector<Eigen::Vector3d> points;
+    const auto it = std::find_if(
+      msg.fields.begin(), msg.fields.end(),
+      [&field_name](const sensor_msgs::msg::PointField & field) {
+        return field.name == field_name;
+      });
+    return it == msg.fields.end() ? nullptr : &(*it);
+  }
+
+  const sensor_msgs::msg::PointField * find_time_field(const sensor_msgs::msg::PointCloud2 & msg) const
+  {
+    if (!lidar_time_field_.empty() && lidar_time_field_ != "auto") {
+      return find_field(msg, lidar_time_field_);
+    }
+    for (const std::string & field_name : {"offset_time", "time", "timestamp", "t"}) {
+      if (const auto * field = find_field(msg, field_name); field != nullptr) {
+        return field;
+      }
+    }
+    return nullptr;
+  }
+
+  static bool read_numeric_field(
+    const uint8_t * base,
+    const sensor_msgs::msg::PointField & field,
+    double & value)
+  {
+    switch (field.datatype) {
+      case sensor_msgs::msg::PointField::INT8: {
+          int8_t raw = 0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::UINT8: {
+          uint8_t raw = 0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::INT16: {
+          int16_t raw = 0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::UINT16: {
+          uint16_t raw = 0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::INT32: {
+          int32_t raw = 0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::UINT32: {
+          uint32_t raw = 0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::FLOAT32: {
+          float raw = 0.0F;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = static_cast<double>(raw);
+          return true;
+        }
+      case sensor_msgs::msg::PointField::FLOAT64: {
+          double raw = 0.0;
+          std::memcpy(&raw, base + field.offset, sizeof(raw));
+          value = raw;
+          return true;
+        }
+      default:
+        return false;
+    }
+  }
+
+  static size_t point_field_scalar_size(const sensor_msgs::msg::PointField & field)
+  {
+    switch (field.datatype) {
+      case sensor_msgs::msg::PointField::INT8:
+      case sensor_msgs::msg::PointField::UINT8:
+        return 1U;
+      case sensor_msgs::msg::PointField::INT16:
+      case sensor_msgs::msg::PointField::UINT16:
+        return 2U;
+      case sensor_msgs::msg::PointField::INT32:
+      case sensor_msgs::msg::PointField::UINT32:
+      case sensor_msgs::msg::PointField::FLOAT32:
+        return 4U;
+      case sensor_msgs::msg::PointField::FLOAT64:
+        return 8U;
+      default:
+        return 0U;
+    }
+  }
+
+  std::optional<int64_t> decode_point_stamp_ns(
+    const double raw_time,
+    const std::string & field_name,
+    const int64_t cloud_stamp_ns) const
+  {
+    if (!std::isfinite(raw_time)) {
+      return std::nullopt;
+    }
+    auto scale_to_ns = [](const double value, const double scale) {
+        return static_cast<int64_t>(std::llround(value * scale));
+      };
+    int64_t time_ns = 0;
+    bool offset_mode = true;
+    if (lidar_time_unit_ == "seconds") {
+      time_ns = scale_to_ns(raw_time, 1.0e9);
+    } else if (lidar_time_unit_ == "milliseconds") {
+      time_ns = scale_to_ns(raw_time, 1.0e6);
+    } else if (lidar_time_unit_ == "microseconds") {
+      time_ns = scale_to_ns(raw_time, 1.0e3);
+    } else if (lidar_time_unit_ == "nanoseconds") {
+      time_ns = static_cast<int64_t>(std::llround(raw_time));
+    } else {
+      const double abs_time = std::abs(raw_time);
+      if (field_name == "offset_time") {
+        time_ns = static_cast<int64_t>(std::llround(raw_time));
+      } else if (abs_time > 1.0e17) {
+        time_ns = static_cast<int64_t>(std::llround(raw_time));
+        offset_mode = false;
+      } else if (abs_time > 1.0e14) {
+        time_ns = scale_to_ns(raw_time, 1.0e3);
+        offset_mode = false;
+      } else if ((field_name == "timestamp" || field_name == "t") && abs_time > 1.0e8) {
+        time_ns = scale_to_ns(raw_time, 1.0e9);
+        offset_mode = false;
+      } else {
+        time_ns = scale_to_ns(raw_time, 1.0e9);
+      }
+    }
+
+    if (lidar_time_mode_ == "absolute") {
+      offset_mode = false;
+    } else if (lidar_time_mode_ == "offset") {
+      offset_mode = true;
+    }
+    return offset_mode ? cloud_stamp_ns + time_ns : time_ns;
+  }
+
+  std::vector<DecodedLidarPoint> decode_pointcloud(
+    const sensor_msgs::msg::PointCloud2 & msg,
+    PointCloudFields & fields)
+  {
+    std::vector<DecodedLidarPoint> points;
     if (msg.is_bigendian) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
@@ -360,29 +566,43 @@ private:
       return points;
     }
 
-    int x_offset = -1;
-    int y_offset = -1;
-    int z_offset = -1;
+    fields = PointCloudFields{};
     for (const auto & field : msg.fields) {
-      if (field.datatype != sensor_msgs::msg::PointField::FLOAT32) {
-        continue;
-      }
       if (field.name == "x") {
-        x_offset = static_cast<int>(field.offset);
+        fields.x_field = &field;
+        fields.x_offset = static_cast<int>(field.offset);
       } else if (field.name == "y") {
-        y_offset = static_cast<int>(field.offset);
+        fields.y_field = &field;
+        fields.y_offset = static_cast<int>(field.offset);
       } else if (field.name == "z") {
-        z_offset = static_cast<int>(field.offset);
+        fields.z_field = &field;
+        fields.z_offset = static_cast<int>(field.offset);
       }
     }
-    if (x_offset < 0 || y_offset < 0 || z_offset < 0) {
+    fields.time_field = find_time_field(msg);
+    fields.xyz_writable =
+      fields.x_field != nullptr && fields.y_field != nullptr && fields.z_field != nullptr &&
+      fields.x_field->datatype == sensor_msgs::msg::PointField::FLOAT32 &&
+      fields.y_field->datatype == sensor_msgs::msg::PointField::FLOAT32 &&
+      fields.z_field->datatype == sensor_msgs::msg::PointField::FLOAT32;
+    if (fields.x_offset < 0 || fields.y_offset < 0 || fields.z_offset < 0) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
-        "PointCloud2 must expose float32 x/y/z fields for the native tracking LiDAR factor");
+        "PointCloud2 must expose numeric x/y/z fields for the native tracking LiDAR factor");
       return points;
     }
 
-    const uint32_t max_offset = static_cast<uint32_t>(std::max({x_offset, y_offset, z_offset})) + sizeof(float);
+    uint32_t max_offset = 0U;
+    for (const auto * field : {fields.x_field, fields.y_field, fields.z_field, fields.time_field}) {
+      if (field == nullptr) {
+        continue;
+      }
+      const size_t scalar_size = point_field_scalar_size(*field);
+      if (scalar_size == 0U) {
+        continue;
+      }
+      max_offset = std::max(max_offset, field->offset + static_cast<uint32_t>(scalar_size));
+    }
     if (msg.point_step < max_offset || msg.point_step == 0U) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
@@ -391,26 +611,91 @@ private:
     }
 
     const size_t count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
-    const size_t stride = lidar_max_frame_points_ > 0 && count > static_cast<size_t>(lidar_max_frame_points_)
-      ? static_cast<size_t>(std::ceil(static_cast<double>(count) / static_cast<double>(lidar_max_frame_points_)))
-      : 1U;
-    points.reserve(std::min(count, static_cast<size_t>(std::max(lidar_max_frame_points_, 1))));
-    for (size_t index = 0; index < count; index += stride) {
+    points.reserve(count);
+    const int64_t cloud_stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+    for (size_t index = 0; index < count; ++index) {
       const size_t base = index * static_cast<size_t>(msg.point_step);
       if (base + max_offset > msg.data.size()) {
         break;
       }
-      float x = 0.0F;
-      float y = 0.0F;
-      float z = 0.0F;
-      std::memcpy(&x, msg.data.data() + base + static_cast<size_t>(x_offset), sizeof(float));
-      std::memcpy(&y, msg.data.data() + base + static_cast<size_t>(y_offset), sizeof(float));
-      std::memcpy(&z, msg.data.data() + base + static_cast<size_t>(z_offset), sizeof(float));
+      double x = 0.0;
+      double y = 0.0;
+      double z = 0.0;
+      const uint8_t * point_base = msg.data.data() + base;
+      if (!read_numeric_field(point_base, *fields.x_field, x) ||
+        !read_numeric_field(point_base, *fields.y_field, y) ||
+        !read_numeric_field(point_base, *fields.z_field, z))
+      {
+        continue;
+      }
       if (std::isfinite(x) && std::isfinite(y) && std::isfinite(z)) {
-        points.emplace_back(static_cast<double>(x), static_cast<double>(y), static_cast<double>(z));
+        DecodedLidarPoint point;
+        point.point_i = Eigen::Vector3d{x, y, z};
+        point.index = index;
+        if (fields.time_field != nullptr) {
+          double raw_time = 0.0;
+          if (read_numeric_field(point_base, *fields.time_field, raw_time)) {
+            const auto stamp_ns = decode_point_stamp_ns(raw_time, fields.time_field->name, cloud_stamp_ns);
+            if (stamp_ns.has_value()) {
+              point.stamp_ns = stamp_ns.value();
+              point.has_stamp = true;
+            }
+          }
+        }
+        points.push_back(point);
       }
     }
     return points;
+  }
+
+  gaussian_lic_tracking::LidarDeskewResult deskew_decoded_points(
+    const std::vector<DecodedLidarPoint> & points,
+    const gaussian_lic_tracking::TrajectoryPose & reference_pose) const
+  {
+    std::vector<gaussian_lic_tracking::TimedLidarPoint> timed_points;
+    timed_points.reserve(points.size());
+    for (const auto & point : points) {
+      timed_points.push_back(
+        gaussian_lic_tracking::TimedLidarPoint{point.point_i, point.stamp_ns, point.has_stamp});
+    }
+    return gaussian_lic_tracking::deskew_lidar_points(
+      timed_points,
+      reference_pose,
+      [this](const int64_t stamp_ns, gaussian_lic_tracking::TrajectoryPose & pose) {
+        gaussian_lic_tracking::ImuState state;
+        if (!imu_propagator_.query_state(stamp_ns, state)) {
+          return false;
+        }
+        pose.stamp_ns = state.stamp_ns;
+        pose.p_w_i = state.p_w_i;
+        pose.q_w_i = state.q_w_i;
+        return true;
+      });
+  }
+
+  void write_deskewed_points(
+    sensor_msgs::msg::PointCloud2 & msg,
+    const PointCloudFields & fields,
+    const std::vector<DecodedLidarPoint> & decoded_points,
+    const std::vector<Eigen::Vector3d> & deskewed_points) const
+  {
+    if (!fields.xyz_writable || decoded_points.size() != deskewed_points.size()) {
+      return;
+    }
+    for (size_t i = 0; i < decoded_points.size(); ++i) {
+      const size_t base = decoded_points[i].index * static_cast<size_t>(msg.point_step);
+      if (base + static_cast<size_t>(std::max({fields.x_offset, fields.y_offset, fields.z_offset})) + sizeof(float) >
+        msg.data.size())
+      {
+        continue;
+      }
+      const float x = static_cast<float>(deskewed_points[i].x());
+      const float y = static_cast<float>(deskewed_points[i].y());
+      const float z = static_cast<float>(deskewed_points[i].z());
+      std::memcpy(msg.data.data() + base + static_cast<size_t>(fields.x_offset), &x, sizeof(float));
+      std::memcpy(msg.data.data() + base + static_cast<size_t>(fields.y_offset), &y, sizeof(float));
+      std::memcpy(msg.data.data() + base + static_cast<size_t>(fields.z_offset), &z, sizeof(float));
+    }
   }
 
   bool should_insert_lidar_keyframe(
@@ -451,6 +736,11 @@ private:
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
   bool enable_lio_factor_{true};
+  bool enable_lidar_deskew_{true};
+  std::string lidar_time_field_{"auto"};
+  std::string lidar_time_unit_{"auto"};
+  std::string lidar_time_mode_{"auto"};
+  int imu_history_size_{4000};
   int lidar_min_points_{32};
   int lidar_max_frame_points_{2000};
   int lidar_max_map_points_{20000};

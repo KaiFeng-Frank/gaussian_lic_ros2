@@ -52,9 +52,14 @@ Current ROS2 implementation status:
 - `gaussian_lic_tracking::TrajectoryManager` provides the first native
   timestamp-safe cubic B-spline trajectory primitive with a constant-velocity
   probe and negative-time roundtrip coverage.
+- `gaussian_lic_tracking::ImuPropagator` now keeps a bounded signed-nanosecond
+  IMU state history for interpolation, and `ImuPreintegrator` provides the
+  first native preintegration residual foundation for later sliding-window BA.
 - `gaussian_lic_tracking::LidarFactor` provides the first native LIO residual
   foundation: bounded local map insertion, sampled nearest-neighbor residuals,
-  translation correction, and a deterministic probe.
+  bounded 6-DoF correction, and deterministic probes.
+- `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
+  from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::VisualFactor` provides the first native photometric
   residual foundation, and `tracking_node` subscribes to
   `/gaussian_lic/rendered_image` so mapper Gaussian renders can be compared

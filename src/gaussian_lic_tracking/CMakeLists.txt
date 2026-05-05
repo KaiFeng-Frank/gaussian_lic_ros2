@@ -15,7 +15,9 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
 add_library(trajectory_manager
+  src/imu_preintegrator.cpp
   src/imu_propagator.cpp
+  src/lidar_deskew.cpp
   src/lidar_factor.cpp
   src/trajectory_manager.cpp
   src/visual_factor.cpp
@@ -49,6 +51,16 @@ target_link_libraries(imu_propagator_probe
 )
 ament_target_dependencies(imu_propagator_probe builtin_interfaces)
 
+add_executable(imu_preintegrator_probe
+  test/imu_preintegrator_probe.cpp
+)
+target_include_directories(imu_preintegrator_probe PRIVATE include)
+target_link_libraries(imu_preintegrator_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(imu_preintegrator_probe builtin_interfaces)
+
 add_executable(lidar_factor_probe
   test/lidar_factor_probe.cpp
 )
@@ -58,6 +70,16 @@ target_link_libraries(lidar_factor_probe
   Eigen3::Eigen
 )
 ament_target_dependencies(lidar_factor_probe builtin_interfaces)
+
+add_executable(lidar_deskew_probe
+  test/lidar_deskew_probe.cpp
+)
+target_include_directories(lidar_deskew_probe PRIVATE include)
+target_link_libraries(lidar_deskew_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(lidar_deskew_probe builtin_interfaces)
 
 add_executable(visual_factor_probe
   test/visual_factor_probe.cpp
@@ -85,7 +107,7 @@ ament_target_dependencies(tracking_node
   tf2_ros
 )
 
-install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe lidar_factor_probe visual_factor_probe tracking_node
+install(TARGETS trajectory_manager trajectory_manager_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe visual_factor_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

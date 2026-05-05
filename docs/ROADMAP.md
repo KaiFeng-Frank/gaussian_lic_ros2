@@ -160,8 +160,10 @@ baseline_manifest.json
 - [x] Port Livox/custom point handling to ROS2.
 - [x] Add a native timestamp-safe cubic B-spline trajectory manager foundation with a constant-velocity probe.
 - [x] Add a native signed-nanosecond IMU propagation foundation with a deterministic gyro/accel probe.
+- [x] Add signed-nanosecond IMU history interpolation and an IMU preintegration residual foundation with deterministic probes.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
+- [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
 - [x] Add a native visual photometric residual factor and subscribe tracking to mapper rendered-image output.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks for the Gaussian-map reverse channel.
 - [x] Replace dynamic reconfigure/global parameters with ROS2 parameters.
