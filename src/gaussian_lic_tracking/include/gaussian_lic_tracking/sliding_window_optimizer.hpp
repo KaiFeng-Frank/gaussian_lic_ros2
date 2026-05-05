@@ -27,7 +27,7 @@ struct SlidingWindowConfig
   double max_velocity_step_mps{0.0};
   double max_translation_step_m{0.0};
   double max_bias_step{0.0};
-  double max_normal_equation_condition{1.0e12};
+  double max_normal_equation_condition{1.0e13};
   double min_normal_equation_rank_ratio{0.0};
   double max_state_gap_s{1.0};
 };

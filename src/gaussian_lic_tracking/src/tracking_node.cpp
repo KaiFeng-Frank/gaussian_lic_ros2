@@ -222,7 +222,7 @@ public:
       declare_parameter<double>("sliding_window_max_bias_step", 1.0));
     sliding_window_max_normal_equation_condition_ = finite_positive_parameter(
       "sliding_window_max_normal_equation_condition",
-      declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e12));
+      declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e13));
     sliding_window_min_normal_equation_rank_ratio_ = finite_unit_interval_parameter(
       "sliding_window_min_normal_equation_rank_ratio",
       declare_parameter<double>("sliding_window_min_normal_equation_rank_ratio", 0.0));
@@ -2301,7 +2301,7 @@ private:
   double sliding_window_max_translation_step_m_{1.0};
   double sliding_window_max_velocity_step_mps_{5.0};
   double sliding_window_max_bias_step_{1.0};
-  double sliding_window_max_normal_equation_condition_{1.0e12};
+  double sliding_window_max_normal_equation_condition_{1.0e13};
   double sliding_window_min_normal_equation_rank_ratio_{0.0};
   double sliding_window_max_state_gap_s_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};

@@ -2113,6 +2113,8 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   refresh_bias_summary();
   refresh_dense_prior_summary();
   refresh_normal_equation_summary();
+  summary.normal_equation_degenerate =
+    summary.normal_equation_degenerate || normal_equation_is_degenerate();
   refresh_cost_summary();
   return summary;
 }

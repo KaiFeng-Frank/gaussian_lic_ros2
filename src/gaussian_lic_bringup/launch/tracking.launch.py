@@ -189,7 +189,7 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_max_translation_step_m", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_max_velocity_step_mps", default_value="5.0"),
             DeclareLaunchArgument("sliding_window_max_bias_step", default_value="1.0"),
-            DeclareLaunchArgument("sliding_window_max_normal_equation_condition", default_value="1000000000000.0"),
+            DeclareLaunchArgument("sliding_window_max_normal_equation_condition", default_value="10000000000000.0"),
             DeclareLaunchArgument("sliding_window_min_normal_equation_rank_ratio", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_max_state_gap_s", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_imu_weight", default_value="1.0"),
