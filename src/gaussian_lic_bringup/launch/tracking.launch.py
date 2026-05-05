@@ -96,6 +96,9 @@ def generate_launch_description():
     sliding_window_max_translation_step_m = LaunchConfiguration("sliding_window_max_translation_step_m")
     sliding_window_max_velocity_step_mps = LaunchConfiguration("sliding_window_max_velocity_step_mps")
     sliding_window_max_bias_step = LaunchConfiguration("sliding_window_max_bias_step")
+    sliding_window_max_feedback_translation_m = LaunchConfiguration("sliding_window_max_feedback_translation_m")
+    sliding_window_max_feedback_rotation_rad = LaunchConfiguration("sliding_window_max_feedback_rotation_rad")
+    sliding_window_max_feedback_velocity_mps = LaunchConfiguration("sliding_window_max_feedback_velocity_mps")
     sliding_window_max_normal_equation_condition = LaunchConfiguration(
         "sliding_window_max_normal_equation_condition"
     )
@@ -189,6 +192,9 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_max_translation_step_m", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_max_velocity_step_mps", default_value="5.0"),
             DeclareLaunchArgument("sliding_window_max_bias_step", default_value="1.0"),
+            DeclareLaunchArgument("sliding_window_max_feedback_translation_m", default_value="1.0"),
+            DeclareLaunchArgument("sliding_window_max_feedback_rotation_rad", default_value="0.5"),
+            DeclareLaunchArgument("sliding_window_max_feedback_velocity_mps", default_value="5.0"),
             DeclareLaunchArgument("sliding_window_max_normal_equation_condition", default_value="10000000000000.0"),
             DeclareLaunchArgument("sliding_window_min_normal_equation_rank_ratio", default_value="0.8"),
             DeclareLaunchArgument("sliding_window_max_state_gap_s", default_value="1.0"),
@@ -280,6 +286,9 @@ def generate_launch_description():
                         "sliding_window_max_translation_step_m": sliding_window_max_translation_step_m,
                         "sliding_window_max_velocity_step_mps": sliding_window_max_velocity_step_mps,
                         "sliding_window_max_bias_step": sliding_window_max_bias_step,
+                        "sliding_window_max_feedback_translation_m": sliding_window_max_feedback_translation_m,
+                        "sliding_window_max_feedback_rotation_rad": sliding_window_max_feedback_rotation_rad,
+                        "sliding_window_max_feedback_velocity_mps": sliding_window_max_feedback_velocity_mps,
                         "sliding_window_max_normal_equation_condition": sliding_window_max_normal_equation_condition,
                         "sliding_window_min_normal_equation_rank_ratio": sliding_window_min_normal_equation_rank_ratio,
                         "sliding_window_max_state_gap_s": sliding_window_max_state_gap_s,

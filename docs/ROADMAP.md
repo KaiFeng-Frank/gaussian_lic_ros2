@@ -207,6 +207,7 @@ baseline_manifest.json
 - [x] Add a configurable Huber kernel to visual-alignment sliding-window factors so outlier image shifts are downweighted inside BA.
 - [x] Add a configurable Huber kernel to SE3 photometric window-factor whitened residuals so outlier render/depth deltas are downweighted inside BA.
 - [x] Add configurable LM step limits for rotation, translation, velocity, and biases to prevent BA state jumps from transient outliers.
+- [x] Add configurable final BA feedback limits for translation, rotation, and velocity before optimized states can update odometry, IMU re-anchors, or B-spline controls.
 - [x] Publish sliding-window accepted/rejected LM steps, last step norm/scale, and damping through `TrackingStatus`.
 - [x] Explicitly reject non-finite sliding-window LM candidate states and publish invalid-candidate step counts.
 - [x] Publish sliding-window limited-step counts so real-bag BA saturation is visible without parsing debug logs.

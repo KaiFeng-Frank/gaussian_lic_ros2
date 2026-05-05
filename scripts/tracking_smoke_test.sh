@@ -220,6 +220,9 @@ status_matches() {
     rg -q "sliding_window_last_feedback_translation_delta_m:" "${status_file}" &&
     rg -q "sliding_window_last_feedback_rotation_delta_rad:" "${status_file}" &&
     rg -q "sliding_window_last_feedback_velocity_delta_mps:" "${status_file}" &&
+    rg -q "sliding_window_max_feedback_translation_m: 1" "${status_file}" &&
+    rg -q "sliding_window_max_feedback_rotation_rad: 0.5" "${status_file}" &&
+    rg -q "sliding_window_max_feedback_velocity_mps: 5" "${status_file}" &&
     rg -q "sliding_window_schur_marginalizations:" "${status_file}" &&
     rg -q "sliding_window_fallback_marginalization_priors:" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rows: [1-9]" "${status_file}" &&

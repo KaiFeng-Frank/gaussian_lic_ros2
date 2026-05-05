@@ -220,6 +220,15 @@ public:
     sliding_window_max_bias_step_ = finite_nonnegative_parameter(
       "sliding_window_max_bias_step",
       declare_parameter<double>("sliding_window_max_bias_step", 1.0));
+    sliding_window_max_feedback_translation_m_ = finite_nonnegative_parameter(
+      "sliding_window_max_feedback_translation_m",
+      declare_parameter<double>("sliding_window_max_feedback_translation_m", 1.0));
+    sliding_window_max_feedback_rotation_rad_ = finite_nonnegative_parameter(
+      "sliding_window_max_feedback_rotation_rad",
+      declare_parameter<double>("sliding_window_max_feedback_rotation_rad", 0.5));
+    sliding_window_max_feedback_velocity_mps_ = finite_nonnegative_parameter(
+      "sliding_window_max_feedback_velocity_mps",
+      declare_parameter<double>("sliding_window_max_feedback_velocity_mps", 5.0));
     sliding_window_max_normal_equation_condition_ = finite_positive_parameter(
       "sliding_window_max_normal_equation_condition",
       declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e13));
@@ -1141,6 +1150,7 @@ private:
         last_sliding_window_summary_ = summary;
         has_last_sliding_window_summary_ = true;
         gaussian_lic_tracking::SlidingWindowState optimized;
+        bool sync_window_controls = false;
         if (sliding_window_optimizer_.get_state(input_pose.stamp_ns, optimized)) {
           if (!valid_sliding_window_state(optimized)) {
             ++sliding_window_invalid_optimized_states_;
@@ -1150,35 +1160,58 @@ private:
           } else {
             const Eigen::Quaterniond feedback_delta_q =
               (input_pose.q_w_i.normalized().inverse() * optimized.q_w_i.normalized()).normalized();
-            last_sliding_window_feedback_translation_delta_m_ =
+            const double feedback_translation_delta_m =
               (optimized.p_w_i - input_pose.p_w_i).norm();
-            last_sliding_window_feedback_rotation_delta_rad_ =
+            const double feedback_rotation_delta_rad =
               2.0 * std::atan2(feedback_delta_q.vec().norm(), std::abs(feedback_delta_q.w()));
-            last_sliding_window_feedback_velocity_delta_mps_ =
+            const double feedback_velocity_delta_mps =
               (optimized.v_w_i - imu_state.v_w_i).norm();
-            last_sliding_window_feedback_stamp_ns_ = optimized.stamp_ns;
-            ++sliding_window_feedback_update_count_;
-            output_pose.p_w_i = optimized.p_w_i;
-            output_pose.q_w_i = optimized.q_w_i;
-            output_pose.v_w_i = optimized.v_w_i;
-            sliding_window_bias_.gyro = optimized.gyro_bias;
-            sliding_window_bias_.accel = optimized.accel_bias;
-            if (!imu_propagator_.initialized() ||
-              imu_propagator_.state().stamp_ns <= optimized.stamp_ns)
-            {
-              gaussian_lic_tracking::ImuState corrected_state;
-              corrected_state.stamp_ns = optimized.stamp_ns;
-              corrected_state.p_w_i = optimized.p_w_i;
-              corrected_state.q_w_i = optimized.q_w_i;
-              corrected_state.v_w_i = optimized.v_w_i;
-              corrected_state.gyro_bias = optimized.gyro_bias;
-              corrected_state.accel_bias = optimized.accel_bias;
-              imu_propagator_.reset(corrected_state);
-              ++num_sliding_window_imu_reanchors_;
+            const bool feedback_exceeds_limit =
+              (sliding_window_max_feedback_translation_m_ > 0.0 &&
+              feedback_translation_delta_m > sliding_window_max_feedback_translation_m_) ||
+              (sliding_window_max_feedback_rotation_rad_ > 0.0 &&
+              feedback_rotation_delta_rad > sliding_window_max_feedback_rotation_rad_) ||
+              (sliding_window_max_feedback_velocity_mps_ > 0.0 &&
+              feedback_velocity_delta_mps > sliding_window_max_feedback_velocity_mps_);
+            if (feedback_exceeds_limit) {
+              ++sliding_window_invalid_optimized_states_;
+              RCLCPP_WARN_THROTTLE(
+                get_logger(), *get_clock(), 2000,
+                "sliding window feedback rejected: translation=%.6fm rotation=%.6frad velocity=%.6fm/s",
+                feedback_translation_delta_m,
+                feedback_rotation_delta_rad,
+                feedback_velocity_delta_mps);
+            } else {
+              sync_window_controls = true;
+              last_sliding_window_feedback_translation_delta_m_ = feedback_translation_delta_m;
+              last_sliding_window_feedback_rotation_delta_rad_ = feedback_rotation_delta_rad;
+              last_sliding_window_feedback_velocity_delta_mps_ = feedback_velocity_delta_mps;
+              last_sliding_window_feedback_stamp_ns_ = optimized.stamp_ns;
+              ++sliding_window_feedback_update_count_;
+              output_pose.p_w_i = optimized.p_w_i;
+              output_pose.q_w_i = optimized.q_w_i;
+              output_pose.v_w_i = optimized.v_w_i;
+              sliding_window_bias_.gyro = optimized.gyro_bias;
+              sliding_window_bias_.accel = optimized.accel_bias;
+              if (!imu_propagator_.initialized() ||
+                imu_propagator_.state().stamp_ns <= optimized.stamp_ns)
+              {
+                gaussian_lic_tracking::ImuState corrected_state;
+                corrected_state.stamp_ns = optimized.stamp_ns;
+                corrected_state.p_w_i = optimized.p_w_i;
+                corrected_state.q_w_i = optimized.q_w_i;
+                corrected_state.v_w_i = optimized.v_w_i;
+                corrected_state.gyro_bias = optimized.gyro_bias;
+                corrected_state.accel_bias = optimized.accel_bias;
+                imu_propagator_.reset(corrected_state);
+                ++num_sliding_window_imu_reanchors_;
+              }
             }
           }
         }
-        sync_optimized_trajectory_controls();
+        if (sync_window_controls) {
+          sync_optimized_trajectory_controls();
+        }
         RCLCPP_DEBUG_THROTTLE(
           get_logger(), *get_clock(), 2000,
           "sliding window states=%zu imu=%zu pose_priors=%zu dense_priors=%zu point=%zu plane=%zu visual=%zu se3_photo=%zu smooth=%zu cost %.6g -> %.6g",
@@ -2111,6 +2144,12 @@ private:
       last_sliding_window_feedback_rotation_delta_rad_;
     status.sliding_window_last_feedback_velocity_delta_mps =
       last_sliding_window_feedback_velocity_delta_mps_;
+    status.sliding_window_max_feedback_translation_m =
+      sliding_window_max_feedback_translation_m_;
+    status.sliding_window_max_feedback_rotation_rad =
+      sliding_window_max_feedback_rotation_rad_;
+    status.sliding_window_max_feedback_velocity_mps =
+      sliding_window_max_feedback_velocity_mps_;
     status.sliding_window_marginalized_states = static_cast<uint64_t>(summary.marginalized_state_count);
     status.sliding_window_schur_marginalizations =
       static_cast<uint64_t>(summary.schur_marginalization_count);
@@ -2320,6 +2359,9 @@ private:
   double sliding_window_max_translation_step_m_{1.0};
   double sliding_window_max_velocity_step_mps_{5.0};
   double sliding_window_max_bias_step_{1.0};
+  double sliding_window_max_feedback_translation_m_{1.0};
+  double sliding_window_max_feedback_rotation_rad_{0.5};
+  double sliding_window_max_feedback_velocity_mps_{5.0};
   double sliding_window_max_normal_equation_condition_{1.0e13};
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
