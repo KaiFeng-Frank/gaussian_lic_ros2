@@ -135,6 +135,18 @@ ImuPreintegrator ImuPreintegrator::reintegrated(const ImuBias & bias) const
   ImuPreintegrator output;
   output.reset(start_stamp_ns_, bias);
   for (const auto & sample : samples_) {
+    if (sample.stamp_ns == output.end_stamp_ns_ && !output.has_last_measurement_) {
+      if (!sample.angular_velocity_rad_s.allFinite() ||
+        !sample.linear_acceleration_m_s2.allFinite())
+      {
+        throw std::runtime_error("IMU preintegration measurements must be finite");
+      }
+      output.last_angular_velocity_rad_s_ = sample.angular_velocity_rad_s;
+      output.last_linear_acceleration_m_s2_ = sample.linear_acceleration_m_s2;
+      output.samples_.push_back(sample);
+      output.has_last_measurement_ = true;
+      continue;
+    }
     output.add_measurement(
       sample.stamp_ns,
       sample.angular_velocity_rad_s,

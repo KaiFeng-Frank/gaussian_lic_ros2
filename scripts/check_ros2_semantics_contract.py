@@ -294,6 +294,8 @@ def main() -> int:
         errors.append("tracking_node must publish last consumed IMU preintegration block health")
     if "sliding_window_imu_max_extrapolation_s" not in tracking_node_text or "preintegration span must match factor timestamps" not in sliding_window_text:
         errors.append("tracking_node/optimizer must gate IMU preintegration span against factor timestamps")
+    if "sample.stamp_ns == output.end_stamp_ns_" not in read(ROOT / "src" / "gaussian_lic_tracking" / "src" / "imu_preintegrator.cpp"):
+        errors.append("IMU preintegrator must preserve an auto-start sample during bias re-integration")
     if "orphan_factor_count" not in sliding_window_text or "count_orphan_factors" not in sliding_window_text:
         errors.append("sliding_window_optimizer must expose and gate orphan factor references")
     if "max_state_gap_s" not in sliding_window_text or "state_gap_degenerate" not in sliding_window_text:

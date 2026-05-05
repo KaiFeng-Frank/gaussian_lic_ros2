@@ -66,6 +66,21 @@ int main()
     std::cerr << "IMU preintegration validation failed to reject invalid inputs\n";
     return 1;
   }
+
+  gaussian_lic_tracking::ImuPreintegrator auto_started;
+  auto_started.add_measurement(100, omega, accel);
+  auto_started.add_measurement(100 + dt_ns, omega, accel);
+  const auto auto_reintegrated = auto_started.reintegrated({});
+  if (auto_reintegrated.start_stamp_ns() != auto_started.start_stamp_ns() ||
+    auto_reintegrated.end_stamp_ns() != auto_started.end_stamp_ns() ||
+    auto_reintegrated.sample_count() != auto_started.sample_count() ||
+    std::abs(auto_reintegrated.delta_t_s() - auto_started.delta_t_s()) > 1.0e-12 ||
+    (auto_reintegrated.delta_p() - auto_started.delta_p()).norm() > 1.0e-12 ||
+    (auto_reintegrated.delta_v() - auto_started.delta_v()).norm() > 1.0e-12)
+  {
+    std::cerr << "IMU preintegration failed to re-integrate an auto-start sample at the span start\n";
+    return 1;
+  }
   std::cout << "imu_preintegrator_probe OK\n";
   return 0;
 }
