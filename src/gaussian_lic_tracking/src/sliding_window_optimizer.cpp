@@ -708,8 +708,26 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
     if (from < 0 || to < 0) {
       continue;
     }
-    mark_numeric(row, 21);
-    row += 21;
+    mark_numeric(row, 9);
+    if (!rows_available(row + 9, 6)) {
+      return fallback_to_numeric();
+    }
+    const double bias_scale = std::sqrt(factor.bias_weight);
+    const Eigen::Index from_offset = variable_offsets[static_cast<size_t>(from)];
+    const Eigen::Index to_offset = variable_offsets[static_cast<size_t>(to)];
+    if (from_offset >= 0) {
+      jacobian.template block<3, 3>(row + 9, from_offset + 9) =
+        -bias_scale * Eigen::Matrix3d::Identity();
+      jacobian.template block<3, 3>(row + 12, from_offset + 12) =
+        -bias_scale * Eigen::Matrix3d::Identity();
+    }
+    if (to_offset >= 0) {
+      jacobian.template block<3, 3>(row + 9, to_offset + 9) =
+        bias_scale * Eigen::Matrix3d::Identity();
+      jacobian.template block<3, 3>(row + 12, to_offset + 12) =
+        bias_scale * Eigen::Matrix3d::Identity();
+    }
+    row += 15;
   }
 
   for (const auto & prior : pose_priors_) {
