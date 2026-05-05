@@ -169,6 +169,7 @@ baseline_manifest.json
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
 - [x] Add ROS2-configurable LiDAR-to-IMU extrinsics before LIO, deskew, and mapper point publication.
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
+- [x] Reject invalid reference/per-point deskew poses so zero quaternions cannot inject NaNs into LiDAR points before LIO/BA.
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, window trimming, and deterministic convergence probes.
 - [x] Add Schur-complement normal-equation math coverage for the tracking marginalization path, with deterministic equivalence against the full normal-equation solve.
 - [x] Expose reusable sliding-window residual/Jacobian/Hessian/RHS normal-equation linearization and cover it with CTest.

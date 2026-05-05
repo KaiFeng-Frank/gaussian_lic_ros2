@@ -54,6 +54,52 @@ int main()
     std::cerr << "LiDAR deskew failed to compensate constant-velocity scan motion\n";
     return 1;
   }
+
+  gaussian_lic_tracking::TrajectoryPose invalid_reference_pose = reference_pose;
+  invalid_reference_pose.q_w_i = Eigen::Quaterniond(0.0, 0.0, 0.0, 0.0);
+  const auto invalid_reference_result = gaussian_lic_tracking::deskew_lidar_points(
+    points,
+    invalid_reference_pose,
+    [velocity_w](const int64_t stamp_ns, gaussian_lic_tracking::TrajectoryPose & pose) {
+      pose.stamp_ns = stamp_ns;
+      pose.p_w_i = velocity_w *
+        (static_cast<double>(stamp_ns) / static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+      pose.q_w_i = Eigen::Quaterniond::Identity();
+      return true;
+    });
+  if (invalid_reference_result.deskewed_count != 0U ||
+    invalid_reference_result.points_i.size() != points.size())
+  {
+    std::cerr << "LiDAR deskew accepted an invalid reference pose\n";
+    return 1;
+  }
+  for (size_t index = 0; index < points.size(); ++index) {
+    if ((invalid_reference_result.points_i[index] - points[index].point_i).norm() > 1.0e-12) {
+      std::cerr << "LiDAR deskew changed points after invalid reference pose rejection\n";
+      return 1;
+    }
+  }
+
+  const auto invalid_lookup_result = gaussian_lic_tracking::deskew_lidar_points(
+    points,
+    reference_pose,
+    [](const int64_t stamp_ns, gaussian_lic_tracking::TrajectoryPose & pose) {
+      pose.stamp_ns = stamp_ns;
+      pose.q_w_i = Eigen::Quaterniond(0.0, 0.0, 0.0, 0.0);
+      return true;
+    });
+  if (invalid_lookup_result.deskewed_count != 0U ||
+    invalid_lookup_result.points_i.size() != points.size())
+  {
+    std::cerr << "LiDAR deskew accepted invalid lookup poses\n";
+    return 1;
+  }
+  for (size_t index = 0; index < points.size(); ++index) {
+    if ((invalid_lookup_result.points_i[index] - points[index].point_i).norm() > 1.0e-12) {
+      std::cerr << "LiDAR deskew changed points after invalid lookup pose rejection\n";
+      return 1;
+    }
+  }
   std::cout << "lidar_deskew_probe OK\n";
   return 0;
 }
