@@ -25,6 +25,23 @@ ImuState to_imu_state(const SlidingWindowState & state)
   output.accel_bias = state.accel_bias;
   return output;
 }
+
+Eigen::MatrixXd sqrt_information_from_hessian(const Eigen::MatrixXd & hessian)
+{
+  if (hessian.rows() != hessian.cols() || hessian.rows() == 0 || !hessian.allFinite()) {
+    return {};
+  }
+  const Eigen::MatrixXd symmetric = 0.5 * (hessian + hessian.transpose());
+  const Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(symmetric);
+  if (solver.info() != Eigen::Success) {
+    return {};
+  }
+  Eigen::VectorXd sqrt_values(solver.eigenvalues().size());
+  for (Eigen::Index i = 0; i < solver.eigenvalues().size(); ++i) {
+    sqrt_values[i] = std::sqrt(std::max(0.0, solver.eigenvalues()[i]));
+  }
+  return sqrt_values.asDiagonal() * solver.eigenvectors().transpose();
+}
 }  // namespace
 
 SchurComplementResult compute_schur_complement(
@@ -92,6 +109,7 @@ void SlidingWindowOptimizer::clear()
   imu_factors_.clear();
   pose_priors_.clear();
   state_priors_.clear();
+  dense_priors_.clear();
   point_factors_.clear();
   visual_factors_.clear();
   marginalized_state_count_ = 0U;
@@ -175,6 +193,27 @@ void SlidingWindowOptimizer::add_state_prior(const SlidingWindowStatePrior & pri
   enforce_window_size();
 }
 
+void SlidingWindowOptimizer::add_dense_prior(const SlidingWindowDensePrior & prior)
+{
+  const auto expected_cols = static_cast<Eigen::Index>(prior.reference_states.size() * kStateDof);
+  if (prior.stamp_ns.size() != prior.reference_states.size() ||
+    prior.sqrt_information.cols() != expected_cols ||
+    prior.target_delta.size() != expected_cols ||
+    prior.sqrt_information.rows() == 0)
+  {
+    throw std::runtime_error("dense prior dimensions must match referenced states");
+  }
+  if (!prior.sqrt_information.allFinite() || !prior.target_delta.allFinite()) {
+    throw std::runtime_error("dense prior values must be finite");
+  }
+  SlidingWindowDensePrior normalized = prior;
+  for (auto & state : normalized.reference_states) {
+    state.q_w_i.normalize();
+  }
+  dense_priors_.push_back(std::move(normalized));
+  enforce_window_size();
+}
+
 void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor)
 {
   if (factor.weight <= 0.0) {
@@ -234,6 +273,7 @@ size_t SlidingWindowOptimizer::enforce_window_size()
 {
   size_t marginalized = 0U;
   while (states_.size() > config_.max_states) {
+    const bool added_schur_prior = add_schur_marginalization_prior_for_front();
     const int64_t stamp_ns = states_.front().stamp_ns;
     states_.erase(states_.begin());
     ++marginalized;
@@ -259,6 +299,14 @@ size_t SlidingWindowOptimizer::enforce_window_size()
           return prior.stamp_ns == stamp_ns;
         }),
       state_priors_.end());
+    dense_priors_.erase(
+      std::remove_if(
+        dense_priors_.begin(), dense_priors_.end(),
+        [stamp_ns](const SlidingWindowDensePrior & prior) {
+          return std::find(prior.stamp_ns.begin(), prior.stamp_ns.end(), stamp_ns) !=
+                 prior.stamp_ns.end();
+        }),
+      dense_priors_.end());
     point_factors_.erase(
       std::remove_if(
         point_factors_.begin(), point_factors_.end(),
@@ -273,7 +321,7 @@ size_t SlidingWindowOptimizer::enforce_window_size()
           return factor.stamp_ns == stamp_ns;
         }),
       visual_factors_.end());
-    if (!states_.empty() && config_.marginalization_prior_weight > 0.0) {
+    if (!added_schur_prior && !states_.empty() && config_.marginalization_prior_weight > 0.0) {
       const int64_t anchor_stamp_ns = states_.front().stamp_ns;
       state_priors_.erase(
         std::remove_if(
@@ -314,13 +362,26 @@ Eigen::Vector3d SlidingWindowOptimizer::rotation_residual(
   return 2.0 * error.vec();
 }
 
+Eigen::Matrix<double, 15, 1> SlidingWindowOptimizer::state_delta(
+  const SlidingWindowState & reference,
+  const SlidingWindowState & state)
+{
+  Eigen::Matrix<double, 15, 1> delta;
+  delta.template segment<3>(0) = rotation_residual(reference.q_w_i, state.q_w_i);
+  delta.template segment<3>(3) = state.v_w_i - reference.v_w_i;
+  delta.template segment<3>(6) = state.p_w_i - reference.p_w_i;
+  delta.template segment<3>(9) = state.gyro_bias - reference.gyro_bias;
+  delta.template segment<3>(12) = state.accel_bias - reference.accel_bias;
+  return delta;
+}
+
 Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   const std::vector<SlidingWindowState> & states) const
 {
   std::vector<double> values;
   values.reserve(
     imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
-    point_factors_.size() * 300U + visual_factors_.size() * 2U);
+    dense_priors_.size() * 30U + point_factors_.size() * 300U + visual_factors_.size() * 2U);
 
   auto append = [&values](const Eigen::VectorXd & residual) {
       for (Eigen::Index i = 0; i < residual.size(); ++i) {
@@ -411,6 +472,27 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     append(sqrt_information * residual);
   }
 
+  for (const auto & prior : dense_priors_) {
+    const auto prior_cols = static_cast<Eigen::Index>(prior.reference_states.size() * kStateDof);
+    if (prior.sqrt_information.cols() != prior_cols || prior.target_delta.size() != prior_cols) {
+      continue;
+    }
+    Eigen::VectorXd delta(prior_cols);
+    bool complete = true;
+    for (size_t reference_index = 0; reference_index < prior.reference_states.size(); ++reference_index) {
+      const int index = find_local(prior.stamp_ns[reference_index]);
+      if (index < 0) {
+        complete = false;
+        break;
+      }
+      delta.template segment<15>(static_cast<Eigen::Index>(reference_index * kStateDof)) =
+        state_delta(prior.reference_states[reference_index], states[static_cast<size_t>(index)]);
+    }
+    if (complete) {
+      append(prior.sqrt_information * (delta - prior.target_delta));
+    }
+  }
+
   for (const auto & factor : point_factors_) {
     const int index = find_local(factor.stamp_ns);
     if (index < 0) {
@@ -451,6 +533,99 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
 double SlidingWindowOptimizer::compute_cost(const Eigen::VectorXd & residual) const
 {
   return 0.5 * residual.squaredNorm();
+}
+
+bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
+{
+  if (states_.size() < 2U) {
+    return false;
+  }
+  const auto variables = variable_layout();
+  auto marginalized_it = std::find_if(
+    variables.begin(), variables.end(),
+    [](const VariableBlock & variable) {
+      return variable.state_index == 0U;
+    });
+  if (marginalized_it == variables.end()) {
+    return false;
+  }
+
+  std::vector<VariableBlock> retained_variables;
+  retained_variables.reserve(variables.size() - 1U);
+  for (const auto & variable : variables) {
+    if (variable.state_index != 0U) {
+      retained_variables.push_back(variable);
+    }
+  }
+  if (retained_variables.empty()) {
+    return false;
+  }
+
+  const auto normal = linearize(states_, variables, 0.0);
+  if (!normal.valid || normal.variable_count != variables.size() * kStateDof) {
+    return false;
+  }
+  const auto marginalized_offset = static_cast<Eigen::Index>(marginalized_it->offset);
+  constexpr Eigen::Index marginalized_dim = static_cast<Eigen::Index>(kStateDof);
+  const auto retained_dim = static_cast<Eigen::Index>(retained_variables.size() * kStateDof);
+  Eigen::MatrixXd h_mr(marginalized_dim, retained_dim);
+  Eigen::MatrixXd h_rr(retained_dim, retained_dim);
+  Eigen::VectorXd rhs_r(retained_dim);
+
+  std::vector<Eigen::Index> retained_columns;
+  retained_columns.reserve(static_cast<size_t>(retained_dim));
+  for (const auto & variable : retained_variables) {
+    for (size_t dim = 0; dim < kStateDof; ++dim) {
+      retained_columns.push_back(static_cast<Eigen::Index>(variable.offset + dim));
+    }
+  }
+  for (Eigen::Index row = 0; row < marginalized_dim; ++row) {
+    for (Eigen::Index col = 0; col < retained_dim; ++col) {
+      h_mr(row, col) = normal.hessian(marginalized_offset + row, retained_columns[static_cast<size_t>(col)]);
+    }
+  }
+  for (Eigen::Index row = 0; row < retained_dim; ++row) {
+    rhs_r(row) = normal.rhs(retained_columns[static_cast<size_t>(row)]);
+    for (Eigen::Index col = 0; col < retained_dim; ++col) {
+      h_rr(row, col) = normal.hessian(
+        retained_columns[static_cast<size_t>(row)],
+        retained_columns[static_cast<size_t>(col)]);
+    }
+  }
+
+  const auto schur = compute_schur_complement(
+    normal.hessian.block(marginalized_offset, marginalized_offset, marginalized_dim, marginalized_dim),
+    h_mr,
+    h_rr,
+    normal.rhs.segment(marginalized_offset, marginalized_dim),
+    rhs_r,
+    config_.damping);
+  if (!schur.valid || schur.hessian.rows() != retained_dim || schur.rhs.size() != retained_dim) {
+    return false;
+  }
+  if (schur.hessian.norm() <= 1.0e-12) {
+    return false;
+  }
+
+  const Eigen::MatrixXd regularized =
+    schur.hessian + config_.damping * Eigen::MatrixXd::Identity(retained_dim, retained_dim);
+  const Eigen::VectorXd target_delta = regularized.ldlt().solve(schur.rhs);
+  const Eigen::MatrixXd sqrt_information = sqrt_information_from_hessian(schur.hessian);
+  if (!target_delta.allFinite() || sqrt_information.rows() == 0 || !sqrt_information.allFinite()) {
+    return false;
+  }
+
+  SlidingWindowDensePrior prior;
+  prior.sqrt_information = sqrt_information;
+  prior.target_delta = target_delta;
+  prior.stamp_ns.reserve(retained_variables.size());
+  prior.reference_states.reserve(retained_variables.size());
+  for (const auto & variable : retained_variables) {
+    prior.stamp_ns.push_back(states_[variable.state_index].stamp_ns);
+    prior.reference_states.push_back(states_[variable.state_index]);
+  }
+  dense_priors_.push_back(std::move(prior));
+  return true;
 }
 
 SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
@@ -536,6 +711,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.imu_factor_count = imu_factors_.size();
   summary.pose_prior_count = pose_priors_.size();
   summary.state_prior_count = state_priors_.size();
+  summary.dense_prior_count = dense_priors_.size();
   summary.point_factor_count = point_factors_.size();
   summary.visual_factor_count = visual_factors_.size();
   Eigen::VectorXd residual = build_residual(states_);

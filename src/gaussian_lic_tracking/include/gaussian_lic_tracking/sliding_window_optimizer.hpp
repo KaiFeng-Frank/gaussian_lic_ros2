@@ -87,12 +87,21 @@ struct SlidingWindowVisualAlignmentFactor
   double weight{1.0};
 };
 
+struct SlidingWindowDensePrior
+{
+  std::vector<int64_t> stamp_ns;
+  std::vector<SlidingWindowState> reference_states;
+  Eigen::MatrixXd sqrt_information;
+  Eigen::VectorXd target_delta;
+};
+
 struct SlidingWindowSummary
 {
   size_t state_count{0};
   size_t imu_factor_count{0};
   size_t pose_prior_count{0};
   size_t state_prior_count{0};
+  size_t dense_prior_count{0};
   size_t point_factor_count{0};
   size_t visual_factor_count{0};
   size_t marginalized_state_count{0};
@@ -144,6 +153,7 @@ public:
   void add_imu_factor(const SlidingWindowImuFactor & factor);
   void add_pose_prior(const SlidingWindowPosePrior & prior);
   void add_state_prior(const SlidingWindowStatePrior & prior);
+  void add_dense_prior(const SlidingWindowDensePrior & prior);
   void add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor);
   void add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor);
 
@@ -160,6 +170,9 @@ private:
   static Eigen::Vector3d rotation_residual(
     const Eigen::Quaterniond & measured_q,
     const Eigen::Quaterniond & predicted_q);
+  static Eigen::Matrix<double, 15, 1> state_delta(
+    const SlidingWindowState & reference,
+    const SlidingWindowState & state);
   static void apply_delta(
     std::vector<SlidingWindowState> & states,
     const std::vector<VariableBlock> & variables,
@@ -175,6 +188,7 @@ private:
     const std::vector<VariableBlock> & variables,
     double damping) const;
   double compute_cost(const Eigen::VectorXd & residual) const;
+  bool add_schur_marginalization_prior_for_front();
   size_t enforce_window_size();
 
   SlidingWindowConfig config_;
@@ -182,6 +196,7 @@ private:
   std::vector<SlidingWindowImuFactor> imu_factors_;
   std::vector<SlidingWindowPosePrior> pose_priors_;
   std::vector<SlidingWindowStatePrior> state_priors_;
+  std::vector<SlidingWindowDensePrior> dense_priors_;
   std::vector<SlidingWindowPointToPointFactor> point_factors_;
   std::vector<SlidingWindowVisualAlignmentFactor> visual_factors_;
   size_t marginalized_state_count_{0};
