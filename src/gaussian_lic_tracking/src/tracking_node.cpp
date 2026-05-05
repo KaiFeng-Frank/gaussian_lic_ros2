@@ -574,6 +574,11 @@ private:
     size_t window_point_correspondences = 0U;
     size_t window_plane_correspondences = 0U;
     if (enable_lio_factor_) {
+      const auto correction = lidar_factor_.compute_pose_correction(lidar_points, tracking_pose);
+      if (correction.applied) {
+        tracking_pose.p_w_i += correction.delta_p_w;
+        tracking_pose.q_w_i = (correction.delta_q * tracking_pose.q_w_i).normalized();
+      }
       if (enable_sliding_window_optimizer_) {
         auto lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
         if (!lidar_window_factor.frame_points_i.empty()) {
@@ -601,7 +606,6 @@ private:
           }
         }
       }
-      const auto correction = lidar_factor_.compute_pose_correction(lidar_points, tracking_pose);
       last_window_point_correspondences_ = window_point_correspondences;
       last_window_plane_correspondences_ = window_plane_correspondences;
       total_window_point_correspondences_ += window_point_correspondences;
@@ -609,10 +613,6 @@ private:
       last_lidar_matches_ = std::max(
         correction.matched_points, window_point_correspondences + window_plane_correspondences);
       last_lidar_mean_residual_m_ = correction.mean_residual_m;
-      if (correction.applied) {
-        tracking_pose.p_w_i += correction.delta_p_w;
-        tracking_pose.q_w_i = (correction.delta_q * tracking_pose.q_w_i).normalized();
-      }
       if (should_insert_lidar_keyframe(tracking_pose, lidar_points.size())) {
         lidar_factor_.insert_keyframe(lidar_points, tracking_pose);
         ++num_lidar_keyframes_;
