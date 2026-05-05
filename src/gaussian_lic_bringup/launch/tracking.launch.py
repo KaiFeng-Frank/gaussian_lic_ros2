@@ -16,6 +16,7 @@ def generate_launch_description():
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
+    enable_lidar_plane_factor = LaunchConfiguration("enable_lidar_plane_factor")
     lidar_min_points = LaunchConfiguration("lidar_min_points")
     lidar_max_frame_points = LaunchConfiguration("lidar_max_frame_points")
     lidar_max_map_points = LaunchConfiguration("lidar_max_map_points")
@@ -58,6 +59,7 @@ def generate_launch_description():
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
+            DeclareLaunchArgument("enable_lidar_plane_factor", default_value="true"),
             DeclareLaunchArgument("lidar_min_points", default_value="32"),
             DeclareLaunchArgument("lidar_max_frame_points", default_value="2000"),
             DeclareLaunchArgument("lidar_max_map_points", default_value="20000"),
@@ -108,6 +110,7 @@ def generate_launch_description():
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,
                         "enable_lio_factor": enable_lio_factor,
+                        "enable_lidar_plane_factor": enable_lidar_plane_factor,
                         "lidar_min_points": lidar_min_points,
                         "lidar_max_frame_points": lidar_max_frame_points,
                         "lidar_max_map_points": lidar_max_map_points,

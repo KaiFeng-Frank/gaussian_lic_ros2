@@ -65,6 +65,7 @@ public:
     visual_alignment_window_weight_ =
       declare_parameter<double>("visual_alignment_window_weight", 1.0);
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
+    enable_lidar_plane_factor_ = declare_parameter<bool>("enable_lidar_plane_factor", true);
     lidar_min_points_ = declare_parameter<int>("lidar_min_points", 32);
     lidar_max_frame_points_ = declare_parameter<int>("lidar_max_frame_points", 2000);
     lidar_max_map_points_ = declare_parameter<int>("lidar_max_map_points", 20000);
@@ -349,9 +350,11 @@ private:
         if (!lidar_window_factor.frame_points_i.empty()) {
           window_point_factors.push_back(std::move(lidar_window_factor));
         }
-        auto lidar_plane_factor = lidar_factor_.build_point_to_plane_factor(lidar_points, tracking_pose);
-        if (!lidar_plane_factor.frame_points_i.empty()) {
-          window_plane_factors.push_back(std::move(lidar_plane_factor));
+        if (enable_lidar_plane_factor_) {
+          auto lidar_plane_factor = lidar_factor_.build_point_to_plane_factor(lidar_points, tracking_pose);
+          if (!lidar_plane_factor.frame_points_i.empty()) {
+            window_plane_factors.push_back(std::move(lidar_plane_factor));
+          }
         }
         if (enable_gaussian_snapshot_lidar_factor_ && gaussian_snapshot_.complete()) {
           auto gaussian_window_factor = gaussian_snapshot_.build_point_to_point_factor(
@@ -956,6 +959,7 @@ private:
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
   bool enable_lio_factor_{true};
+  bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
   bool enable_sliding_window_optimizer_{false};
   bool enable_gaussian_snapshot_lidar_factor_{true};
