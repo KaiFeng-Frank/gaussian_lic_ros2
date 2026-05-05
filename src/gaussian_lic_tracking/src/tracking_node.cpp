@@ -103,6 +103,20 @@ public:
     lidar_plane_min_neighbors_ = declare_parameter<int>("lidar_plane_min_neighbors", 5);
     lidar_plane_max_condition_ = declare_parameter<double>("lidar_plane_max_condition", 0.2);
     lidar_keyframe_translation_m_ = declare_parameter<double>("lidar_keyframe_translation_m", 0.25);
+    const auto lidar_to_imu_translation = declare_parameter<std::vector<double>>(
+      "lidar_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
+    const auto lidar_to_imu_rpy = declare_parameter<std::vector<double>>(
+      "lidar_to_imu_rpy_rad", std::vector<double>{0.0, 0.0, 0.0});
+    if (lidar_to_imu_translation.size() == 3U && lidar_to_imu_rpy.size() == 3U) {
+      p_i_l_ = Eigen::Vector3d{
+        lidar_to_imu_translation[0],
+        lidar_to_imu_translation[1],
+        lidar_to_imu_translation[2]};
+      q_i_l_ = (
+        Eigen::AngleAxisd(lidar_to_imu_rpy[2], Eigen::Vector3d::UnitZ()) *
+        Eigen::AngleAxisd(lidar_to_imu_rpy[1], Eigen::Vector3d::UnitY()) *
+        Eigen::AngleAxisd(lidar_to_imu_rpy[0], Eigen::Vector3d::UnitX())).normalized();
+    }
     enable_lidar_deskew_ = declare_parameter<bool>("enable_lidar_deskew", true);
     lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
     lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
@@ -456,9 +470,10 @@ private:
     std::vector<Eigen::Vector3d> lidar_points;
     if (enable_lio_factor_ || enable_lidar_deskew_) {
       PointCloudFields fields;
-      const auto decoded_points = decode_pointcloud(msg, fields);
+      auto decoded_points = decode_pointcloud(msg, fields);
       lidar_points.reserve(decoded_points.size());
-      for (const auto & point : decoded_points) {
+      for (auto & point : decoded_points) {
+        point.point_i = q_i_l_ * point.point_i + p_i_l_;
         lidar_points.push_back(point.point_i);
       }
       last_lidar_points_ = lidar_points.size();
@@ -1492,6 +1507,8 @@ private:
   int lidar_plane_min_neighbors_{5};
   double lidar_plane_max_condition_{0.2};
   double lidar_keyframe_translation_m_{0.25};
+  Eigen::Vector3d p_i_l_{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_i_l_{Eigen::Quaterniond::Identity()};
 
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;

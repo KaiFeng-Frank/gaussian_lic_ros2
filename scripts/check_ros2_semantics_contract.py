@@ -102,6 +102,8 @@ def main() -> int:
         "lidar_robust_kernel_m",
         "lidar_plane_min_neighbors",
         "lidar_plane_max_condition",
+        "lidar_to_imu_translation_m",
+        "lidar_to_imu_rpy_rad",
         "sliding_window_max_states",
         "sliding_window_max_iterations",
         "sliding_window_imu_weight",

@@ -62,6 +62,10 @@ Current ROS2 implementation status:
   bounded 6-DoF correction, direct point-to-point correspondence factors for
   the optional sliding window, point-to-plane correspondence factors, robust
   per-correspondence weights, and deterministic probes.
+- `tracking_node` applies ROS2-configurable LiDAR-to-IMU extrinsics before LIO
+  correction, per-point deskew, sliding-window factor creation, and mapper point
+  publication. The default is identity so existing synthetic and mapper-contract
+  bags stay bit-compatible.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native

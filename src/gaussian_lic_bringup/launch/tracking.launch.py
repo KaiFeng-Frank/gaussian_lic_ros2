@@ -32,6 +32,8 @@ def generate_launch_description():
     lidar_plane_min_neighbors = LaunchConfiguration("lidar_plane_min_neighbors")
     lidar_plane_max_condition = LaunchConfiguration("lidar_plane_max_condition")
     lidar_keyframe_translation_m = LaunchConfiguration("lidar_keyframe_translation_m")
+    lidar_to_imu_translation_m = LaunchConfiguration("lidar_to_imu_translation_m")
+    lidar_to_imu_rpy_rad = LaunchConfiguration("lidar_to_imu_rpy_rad")
     enable_lidar_deskew = LaunchConfiguration("enable_lidar_deskew")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     visual_alignment_max_shift_px = LaunchConfiguration("visual_alignment_max_shift_px")
@@ -94,6 +96,8 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_plane_min_neighbors", default_value="5"),
             DeclareLaunchArgument("lidar_plane_max_condition", default_value="0.2"),
             DeclareLaunchArgument("lidar_keyframe_translation_m", default_value="0.25"),
+            DeclareLaunchArgument("lidar_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
+            DeclareLaunchArgument("lidar_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("enable_lidar_deskew", default_value="true"),
             DeclareLaunchArgument("lidar_time_field", default_value="auto"),
             DeclareLaunchArgument("lidar_time_unit", default_value="auto"),
@@ -162,6 +166,8 @@ def generate_launch_description():
                         "lidar_plane_min_neighbors": lidar_plane_min_neighbors,
                         "lidar_plane_max_condition": lidar_plane_max_condition,
                         "lidar_keyframe_translation_m": lidar_keyframe_translation_m,
+                        "lidar_to_imu_translation_m": lidar_to_imu_translation_m,
+                        "lidar_to_imu_rpy_rad": lidar_to_imu_rpy_rad,
                         "enable_lidar_deskew": enable_lidar_deskew,
                         "lidar_time_field": lidar_time_field,
                         "lidar_time_unit": lidar_time_unit,

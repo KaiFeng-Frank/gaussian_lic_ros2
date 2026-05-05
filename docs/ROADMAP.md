@@ -166,6 +166,7 @@ baseline_manifest.json
 - [x] Add signed-nanosecond IMU history interpolation and an IMU preintegration residual foundation with deterministic probes.
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
+- [x] Add ROS2-configurable LiDAR-to-IMU extrinsics before LIO, deskew, and mapper point publication.
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, window trimming, and deterministic convergence probes.
 - [x] Add Schur-complement normal-equation math coverage for the tracking marginalization path, with deterministic equivalence against the full normal-equation solve.
