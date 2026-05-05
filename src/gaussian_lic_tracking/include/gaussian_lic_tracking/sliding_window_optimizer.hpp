@@ -152,8 +152,13 @@ struct SlidingWindowSummary
   size_t dense_prior_cols{0};
   size_t dense_prior_rank{0};
   size_t iterations{0};
+  size_t accepted_steps{0};
+  size_t rejected_steps{0};
   double initial_cost{0.0};
   double final_cost{0.0};
+  double last_step_norm{0.0};
+  double last_step_scale{0.0};
+  double last_damping{0.0};
   double dense_prior_min_singular_value{0.0};
   double dense_prior_max_singular_value{0.0};
   double gyro_bias_norm{0.0};

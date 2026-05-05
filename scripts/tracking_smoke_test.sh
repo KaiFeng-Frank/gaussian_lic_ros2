@@ -161,6 +161,9 @@ status_matches() {
     rg -q "last_imu_stamp_ns: [1-9]" "${status_file}" &&
     rg -q "sliding_window_enabled: true" "${status_file}" &&
     rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_accepted_steps: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
+    rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_point_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_smoothness_factors: [1-9]" "${status_file}" &&
     rg -q "sliding_window_dense_prior_rank: [1-9]" "${status_file}" &&

@@ -158,7 +158,8 @@ enabled callback serialization for ROS1-style single-callback mutation order,
 nonzero signed-nanosecond image/LiDAR/IMU stamps,
 bounded `best_effort` sensor QoS with depth `5`,
 nonzero dense-prior rank/singular-value coverage after marginalization, nonzero
-bias observability, bounded LM step-limit coverage, nonzero visual factors, valid visual subpixel alignment,
+bias observability, nonzero accepted LM steps with reported step scale/damping,
+bounded LM step-limit coverage, nonzero visual factors, valid visual subpixel alignment,
 valid Huber-robust visual-alignment factors, valid photometric Gauss-Newton linearization, nonzero Huber-robust SE3
 photometric window factors extracted from nearest-fresh-render/current/depth
 images, nonzero SE3 candidate/sample counts, nonzero robust inlier ratio and SE3 step norm, and

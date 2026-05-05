@@ -92,8 +92,13 @@ sliding_window_dense_prior_rows
 sliding_window_dense_prior_cols
 sliding_window_dense_prior_rank
 sliding_window_iterations
+sliding_window_accepted_steps
+sliding_window_rejected_steps
 sliding_window_initial_cost
 sliding_window_final_cost
+sliding_window_last_step_norm
+sliding_window_last_step_scale
+sliding_window_last_damping
 sliding_window_dense_prior_min_singular_value
 sliding_window_dense_prior_max_singular_value
 sliding_window_gyro_bias_norm
@@ -138,7 +143,8 @@ The sliding-window gate also requires nonzero dense-prior rank and singular
 value coverage after marginalization so retained-state priors are numerically
 observable rather than only present by count; the optimizer itself bounds LM
 rotation, translation, velocity, and bias increments before applying a candidate
-state update.
+state update and reports accepted/rejected step counts, final step norm/scale,
+and damping for runtime diagnosis.
 It also gates nonzero trajectory smoothness factors, which constrain adjacent
 three-state rotation-rate, position-rate, velocity-acceleration, and bias-rate
 continuity in the native joint BA window.

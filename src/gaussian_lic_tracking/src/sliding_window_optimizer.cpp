@@ -1619,6 +1619,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   }
 
   double damping = config_.damping;
+  summary.last_damping = damping;
   auto bounded_step_scale = [this, &variables](const Eigen::VectorXd & step) {
       double scale = 1.0;
       auto apply_limit = [&scale](const double norm, const double limit) {
@@ -1652,11 +1653,15 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
 
     auto candidate_states = states_;
     const double step_scale = bounded_step_scale(step);
+    summary.last_step_norm = step.norm();
+    summary.last_step_scale = step_scale;
+    summary.last_damping = damping;
     apply_delta(candidate_states, variables, step, step_scale);
     const double candidate_cost = compute_cost(build_residual(candidate_states));
     if (candidate_cost <= current_cost) {
       states_ = std::move(candidate_states);
       summary.iterations = iteration + 1U;
+      ++summary.accepted_steps;
       summary.final_cost = candidate_cost;
       damping = std::max(damping * 0.1, config_.damping);
       if (step_scale * step.norm() < config_.step_tolerance) {
@@ -1664,6 +1669,7 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
         break;
       }
     } else {
+      ++summary.rejected_steps;
       damping *= 10.0;
       summary.final_cost = current_cost;
     }

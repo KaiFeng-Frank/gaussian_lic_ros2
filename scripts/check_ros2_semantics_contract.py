@@ -185,12 +185,17 @@ def main() -> int:
         "last_imu_stamp_ns",
         "sliding_window_imu_reanchors",
         "sliding_window_smoothness_factors",
+        "sliding_window_accepted_steps",
+        "sliding_window_rejected_steps",
+        "sliding_window_last_step_norm",
+        "sliding_window_last_step_scale",
+        "sliding_window_last_damping",
         "trajectory_control_poses",
         "trajectory_deskew_queries",
         "trajectory_deskew_hits",
     ]:
         if field not in tracking_status_msg_text or field not in tracking_node_text:
-            errors.append(f"tracking status must publish signed-nanosecond field {field}")
+            errors.append(f"tracking status must publish frontend health field {field}")
 
     for path in sorted(CONFIG_DIR.glob("*.yaml")):
         params = mapping_params(path)
