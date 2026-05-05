@@ -3,7 +3,9 @@
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 
 #include <cmath>
+#include <exception>
 #include <iostream>
+#include <limits>
 
 namespace
 {
@@ -17,6 +19,18 @@ Eigen::Matrix<double, 15, 15> expected_state_delta_jacobian(
   jacobian.block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
   jacobian.block<3, 3>(12, 12) = Eigen::Matrix3d::Identity();
   return jacobian;
+}
+
+template<typename Function>
+bool expect_throw(const char * name, Function && function)
+{
+  try {
+    function();
+  } catch (const std::exception &) {
+    return true;
+  }
+  std::cerr << name << " was not rejected\n";
+  return false;
 }
 }  // namespace
 
@@ -112,6 +126,111 @@ int main()
             << " max_abs_error=" << max_abs_error << "\n";
   if (max_abs_error > 1.0e-12) {
     std::cerr << "prior/dense/SE3 analytic Jacobian blocks are wrong\n";
+    return 1;
+  }
+
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  const Eigen::Quaterniond zero_quaternion(0.0, 0.0, 0.0, 0.0);
+
+  bool validation_ok = true;
+  validation_ok &= expect_throw("non-finite sliding-window config", [nan]() {
+    gaussian_lic_tracking::SlidingWindowConfig config;
+    config.damping = nan;
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer(config);
+  });
+  validation_ok &= expect_throw("zero sliding-window state quaternion", [state, zero_quaternion]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_state = state;
+    invalid_state.q_w_i = zero_quaternion;
+    invalid_optimizer.add_or_update_state(invalid_state);
+  });
+  validation_ok &= expect_throw("non-finite sliding-window state", [state, nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_state = state;
+    invalid_state.p_w_i.x() = nan;
+    invalid_optimizer.add_or_update_state(invalid_state);
+  });
+  validation_ok &= expect_throw("non-finite IMU factor weight", [nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowImuFactor factor;
+    factor.from_stamp_ns = 0;
+    factor.to_stamp_ns = 1;
+    factor.weight = nan;
+    invalid_optimizer.add_imu_factor(factor);
+  });
+  validation_ok &= expect_throw("zero pose-prior quaternion", [pose_prior, zero_quaternion]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_prior = pose_prior;
+    invalid_prior.q_w_i = zero_quaternion;
+    invalid_optimizer.add_pose_prior(invalid_prior);
+  });
+  validation_ok &= expect_throw("non-finite pose-prior weight", [pose_prior, nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_prior = pose_prior;
+    invalid_prior.translation_weight = nan;
+    invalid_optimizer.add_pose_prior(invalid_prior);
+  });
+  validation_ok &= expect_throw("non-finite state-prior information", [state_prior, nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_prior = state_prior;
+    invalid_prior.sqrt_information(0, 0) = nan;
+    invalid_optimizer.add_state_prior(invalid_prior);
+  });
+  validation_ok &= expect_throw("invalid dense-prior reference state", [dense_prior, zero_quaternion]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_prior = dense_prior;
+    invalid_prior.reference_states[0].q_w_i = zero_quaternion;
+    invalid_optimizer.add_dense_prior(invalid_prior);
+  });
+  validation_ok &= expect_throw("non-finite point-factor weight", [nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowPointToPointFactor factor;
+    factor.weight = nan;
+    factor.frame_points_i.emplace_back(0.0, 0.0, 0.0);
+    factor.target_points_w.emplace_back(0.0, 0.0, 0.0);
+    invalid_optimizer.add_point_to_point_factor(factor);
+  });
+  validation_ok &= expect_throw("non-finite plane-factor weight", [nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowPointToPlaneFactor factor;
+    factor.weight = nan;
+    factor.frame_points_i.emplace_back(0.0, 0.0, 0.0);
+    factor.target_points_w.emplace_back(0.0, 0.0, 0.0);
+    factor.target_normals_w.emplace_back(0.0, 0.0, 1.0);
+    invalid_optimizer.add_point_to_plane_factor(factor);
+  });
+  validation_ok &= expect_throw("non-finite visual alignment scale", [state, nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor factor;
+    factor.stamp_ns = state.stamp_ns;
+    factor.reference_p_w_i = state.p_w_i;
+    factor.meters_per_pixel = nan;
+    invalid_optimizer.add_visual_alignment_factor(factor);
+  });
+  validation_ok &= expect_throw(
+    "invalid SE3 photometric reference quaternion", [se3_factor, zero_quaternion]() {
+      gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+      auto invalid_factor = se3_factor;
+      invalid_factor.reference_q_w_i = zero_quaternion;
+      invalid_optimizer.add_se3_photometric_factor(invalid_factor);
+    });
+  validation_ok &= expect_throw("non-finite SE3 photometric weight", [se3_factor, nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    auto invalid_factor = se3_factor;
+    invalid_factor.weight = nan;
+    invalid_optimizer.add_se3_photometric_factor(invalid_factor);
+  });
+  validation_ok &= expect_throw("non-finite smoothness weight", [nan]() {
+    gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
+    gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor factor;
+    factor.previous_stamp_ns = 0;
+    factor.current_stamp_ns = 1;
+    factor.next_stamp_ns = 2;
+    factor.rotation_rate_weight = nan;
+    invalid_optimizer.add_trajectory_smoothness_factor(factor);
+  });
+  if (!validation_ok) {
+    std::cerr << "sliding-window optimizer validation probes failed\n";
     return 1;
   }
 

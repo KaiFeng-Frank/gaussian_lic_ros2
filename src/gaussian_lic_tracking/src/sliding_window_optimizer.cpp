@@ -80,6 +80,19 @@ ImuState to_imu_state(const SlidingWindowState & state)
   return output;
 }
 
+bool quaternion_is_finite_and_nonzero(const Eigen::Quaterniond & quaternion)
+{
+  return quaternion.coeffs().allFinite() &&
+         quaternion.norm() > std::numeric_limits<double>::epsilon();
+}
+
+bool state_is_finite(const SlidingWindowState & state)
+{
+  return state.p_w_i.allFinite() && state.v_w_i.allFinite() &&
+         state.gyro_bias.allFinite() && state.accel_bias.allFinite() &&
+         quaternion_is_finite_and_nonzero(state.q_w_i);
+}
+
 Eigen::MatrixXd sqrt_information_from_hessian(const Eigen::MatrixXd & hessian)
 {
   if (hessian.rows() != hessian.cols() || hessian.rows() == 0 || !hessian.allFinite()) {
@@ -389,11 +402,17 @@ void SlidingWindowOptimizer::set_config(const SlidingWindowConfig & config)
   if (config.max_iterations == 0U) {
     throw std::runtime_error("sliding window optimizer must run at least one iteration");
   }
-  if (config.damping <= 0.0 || config.step_tolerance <= 0.0 || config.numeric_epsilon <= 0.0) {
+  if (!std::isfinite(config.damping) || !std::isfinite(config.step_tolerance) ||
+    !std::isfinite(config.numeric_epsilon) ||
+    config.damping <= 0.0 || config.step_tolerance <= 0.0 || config.numeric_epsilon <= 0.0)
+  {
     throw std::runtime_error("sliding window optimizer numeric settings must be positive");
   }
-  if (config.marginalization_prior_weight < 0.0) {
-    throw std::runtime_error("sliding window marginalization prior weight must be non-negative");
+  if (!std::isfinite(config.marginalization_prior_weight) ||
+    config.marginalization_prior_weight < 0.0)
+  {
+    throw std::runtime_error(
+      "sliding window marginalization prior weight must be finite and non-negative");
   }
   if (!std::isfinite(config.max_rotation_step_rad) || !std::isfinite(config.max_velocity_step_mps) ||
     !std::isfinite(config.max_translation_step_m) || !std::isfinite(config.max_bias_step) ||
@@ -435,6 +454,9 @@ int SlidingWindowOptimizer::find_state_index(const int64_t stamp_ns) const
 
 void SlidingWindowOptimizer::add_or_update_state(const SlidingWindowState & state)
 {
+  if (!state_is_finite(state)) {
+    throw std::runtime_error("sliding-window state values must be finite with a non-zero quaternion");
+  }
   SlidingWindowState normalized = state;
   normalized.q_w_i.normalize();
   const int existing = find_state_index(normalized.stamp_ns);
@@ -466,8 +488,17 @@ void SlidingWindowOptimizer::add_imu_factor(const SlidingWindowImuFactor & facto
   if (factor.to_stamp_ns <= factor.from_stamp_ns) {
     throw std::runtime_error("IMU factor timestamps must be strictly increasing");
   }
-  if (factor.weight <= 0.0) {
-    throw std::runtime_error("IMU factor weight must be positive");
+  if (!std::isfinite(factor.weight) || !std::isfinite(factor.bias_weight) ||
+    factor.weight <= 0.0 || factor.bias_weight < 0.0)
+  {
+    throw std::runtime_error("IMU factor weights must be finite and valid");
+  }
+  if (!factor.gravity_w.allFinite() || !factor.preintegration.delta_q().coeffs().allFinite() ||
+    factor.preintegration.delta_q().norm() <= std::numeric_limits<double>::epsilon() ||
+    !factor.preintegration.delta_v().allFinite() || !factor.preintegration.delta_p().allFinite() ||
+    !std::isfinite(factor.preintegration.delta_t_s()))
+  {
+    throw std::runtime_error("IMU factor preintegration values must be finite");
   }
   imu_factors_.push_back(factor);
   enforce_window_size();
@@ -475,8 +506,13 @@ void SlidingWindowOptimizer::add_imu_factor(const SlidingWindowImuFactor & facto
 
 void SlidingWindowOptimizer::add_pose_prior(const SlidingWindowPosePrior & prior)
 {
-  if (prior.translation_weight < 0.0 || prior.rotation_weight < 0.0) {
-    throw std::runtime_error("pose prior weights must be non-negative");
+  if (!std::isfinite(prior.translation_weight) || !std::isfinite(prior.rotation_weight) ||
+    prior.translation_weight < 0.0 || prior.rotation_weight < 0.0)
+  {
+    throw std::runtime_error("pose prior weights must be finite and non-negative");
+  }
+  if (!prior.p_w_i.allFinite() || !quaternion_is_finite_and_nonzero(prior.q_w_i)) {
+    throw std::runtime_error("pose prior values must be finite with a non-zero quaternion");
   }
   SlidingWindowPosePrior normalized = prior;
   normalized.q_w_i.normalize();
@@ -486,11 +522,20 @@ void SlidingWindowOptimizer::add_pose_prior(const SlidingWindowPosePrior & prior
 
 void SlidingWindowOptimizer::add_state_prior(const SlidingWindowStatePrior & prior)
 {
-  if (prior.rotation_weight < 0.0 || prior.velocity_weight < 0.0 ||
+  if (!std::isfinite(prior.rotation_weight) || !std::isfinite(prior.velocity_weight) ||
+    !std::isfinite(prior.position_weight) || !std::isfinite(prior.gyro_bias_weight) ||
+    !std::isfinite(prior.accel_bias_weight) ||
+    prior.rotation_weight < 0.0 || prior.velocity_weight < 0.0 ||
     prior.position_weight < 0.0 || prior.gyro_bias_weight < 0.0 ||
     prior.accel_bias_weight < 0.0)
   {
-    throw std::runtime_error("state prior weights must be non-negative");
+    throw std::runtime_error("state prior weights must be finite and non-negative");
+  }
+  if (!prior.p_w_i.allFinite() || !prior.v_w_i.allFinite() ||
+    !prior.gyro_bias.allFinite() || !prior.accel_bias.allFinite() ||
+    !quaternion_is_finite_and_nonzero(prior.q_w_i) || !prior.sqrt_information.allFinite())
+  {
+    throw std::runtime_error("state prior values must be finite with a non-zero quaternion");
   }
   SlidingWindowStatePrior normalized = prior;
   normalized.q_w_i.normalize();
@@ -513,6 +558,10 @@ void SlidingWindowOptimizer::add_dense_prior(const SlidingWindowDensePrior & pri
   }
   SlidingWindowDensePrior normalized = prior;
   for (auto & state : normalized.reference_states) {
+    if (!state_is_finite(state)) {
+      throw std::runtime_error(
+        "dense prior reference states must be finite with non-zero quaternions");
+    }
     state.q_w_i.normalize();
   }
   dense_priors_.push_back(std::move(normalized));
@@ -521,8 +570,8 @@ void SlidingWindowOptimizer::add_dense_prior(const SlidingWindowDensePrior & pri
 
 void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor)
 {
-  if (factor.weight <= 0.0) {
-    throw std::runtime_error("point-to-point factor weight must be positive");
+  if (!std::isfinite(factor.weight) || factor.weight <= 0.0) {
+    throw std::runtime_error("point-to-point factor weight must be finite and positive");
   }
   if (factor.frame_points_i.size() != factor.target_points_w.size()) {
     throw std::runtime_error("point-to-point factor source/target sizes must match");
@@ -549,8 +598,8 @@ void SlidingWindowOptimizer::add_point_to_point_factor(const SlidingWindowPointT
 
 void SlidingWindowOptimizer::add_point_to_plane_factor(const SlidingWindowPointToPlaneFactor & factor)
 {
-  if (factor.weight <= 0.0) {
-    throw std::runtime_error("point-to-plane factor weight must be positive");
+  if (!std::isfinite(factor.weight) || factor.weight <= 0.0) {
+    throw std::runtime_error("point-to-plane factor weight must be finite and positive");
   }
   if (factor.frame_points_i.size() != factor.target_points_w.size() ||
     factor.frame_points_i.size() != factor.target_normals_w.size())
@@ -584,8 +633,11 @@ void SlidingWindowOptimizer::add_point_to_plane_factor(const SlidingWindowPointT
 
 void SlidingWindowOptimizer::add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor)
 {
-  if (factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0) {
-    throw std::runtime_error("visual alignment factor weight and meters_per_pixel must be positive");
+  if (!std::isfinite(factor.weight) || !std::isfinite(factor.meters_per_pixel) ||
+    factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0)
+  {
+    throw std::runtime_error(
+      "visual alignment factor weight and meters_per_pixel must be finite and positive");
   }
   if (!std::isfinite(factor.huber_delta_m) || factor.huber_delta_m < 0.0) {
     throw std::runtime_error("visual alignment factor Huber delta must be finite and non-negative");
@@ -599,16 +651,17 @@ void SlidingWindowOptimizer::add_visual_alignment_factor(const SlidingWindowVisu
 
 void SlidingWindowOptimizer::add_se3_photometric_factor(const SlidingWindowSe3PhotometricFactor & factor)
 {
-  if (factor.weight <= 0.0) {
-    throw std::runtime_error("SE3 photometric factor weight must be positive");
+  if (!std::isfinite(factor.weight) || factor.weight <= 0.0) {
+    throw std::runtime_error("SE3 photometric factor weight must be finite and positive");
   }
   if (!std::isfinite(factor.huber_delta) || factor.huber_delta < 0.0) {
     throw std::runtime_error("SE3 photometric factor Huber delta must be finite and non-negative");
   }
   if (!factor.reference_p_w_i.allFinite() || !factor.target_delta.allFinite() ||
-    !factor.sqrt_information.allFinite())
+    !factor.sqrt_information.allFinite() ||
+    !quaternion_is_finite_and_nonzero(factor.reference_q_w_i))
   {
-    throw std::runtime_error("SE3 photometric factor values must be finite");
+    throw std::runtime_error("SE3 photometric factor values must be finite with a non-zero quaternion");
   }
   SlidingWindowSe3PhotometricFactor normalized = factor;
   normalized.reference_q_w_i.normalize();
@@ -624,11 +677,16 @@ void SlidingWindowOptimizer::add_trajectory_smoothness_factor(
   {
     throw std::runtime_error("trajectory smoothness factor timestamps must be strictly increasing");
   }
-  if (factor.rotation_rate_weight < 0.0 || factor.position_rate_weight < 0.0 ||
+  if (!std::isfinite(factor.rotation_rate_weight) ||
+    !std::isfinite(factor.position_rate_weight) ||
+    !std::isfinite(factor.velocity_acceleration_weight) ||
+    !std::isfinite(factor.gyro_bias_rate_weight) ||
+    !std::isfinite(factor.accel_bias_rate_weight) ||
+    factor.rotation_rate_weight < 0.0 || factor.position_rate_weight < 0.0 ||
     factor.velocity_acceleration_weight < 0.0 || factor.gyro_bias_rate_weight < 0.0 ||
     factor.accel_bias_rate_weight < 0.0)
   {
-    throw std::runtime_error("trajectory smoothness factor weights must be non-negative");
+    throw std::runtime_error("trajectory smoothness factor weights must be finite and non-negative");
   }
   if (factor.rotation_rate_weight == 0.0 && factor.position_rate_weight == 0.0 &&
     factor.velocity_acceleration_weight == 0.0 && factor.gyro_bias_rate_weight == 0.0 &&

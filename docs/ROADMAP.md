@@ -193,6 +193,7 @@ baseline_manifest.json
 - [x] Filter non-finite LiDAR keyframe/factor samples and reject invalid-pose LiDAR factors before they contaminate the map or BA window.
 - [x] Reject non-finite LiDAR factor configuration values before runtime correction/factor construction.
 - [x] Reject non-finite IMU preintegration samples, non-finite residual states, and zero-norm IMU residual quaternions before BA consumes them.
+- [x] Reject non-finite sliding-window states, priors, dense priors, factor weights, smoothness weights, and invalid quaternions before normal-equation construction.
 - [x] Publish rendered/depth cache hit diagnostics, pending visual-factor stale drops, and SE3 photometric depth/gradient/residual rejection counters through `TrackingStatus`.
 - [x] Skip non-finite visual residual pixels, non-finite SE3 photometric sample weights, invalid intrinsics, and invalid camera-to-body adjoints before photometric BA.
 - [x] Add analytic SE3 camera photometric pixel Jacobians and multi-sample normal equations with finite-difference CTest coverage.
