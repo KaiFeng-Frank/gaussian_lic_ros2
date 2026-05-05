@@ -170,7 +170,7 @@ baseline_manifest.json
 - [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, window trimming, and deterministic convergence probes.
 - [x] Add Schur-complement normal-equation math coverage for the tracking marginalization path, with deterministic equivalence against the full normal-equation solve.
 - [x] Expose reusable sliding-window residual/Jacobian/Hessian/RHS normal-equation linearization and cover it with CTest.
-- [x] Add analytic Jacobians for IMU preintegration kinematic columns, pose-prior, state-prior, retained dense-prior, IMU bias-continuity, and SE3 photometric window rows, with deterministic CTest coverage.
+- [x] Add analytic Jacobians for full current IMU preintegration factors, pose-prior, state-prior, retained dense-prior, IMU bias-continuity, and SE3 photometric window rows, with deterministic CTest coverage.
 - [x] Feed Schur-complement marginalization back into the live sliding window as retained-state dense priors, with fallback to diagonal anchoring when the marginalized block has no information.
 - [x] Publish dense-prior marginalization rank and singular-value health, and gate it in native tracking smoke.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.

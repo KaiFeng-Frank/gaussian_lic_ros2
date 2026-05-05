@@ -55,6 +55,7 @@ public:
   int64_t end_stamp_ns() const { return end_stamp_ns_; }
   double delta_t_s() const { return delta_t_s_; }
   size_t sample_count() const { return samples_.size(); }
+  const std::vector<ImuPreintegrationSample> & samples() const { return samples_; }
   const ImuBias & bias() const { return bias_; }
   const Eigen::Quaterniond & delta_q() const { return delta_q_; }
   const Eigen::Vector3d & delta_v() const { return delta_v_; }

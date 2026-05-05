@@ -8,12 +8,65 @@
 #include <stdexcept>
 
 #include <Eigen/Dense>
+#include <unsupported/Eigen/AutoDiff>
 
 namespace gaussian_lic_tracking
 {
 namespace
 {
 constexpr size_t kStateDof = 15U;
+using BiasDerivativeVector = Eigen::Matrix<double, 6, 1>;
+using BiasAutoDiff = Eigen::AutoDiffScalar<BiasDerivativeVector>;
+using Vector3ad = Eigen::Matrix<BiasAutoDiff, 3, 1>;
+using Quaternionad = Eigen::Quaternion<BiasAutoDiff>;
+
+BiasAutoDiff make_bias_autodiff(const double value, const int derivative_index = -1)
+{
+  BiasAutoDiff output(value);
+  output.derivatives() = BiasDerivativeVector::Zero();
+  if (derivative_index >= 0 && derivative_index < output.derivatives().size()) {
+    output.derivatives()[derivative_index] = 1.0;
+  }
+  return output;
+}
+
+Vector3ad make_bias_autodiff_vector(const Eigen::Vector3d & value, const int derivative_offset = -1)
+{
+  Vector3ad output;
+  for (Eigen::Index index = 0; index < 3; ++index) {
+    output[index] = make_bias_autodiff(
+      value[index],
+      derivative_offset >= 0 ? derivative_offset + static_cast<int>(index) : -1);
+  }
+  return output;
+}
+
+Quaternionad make_bias_autodiff_quaternion(const Eigen::Quaterniond & value)
+{
+  return Quaternionad(
+    make_bias_autodiff(value.w()),
+    make_bias_autodiff(value.x()),
+    make_bias_autodiff(value.y()),
+    make_bias_autodiff(value.z()));
+}
+
+Quaternionad normalized_quaternion(const Quaternionad & quaternion)
+{
+  using std::sqrt;
+  const BiasAutoDiff norm = sqrt(
+    quaternion.w() * quaternion.w() + quaternion.x() * quaternion.x() +
+    quaternion.y() * quaternion.y() + quaternion.z() * quaternion.z());
+  return Quaternionad(
+    quaternion.w() / norm,
+    quaternion.x() / norm,
+    quaternion.y() / norm,
+    quaternion.z() / norm);
+}
+
+Vector3ad rotate_vector(const Quaternionad & quaternion, const Vector3ad & vector)
+{
+  return quaternion * vector;
+}
 
 ImuState to_imu_state(const SlidingWindowState & state)
 {
@@ -73,6 +126,94 @@ Eigen::Matrix3d rotation_residual_middle_perturbation_jacobian(
     basis[column] = 1.0;
     const Eigen::Quaterniond pure_delta(0.0, basis.x(), basis.y(), basis.z());
     jacobian.col(column) = sign * (measured_inv * pure_delta * predicted).vec();
+  }
+  return jacobian;
+}
+
+Eigen::Matrix<double, 9, 6> imu_preintegration_bias_residual_jacobian(
+  const SlidingWindowImuFactor & factor,
+  const SlidingWindowState & from_state,
+  const SlidingWindowState & to_state)
+{
+  using std::cos;
+  using std::sin;
+  using std::sqrt;
+
+  const Vector3ad gyro_bias = make_bias_autodiff_vector(from_state.gyro_bias, 0);
+  const Vector3ad accel_bias = make_bias_autodiff_vector(from_state.accel_bias, 3);
+  Quaternionad delta_q = make_bias_autodiff_quaternion(Eigen::Quaterniond::Identity());
+  Vector3ad delta_v = make_bias_autodiff_vector(Eigen::Vector3d::Zero());
+  Vector3ad delta_p = make_bias_autodiff_vector(Eigen::Vector3d::Zero());
+  Vector3ad last_omega = make_bias_autodiff_vector(Eigen::Vector3d::Zero());
+  Vector3ad last_accel = make_bias_autodiff_vector(Eigen::Vector3d::Zero());
+  bool has_last = false;
+  int64_t end_stamp_ns = factor.preintegration.start_stamp_ns();
+  double delta_t_s = 0.0;
+
+  for (const auto & sample : factor.preintegration.samples()) {
+    const double dt = static_cast<double>(sample.stamp_ns - end_stamp_ns) / 1.0e9;
+    const Vector3ad current_omega = make_bias_autodiff_vector(sample.angular_velocity_rad_s);
+    const Vector3ad current_accel = make_bias_autodiff_vector(sample.linear_acceleration_m_s2);
+    const Vector3ad previous_omega = has_last ? last_omega : current_omega;
+    const Vector3ad previous_accel = has_last ? last_accel : current_accel;
+    const Vector3ad omega = 0.5 * (previous_omega + current_omega) - gyro_bias;
+    const Vector3ad accel_previous = previous_accel - accel_bias;
+    const Vector3ad accel_current = current_accel - accel_bias;
+
+    Quaternionad step_q = make_bias_autodiff_quaternion(Eigen::Quaterniond::Identity());
+    const BiasAutoDiff omega_norm = sqrt(omega.squaredNorm());
+    const BiasAutoDiff angle = omega_norm * dt;
+    if (angle.value() > 1.0e-12) {
+      const BiasAutoDiff half_angle = 0.5 * angle;
+      const BiasAutoDiff sin_half = sin(half_angle);
+      const Vector3ad axis = omega / omega_norm;
+      step_q = Quaternionad(
+        cos(half_angle),
+        sin_half * axis.x(),
+        sin_half * axis.y(),
+        sin_half * axis.z());
+    }
+    const Quaternionad next_delta_q = normalized_quaternion(delta_q * step_q);
+    const Vector3ad accel_local =
+      0.5 * (rotate_vector(delta_q, accel_previous) +
+      rotate_vector(next_delta_q, accel_current));
+
+    delta_p += delta_v * dt + 0.5 * accel_local * dt * dt;
+    delta_v += accel_local * dt;
+    delta_q = next_delta_q;
+    delta_t_s += dt;
+    end_stamp_ns = sample.stamp_ns;
+    last_omega = current_omega;
+    last_accel = current_accel;
+    has_last = true;
+  }
+
+  const Quaternionad q_start_inv =
+    make_bias_autodiff_quaternion(from_state.q_w_i.normalized().inverse());
+  const Quaternionad q_end = make_bias_autodiff_quaternion(to_state.q_w_i.normalized());
+  const Quaternionad predicted_delta_q = normalized_quaternion(q_start_inv * q_end);
+  const Vector3ad predicted_delta_v = rotate_vector(
+    q_start_inv,
+    make_bias_autodiff_vector(
+      to_state.v_w_i - from_state.v_w_i - factor.gravity_w * delta_t_s));
+  const Vector3ad predicted_delta_p = rotate_vector(
+    q_start_inv,
+    make_bias_autodiff_vector(
+      to_state.p_w_i - from_state.p_w_i - from_state.v_w_i * delta_t_s -
+      0.5 * factor.gravity_w * delta_t_s * delta_t_s));
+
+  Quaternionad error = normalized_quaternion(delta_q.conjugate() * predicted_delta_q);
+  if (error.w().value() < 0.0) {
+    error.coeffs() *= -1.0;
+  }
+  Eigen::Matrix<BiasAutoDiff, 9, 1> residual;
+  residual.template segment<3>(0) = 2.0 * error.vec();
+  residual.template segment<3>(3) = predicted_delta_v - delta_v;
+  residual.template segment<3>(6) = predicted_delta_p - delta_p;
+
+  Eigen::Matrix<double, 9, 6> jacobian;
+  for (Eigen::Index row = 0; row < residual.rows(); ++row) {
+    jacobian.row(row) = residual[row].derivatives().transpose();
   }
   return jacobian;
 }
@@ -757,6 +898,8 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     const Eigen::Index from_offset = variable_offsets[static_cast<size_t>(from)];
     const Eigen::Index to_offset = variable_offsets[static_cast<size_t>(to)];
     if (from_offset >= 0) {
+      const Eigen::Matrix<double, 9, 6> bias_residual_jacobian =
+        imu_preintegration_bias_residual_jacobian(factor, from_state, to_state);
       jacobian.template block<3, 3>(row, from_offset) =
         residual_scale * rotation_middle_jacobian * (-r_i_w);
       jacobian.template block<3, 3>(row + 3, from_offset) =
@@ -769,7 +912,8 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         -residual_scale * corrected_preintegration.delta_t_s() * r_i_w;
       jacobian.template block<3, 3>(row + 6, from_offset + 6) =
         -residual_scale * r_i_w;
-      mark_numeric(row, 9, from_offset + 9, 6);
+      jacobian.block(row, from_offset + 9, 9, 6) =
+        residual_scale * bias_residual_jacobian;
       jacobian.template block<3, 3>(row + 9, from_offset + 9) =
         -bias_scale * Eigen::Matrix3d::Identity();
       jacobian.template block<3, 3>(row + 12, from_offset + 12) =
