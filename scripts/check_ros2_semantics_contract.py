@@ -300,6 +300,8 @@ def main() -> int:
         errors.append("sliding_window_optimizer must expose and gate oversized state time gaps")
     if "dense prior stamps must match reference-state stamps" not in sliding_window_text or "dense prior stamps must be strictly increasing" not in sliding_window_text:
         errors.append("sliding_window_optimizer must validate dense-prior stamp/reference consistency")
+    if "*existing = normalized" not in sliding_window_text:
+        errors.append("sliding_window_optimizer must replace same-stamp pose/state priors instead of accumulating duplicates")
     if 'DeclareLaunchArgument("sliding_window_max_state_gap_s", default_value="1.0")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose the sliding-window max state gap")
     if 'DeclareLaunchArgument("sliding_window_imu_max_extrapolation_s", default_value="0.02")' not in tracking_launch_text:

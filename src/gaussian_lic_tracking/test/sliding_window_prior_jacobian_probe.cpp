@@ -215,6 +215,21 @@ int main()
       return 1;
     }
   }
+  {
+    gaussian_lic_tracking::SlidingWindowOptimizer dedupe_optimizer;
+    dedupe_optimizer.add_or_update_state(state);
+    auto repeated_pose_prior = pose_prior;
+    repeated_pose_prior.p_w_i.x() += 0.01;
+    dedupe_optimizer.add_pose_prior(pose_prior);
+    dedupe_optimizer.add_pose_prior(repeated_pose_prior);
+    dedupe_optimizer.add_state_prior(state_prior);
+    dedupe_optimizer.add_state_prior(state_prior);
+    const auto dedupe_summary = dedupe_optimizer.optimize();
+    if (dedupe_summary.pose_prior_count != 1U || dedupe_summary.state_prior_count != 1U) {
+      std::cerr << "sliding window optimizer duplicated same-stamp priors\n";
+      return 1;
+    }
+  }
   validation_ok &= expect_throw("zero pose-prior quaternion", [pose_prior, zero_quaternion]() {
     gaussian_lic_tracking::SlidingWindowOptimizer invalid_optimizer;
     auto invalid_prior = pose_prior;

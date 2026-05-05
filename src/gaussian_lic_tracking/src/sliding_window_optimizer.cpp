@@ -549,7 +549,16 @@ void SlidingWindowOptimizer::add_pose_prior(const SlidingWindowPosePrior & prior
   }
   SlidingWindowPosePrior normalized = prior;
   normalized.q_w_i.normalize();
-  pose_priors_.push_back(normalized);
+  const auto existing = std::find_if(
+    pose_priors_.begin(), pose_priors_.end(),
+    [&normalized](const SlidingWindowPosePrior & candidate) {
+      return candidate.stamp_ns == normalized.stamp_ns;
+    });
+  if (existing == pose_priors_.end()) {
+    pose_priors_.push_back(normalized);
+  } else {
+    *existing = normalized;
+  }
   enforce_window_size();
 }
 
@@ -572,7 +581,16 @@ void SlidingWindowOptimizer::add_state_prior(const SlidingWindowStatePrior & pri
   }
   SlidingWindowStatePrior normalized = prior;
   normalized.q_w_i.normalize();
-  state_priors_.push_back(normalized);
+  const auto existing = std::find_if(
+    state_priors_.begin(), state_priors_.end(),
+    [&normalized](const SlidingWindowStatePrior & candidate) {
+      return candidate.stamp_ns == normalized.stamp_ns;
+    });
+  if (existing == state_priors_.end()) {
+    state_priors_.push_back(normalized);
+  } else {
+    *existing = normalized;
+  }
   enforce_window_size();
 }
 

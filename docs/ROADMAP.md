@@ -216,6 +216,7 @@ baseline_manifest.json
 - [x] Report and gate orphan sliding-window factors whose referenced states are absent instead of silently skipping residual blocks.
 - [x] Publish active-window min/max state spacing and gate oversized state gaps before solving BA.
 - [x] Validate dense marginalization-prior stamp/reference ordering and reject duplicate or mismatched retained states.
+- [x] Replace same-stamp pose/state priors instead of accumulating duplicate residual weight.
 - [x] Reject non-finite LiDAR point/plane correspondences, zero plane normals, and invalid robust weights before they enter the BA normal equation.
 - [x] Bound LiDAR/Gaussian robust correspondence weights to `(0, 1]` so bad external factors cannot amplify outliers.
 - [x] Filter non-finite LiDAR keyframe/factor samples and reject invalid-pose LiDAR factors before they contaminate the map or BA window.
