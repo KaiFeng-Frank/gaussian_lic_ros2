@@ -20,6 +20,7 @@ CURRENT_TORCH_DEVICE=cuda
 CURRENT_TORCH_OPTIMIZATION_STEPS=100
 CURRENT_TORCH_MAX_FOREGROUND=1500000
 CURRENT_TORCH_PRUNE_MIN_OPACITY=0.005
+CURRENT_TORCH_PRUNE_COUNT_POLICY=uniform
 TIMEOUT_SEC=30
 SAVE_TIMEOUT_SEC=600
 OVERWRITE=false
@@ -60,6 +61,8 @@ Options:
                             Foreground Gaussian cap in rasterizer mode. Default: 1500000
   --current-torch-prune-min-opacity X
                             Foreground opacity pruning threshold in rasterizer mode. Default: 0.005
+  --current-torch-prune-count-policy P
+                            Foreground count-cap policy in rasterizer mode. Default: uniform
   --timeout N              Current-result wait timeout. Default: 30
   --save-timeout N         SaveMap/final-render timeout. Default: 600
   --overwrite              Recreate converted frontend/mapper-contract outputs.
@@ -138,6 +141,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --current-torch-prune-min-opacity)
       CURRENT_TORCH_PRUNE_MIN_OPACITY="$2"
+      shift 2
+      ;;
+    --current-torch-prune-count-policy)
+      CURRENT_TORCH_PRUNE_COUNT_POLICY="$2"
       shift 2
       ;;
     --timeout)
@@ -251,6 +258,7 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
       --torch-optimization-steps "${CURRENT_TORCH_OPTIMIZATION_STEPS}"
       --torch-max-foreground "${CURRENT_TORCH_MAX_FOREGROUND}"
       --torch-prune-min-opacity "${CURRENT_TORCH_PRUNE_MIN_OPACITY}"
+      --torch-prune-count-policy "${CURRENT_TORCH_PRUNE_COUNT_POLICY}"
       --torch-densification
       --final-render-eval
       --no-publish-gaussian-map

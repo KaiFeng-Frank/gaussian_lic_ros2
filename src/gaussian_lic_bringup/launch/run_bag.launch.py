@@ -42,6 +42,7 @@ def generate_launch_description():
     enable_torch_gaussian_densification = LaunchConfiguration("enable_torch_gaussian_densification")
     torch_gaussian_prune_min_opacity = LaunchConfiguration("torch_gaussian_prune_min_opacity")
     torch_gaussian_max_foreground = LaunchConfiguration("torch_gaussian_max_foreground")
+    torch_gaussian_prune_count_policy = LaunchConfiguration("torch_gaussian_prune_count_policy")
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
     publish_gaussian_map = LaunchConfiguration("publish_gaussian_map")
     save_map_render_evaluation = LaunchConfiguration("save_map_render_evaluation")
@@ -81,6 +82,7 @@ def generate_launch_description():
             "enable_torch_gaussian_densification": enable_torch_gaussian_densification,
             "torch_gaussian_prune_min_opacity": torch_gaussian_prune_min_opacity,
             "torch_gaussian_max_foreground": torch_gaussian_max_foreground,
+            "torch_gaussian_prune_count_policy": torch_gaussian_prune_count_policy,
             "torch_gaussian_device": torch_gaussian_device,
             "publish_gaussian_map": publish_gaussian_map,
             "save_map_render_evaluation": save_map_render_evaluation,
@@ -289,6 +291,11 @@ def generate_launch_description():
             "torch_gaussian_max_foreground",
             default_value="0",
             description="Maximum foreground Gaussians retained by pruning; 0 disables count cap",
+        ),
+        DeclareLaunchArgument(
+            "torch_gaussian_prune_count_policy",
+            default_value="opacity",
+            description="Foreground count-cap policy: opacity keeps highest-opacity Gaussians; uniform preserves insertion-order spatial coverage",
         ),
         DeclareLaunchArgument(
             "torch_gaussian_device",

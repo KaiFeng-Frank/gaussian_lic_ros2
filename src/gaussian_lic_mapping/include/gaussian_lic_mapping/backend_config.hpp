@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace gaussian_lic_mapping
 {
 
@@ -44,6 +46,7 @@ struct GaussianBackendConfig
   bool enable_density_control{false};
   double prune_min_opacity{0.005};
   int max_foreground_gaussians{0};
+  std::string max_foreground_prune_policy{"opacity"};
   bool enable_densification{false};
   int densify_every_steps{100};
   double densify_grad_threshold{0.0002};

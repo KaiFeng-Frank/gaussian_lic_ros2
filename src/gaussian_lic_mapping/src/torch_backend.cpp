@@ -8,6 +8,7 @@
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -31,6 +32,14 @@ struct GaussianTensorPack
   size_t foreground_count{0};
   size_t skybox_count{0};
 };
+
+std::string lowercase(std::string value)
+{
+  std::transform(
+    value.begin(), value.end(), value.begin(),
+    [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return value;
+}
 
 torch::Tensor eigen_matrix_to_torch_tensor(
   Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> matrix,
@@ -1246,9 +1255,19 @@ TorchPruneResult prune_gaussian_map(
 
   const int max_foreground = std::max(config.max_foreground_gaussians, 0);
   if (max_foreground > 0 && keep_foreground.size(0) > max_foreground) {
-    const auto kept_scores = opacity.index_select(0, keep_foreground);
-    const auto topk = kept_scores.topk(static_cast<int64_t>(max_foreground), 0, true, true);
-    keep_foreground = keep_foreground.index_select(0, std::get<1>(topk));
+    const auto policy = lowercase(config.max_foreground_prune_policy);
+    if (policy == "uniform") {
+      const auto sample_positions = torch::linspace(
+        0.0,
+        static_cast<double>(keep_foreground.size(0) - 1),
+        static_cast<int64_t>(max_foreground),
+        torch::TensorOptions().dtype(torch::kFloat32).device(device)).round().to(long_options);
+      keep_foreground = keep_foreground.index_select(0, sample_positions);
+    } else {
+      const auto kept_scores = opacity.index_select(0, keep_foreground);
+      const auto topk = kept_scores.topk(static_cast<int64_t>(max_foreground), 0, true, true);
+      keep_foreground = keep_foreground.index_select(0, std::get<1>(topk));
+    }
     keep_foreground = std::get<0>(keep_foreground.sort());
   }
 

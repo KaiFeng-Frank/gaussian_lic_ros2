@@ -11,6 +11,7 @@ ENABLE_TORCH=false
 TORCH_OPTIMIZATION_STEPS=0
 TORCH_MAX_FOREGROUND=0
 TORCH_PRUNE_MIN_OPACITY=0.005
+TORCH_PRUNE_COUNT_POLICY=opacity
 TORCH_DEVICE="cpu"
 ENABLE_TORCH_DENSIFICATION=false
 FINAL_RENDER_EVAL=false
@@ -57,6 +58,7 @@ Options:
   --torch-optimization-steps N Enable Torch photometric updates with up to N accumulated train-frame samples per keyframe.
   --torch-max-foreground N     Enable Torch pruning and retain at most N foreground Gaussians.
   --torch-prune-min-opacity X  Enable Torch pruning and drop foreground Gaussians below opacity X.
+  --torch-prune-count-policy P Count-cap policy: opacity or uniform. Default: opacity.
   --torch-device DEVICE        Torch Gaussian device: cpu, cuda, or auto. Default: cpu.
   --torch-densification        Enable gradient-aware Gaussian densification in the Torch backend.
   --final-render-eval          Save final-map train/test renders during SaveMap instead of using live preview frames.
@@ -114,6 +116,11 @@ while [[ $# -gt 0 ]]; do
     --torch-prune-min-opacity)
       ENABLE_TORCH=true
       TORCH_PRUNE_MIN_OPACITY="$2"
+      shift 2
+      ;;
+    --torch-prune-count-policy)
+      ENABLE_TORCH=true
+      TORCH_PRUNE_COUNT_POLICY="$2"
       shift 2
       ;;
     --torch-device)
@@ -300,6 +307,7 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
     enable_torch_gaussian_densification:="${ENABLE_TORCH_DENSIFICATION}"
     torch_gaussian_prune_min_opacity:="${TORCH_PRUNE_MIN_OPACITY}"
     torch_gaussian_max_foreground:="${TORCH_MAX_FOREGROUND}"
+    torch_gaussian_prune_count_policy:="${TORCH_PRUNE_COUNT_POLICY}"
     torch_gaussian_device:="${TORCH_DEVICE}"
     publish_gaussian_map:="${PUBLISH_GAUSSIAN_MAP}"
     save_map_render_evaluation:="${FINAL_RENDER_EVAL}"
@@ -498,7 +506,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -533,6 +541,7 @@ metrics.update(
         "torch_densification": sys.argv[18] == "true",
         "rotate_pointcloud_with_imu_pose": sys.argv[19] == "true",
         "publish_gaussian_map": sys.argv[20] == "true",
+        "torch_prune_count_policy": sys.argv[21],
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

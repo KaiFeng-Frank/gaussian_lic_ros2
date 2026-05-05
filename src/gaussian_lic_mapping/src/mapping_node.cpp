@@ -142,6 +142,8 @@ public:
       declare_parameter<double>("torch_gaussian_prune_min_opacity", 0.005);
     backend_config_.max_foreground_gaussians =
       declare_parameter<int>("torch_gaussian_max_foreground", 0);
+    backend_config_.max_foreground_prune_policy =
+      declare_parameter<std::string>("torch_gaussian_prune_count_policy", "opacity");
     backend_config_.enable_densification =
       declare_parameter<bool>("enable_torch_gaussian_densification", false);
     backend_config_.densify_every_steps =
@@ -311,10 +313,11 @@ public:
       backend_config_.optimization_steps_per_keyframe,
       backend_config_.optimization_max_samples);
     RCLCPP_INFO(
-      get_logger(), "Torch Gaussian pruning %s, min_opacity=%.6f max_foreground=%d",
+      get_logger(), "Torch Gaussian pruning %s, min_opacity=%.6f max_foreground=%d count_policy=%s",
       backend_config_.enable_density_control ? "enabled" : "disabled",
       backend_config_.prune_min_opacity,
-      backend_config_.max_foreground_gaussians);
+      backend_config_.max_foreground_gaussians,
+      backend_config_.max_foreground_prune_policy.c_str());
     RCLCPP_INFO(
       get_logger(),
       "Torch Gaussian densification %s, every_steps=%d grad_threshold=%.6f percent_dense=%.4f max_new=%d opacity_reset_interval=%d",
