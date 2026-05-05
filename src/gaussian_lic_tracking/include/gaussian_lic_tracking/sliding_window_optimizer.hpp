@@ -157,6 +157,8 @@ struct SlidingWindowSummary
   size_t smoothness_factor_replacement_count{0};
   size_t orphan_factor_count{0};
   size_t marginalized_state_count{0};
+  size_t schur_marginalization_count{0};
+  size_t fallback_marginalization_prior_count{0};
   size_t dense_prior_rows{0};
   size_t dense_prior_cols{0};
   size_t dense_prior_rank{0};
@@ -298,6 +300,8 @@ private:
   size_t imu_factor_replacement_count_{0};
   size_t smoothness_factor_replacement_count_{0};
   size_t marginalized_state_count_{0};
+  size_t schur_marginalization_count_{0};
+  size_t fallback_marginalization_prior_count_{0};
 };
 
 }  // namespace gaussian_lic_tracking

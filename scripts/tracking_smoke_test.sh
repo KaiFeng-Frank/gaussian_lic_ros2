@@ -205,6 +205,8 @@ status_matches() {
     rg -q "sliding_window_last_imu_preintegration_end_stamp_ns:" "${status_file}" &&
     rg -q "sliding_window_optimization_skip_count:" "${status_file}" &&
     rg -q "sliding_window_invalid_optimized_states: 0" "${status_file}" &&
+    rg -q "sliding_window_schur_marginalizations:" "${status_file}" &&
+    rg -q "sliding_window_fallback_marginalization_priors:" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rows: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_cols: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&

@@ -298,6 +298,8 @@ def main() -> int:
         errors.append("IMU preintegrator must preserve an auto-start sample during bias re-integration")
     if "orphan_factor_count" not in sliding_window_text or "count_orphan_factors" not in sliding_window_text:
         errors.append("sliding_window_optimizer must expose and gate orphan factor references")
+    if "schur_marginalization_count_" not in sliding_window_text or "fallback_marginalization_prior_count_" not in sliding_window_text:
+        errors.append("sliding_window_optimizer must publish Schur/fallback marginalization health counters")
     if "max_state_gap_s" not in sliding_window_text or "state_gap_degenerate" not in sliding_window_text:
         errors.append("sliding_window_optimizer must expose and gate oversized state time gaps")
     if "dense prior stamps must match reference-state stamps" not in sliding_window_text or "dense prior stamps must be strictly increasing" not in sliding_window_text:
@@ -354,6 +356,8 @@ def main() -> int:
         "sliding_window_last_imu_preintegration_end_stamp_ns",
         "sliding_window_optimization_skip_count",
         "sliding_window_invalid_optimized_states",
+        "sliding_window_schur_marginalizations",
+        "sliding_window_fallback_marginalization_priors",
         "sliding_window_normal_equation_rows",
         "sliding_window_normal_equation_cols",
         "sliding_window_normal_equation_rank",

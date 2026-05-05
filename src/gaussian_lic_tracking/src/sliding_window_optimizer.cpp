@@ -459,6 +459,8 @@ void SlidingWindowOptimizer::clear()
   imu_factor_replacement_count_ = 0U;
   smoothness_factor_replacement_count_ = 0U;
   marginalized_state_count_ = 0U;
+  schur_marginalization_count_ = 0U;
+  fallback_marginalization_prior_count_ = 0U;
 }
 
 int SlidingWindowOptimizer::find_state_index(const int64_t stamp_ns) const
@@ -816,6 +818,9 @@ size_t SlidingWindowOptimizer::enforce_window_size()
   size_t marginalized = 0U;
   while (states_.size() > config_.max_states) {
     const bool added_schur_prior = add_schur_marginalization_prior_for_front();
+    if (added_schur_prior) {
+      ++schur_marginalization_count_;
+    }
     const int64_t stamp_ns = states_.front().stamp_ns;
     states_.erase(states_.begin());
     ++marginalized;
@@ -895,6 +900,7 @@ size_t SlidingWindowOptimizer::enforce_window_size()
           }),
         state_priors_.end());
       state_priors_.push_back(make_state_prior(states_.front()));
+      ++fallback_marginalization_prior_count_;
     }
   }
   return marginalized;
@@ -1757,6 +1763,8 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   SlidingWindowSummary summary;
   enforce_window_size();
   summary.marginalized_state_count = marginalized_state_count_;
+  summary.schur_marginalization_count = schur_marginalization_count_;
+  summary.fallback_marginalization_prior_count = fallback_marginalization_prior_count_;
   summary.state_count = states_.size();
   summary.imu_factor_count = imu_factors_.size();
   summary.pose_prior_count = pose_priors_.size();

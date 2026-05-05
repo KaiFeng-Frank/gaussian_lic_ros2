@@ -53,11 +53,15 @@ int main()
             << " dense_priors=" << summary.dense_prior_count
             << " state_priors=" << summary.state_prior_count
             << " marginalized=" << summary.marginalized_state_count
+            << " schur=" << summary.schur_marginalization_count
+            << " fallback=" << summary.fallback_marginalization_prior_count
             << " variable_count=" << normal.variable_count
             << " normal_cost=" << normal.cost
             << " final_cost=" << summary.final_cost << "\n";
   if (!normal.valid || summary.state_count != 2U || summary.dense_prior_count != 1U ||
     summary.state_prior_count != 0U || summary.marginalized_state_count != 1U ||
+    summary.schur_marginalization_count != 1U ||
+    summary.fallback_marginalization_prior_count != 0U ||
     normal.variable_count != 30U || summary.final_cost > normal.cost)
   {
     std::cerr << "Schur marginalization did not produce a retained dense window prior\n";

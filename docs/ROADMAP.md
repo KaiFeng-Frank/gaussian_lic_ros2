@@ -216,6 +216,7 @@ baseline_manifest.json
 - [x] Report and gate orphan sliding-window factors whose referenced states are absent instead of silently skipping residual blocks.
 - [x] Publish active-window min/max state spacing and gate oversized state gaps before solving BA.
 - [x] Preserve auto-start IMU samples when re-integrating preintegration blocks with updated bias.
+- [x] Publish Schur marginalization vs fallback prior counters for sliding-window BA.
 - [x] Validate dense marginalization-prior stamp/reference ordering and reject duplicate or mismatched retained states.
 - [x] Replace same-stamp pose/state priors instead of accumulating duplicate residual weight.
 - [x] Replace duplicate IMU spans and smoothness triplets while preserving legitimate same-frame LiDAR/visual residual blocks.

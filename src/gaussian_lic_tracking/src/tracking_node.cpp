@@ -2084,6 +2084,10 @@ private:
     status.sliding_window_optimization_skip_count = sliding_window_optimization_skip_count_;
     status.sliding_window_invalid_optimized_states = sliding_window_invalid_optimized_states_;
     status.sliding_window_marginalized_states = static_cast<uint64_t>(summary.marginalized_state_count);
+    status.sliding_window_schur_marginalizations =
+      static_cast<uint64_t>(summary.schur_marginalization_count);
+    status.sliding_window_fallback_marginalization_priors =
+      static_cast<uint64_t>(summary.fallback_marginalization_prior_count);
     status.sliding_window_dense_prior_rows = static_cast<uint64_t>(summary.dense_prior_rows);
     status.sliding_window_dense_prior_cols = static_cast<uint64_t>(summary.dense_prior_cols);
     status.sliding_window_dense_prior_rank = static_cast<uint64_t>(summary.dense_prior_rank);

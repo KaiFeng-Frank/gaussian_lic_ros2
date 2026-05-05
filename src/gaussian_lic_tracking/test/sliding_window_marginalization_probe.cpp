@@ -52,6 +52,8 @@ int main()
   std::cout << "sliding_window_marginalization_probe states=" << summary.state_count
             << " state_priors=" << summary.state_prior_count
             << " marginalized=" << summary.marginalized_state_count
+            << " schur=" << summary.schur_marginalization_count
+            << " fallback=" << summary.fallback_marginalization_prior_count
             << " initial_cost=" << summary.initial_cost
             << " final_cost=" << summary.final_cost
             << " position_error=" << position_error
@@ -61,6 +63,7 @@ int main()
 
   if (!summary.converged || summary.state_count != config.max_states ||
     summary.state_prior_count == 0U || summary.marginalized_state_count < 2U ||
+    summary.fallback_marginalization_prior_count < 2U ||
     summary.final_cost >= summary.initial_cost ||
     position_error > 1.0e-8 || velocity_error > 1.0e-8 ||
     gyro_bias_error > 1.0e-8 || accel_bias_error > 1.0e-8)
