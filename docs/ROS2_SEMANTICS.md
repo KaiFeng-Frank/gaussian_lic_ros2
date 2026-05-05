@@ -26,6 +26,9 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
   and `sensor_qos_depth`, defaults them to `best_effort` and `5`, and publishes
   the effective values on `/gaussian_lic/frontend/status` for smoke gating.
 - High-rate image, LiDAR, IMU, and depth topics should stay volatile and bounded.
+- SE3 photometric BA samples use a bounded depth-frame cache and nearest-stamp
+  selection inside `visual_factor_max_dt_ns`, so rosbag2 topic arrival order
+  cannot silently pair an image with an old depth frame.
 - Reliable QoS is opt-in for controlled local rosbag2 replay or drivers known to
   publish reliable sensor streams.
 - State and visualization outputs that are naturally latched, such as path and

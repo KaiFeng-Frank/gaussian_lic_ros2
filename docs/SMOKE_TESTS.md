@@ -160,8 +160,8 @@ bounded `best_effort` sensor QoS with depth `5`,
 nonzero dense-prior rank/singular-value coverage after marginalization, nonzero
 bias observability, nonzero visual factors, valid visual subpixel alignment,
 valid photometric Gauss-Newton linearization, nonzero SE3
-photometric window factors extracted from rendered/current/depth images, nonzero
-SE3 candidate/sample counts, nonzero robust inlier ratio and SE3 step norm, and
+photometric window factors extracted from rendered/current/nearest-fresh-depth
+images, nonzero SE3 candidate/sample counts, nonzero robust inlier ratio and SE3 step norm, and
 nonzero LiDAR keyframes. The script lowers the synthetic LiDAR threshold to one
 point because the default demo bag is intentionally tiny; dataset profiles keep
 their production thresholds.

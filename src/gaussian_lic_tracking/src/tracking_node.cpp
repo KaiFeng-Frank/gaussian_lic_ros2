@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <deque>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -67,6 +69,7 @@ public:
     visual_max_pixels_ = declare_parameter<int>("visual_max_pixels", 200000);
     visual_factor_max_dt_ns_ =
       declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL);
+    depth_frame_cache_size_ = declare_parameter<int>("depth_frame_cache_size", 8);
     const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
@@ -369,8 +372,7 @@ private:
     depth_pub_->publish(msg);
     DepthFrame decoded;
     if (decode_depth_image(msg, decoded)) {
-      latest_depth_frame_ = std::move(decoded);
-      has_depth_frame_ = true;
+      cache_depth_frame(std::move(decoded));
     }
   }
 
@@ -857,10 +859,56 @@ private:
     const int64_t rhs_stamp_ns,
     const int64_t max_delta_ns)
   {
-    const int64_t delta_ns = lhs_stamp_ns > rhs_stamp_ns
+    const int64_t delta_ns = stamp_delta_ns(lhs_stamp_ns, rhs_stamp_ns);
+    return delta_ns <= std::max<int64_t>(max_delta_ns, 0LL);
+  }
+
+  static int64_t stamp_delta_ns(const int64_t lhs_stamp_ns, const int64_t rhs_stamp_ns)
+  {
+    return lhs_stamp_ns > rhs_stamp_ns
       ? lhs_stamp_ns - rhs_stamp_ns
       : rhs_stamp_ns - lhs_stamp_ns;
-    return delta_ns <= std::max<int64_t>(max_delta_ns, 0LL);
+  }
+
+  void cache_depth_frame(DepthFrame frame)
+  {
+    const auto insert_it = std::lower_bound(
+      depth_frame_cache_.begin(), depth_frame_cache_.end(), frame.stamp_ns,
+      [](const DepthFrame & cached, const int64_t stamp_ns) {
+        return cached.stamp_ns < stamp_ns;
+      });
+    if (insert_it != depth_frame_cache_.end() && insert_it->stamp_ns == frame.stamp_ns) {
+      *insert_it = std::move(frame);
+    } else {
+      depth_frame_cache_.insert(insert_it, std::move(frame));
+    }
+
+    const auto max_cache_size = static_cast<size_t>(std::max(depth_frame_cache_size_, 1));
+    while (depth_frame_cache_.size() > max_cache_size) {
+      depth_frame_cache_.pop_front();
+    }
+  }
+
+  const DepthFrame * select_depth_frame_for_stamp(
+    const int64_t image_stamp_ns,
+    const size_t width,
+    const size_t height) const
+  {
+    const DepthFrame * best = nullptr;
+    int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    for (const auto & frame : depth_frame_cache_) {
+      if (frame.width != width || frame.height != height) {
+        continue;
+      }
+      const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
+      if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
+        delta_ns < best_delta_ns)
+      {
+        best = &frame;
+        best_delta_ns = delta_ns;
+      }
+    }
+    return best;
   }
 
   bool decode_image_gray(
@@ -978,17 +1026,17 @@ private:
     const gaussian_lic_tracking::VisualFrame & observed) const
   {
     Se3PhotometricSampleBatch batch;
-    if (!has_camera_intrinsics_ || !has_depth_frame_ ||
+    const DepthFrame * depth_frame =
+      select_depth_frame_for_stamp(observed.stamp_ns, observed.width, observed.height);
+    if (!has_camera_intrinsics_ || depth_frame == nullptr ||
       rendered.width < 3U || rendered.height < 3U ||
-      rendered.width != observed.width || rendered.height != observed.height ||
-      latest_depth_frame_.width != observed.width || latest_depth_frame_.height != observed.height ||
-      !stamp_delta_is_within(latest_depth_frame_.stamp_ns, observed.stamp_ns, visual_factor_max_dt_ns_))
+      rendered.width != observed.width || rendered.height != observed.height)
     {
       return batch;
     }
     const size_t pixel_count = observed.width * observed.height;
     if (rendered.gray.size() != pixel_count || observed.gray.size() != pixel_count ||
-      latest_depth_frame_.depth_m.size() != pixel_count)
+      depth_frame->depth_m.size() != pixel_count)
     {
       return batch;
     }
@@ -1005,7 +1053,7 @@ private:
         continue;
       }
       ++batch.candidate_pixels;
-      const float depth = latest_depth_frame_.depth_m[index];
+      const float depth = depth_frame->depth_m[index];
       if (!std::isfinite(depth) ||
         static_cast<double>(depth) < se3_photometric_min_depth_m_ ||
         static_cast<double>(depth) > se3_photometric_max_depth_m_)
@@ -1513,6 +1561,7 @@ private:
   bool enable_gaussian_snapshot_{true};
   int visual_max_pixels_{200000};
   int64_t visual_factor_max_dt_ns_{150000000LL};
+  int depth_frame_cache_size_{8};
   Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};
@@ -1612,9 +1661,8 @@ private:
   size_t last_visual_se3_photometric_accepted_pixels_{0};
   double last_visual_se3_photometric_mean_abs_residual_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
-  DepthFrame latest_depth_frame_;
+  std::deque<DepthFrame> depth_frame_cache_;
   bool has_camera_intrinsics_{false};
-  bool has_depth_frame_{false};
   bool has_pending_visual_se3_photometric_{false};
   bool has_pending_visual_alignment_{false};
   bool has_rendered_frame_{false};

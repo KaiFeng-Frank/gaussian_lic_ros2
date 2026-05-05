@@ -71,9 +71,10 @@ Current ROS2 implementation status:
   deltas before adding SE3 photometric BA factors.
 - Pending visual-alignment and SE3 photometric factors are consumed only when
   their image stamps are within `visual_factor_max_dt_ns` of the LiDAR/window
-  state stamp, and SE3 photometric sample extraction also requires the depth
-  frame stamp to be fresh against the image stamp, preserving signed-nanosecond
-  rosbag2 replay semantics.
+  state stamp. SE3 photometric sample extraction keeps a bounded depth-frame
+  cache, selects the nearest stamp within that freshness gate, and rejects stale
+  depth instead of depending on latest-frame arrival order, preserving
+  signed-nanosecond rosbag2 replay semantics.
 - `gaussian_lic_tracking::deskew_lidar_points` performs per-point LiDAR deskew
   from PointCloud2 time fields before mapper publication and LIO correction.
 - `gaussian_lic_tracking::SlidingWindowOptimizer` provides the first native

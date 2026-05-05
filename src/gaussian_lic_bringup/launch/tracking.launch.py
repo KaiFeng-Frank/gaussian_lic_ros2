@@ -37,6 +37,7 @@ def generate_launch_description():
     enable_lidar_deskew = LaunchConfiguration("enable_lidar_deskew")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     visual_factor_max_dt_ns = LaunchConfiguration("visual_factor_max_dt_ns")
+    depth_frame_cache_size = LaunchConfiguration("depth_frame_cache_size")
     camera_to_imu_translation_m = LaunchConfiguration("camera_to_imu_translation_m")
     camera_to_imu_rpy_rad = LaunchConfiguration("camera_to_imu_rpy_rad")
     visual_alignment_max_shift_px = LaunchConfiguration("visual_alignment_max_shift_px")
@@ -107,6 +108,7 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_time_mode", default_value="auto"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="150000000"),
+            DeclareLaunchArgument("depth_frame_cache_size", default_value="8"),
             DeclareLaunchArgument("camera_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("camera_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("visual_alignment_max_shift_px", default_value="8"),
@@ -180,6 +182,7 @@ def generate_launch_description():
                         "lidar_time_mode": lidar_time_mode,
                         "enable_visual_factor": enable_visual_factor,
                         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
+                        "depth_frame_cache_size": depth_frame_cache_size,
                         "camera_to_imu_translation_m": camera_to_imu_translation_m,
                         "camera_to_imu_rpy_rad": camera_to_imu_rpy_rad,
                         "visual_alignment_max_shift_px": visual_alignment_max_shift_px,
