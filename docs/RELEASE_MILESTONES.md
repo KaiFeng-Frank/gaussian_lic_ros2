@@ -77,4 +77,6 @@ plus runtime-gated bias observability and 2-DoF photometric translation
 linearization status, dense-prior rank/singular-value marginalization health,
 plus analytic SE3 photometric normal-equation and runtime sliding-window factor
 coverage from rendered/current/depth images, with robust sample-quality status
-gates; full native Coco-LIC2 frontend parity remains follow-up work.
+gates. Pose-prior, state-prior, retained dense-prior, and SE3 photometric
+window rows now have analytic Jacobian coverage; full native Coco-LIC2 frontend
+parity remains follow-up work.

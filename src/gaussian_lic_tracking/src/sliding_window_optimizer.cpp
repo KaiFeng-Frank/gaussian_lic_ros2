@@ -52,6 +52,46 @@ Eigen::Matrix3d skew_symmetric(const Eigen::Vector3d & value)
     -value.y(), value.x(), 0.0;
   return skew;
 }
+
+Eigen::Matrix3d left_perturbation_rotation_residual_jacobian(
+  const Eigen::Quaterniond & reference_q)
+{
+  return reference_q.normalized().inverse().toRotationMatrix();
+}
+
+Eigen::Matrix<double, 15, 15> state_delta_left_perturbation_jacobian(
+  const Eigen::Quaterniond & reference_q)
+{
+  Eigen::Matrix<double, 15, 15> jacobian = Eigen::Matrix<double, 15, 15>::Zero();
+  jacobian.template block<3, 3>(0, 0) =
+    left_perturbation_rotation_residual_jacobian(reference_q);
+  jacobian.template block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
+  jacobian.template block<3, 3>(6, 6) = Eigen::Matrix3d::Identity();
+  jacobian.template block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
+  jacobian.template block<3, 3>(12, 12) = Eigen::Matrix3d::Identity();
+  return jacobian;
+}
+
+Eigen::Matrix<double, 15, 15> effective_state_prior_sqrt_information(
+  const SlidingWindowStatePrior & prior)
+{
+  Eigen::Matrix<double, 15, 15> sqrt_information = prior.sqrt_information;
+  if (!sqrt_information.isApprox(Eigen::Matrix<double, 15, 15>::Identity())) {
+    return sqrt_information;
+  }
+  sqrt_information.setZero();
+  sqrt_information.template block<3, 3>(0, 0) =
+    std::sqrt(prior.rotation_weight) * Eigen::Matrix3d::Identity();
+  sqrt_information.template block<3, 3>(3, 3) =
+    std::sqrt(prior.velocity_weight) * Eigen::Matrix3d::Identity();
+  sqrt_information.template block<3, 3>(6, 6) =
+    std::sqrt(prior.position_weight) * Eigen::Matrix3d::Identity();
+  sqrt_information.template block<3, 3>(9, 9) =
+    std::sqrt(prior.gyro_bias_weight) * Eigen::Matrix3d::Identity();
+  sqrt_information.template block<3, 3>(12, 12) =
+    std::sqrt(prior.accel_bias_weight) * Eigen::Matrix3d::Identity();
+  return sqrt_information;
+}
 }  // namespace
 
 SchurComplementResult compute_schur_complement(
@@ -521,21 +561,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       state.gyro_bias - prior.gyro_bias;
     residual.template segment<3>(12) =
       state.accel_bias - prior.accel_bias;
-    Eigen::Matrix<double, 15, 15> sqrt_information = prior.sqrt_information;
-    if (sqrt_information.isApprox(Eigen::Matrix<double, 15, 15>::Identity())) {
-      sqrt_information.setZero();
-      sqrt_information.template block<3, 3>(0, 0) =
-        std::sqrt(prior.rotation_weight) * Eigen::Matrix3d::Identity();
-      sqrt_information.template block<3, 3>(3, 3) =
-        std::sqrt(prior.velocity_weight) * Eigen::Matrix3d::Identity();
-      sqrt_information.template block<3, 3>(6, 6) =
-        std::sqrt(prior.position_weight) * Eigen::Matrix3d::Identity();
-      sqrt_information.template block<3, 3>(9, 9) =
-        std::sqrt(prior.gyro_bias_weight) * Eigen::Matrix3d::Identity();
-      sqrt_information.template block<3, 3>(12, 12) =
-        std::sqrt(prior.accel_bias_weight) * Eigen::Matrix3d::Identity();
-    }
-    append(sqrt_information * residual);
+    append(effective_state_prior_sqrt_information(prior) * residual);
   }
 
   for (const auto & prior : dense_priors_) {
@@ -691,7 +717,17 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
     if (index < 0) {
       continue;
     }
-    mark_numeric(row, 6);
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    if (!rows_available(row, 6)) {
+      return fallback_to_numeric();
+    }
+    if (offset >= 0) {
+      jacobian.template block<3, 3>(row, offset) =
+        std::sqrt(prior.rotation_weight) *
+        left_perturbation_rotation_residual_jacobian(prior.q_w_i);
+      jacobian.template block<3, 3>(row + 3, offset + 6) =
+        std::sqrt(prior.translation_weight) * Eigen::Matrix3d::Identity();
+    }
     row += 6;
   }
 
@@ -700,7 +736,15 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
     if (index < 0) {
       continue;
     }
-    mark_numeric(row, 15);
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    if (!rows_available(row, 15)) {
+      return fallback_to_numeric();
+    }
+    if (offset >= 0) {
+      jacobian.template block<15, 15>(row, offset) =
+        effective_state_prior_sqrt_information(prior) *
+        state_delta_left_perturbation_jacobian(prior.q_w_i);
+    }
     row += 15;
   }
 
@@ -710,14 +754,33 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
       continue;
     }
     bool complete = true;
+    std::vector<int> local_indices;
+    local_indices.reserve(prior.stamp_ns.size());
     for (const auto stamp_ns : prior.stamp_ns) {
-      if (find_local(stamp_ns) < 0) {
+      const int local_index = find_local(stamp_ns);
+      if (local_index < 0) {
         complete = false;
         break;
       }
+      local_indices.push_back(local_index);
     }
     if (complete) {
-      mark_numeric(row, prior.sqrt_information.rows());
+      if (!rows_available(row, prior.sqrt_information.rows())) {
+        return fallback_to_numeric();
+      }
+      for (size_t reference_index = 0; reference_index < local_indices.size(); ++reference_index) {
+        const auto local_index = static_cast<size_t>(local_indices[reference_index]);
+        const Eigen::Index offset = variable_offsets[local_index];
+        if (offset < 0) {
+          continue;
+        }
+        const Eigen::Index prior_offset =
+          static_cast<Eigen::Index>(reference_index * kStateDof);
+        jacobian.block(row, offset, prior.sqrt_information.rows(), static_cast<Eigen::Index>(kStateDof)) =
+          prior.sqrt_information.block(
+          0, prior_offset, prior.sqrt_information.rows(), static_cast<Eigen::Index>(kStateDof)) *
+          state_delta_left_perturbation_jacobian(prior.reference_states[reference_index].q_w_i);
+      }
       row += prior.sqrt_information.rows();
     }
   }
@@ -797,7 +860,18 @@ std::vector<std::pair<Eigen::Index, Eigen::Index>> SlidingWindowOptimizer::fill_
     if (index < 0) {
       continue;
     }
-    mark_numeric(row, 6);
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    if (!rows_available(row, 6)) {
+      return fallback_to_numeric();
+    }
+    if (offset >= 0) {
+      Eigen::Matrix<double, 6, 15> delta_jacobian = Eigen::Matrix<double, 6, 15>::Zero();
+      delta_jacobian.template block<3, 3>(0, 0) =
+        left_perturbation_rotation_residual_jacobian(factor.reference_q_w_i);
+      delta_jacobian.template block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
+      jacobian.block(row, offset, 6, static_cast<Eigen::Index>(kStateDof)) =
+        std::sqrt(factor.weight) * factor.sqrt_information * delta_jacobian;
+    }
     row += 6;
   }
 

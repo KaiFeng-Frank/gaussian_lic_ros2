@@ -67,8 +67,9 @@ Current ROS2 implementation status:
   optimization container for IMU preintegration factors, raw-sample bias
   reintegration, bias continuity residuals, bias observability metrics/probes,
   pose priors, full-state priors, and marginalization-prior anchoring, plus direct LiDAR point-to-point,
-  point-to-plane, and visual-alignment factors. Geometric rows now use analytic
-  SE3 Jacobians, while IMU and dense-prior rows keep finite-difference fallback.
+  point-to-plane, and visual-alignment factors. Geometric, prior, retained
+  dense-prior, and SE3 photometric rows now use analytic Jacobians, while IMU
+  preintegration rows keep finite-difference fallback.
   The optimizer has bounded window trimming, Schur-complement retained-window
   priors, optional SE3 photometric pose factors extracted from
   rendered/current/depth images, rank/singular-value health for retained dense

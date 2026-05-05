@@ -167,9 +167,10 @@ baseline_manifest.json
 - [x] Add a native ROS2 tracking node surface that publishes mapper input topics plus odometry, path, and optional TF.
 - [x] Add a native LiDAR nearest-neighbor residual factor with bounded local map, PointCloud2 parsing, bounded 6-DoF pose correction, and deterministic correction probes.
 - [x] Add per-point LiDAR deskew from PointCloud2 time fields before mapper publication and LIO correction.
-- [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, finite-difference Jacobians, window trimming, and deterministic convergence probes.
+- [x] Add an optional native sliding-window optimizer foundation with IMU preintegration factors, raw-sample bias reintegration, bias continuity, bias observability metrics, pose/state priors, dense marginalization-prior anchoring, window trimming, and deterministic convergence probes.
 - [x] Add Schur-complement normal-equation math coverage for the tracking marginalization path, with deterministic equivalence against the full normal-equation solve.
 - [x] Expose reusable sliding-window residual/Jacobian/Hessian/RHS normal-equation linearization and cover it with CTest.
+- [x] Add analytic Jacobians for pose-prior, state-prior, retained dense-prior, and SE3 photometric window rows, with deterministic CTest coverage.
 - [x] Feed Schur-complement marginalization back into the live sliding window as retained-state dense priors, with fallback to diagonal anchoring when the marginalized block has no information.
 - [x] Publish dense-prior marginalization rank and singular-value health, and gate it in native tracking smoke.
 - [x] Add direct LiDAR point-to-point correspondence factors to the optional tracking window.
