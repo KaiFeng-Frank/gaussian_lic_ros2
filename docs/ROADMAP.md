@@ -330,6 +330,9 @@ baseline_manifest.json
 - [x] Add a native tracking report non-degenerate BA gate and a real sensor-only Bright pass.
   - `run_native_tracking_bag_report.sh` now exposes LiDAR factor budget, BA iteration, max state-gap, condition-number, and `--require-nondegenerate-ba` controls.
   - 2026-05-06 local Bright 12s sensor-only run at `results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s/native_tracking_report.json` passes with 39 odometry poses, 39 mapper point frames, 6 IMU factors, `tracking_with_sliding_window`, non-degenerate state cadence, non-degenerate normal equations, 1 accepted BA step, 37 feedback updates, 7 pointcloud/IMU wait-queue deferrals, 7 releases, zero wait drops, 29,565 normal-equation rows, condition number 2.116e9, and zero numeric-Jacobian fallback.
+- [x] Truncate overrun IMU preintegrations at point-cloud stamps instead of dropping valid late-arriving factors.
+  - `ImuPreintegrator::truncated()` reconstructs the segment with an interpolated boundary sample, and `run_native_tracking_bag_report.sh --require-nondegenerate-ba` now fails on IMU factor/time-gap skips.
+  - 2026-05-06 local Bright 12s sensor-only run at `results/fastlivo2/Bright_Screen_Wall_native_tracking_truncated_imu_gate_12s/native_tracking_report.json` passes with 38 odometry poses, 38 mapper point frames, 36 IMU factors, zero IMU factor skips, zero IMU time-gap skips, 2 accepted BA steps, 36 feedback updates, 7 pointcloud/IMU wait-queue deferrals, 7 releases, zero wait drops, 30,465 normal-equation rows, condition number 5.773e5, and zero numeric-Jacobian fallback.
 - [x] Local SPNet TensorRT engine benchmark passes the runtime target.
   - TensorRT 10.9 CUDA 12.8 builds `/home/frank/Software/TensorRT-engines/spnet_512_640_fp16.engine` for the RTX 5070 Ti `sm_120` GPU.
   - Mean `trtexec` latency is 26.4492 ms at `512x640`, below the 30 ms/frame target.

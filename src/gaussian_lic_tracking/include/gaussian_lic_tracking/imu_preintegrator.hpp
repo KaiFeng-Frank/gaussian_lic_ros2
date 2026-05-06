@@ -50,6 +50,7 @@ public:
     const ImuState & end_state,
     const Eigen::Vector3d & gravity_w = Eigen::Vector3d::Zero()) const;
   ImuPreintegrator reintegrated(const ImuBias & bias) const;
+  ImuPreintegrator truncated(int64_t end_stamp_ns) const;
 
   int64_t start_stamp_ns() const { return start_stamp_ns_; }
   int64_t end_stamp_ns() const { return end_stamp_ns_; }

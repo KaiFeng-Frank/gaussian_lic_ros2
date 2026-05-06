@@ -1543,7 +1543,7 @@ private:
   {
     preintegration = sliding_window_preintegrator_;
     double extrapolated_dt_s = 0.0;
-    if (preintegration.start_stamp_ns() != from_stamp_ns || preintegration.end_stamp_ns() > to_stamp_ns) {
+    if (preintegration.start_stamp_ns() != from_stamp_ns) {
       ++sliding_window_imu_time_gap_skip_count_;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
@@ -1554,6 +1554,17 @@ private:
         from_stamp_ns,
         to_stamp_ns);
       return false;
+    }
+    if (preintegration.end_stamp_ns() > to_stamp_ns) {
+      try {
+        preintegration = preintegration.truncated(to_stamp_ns);
+      } catch (const std::exception & ex) {
+        ++sliding_window_imu_time_gap_skip_count_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window IMU factor skipped while truncating preintegration: %s", ex.what());
+        return false;
+      }
     }
     if (preintegration.end_stamp_ns() < to_stamp_ns) {
       const int64_t gap_ns = to_stamp_ns - preintegration.end_stamp_ns();

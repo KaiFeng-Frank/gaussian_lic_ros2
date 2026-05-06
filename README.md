@@ -211,13 +211,14 @@ normal_equation_rows=65611, numeric_jacobian_blocks=0
 ok=true, poses=32, reference_poses=32, external_prior_matches=25,
 trajectory_rmse=0.101496 m, coverage=100.00%
 
-results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s/native_tracking_report.json
-ok=true, poses=39, /points_for_gs=39, status_samples=39, imu_factors=6,
+results/fastlivo2/Bright_Screen_Wall_native_tracking_truncated_imu_gate_12s/native_tracking_report.json
+ok=true, poses=38, /points_for_gs=38, status_samples=38, imu_factors=36,
 state=tracking_with_sliding_window, normal_equation_degenerate=false,
-state_gap_degenerate=false, accepted_steps=1, feedback_updates=37,
+state_gap_degenerate=false, accepted_steps=2, feedback_updates=36,
+imu_factor_skip_count=0, imu_time_gap_skip_count=0,
 pointcloud_imu_wait_deferred=7, pointcloud_imu_wait_released=7,
-pointcloud_imu_wait_dropped=0, normal_equation_rows=29565,
-condition=2.116e9, numeric_jacobian_blocks=0
+pointcloud_imu_wait_dropped=0, normal_equation_rows=30465,
+condition=5.773e5, numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:

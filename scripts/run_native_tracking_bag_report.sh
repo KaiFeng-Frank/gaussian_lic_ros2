@@ -444,6 +444,11 @@ if require_nondegenerate_ba and bool(last.get("sliding_window_state_gap_degenera
     errors.append("sliding_window_state_gap_degenerate is true")
 if require_nondegenerate_ba and int(last.get("sliding_window_accepted_steps", 0)) <= 0:
     errors.append("sliding_window_accepted_steps is zero")
+if require_nondegenerate_ba and int(last.get("sliding_window_imu_factor_skip_count", 0)) != 0:
+    errors.append(f"sliding_window_imu_factor_skip_count is {last.get('sliding_window_imu_factor_skip_count')}")
+if require_nondegenerate_ba and int(last.get("sliding_window_imu_time_gap_skip_count", 0)) != 0:
+    errors.append(
+        f"sliding_window_imu_time_gap_skip_count is {last.get('sliding_window_imu_time_gap_skip_count')}")
 
 report = {
     "ok": not errors,

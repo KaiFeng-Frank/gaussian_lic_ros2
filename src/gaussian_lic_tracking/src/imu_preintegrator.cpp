@@ -171,4 +171,80 @@ ImuPreintegrator ImuPreintegrator::reintegrated(const ImuBias & bias) const
   return output;
 }
 
+ImuPreintegrator ImuPreintegrator::truncated(const int64_t end_stamp_ns) const
+{
+  if (!initialized_) {
+    throw std::runtime_error("cannot truncate IMU preintegration before reset");
+  }
+  if (end_stamp_ns < start_stamp_ns_) {
+    throw std::runtime_error("cannot truncate IMU preintegration before its start stamp");
+  }
+  if (end_stamp_ns >= end_stamp_ns_) {
+    return *this;
+  }
+
+  ImuPreintegrator output;
+  output.reset(start_stamp_ns_, bias_);
+  if (end_stamp_ns == start_stamp_ns_) {
+    return output;
+  }
+  if (samples_.empty()) {
+    throw std::runtime_error("cannot truncate IMU preintegration without measurements");
+  }
+
+  ImuPreintegrationSample previous_sample;
+  bool has_previous_sample = false;
+  for (const auto & sample : samples_) {
+    if (sample.stamp_ns < start_stamp_ns_) {
+      previous_sample = sample;
+      has_previous_sample = true;
+      continue;
+    }
+    if (sample.stamp_ns == output.end_stamp_ns_ && !output.has_last_measurement_) {
+      output.last_angular_velocity_rad_s_ = sample.angular_velocity_rad_s;
+      output.last_linear_acceleration_m_s2_ = sample.linear_acceleration_m_s2;
+      output.samples_.push_back(sample);
+      output.has_last_measurement_ = true;
+      previous_sample = sample;
+      has_previous_sample = true;
+      continue;
+    }
+    if (sample.stamp_ns < end_stamp_ns) {
+      output.add_measurement(
+        sample.stamp_ns,
+        sample.angular_velocity_rad_s,
+        sample.linear_acceleration_m_s2);
+      previous_sample = sample;
+      has_previous_sample = true;
+      continue;
+    }
+    if (sample.stamp_ns == end_stamp_ns) {
+      output.add_measurement(
+        sample.stamp_ns,
+        sample.angular_velocity_rad_s,
+        sample.linear_acceleration_m_s2);
+      return output;
+    }
+
+    Eigen::Vector3d angular_velocity = sample.angular_velocity_rad_s;
+    Eigen::Vector3d linear_acceleration = sample.linear_acceleration_m_s2;
+    if (has_previous_sample && sample.stamp_ns > previous_sample.stamp_ns &&
+      end_stamp_ns > previous_sample.stamp_ns)
+    {
+      const double alpha = static_cast<double>(end_stamp_ns - previous_sample.stamp_ns) /
+        static_cast<double>(sample.stamp_ns - previous_sample.stamp_ns);
+      angular_velocity =
+        (1.0 - alpha) * previous_sample.angular_velocity_rad_s +
+        alpha * sample.angular_velocity_rad_s;
+      linear_acceleration =
+        (1.0 - alpha) * previous_sample.linear_acceleration_m_s2 +
+        alpha * sample.linear_acceleration_m_s2;
+    }
+    output.add_measurement(end_stamp_ns, angular_velocity, linear_acceleration);
+    return output;
+  }
+
+  throw std::runtime_error("cannot truncate IMU preintegration beyond recorded measurements");
+}
+
 }  // namespace gaussian_lic_tracking

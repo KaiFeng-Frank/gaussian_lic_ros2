@@ -77,6 +77,26 @@ int main()
     return 1;
   }
 
+  gaussian_lic_tracking::ImuPreintegrator overshot;
+  overshot.reset(0);
+  overshot.add_measurement(dt_ns, omega, accel);
+  overshot.add_measurement(2 * dt_ns, 2.0 * omega, 2.0 * accel);
+  const auto truncated = overshot.truncated(dt_ns + dt_ns / 2);
+  if (truncated.start_stamp_ns() != 0 ||
+    truncated.end_stamp_ns() != dt_ns + dt_ns / 2 ||
+    truncated.sample_count() != 2 ||
+    std::abs(truncated.delta_t_s() - 0.015) > 1.0e-12)
+  {
+    std::cerr << "IMU preintegration truncation failed to stop at the requested stamp\n";
+    return 1;
+  }
+  if ((truncated.samples().back().angular_velocity_rad_s - 1.5 * omega).norm() > 1.0e-12 ||
+    (truncated.samples().back().linear_acceleration_m_s2 - 1.5 * accel).norm() > 1.0e-12)
+  {
+    std::cerr << "IMU preintegration truncation did not interpolate the boundary sample\n";
+    return 1;
+  }
+
   gaussian_lic_tracking::ImuPreintegrator auto_started;
   auto_started.add_measurement(100, omega, accel);
   auto_started.add_measurement(100 + dt_ns, omega, accel);

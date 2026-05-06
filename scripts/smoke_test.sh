@@ -254,11 +254,13 @@ if [[ "${ENABLE_TORCH}" == "true" ]]; then
   )
 elif [[ "${IMAGE_COLOR_FALLBACK_CHECK}" == "true" || "${MINIMAL_INPUTS}" == "true" ]]; then
   launch_args+=(
+    enable_torch_camera_conversion:=false
     enable_torch_gaussian_init:=false
     enable_torch_gaussian_extend:=false
     enable_torch_gaussian_optimization:=false
     enable_torch_gaussian_pruning:=false
     enable_torch_gaussian_densification:=false
+    torch_gaussian_device:=cpu
   )
 fi
 
