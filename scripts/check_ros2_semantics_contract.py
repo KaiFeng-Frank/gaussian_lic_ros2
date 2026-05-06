@@ -312,6 +312,12 @@ def main() -> int:
         errors.append("tracking_node must publish malformed LiDAR frame counters")
     if "lidar_out_of_range_point_times_" not in tracking_node_text or "lidar_max_abs_point_time_offset_s" not in tracking_node_text:
         errors.append("tracking_node must gate out-of-range LiDAR per-point time offsets")
+    if '"scan_order"' not in tracking_node_text or "lidar_scan_order_duration_s" not in tracking_node_text:
+        errors.append("tracking_node must expose explicit scan-order LiDAR deskew fallback")
+    if 'DeclareLaunchArgument("lidar_scan_order_duration_s", default_value="0.1")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose scan-order LiDAR deskew duration")
+    if "--enable-scan-order-deskew" not in native_tracking_report_text or "--require-deskew" not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose explicit scan-order deskew gates")
     if "camera_info_invalid_intrinsics_" not in tracking_node_text or "image_invalid_frames_" not in tracking_node_text:
         errors.append("tracking_node must publish invalid camera/image/depth/rendered-frame counters")
     if "sliding_window_invalid_optimized_states_" not in tracking_node_text or "valid_sliding_window_state" not in tracking_node_text:

@@ -245,6 +245,14 @@ public:
     lidar_time_field_ = declare_parameter<std::string>("lidar_time_field", "auto");
     lidar_time_unit_ = declare_parameter<std::string>("lidar_time_unit", "auto");
     lidar_time_mode_ = declare_parameter<std::string>("lidar_time_mode", "auto");
+    if (lidar_time_mode_ != "auto" && lidar_time_mode_ != "absolute" &&
+      lidar_time_mode_ != "offset" && lidar_time_mode_ != "scan_order")
+    {
+      throw std::runtime_error("lidar_time_mode must be auto, absolute, offset, or scan_order");
+    }
+    lidar_scan_order_duration_s_ = finite_positive_parameter(
+      "lidar_scan_order_duration_s",
+      declare_parameter<double>("lidar_scan_order_duration_s", 0.1));
     lidar_max_abs_point_time_offset_s_ = finite_positive_parameter(
       "lidar_max_abs_point_time_offset_s",
       declare_parameter<double>("lidar_max_abs_point_time_offset_s", 0.25));
@@ -2189,6 +2197,9 @@ private:
 
   const sensor_msgs::msg::PointField * find_time_field(const sensor_msgs::msg::PointCloud2 & msg) const
   {
+    if (lidar_time_mode_ == "scan_order") {
+      return nullptr;
+    }
     if (!lidar_time_field_.empty() && lidar_time_field_ != "auto") {
       return find_field(msg, lidar_time_field_);
     }
@@ -2433,6 +2444,22 @@ private:
           } else {
             ++invalid_point_times;
           }
+        } else if (lidar_time_mode_ == "scan_order") {
+          const double normalized_index = count > 1U
+            ? static_cast<double>(index) / static_cast<double>(count - 1U)
+            : 0.5;
+          const double offset_s = (normalized_index - 0.5) * lidar_scan_order_duration_s_;
+          const int64_t offset_ns = static_cast<int64_t>(
+            std::llround(offset_s * static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond)));
+          const int64_t stamp_ns = cloud_stamp_ns + offset_ns;
+          const double abs_offset_s = std::abs(offset_s);
+          max_abs_point_time_offset_s = std::max(max_abs_point_time_offset_s, abs_offset_s);
+          if (abs_offset_s <= lidar_max_abs_point_time_offset_s_) {
+            point.stamp_ns = stamp_ns;
+            point.has_stamp = true;
+          } else {
+            ++out_of_range_point_times;
+          }
         }
         points.push_back(point);
       } else {
@@ -2479,6 +2506,7 @@ private:
         if (!imu_propagator_.query_state(stamp_ns, state)) {
           return false;
         }
+        ++trajectory_deskew_hits_;
         pose.stamp_ns = state.stamp_ns;
         pose.p_w_i = state.p_w_i;
         pose.q_w_i = state.q_w_i;
@@ -2892,6 +2920,7 @@ private:
   std::string lidar_time_field_{"auto"};
   std::string lidar_time_unit_{"auto"};
   std::string lidar_time_mode_{"auto"};
+  double lidar_scan_order_duration_s_{0.1};
   double lidar_max_abs_point_time_offset_s_{0.25};
   int imu_history_size_{4000};
   int64_t trajectory_control_interval_ns_{50000000LL};

@@ -15,6 +15,8 @@ MIN_POINT_FRAMES=10
 LIDAR_MIN_POINTS=32
 LIDAR_MAX_FRAME_POINTS=4000
 LIDAR_MAX_MAP_POINTS=40000
+LIDAR_TIME_MODE=auto
+LIDAR_SCAN_ORDER_DURATION_S=0.1
 LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
 LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
 CAMERA_TO_IMU_TRANSLATION_M="[0.0673699, 0.0412418, 0.0764217]"
@@ -24,6 +26,7 @@ SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
 SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
 REQUIRE_BA_FEEDBACK=false
 REQUIRE_NONDEGENERATE_BA=false
+REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
@@ -63,6 +66,10 @@ Options:
   --lidar-min-points N         Tracking LiDAR frame minimum. Default: 32.
   --lidar-max-frame-points N   Max LiDAR points used per frame factor. Default: 4000.
   --lidar-max-map-points N     Max LiDAR map points retained by the native factor. Default: 40000.
+  --enable-scan-order-deskew   Use explicit scan-order point timestamps when the bag has no per-point time field.
+  --lidar-scan-order-duration-s SEC
+                               Scan duration for --enable-scan-order-deskew. Default: 0.1.
+  --require-deskew             Require nonzero trajectory deskew queries and hits in the report.
   --lidar-to-imu-translation V  YAML vector for LiDAR->IMU translation. Default: FAST-LIVO2.
   --lidar-to-imu-rpy V          YAML vector for LiDAR->IMU RPY radians. Default: FAST-LIVO2 identity.
   --camera-to-imu-translation V YAML vector for camera->IMU translation. Default: FAST-LIVO2.
@@ -147,6 +154,18 @@ while [[ $# -gt 0 ]]; do
     --lidar-max-map-points)
       LIDAR_MAX_MAP_POINTS="$2"
       shift 2
+      ;;
+    --enable-scan-order-deskew)
+      LIDAR_TIME_MODE=scan_order
+      shift
+      ;;
+    --lidar-scan-order-duration-s)
+      LIDAR_SCAN_ORDER_DURATION_S="$2"
+      shift 2
+      ;;
+    --require-deskew)
+      REQUIRE_DESKEW=true
+      shift
       ;;
     --lidar-to-imu-translation)
       LIDAR_TO_IMU_TRANSLATION_M="$2"
@@ -349,6 +368,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   lidar_to_imu_rpy_rad:="${LIDAR_TO_IMU_RPY_RAD}" \
   camera_to_imu_translation_m:="${CAMERA_TO_IMU_TRANSLATION_M}" \
   camera_to_imu_rpy_rad:="${CAMERA_TO_IMU_RPY_RAD}" \
+  lidar_time_mode:="${LIDAR_TIME_MODE}" \
+  lidar_scan_order_duration_s:="${LIDAR_SCAN_ORDER_DURATION_S}" \
   lidar_nearest_distance_m:=1.0 \
   lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
   lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
@@ -433,7 +454,7 @@ unset launch_pid
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
-  "${ENABLE_VISUAL_FACTORS}" <<'PY'
+  "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -448,6 +469,7 @@ require_reference_trajectory = sys.argv[7].lower() == "true"
 min_reference_poses = int(sys.argv[8])
 require_nondegenerate_ba = sys.argv[9].lower() == "true"
 enable_visual_factors = sys.argv[10].lower() == "true"
+require_deskew = sys.argv[11].lower() == "true"
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -519,6 +541,10 @@ if enable_visual_factors and not bool(last.get("visual_photometric_valid", False
     errors.append("visual_photometric_valid is false")
 if enable_visual_factors and not bool(last.get("visual_se3_photometric_valid", False)):
     errors.append("visual_se3_photometric_valid is false")
+if require_deskew and int(last.get("trajectory_deskew_queries", 0)) <= 0:
+    errors.append("trajectory_deskew_queries is zero")
+if require_deskew and int(last.get("trajectory_deskew_hits", 0)) <= 0:
+    errors.append("trajectory_deskew_hits is zero")
 
 report = {
     "ok": not errors,

@@ -138,6 +138,7 @@ def generate_launch_description():
     lidar_time_field = LaunchConfiguration("lidar_time_field")
     lidar_time_unit = LaunchConfiguration("lidar_time_unit")
     lidar_time_mode = LaunchConfiguration("lidar_time_mode")
+    lidar_scan_order_duration_s = LaunchConfiguration("lidar_scan_order_duration_s")
     lidar_max_abs_point_time_offset_s = LaunchConfiguration("lidar_max_abs_point_time_offset_s")
 
     return LaunchDescription(
@@ -187,6 +188,7 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_time_field", default_value="auto"),
             DeclareLaunchArgument("lidar_time_unit", default_value="auto"),
             DeclareLaunchArgument("lidar_time_mode", default_value="auto"),
+            DeclareLaunchArgument("lidar_scan_order_duration_s", default_value="0.1"),
             DeclareLaunchArgument("lidar_max_abs_point_time_offset_s", default_value="0.25"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="150000000"),
@@ -295,6 +297,7 @@ def generate_launch_description():
                         "lidar_time_field": lidar_time_field,
                         "lidar_time_unit": lidar_time_unit,
                         "lidar_time_mode": lidar_time_mode,
+                        "lidar_scan_order_duration_s": lidar_scan_order_duration_s,
                         "lidar_max_abs_point_time_offset_s": lidar_max_abs_point_time_offset_s,
                         "enable_visual_factor": enable_visual_factor,
                         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
