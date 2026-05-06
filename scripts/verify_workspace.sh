@@ -151,6 +151,13 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json \
   >/tmp/gaussian_lic_bag_frontend_sensor_raw_contract_verify.json
 rg -q '"contract_ok": true' /tmp/gaussian_lic_bag_frontend_sensor_raw_contract_verify.json
+./scripts/rosbag2_timing_audit.py \
+  --bag "${FRONTEND_RAW_VISUAL_BAG_PATH}" \
+  --required-topic /imu \
+  --required-topic /camera/image \
+  --required-topic /livox/lidar \
+  --strict-storage \
+  >/tmp/gaussian_lic_frontend_raw_visual_timing_audit.txt
 rm -rf /tmp/gaussian_lic_offline_verify
 ros2 run gaussian_lic_tools gaussian_lic_offline \
   --bag "${BAG_PATH}" \

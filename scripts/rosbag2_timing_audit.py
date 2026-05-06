@@ -106,6 +106,181 @@ def audit_sqlite_file(path, max_time_regression_ns):
     return report
 
 
+def audit_rosbag2_headers(bag_dir, storage_id, max_time_regression_ns):
+    report = {
+        "available": False,
+        "ok": True,
+        "message_count": 0,
+        "header_stamp_counts": {},
+        "header_stamp_regressions": {},
+        "record_time_regressions": 0,
+        "topic_record_time_regressions": {},
+        "errors": [],
+    }
+    try:
+        import rosbag2_py
+        from rclpy.serialization import deserialize_message
+        from rosidl_runtime_py.utilities import get_message
+    except ImportError as exc:
+        return audit_rosbags_headers(bag_dir, max_time_regression_ns, f"rosbag2 Python reader unavailable: {exc}")
+
+    report["available"] = True
+    report["reader"] = "rosbag2_py"
+    reader = rosbag2_py.SequentialReader()
+    storage_options = rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id=storage_id or "")
+    converter_options = rosbag2_py.ConverterOptions(
+        input_serialization_format="cdr",
+        output_serialization_format="cdr",
+    )
+    try:
+        reader.open(storage_options, converter_options)
+        topic_types = {item.name: item.type for item in reader.get_all_topics_and_types()}
+        message_types = {}
+        previous_record_time = None
+        previous_record_time_by_topic = {}
+        previous_header_stamp_by_topic = {}
+        while reader.has_next():
+            topic, serialized, record_time_ns = reader.read_next()
+            record_time_ns = int(record_time_ns)
+            report["message_count"] += 1
+            if (
+                previous_record_time is not None and
+                record_time_ns + max_time_regression_ns < previous_record_time
+            ):
+                report["record_time_regressions"] += 1
+            previous_topic_record_time = previous_record_time_by_topic.get(topic)
+            if (
+                previous_topic_record_time is not None and
+                record_time_ns + max_time_regression_ns < previous_topic_record_time
+            ):
+                report["topic_record_time_regressions"][topic] = (
+                    report["topic_record_time_regressions"].get(topic, 0) + 1
+                )
+            previous_record_time = record_time_ns
+            previous_record_time_by_topic[topic] = record_time_ns
+
+            msg_type = topic_types.get(topic)
+            if not msg_type:
+                continue
+            if msg_type not in message_types:
+                message_types[msg_type] = get_message(msg_type)
+            msg = deserialize_message(serialized, message_types[msg_type])
+            header = getattr(msg, "header", None)
+            stamp = getattr(header, "stamp", None)
+            if stamp is None:
+                continue
+            header_stamp_ns = int(stamp.sec) * 1000000000 + int(stamp.nanosec)
+            report["header_stamp_counts"][topic] = report["header_stamp_counts"].get(topic, 0) + 1
+            previous_header_stamp = previous_header_stamp_by_topic.get(topic)
+            if (
+                previous_header_stamp is not None and
+                header_stamp_ns + max_time_regression_ns < previous_header_stamp
+            ):
+                report["header_stamp_regressions"][topic] = (
+                    report["header_stamp_regressions"].get(topic, 0) + 1
+                )
+            previous_header_stamp_by_topic[topic] = header_stamp_ns
+    except Exception as exc:  # noqa: BLE001 - malformed bag reports should stay data-shaped.
+        report["ok"] = False
+        report["errors"].append(f"rosbag2 message audit failed: {exc}")
+
+    if report["record_time_regressions"]:
+        report["ok"] = False
+        report["errors"].append(f"record timestamps regressed {report['record_time_regressions']} times")
+    for topic, count in sorted(report["topic_record_time_regressions"].items()):
+        report["ok"] = False
+        report["errors"].append(f"{topic} record timestamps regressed {count} times")
+    for topic, count in sorted(report["header_stamp_regressions"].items()):
+        report["ok"] = False
+        report["errors"].append(f"{topic} header stamps regressed {count} times")
+    if report["message_count"] == 0:
+        report["ok"] = False
+        report["errors"].append("rosbag2 reader returned no messages")
+    return report
+
+
+def audit_rosbags_headers(bag_dir, max_time_regression_ns, unavailable_reason):
+    report = {
+        "available": False,
+        "ok": True,
+        "reader": "rosbags",
+        "message_count": 0,
+        "header_stamp_counts": {},
+        "header_stamp_regressions": {},
+        "record_time_regressions": 0,
+        "topic_record_time_regressions": {},
+        "errors": [],
+    }
+    try:
+        from rosbags.highlevel import AnyReader
+        from rosbags.typesys import Stores, get_typestore
+    except ImportError as exc:
+        report["errors"].append(unavailable_reason)
+        report["errors"].append(f"rosbags reader unavailable: {exc}")
+        return report
+
+    report["available"] = True
+    typestore = get_typestore(Stores.ROS2_JAZZY)
+    previous_record_time = None
+    previous_record_time_by_topic = {}
+    previous_header_stamp_by_topic = {}
+    try:
+        with AnyReader([bag_dir], default_typestore=typestore) as reader:
+            for connection, record_time_ns, serialized in reader.messages():
+                topic = connection.topic
+                record_time_ns = int(record_time_ns)
+                report["message_count"] += 1
+                if (
+                    previous_record_time is not None and
+                    record_time_ns + max_time_regression_ns < previous_record_time
+                ):
+                    report["record_time_regressions"] += 1
+                previous_topic_record_time = previous_record_time_by_topic.get(topic)
+                if (
+                    previous_topic_record_time is not None and
+                    record_time_ns + max_time_regression_ns < previous_topic_record_time
+                ):
+                    report["topic_record_time_regressions"][topic] = (
+                        report["topic_record_time_regressions"].get(topic, 0) + 1
+                    )
+                previous_record_time = record_time_ns
+                previous_record_time_by_topic[topic] = record_time_ns
+
+                msg = reader.deserialize(serialized, connection.msgtype)
+                header = getattr(msg, "header", None)
+                stamp = getattr(header, "stamp", None)
+                if stamp is None:
+                    continue
+                header_stamp_ns = int(stamp.sec) * 1000000000 + int(stamp.nanosec)
+                report["header_stamp_counts"][topic] = report["header_stamp_counts"].get(topic, 0) + 1
+                previous_header_stamp = previous_header_stamp_by_topic.get(topic)
+                if (
+                    previous_header_stamp is not None and
+                    header_stamp_ns + max_time_regression_ns < previous_header_stamp
+                ):
+                    report["header_stamp_regressions"][topic] = (
+                        report["header_stamp_regressions"].get(topic, 0) + 1
+                    )
+                previous_header_stamp_by_topic[topic] = header_stamp_ns
+    except Exception as exc:  # noqa: BLE001 - malformed bag reports should stay data-shaped.
+        report["ok"] = False
+        report["errors"].append(f"rosbags message audit failed: {exc}")
+
+    if report["record_time_regressions"]:
+        report["ok"] = False
+        report["errors"].append(f"record timestamps regressed {report['record_time_regressions']} times")
+    for topic, count in sorted(report["topic_record_time_regressions"].items()):
+        report["ok"] = False
+        report["errors"].append(f"{topic} record timestamps regressed {count} times")
+    for topic, count in sorted(report["header_stamp_regressions"].items()):
+        report["ok"] = False
+        report["errors"].append(f"{topic} header stamps regressed {count} times")
+    if report["message_count"] == 0:
+        report["ok"] = False
+        report["errors"].append("rosbags reader returned no messages")
+    return report
+
+
 def build_report(args):
     bag_dir = Path(args.bag).expanduser().resolve()
     metadata_path, info = load_metadata(bag_dir)
@@ -123,6 +298,7 @@ def build_report(args):
         "topics": topics,
         "storage_files": [str(path) for path in files],
         "sqlite_files": [],
+        "message_header_audit": None,
         "metadata_only": False,
         "ok": True,
         "errors": [],
@@ -137,16 +313,20 @@ def build_report(args):
         for path in sqlite_paths:
             report["sqlite_files"].append(audit_sqlite_file(path, args.max_time_regression_ns))
     else:
-        report["metadata_only"] = True
-        if args.strict_storage:
+        message_audit = audit_rosbag2_headers(bag_dir, storage_id, args.max_time_regression_ns)
+        report["message_header_audit"] = message_audit
+        report["metadata_only"] = not message_audit.get("available", False)
+        if args.strict_storage and report["metadata_only"]:
             report["errors"].append(
-                f"strict storage audit requires sqlite3 .db3 files; storage_identifier={storage_id!r}"
+                f"strict storage audit requires inspectable message data; storage_identifier={storage_id!r}"
             )
 
     sqlite_ok = all(item.get("ok", False) for item in report["sqlite_files"]) if report["sqlite_files"] else True
+    message_audit = report.get("message_header_audit")
+    message_audit_ok = message_audit.get("ok", False) if message_audit else True
     if report["metadata_message_count"] <= 0:
         report["errors"].append("metadata message_count is zero")
-    report["ok"] = sqlite_ok and not report["errors"]
+    report["ok"] = sqlite_ok and message_audit_ok and not report["errors"]
     return report
 
 
@@ -158,7 +338,7 @@ def main(argv=None):
     parser.add_argument(
         "--strict-storage",
         action="store_true",
-        help="Fail when storage is not sqlite3/db3 and message timestamp order cannot be inspected locally.",
+        help="Fail when message timestamp order cannot be inspected locally.",
     )
     parser.add_argument("--output", help="Optional JSON output path")
     parser.add_argument("--json", action="store_true", help="Print full JSON report")
@@ -177,7 +357,12 @@ def main(argv=None):
     if args.json or not report["ok"]:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        mode = "metadata-only" if report["metadata_only"] else "sqlite"
+        if report["metadata_only"]:
+            mode = "metadata-only"
+        elif report.get("sqlite_files"):
+            mode = "sqlite"
+        else:
+            mode = "rosbag2-headers"
         print(
             "rosbag2 timing audit OK: "
             f"bag={report['bag']} mode={mode} messages={report['metadata_message_count']}"

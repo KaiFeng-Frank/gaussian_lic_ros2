@@ -132,6 +132,10 @@ def main() -> int:
         errors.append("run_bag.launch.py must default use_sim_time to true")
     if "global_time_regressions" not in timing_audit_text or "strict-storage" not in timing_audit_text:
         errors.append("rosbag2_timing_audit.py must check timestamp regressions and strict storage mode")
+    if "header_stamp_regressions" not in timing_audit_text or "rosbag2_py.SequentialReader" not in timing_audit_text:
+        errors.append("rosbag2_timing_audit.py must inspect MCAP/header stamp order when ROS2 readers are available")
+    if "gaussian_lic_frontend_raw_visual_timing_audit" not in read(ROOT / "scripts" / "verify_workspace.sh"):
+        errors.append("verify_workspace.sh must audit frontend visual rosbag header stamp order")
 
     required_tracking_launch_args = [
         "tracking_status_topic",

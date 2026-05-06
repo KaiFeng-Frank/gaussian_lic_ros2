@@ -220,6 +220,7 @@ baseline_manifest.json
 - [x] Publish the last consumed IMU preintegration block sample count, dt, and signed-nanosecond span through `TrackingStatus`.
 - [x] Publish cumulative sliding-window IMU-factor/preintegration totals so optimized runs still prove IMU usage after active-window marginalization.
 - [x] Make synthetic rosbag IMU samples monotonic inside the previous/current frame interval so timer jitter cannot create false IMU stamp regressions.
+- [x] Extend rosbag2 timing audit to inspect MCAP/header stamp order through ROS2 readers and gate frontend visual bags in workspace verification.
 - [x] Reject IMU factors whose preintegration span does not cover the BA state interval, with bounded final-sample extrapolation and time-gap skip status.
 - [x] Report and gate orphan sliding-window factors whose referenced states are absent instead of silently skipping residual blocks.
 - [x] Publish active-window min/max state spacing and gate oversized state gaps before solving BA.

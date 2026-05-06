@@ -133,6 +133,9 @@ Native tracking smoke status and log artifacts are isolated by ROS domain and
 process id, so concurrent local/CI runs cannot race on the same `/tmp` status
 file; the latest successful status is still mirrored to
 `/tmp/gaussian_lic_tracking_smoke_status.txt` for inspection.
+`scripts/verify_workspace.sh` also runs a strict rosbag2 timing audit on the
+frontend visual MCAP bag; when ROS2 or `rosbags` readers are available it checks
+per-topic message header stamp ordering, not only rosbag metadata.
 
 Run the native tracking probe suite:
 
