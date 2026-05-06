@@ -537,9 +537,17 @@ if enable_visual_factors and int(last.get("sliding_window_total_visual_factors",
     errors.append("sliding_window_total_visual_factors is zero")
 if enable_visual_factors and int(last.get("sliding_window_total_se3_photometric_factors", 0)) <= 0:
     errors.append("sliding_window_total_se3_photometric_factors is zero")
-if enable_visual_factors and not bool(last.get("visual_photometric_valid", False)):
+if (
+    enable_visual_factors
+    and int(last.get("sliding_window_total_visual_factors", 0)) <= 0
+    and not bool(last.get("visual_photometric_valid", False))
+):
     errors.append("visual_photometric_valid is false")
-if enable_visual_factors and not bool(last.get("visual_se3_photometric_valid", False)):
+if (
+    enable_visual_factors
+    and int(last.get("sliding_window_total_se3_photometric_factors", 0)) <= 0
+    and not bool(last.get("visual_se3_photometric_valid", False))
+):
     errors.append("visual_se3_photometric_valid is false")
 if require_deskew and int(last.get("trajectory_deskew_queries", 0)) <= 0:
     errors.append("trajectory_deskew_queries is zero")

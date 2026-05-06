@@ -264,6 +264,16 @@ lidar_invalid_point_times=0, lidar_out_of_range_point_times=0,
 imu_factor_skip_count=0, imu_time_gap_skip_count=0,
 invalid_optimized_states=0, normal_equation_rows=31137,
 condition=1.035e6, numeric_jacobian_blocks=0
+
+results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_scan_order_deskew_gate_30s/native_tracking_report.json
+ok=true, poses=112, /points_for_gs=112, status_samples=112, imu_factors=111,
+visual_factors=59, se3_photometric_factors=9,
+trajectory_deskew_queries=2688000, trajectory_deskew_hits=2616215,
+max_abs_point_time_offset_s=0.05, lidar_invalid_point_times=0,
+lidar_out_of_range_point_times=0, imu_factor_skip_count=0,
+imu_time_gap_skip_count=0, invalid_optimized_states=0,
+normal_equation_rows=17908, condition=5.044e6, rank_ratio=1.0,
+numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:
