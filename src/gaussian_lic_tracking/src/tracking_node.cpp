@@ -132,6 +132,8 @@ public:
       "depth_frame_cache_size", declare_parameter<int>("depth_frame_cache_size", 8), 1);
     rendered_frame_cache_size_ = integer_parameter_at_least(
       "rendered_frame_cache_size", declare_parameter<int>("rendered_frame_cache_size", 8), 1);
+    observed_frame_cache_size_ = integer_parameter_at_least(
+      "observed_frame_cache_size", declare_parameter<int>("observed_frame_cache_size", 64), 1);
     const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
@@ -835,6 +837,7 @@ private:
     }
     last_observed_image_width_ = observed.width;
     last_observed_image_height_ = observed.height;
+    cache_observed_frame(observed);
     int64_t rendered_match_delta_ns = 0;
     bool rendered_cache_had_size_match = false;
     const gaussian_lic_tracking::VisualFrame * rendered_frame =
@@ -856,56 +859,7 @@ private:
       }
     }
     if (rendered_frame != nullptr) {
-      last_visual_residual_ = visual_factor_.evaluate(*rendered_frame, observed);
-      last_visual_alignment_ = visual_factor_.estimate_translation(
-        *rendered_frame,
-        observed,
-        visual_alignment_max_shift_px_);
-      last_visual_photometric_linearization_ =
-        visual_factor_.linearize_translation(*rendered_frame, observed);
-      if (enable_se3_photometric_window_factor_) {
-        const auto se3_samples = build_se3_photometric_samples(*rendered_frame, observed);
-        last_visual_se3_photometric_candidate_pixels_ = se3_samples.candidate_pixels;
-        last_visual_se3_photometric_accepted_pixels_ = se3_samples.accepted_pixels;
-        last_visual_se3_photometric_rejected_depth_pixels_ = se3_samples.rejected_depth_pixels;
-        last_visual_se3_photometric_rejected_gradient_pixels_ = se3_samples.rejected_gradient_pixels;
-        last_visual_se3_photometric_rejected_residual_pixels_ = se3_samples.rejected_residual_pixels;
-        last_visual_se3_photometric_mean_abs_residual_ = se3_samples.mean_abs_residual;
-        last_visual_se3_photometric_linearization_ =
-          gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
-        if (last_visual_se3_photometric_linearization_.valid &&
-          last_visual_se3_photometric_linearization_.sample_count >=
-          static_cast<size_t>(se3_photometric_min_samples_))
-        {
-          pending_visual_se3_photometric_linearization_ = last_visual_se3_photometric_linearization_;
-          pending_visual_se3_photometric_stamp_ns_ = observed.stamp_ns;
-          has_pending_visual_se3_photometric_ = true;
-        }
-      }
-      if (last_visual_alignment_.valid) {
-        pending_visual_alignment_ = last_visual_alignment_;
-        pending_visual_alignment_stamp_ns_ = observed.stamp_ns;
-        has_pending_visual_alignment_ = true;
-      }
-      if (last_visual_residual_.valid) {
-        RCLCPP_DEBUG_THROTTLE(
-          get_logger(), *get_clock(), 2000,
-          "visual residual pixels=%zu mae=%.6f rmse=%.6f align_valid=%s dx=%d dy=%d align_rmse=%.6f photo_valid=%s photo_step=(%.4f, %.4f) se3_photo_valid=%s se3_samples=%zu/%zu se3_mae=%.6f",
-          last_visual_residual_.compared_pixels,
-          last_visual_residual_.mean_abs_error,
-          last_visual_residual_.rmse,
-          last_visual_alignment_.valid ? "true" : "false",
-          last_visual_alignment_.dx,
-          last_visual_alignment_.dy,
-          last_visual_alignment_.rmse,
-          last_visual_photometric_linearization_.valid ? "true" : "false",
-          last_visual_photometric_linearization_.gauss_newton_step.x(),
-          last_visual_photometric_linearization_.gauss_newton_step.y(),
-          last_visual_se3_photometric_linearization_.valid ? "true" : "false",
-          last_visual_se3_photometric_linearization_.sample_count,
-          last_visual_se3_photometric_candidate_pixels_,
-          last_visual_se3_photometric_mean_abs_residual_);
-      }
+      process_visual_pair(*rendered_frame, observed);
     }
   }
 
@@ -922,12 +876,91 @@ private:
     }
     gaussian_lic_tracking::VisualFrame rendered;
     if (decode_image_gray(msg, rendered)) {
-      cache_rendered_frame(std::move(rendered));
+      cache_rendered_frame(rendered);
+      int64_t observed_match_delta_ns = 0;
+      const gaussian_lic_tracking::VisualFrame * observed_frame =
+        select_observed_frame_for_stamp(
+        rendered.stamp_ns,
+        rendered.width,
+        rendered.height,
+        &observed_match_delta_ns,
+        nullptr);
+      if (observed_frame != nullptr) {
+        last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
+        last_visual_rendered_match_delta_ns_ = observed_match_delta_ns;
+        process_visual_pair(rendered, *observed_frame);
+      }
     } else {
       ++rendered_invalid_frames_;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "dropping rendered image with unsupported encoding, layout, or dimensions");
+    }
+  }
+
+  void process_visual_pair(
+    const gaussian_lic_tracking::VisualFrame & rendered,
+    const gaussian_lic_tracking::VisualFrame & observed)
+  {
+    if (last_processed_visual_observed_stamp_ns_.has_value() &&
+      last_processed_visual_rendered_stamp_ns_.has_value() &&
+      last_processed_visual_observed_stamp_ns_.value() == observed.stamp_ns &&
+      last_processed_visual_rendered_stamp_ns_.value() == rendered.stamp_ns)
+    {
+      return;
+    }
+    last_processed_visual_observed_stamp_ns_ = observed.stamp_ns;
+    last_processed_visual_rendered_stamp_ns_ = rendered.stamp_ns;
+
+    last_visual_residual_ = visual_factor_.evaluate(rendered, observed);
+    last_visual_alignment_ = visual_factor_.estimate_translation(
+      rendered,
+      observed,
+      visual_alignment_max_shift_px_);
+    last_visual_photometric_linearization_ =
+      visual_factor_.linearize_translation(rendered, observed);
+    if (enable_se3_photometric_window_factor_) {
+      const auto se3_samples = build_se3_photometric_samples(rendered, observed);
+      last_visual_se3_photometric_candidate_pixels_ = se3_samples.candidate_pixels;
+      last_visual_se3_photometric_accepted_pixels_ = se3_samples.accepted_pixels;
+      last_visual_se3_photometric_rejected_depth_pixels_ = se3_samples.rejected_depth_pixels;
+      last_visual_se3_photometric_rejected_gradient_pixels_ = se3_samples.rejected_gradient_pixels;
+      last_visual_se3_photometric_rejected_residual_pixels_ = se3_samples.rejected_residual_pixels;
+      last_visual_se3_photometric_mean_abs_residual_ = se3_samples.mean_abs_residual;
+      last_visual_se3_photometric_linearization_ =
+        gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
+      if (last_visual_se3_photometric_linearization_.valid &&
+        last_visual_se3_photometric_linearization_.sample_count >=
+        static_cast<size_t>(se3_photometric_min_samples_))
+      {
+        pending_visual_se3_photometric_linearization_ = last_visual_se3_photometric_linearization_;
+        pending_visual_se3_photometric_stamp_ns_ = observed.stamp_ns;
+        has_pending_visual_se3_photometric_ = true;
+      }
+    }
+    if (last_visual_alignment_.valid) {
+      pending_visual_alignment_ = last_visual_alignment_;
+      pending_visual_alignment_stamp_ns_ = observed.stamp_ns;
+      has_pending_visual_alignment_ = true;
+    }
+    if (last_visual_residual_.valid) {
+      RCLCPP_DEBUG_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "visual residual pixels=%zu mae=%.6f rmse=%.6f align_valid=%s dx=%d dy=%d align_rmse=%.6f photo_valid=%s photo_step=(%.4f, %.4f) se3_photo_valid=%s se3_samples=%zu/%zu se3_mae=%.6f",
+        last_visual_residual_.compared_pixels,
+        last_visual_residual_.mean_abs_error,
+        last_visual_residual_.rmse,
+        last_visual_alignment_.valid ? "true" : "false",
+        last_visual_alignment_.dx,
+        last_visual_alignment_.dy,
+        last_visual_alignment_.rmse,
+        last_visual_photometric_linearization_.valid ? "true" : "false",
+        last_visual_photometric_linearization_.gauss_newton_step.x(),
+        last_visual_photometric_linearization_.gauss_newton_step.y(),
+        last_visual_se3_photometric_linearization_.valid ? "true" : "false",
+        last_visual_se3_photometric_linearization_.sample_count,
+        last_visual_se3_photometric_candidate_pixels_,
+        last_visual_se3_photometric_mean_abs_residual_);
     }
   }
 
@@ -1147,11 +1180,13 @@ private:
     if (enable_sliding_window_optimizer_ && enable_visual_alignment_window_factor_ &&
       has_pending_visual_alignment_)
     {
-      if (pending_factor_stamp_is_fresh(pending_visual_alignment_stamp_ns_, tracking_pose.stamp_ns)) {
+      const auto visual_reference =
+        select_visual_factor_reference(pending_visual_alignment_stamp_ns_, tracking_pose);
+      if (visual_reference.has_value()) {
         gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor visual_factor;
-        visual_factor.stamp_ns = tracking_pose.stamp_ns;
+        visual_factor.stamp_ns = visual_reference->stamp_ns;
         visual_factor.source_id = 1U;
-        visual_factor.reference_p_w_i = tracking_pose.p_w_i;
+        visual_factor.reference_p_w_i = visual_reference->p_w_i;
         visual_factor.measured_shift_px = Eigen::Vector2d{
           pending_visual_alignment_.subpixel_dx,
           pending_visual_alignment_.subpixel_dy};
@@ -1168,14 +1203,14 @@ private:
     if (enable_sliding_window_optimizer_ && enable_se3_photometric_window_factor_ &&
       has_pending_visual_se3_photometric_)
     {
-      if (pending_factor_stamp_is_fresh(
-          pending_visual_se3_photometric_stamp_ns_, tracking_pose.stamp_ns))
-      {
+      const auto visual_reference =
+        select_visual_factor_reference(pending_visual_se3_photometric_stamp_ns_, tracking_pose);
+      if (visual_reference.has_value()) {
         gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
-        factor.stamp_ns = tracking_pose.stamp_ns;
+        factor.stamp_ns = visual_reference->stamp_ns;
         factor.source_id = 1U;
-        factor.reference_p_w_i = tracking_pose.p_w_i;
-        factor.reference_q_w_i = tracking_pose.q_w_i;
+        factor.reference_p_w_i = visual_reference->p_w_i;
+        factor.reference_q_w_i = visual_reference->q_w_i;
         factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
           q_i_c_,
           p_i_c_,
@@ -1432,51 +1467,73 @@ private:
               get_logger(), *get_clock(), 2000,
               "sliding window optimized state rejected before odometry/IMU feedback");
           } else {
-            const Eigen::Quaterniond feedback_delta_q =
+            auto applied = optimized;
+            const Eigen::Vector3d raw_translation_delta = optimized.p_w_i - input_pose.p_w_i;
+            const double raw_translation_delta_m = raw_translation_delta.norm();
+            if (sliding_window_max_feedback_translation_m_ > 0.0 &&
+              raw_translation_delta_m > sliding_window_max_feedback_translation_m_)
+            {
+              applied.p_w_i = input_pose.p_w_i +
+                raw_translation_delta * (sliding_window_max_feedback_translation_m_ / raw_translation_delta_m);
+            }
+            Eigen::Quaterniond feedback_delta_q =
               (input_pose.q_w_i.normalized().inverse() * optimized.q_w_i.normalized()).normalized();
-            const double feedback_translation_delta_m =
-              (optimized.p_w_i - input_pose.p_w_i).norm();
-            const double feedback_rotation_delta_rad =
-              2.0 * std::atan2(feedback_delta_q.vec().norm(), std::abs(feedback_delta_q.w()));
-            const double feedback_velocity_delta_mps =
-              (optimized.v_w_i - imu_state.v_w_i).norm();
-            const bool feedback_exceeds_limit =
-              (sliding_window_max_feedback_translation_m_ > 0.0 &&
-              feedback_translation_delta_m > sliding_window_max_feedback_translation_m_) ||
-              (sliding_window_max_feedback_rotation_rad_ > 0.0 &&
-              feedback_rotation_delta_rad > sliding_window_max_feedback_rotation_rad_) ||
-              (sliding_window_max_feedback_velocity_mps_ > 0.0 &&
-              feedback_velocity_delta_mps > sliding_window_max_feedback_velocity_mps_);
-            if (feedback_exceeds_limit) {
+            if (feedback_delta_q.w() < 0.0) {
+              feedback_delta_q.coeffs() *= -1.0;
+            }
+            const double raw_rotation_delta_rad =
+              2.0 * std::atan2(feedback_delta_q.vec().norm(), feedback_delta_q.w());
+            if (sliding_window_max_feedback_rotation_rad_ > 0.0 &&
+              raw_rotation_delta_rad > sliding_window_max_feedback_rotation_rad_)
+            {
+              const double ratio = sliding_window_max_feedback_rotation_rad_ / raw_rotation_delta_rad;
+              const Eigen::Quaterniond limited_delta =
+                Eigen::Quaterniond::Identity().slerp(ratio, feedback_delta_q).normalized();
+              applied.q_w_i = (input_pose.q_w_i.normalized() * limited_delta).normalized();
+            }
+            const Eigen::Vector3d raw_velocity_delta = optimized.v_w_i - imu_state.v_w_i;
+            const double raw_velocity_delta_mps = raw_velocity_delta.norm();
+            if (sliding_window_max_feedback_velocity_mps_ > 0.0 &&
+              raw_velocity_delta_mps > sliding_window_max_feedback_velocity_mps_)
+            {
+              applied.v_w_i = imu_state.v_w_i +
+                raw_velocity_delta * (sliding_window_max_feedback_velocity_mps_ / raw_velocity_delta_mps);
+            }
+            if (!valid_sliding_window_state(applied)) {
               ++sliding_window_invalid_optimized_states_;
               RCLCPP_WARN_THROTTLE(
                 get_logger(), *get_clock(), 2000,
-                "sliding window feedback rejected: translation=%.6fm rotation=%.6frad velocity=%.6fm/s",
-                feedback_translation_delta_m,
-                feedback_rotation_delta_rad,
-                feedback_velocity_delta_mps);
+                "sliding window limited feedback rejected because it became invalid");
             } else {
+              const Eigen::Quaterniond applied_delta_q =
+                (input_pose.q_w_i.normalized().inverse() * applied.q_w_i.normalized()).normalized();
+              const double feedback_translation_delta_m =
+                (applied.p_w_i - input_pose.p_w_i).norm();
+              const double feedback_rotation_delta_rad =
+                2.0 * std::atan2(applied_delta_q.vec().norm(), std::abs(applied_delta_q.w()));
+              const double feedback_velocity_delta_mps =
+                (applied.v_w_i - imu_state.v_w_i).norm();
               sync_window_controls = true;
               last_sliding_window_feedback_translation_delta_m_ = feedback_translation_delta_m;
               last_sliding_window_feedback_rotation_delta_rad_ = feedback_rotation_delta_rad;
               last_sliding_window_feedback_velocity_delta_mps_ = feedback_velocity_delta_mps;
-              last_sliding_window_feedback_stamp_ns_ = optimized.stamp_ns;
+              last_sliding_window_feedback_stamp_ns_ = applied.stamp_ns;
               ++sliding_window_feedback_update_count_;
-              output_pose.p_w_i = optimized.p_w_i;
-              output_pose.q_w_i = optimized.q_w_i;
-              output_pose.v_w_i = optimized.v_w_i;
-              sliding_window_bias_.gyro = optimized.gyro_bias;
-              sliding_window_bias_.accel = optimized.accel_bias;
+              output_pose.p_w_i = applied.p_w_i;
+              output_pose.q_w_i = applied.q_w_i;
+              output_pose.v_w_i = applied.v_w_i;
+              sliding_window_bias_.gyro = applied.gyro_bias;
+              sliding_window_bias_.accel = applied.accel_bias;
               if (!imu_propagator_.initialized() ||
-                imu_propagator_.state().stamp_ns <= optimized.stamp_ns)
+                imu_propagator_.state().stamp_ns <= applied.stamp_ns)
               {
                 gaussian_lic_tracking::ImuState corrected_state;
-                corrected_state.stamp_ns = optimized.stamp_ns;
-                corrected_state.p_w_i = optimized.p_w_i;
-                corrected_state.q_w_i = optimized.q_w_i;
-                corrected_state.v_w_i = optimized.v_w_i;
-                corrected_state.gyro_bias = optimized.gyro_bias;
-                corrected_state.accel_bias = optimized.accel_bias;
+                corrected_state.stamp_ns = applied.stamp_ns;
+                corrected_state.p_w_i = applied.p_w_i;
+                corrected_state.q_w_i = applied.q_w_i;
+                corrected_state.v_w_i = applied.v_w_i;
+                corrected_state.gyro_bias = applied.gyro_bias;
+                corrected_state.accel_bias = applied.accel_bias;
                 imu_propagator_.reset(corrected_state);
                 ++num_sliding_window_imu_reanchors_;
               }
@@ -1643,14 +1700,42 @@ private:
     }
   }
 
-  bool pending_factor_stamp_is_fresh(
+  std::optional<gaussian_lic_tracking::TrajectoryPose> select_visual_factor_reference(
     const std::optional<int64_t> & factor_stamp_ns,
-    const int64_t target_stamp_ns) const
+    const gaussian_lic_tracking::TrajectoryPose & current_pose) const
   {
     if (!factor_stamp_ns.has_value()) {
-      return false;
+      return std::nullopt;
     }
-    return stamp_delta_is_within(factor_stamp_ns.value(), target_stamp_ns, visual_factor_max_dt_ns_);
+    if (stamp_delta_is_within(factor_stamp_ns.value(), current_pose.stamp_ns, visual_factor_max_dt_ns_)) {
+      return current_pose;
+    }
+
+    const auto & states = sliding_window_optimizer_.states();
+    const gaussian_lic_tracking::SlidingWindowState * best_state = nullptr;
+    int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    for (const auto & state : states) {
+      const int64_t delta_ns = stamp_delta_ns(state.stamp_ns, factor_stamp_ns.value());
+      if (delta_ns < best_delta_ns) {
+        best_delta_ns = delta_ns;
+        best_state = &state;
+      }
+    }
+    const int64_t max_history_delta_ns = std::max<int64_t>(
+      visual_factor_max_dt_ns_,
+      static_cast<int64_t>(
+        std::max(0.0, sliding_window_max_state_gap_s_) *
+        static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond)));
+    if (best_state == nullptr || best_delta_ns > max_history_delta_ns) {
+      return std::nullopt;
+    }
+
+    gaussian_lic_tracking::TrajectoryPose reference;
+    reference.stamp_ns = best_state->stamp_ns;
+    reference.p_w_i = best_state->p_w_i;
+    reference.q_w_i = best_state->q_w_i;
+    reference.v_w_i = best_state->v_w_i;
+    return reference;
   }
 
   static bool stamp_delta_is_within(
@@ -1767,6 +1852,25 @@ private:
     }
   }
 
+  void cache_observed_frame(gaussian_lic_tracking::VisualFrame frame)
+  {
+    const auto insert_it = std::lower_bound(
+      observed_frame_cache_.begin(), observed_frame_cache_.end(), frame.stamp_ns,
+      [](const gaussian_lic_tracking::VisualFrame & cached, const int64_t stamp_ns) {
+        return cached.stamp_ns < stamp_ns;
+      });
+    if (insert_it != observed_frame_cache_.end() && insert_it->stamp_ns == frame.stamp_ns) {
+      *insert_it = std::move(frame);
+    } else {
+      observed_frame_cache_.insert(insert_it, std::move(frame));
+    }
+
+    const auto max_cache_size = static_cast<size_t>(observed_frame_cache_size_);
+    while (observed_frame_cache_.size() > max_cache_size) {
+      observed_frame_cache_.pop_front();
+    }
+  }
+
   const DepthFrame * select_depth_frame_for_stamp(
     const int64_t image_stamp_ns,
     const size_t width,
@@ -1815,6 +1919,38 @@ private:
       }
       had_size_match = true;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
+      if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
+        delta_ns < best_delta_ns)
+      {
+        best = &frame;
+        best_delta_ns = delta_ns;
+      }
+    }
+    if (selected_delta_ns != nullptr) {
+      *selected_delta_ns = best == nullptr ? 0 : best_delta_ns;
+    }
+    if (cache_had_size_match != nullptr) {
+      *cache_had_size_match = had_size_match;
+    }
+    return best;
+  }
+
+  const gaussian_lic_tracking::VisualFrame * select_observed_frame_for_stamp(
+    const int64_t rendered_stamp_ns,
+    const size_t width,
+    const size_t height,
+    int64_t * selected_delta_ns = nullptr,
+    bool * cache_had_size_match = nullptr) const
+  {
+    const gaussian_lic_tracking::VisualFrame * best = nullptr;
+    int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    bool had_size_match = false;
+    for (const auto & frame : observed_frame_cache_) {
+      if (frame.width != width || frame.height != height) {
+        continue;
+      }
+      had_size_match = true;
+      const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, rendered_stamp_ns);
       if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
         delta_ns < best_delta_ns)
       {
@@ -2730,6 +2866,7 @@ private:
   int64_t visual_factor_max_dt_ns_{150000000LL};
   int depth_frame_cache_size_{8};
   int rendered_frame_cache_size_{8};
+  int observed_frame_cache_size_{64};
   Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};
@@ -2887,6 +3024,9 @@ private:
   double last_visual_se3_photometric_mean_abs_residual_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   std::deque<DepthFrame> depth_frame_cache_;
+  std::deque<gaussian_lic_tracking::VisualFrame> observed_frame_cache_;
+  std::optional<int64_t> last_processed_visual_observed_stamp_ns_;
+  std::optional<int64_t> last_processed_visual_rendered_stamp_ns_;
   size_t last_visual_depth_cache_size_{0};
   int64_t last_visual_depth_match_delta_ns_{0};
   uint64_t visual_depth_miss_count_{0};

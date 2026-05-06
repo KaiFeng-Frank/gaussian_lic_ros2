@@ -21,6 +21,7 @@ SLIDING_WINDOW_OPTIMIZER = ROOT / "src" / "gaussian_lic_tracking" / "src" / "sli
 SLIDING_WINDOW_HEADER = ROOT / "src" / "gaussian_lic_tracking" / "include" / "gaussian_lic_tracking" / "sliding_window_optimizer.hpp"
 IMU_PREINTEGRATOR = ROOT / "src" / "gaussian_lic_tracking" / "src" / "imu_preintegrator.cpp"
 TRACKING_STATUS_MSG = ROOT / "src" / "gaussian_lic_msgs" / "msg" / "TrackingStatus.msg"
+NATIVE_TRACKING_REPORT = ROOT / "scripts" / "run_native_tracking_bag_report.sh"
 SYNTHETIC_GS_FRAME_PUB = (
     ROOT / "src" / "gaussian_lic_tools" / "gaussian_lic_tools" / "synthetic_gs_frame_pub.py"
 )
@@ -70,6 +71,7 @@ def main() -> int:
     sliding_window_header_text = read(SLIDING_WINDOW_HEADER)
     imu_preintegrator_text = read(IMU_PREINTEGRATOR)
     tracking_status_msg_text = read(TRACKING_STATUS_MSG)
+    native_tracking_report_text = read(NATIVE_TRACKING_REPORT)
     synthetic_pub_text = read(SYNTHETIC_GS_FRAME_PUB)
     tracking_smoke_text = read(TRACKING_SMOKE_TEST)
     timing_audit_text = read(TIMING_AUDIT)
@@ -286,6 +288,14 @@ def main() -> int:
         errors.append("tracking_node must default the visual rendered-frame cache size to 8")
     if 'DeclareLaunchArgument("rendered_frame_cache_size", default_value="8")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default the visual rendered-frame cache size to 8")
+    if 'declare_parameter<int>("observed_frame_cache_size", 64)' not in tracking_node_text:
+        errors.append("tracking_node must keep a delayed observed-image cache for async mapper feedback")
+    if 'DeclareLaunchArgument("observed_frame_cache_size", default_value="64")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose the observed-image cache size")
+    if "select_visual_factor_reference" not in tracking_node_text:
+        errors.append("tracking_node must attach delayed visual factors to active window states")
+    if "observed_frame_cache_size:=128" not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must enlarge the observed-frame cache")
     if 'declare_parameter<bool>("enable_sliding_window_smoothness_factor", true)' not in tracking_node_text:
         errors.append("tracking_node must default trajectory smoothness BA factors to true")
     if 'DeclareLaunchArgument("enable_sliding_window_smoothness_factor", default_value="true")' not in tracking_launch_text:
