@@ -259,7 +259,7 @@ The offline artifact extraction check writes `point_cloud_debug.ply`, verifies t
 
 The workspace verification script calls `scripts/verify_artifact_gates.sh`, which exercises `scripts/trajectory_compare.py`, `scripts/pointcloud_compare.py`, `scripts/baseline_manifest.py`, `scripts/reproduction_report.py`, and `scripts/rosbag2_timing_audit.py` with tiny synthetic artifacts. GitHub Actions runs the same Python-only gate before the ROS build matrix, so archive/report regressions do not need a ROS runtime to fail fast. Set `GAUSSIAN_LIC_ARTIFACT_DIR` to choose where the JSON/Markdown reports are written; CI uploads that directory as `artifact-gate-reports`.
 
-The Jazzy CI leg also builds the workspace, records short synthetic mapper and raw frontend rosbag2 sequences, replays the mapper bag through the non-torch mapper smoke path in both full-contract and `--minimal-inputs` modes, and replays the raw frontend odometry bag through `lic2_contract_adapter`. Humble remains build-only until the replay smoke path is validated there.
+The Jazzy CI leg also builds the workspace, records short synthetic mapper and raw frontend rosbag2 sequences, replays the mapper bag through the non-torch mapper smoke path in both full-contract and `--minimal-inputs` modes, and replays the raw frontend odometry bag through `lic2_contract_adapter`. GitHub Actions intentionally keeps a Jazzy-only matrix for this port.
 
 Strict current-result collection uses `scripts/strict_rosbag2_play.sh`, which
 runs the timing audit first and then calls `ros2 bag play --clock

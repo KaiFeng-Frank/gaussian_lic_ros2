@@ -80,6 +80,8 @@ public:
     raw_depth_topic_ = declare_parameter<std::string>("raw_depth_topic", "/camera/depth");
     raw_pointcloud_topic_ = declare_parameter<std::string>("raw_pointcloud_topic", "/livox/lidar");
     raw_imu_topic_ = declare_parameter<std::string>("raw_imu_topic", "/imu");
+    external_odometry_prior_topic_ = declare_parameter<std::string>(
+      "external_odometry_prior_topic", "/gaussian_lic/frontend/input_odometry");
     image_topic_ = declare_parameter<std::string>("image_topic", "/image_for_gs");
     camera_info_topic_ = declare_parameter<std::string>("camera_info_topic", "/camera_info_for_gs");
     depth_topic_ = declare_parameter<std::string>("depth_topic", "/depth_for_gs");
@@ -179,6 +181,20 @@ public:
       "se3_photometric_max_abs_residual",
       declare_parameter<double>("se3_photometric_max_abs_residual", 1.0));
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
+    enable_external_odometry_prior_ =
+      declare_parameter<bool>("enable_external_odometry_prior", false);
+    external_odometry_prior_max_dt_ns_ = integer_parameter_at_least(
+      "external_odometry_prior_max_dt_ns",
+      declare_parameter<int64_t>("external_odometry_prior_max_dt_ns", 100000000LL), 0LL);
+    external_odometry_prior_cache_size_ = integer_parameter_at_least(
+      "external_odometry_prior_cache_size",
+      declare_parameter<int>("external_odometry_prior_cache_size", 128), 1);
+    external_odometry_prior_translation_weight_ = finite_nonnegative_parameter(
+      "external_odometry_prior_translation_weight",
+      declare_parameter<double>("external_odometry_prior_translation_weight", 4.0));
+    external_odometry_prior_rotation_weight_ = finite_nonnegative_parameter(
+      "external_odometry_prior_rotation_weight",
+      declare_parameter<double>("external_odometry_prior_rotation_weight", 4.0));
     enable_lidar_plane_factor_ = declare_parameter<bool>("enable_lidar_plane_factor", true);
     lidar_min_points_ = integer_parameter_at_least(
       "lidar_min_points", declare_parameter<int>("lidar_min_points", 32), 1);
@@ -385,6 +401,15 @@ public:
           handle_imu(*msg);
         });
       });
+    if (enable_external_odometry_prior_ && !external_odometry_prior_topic_.empty()) {
+      external_odometry_prior_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+        external_odometry_prior_topic_, frontend_odometry_qos,
+        [this](nav_msgs::msg::Odometry::ConstSharedPtr msg) {
+          run_serialized_callback([this, msg]() {
+            handle_external_odometry_prior(*msg);
+          });
+        });
+    }
 
     image_pub_ = create_publisher<sensor_msgs::msg::Image>(image_topic_, image_qos);
     camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
@@ -464,6 +489,13 @@ private:
     std::string reliability{"best_effort"};
     std::string history{"keep_last"};
     int depth{5};
+  };
+
+  struct ExternalPosePrior
+  {
+    int64_t stamp_ns{0};
+    Eigen::Vector3d p_w_i{Eigen::Vector3d::Zero()};
+    Eigen::Quaterniond q_w_i{Eigen::Quaterniond::Identity()};
   };
 
   template<typename CallbackT>
@@ -552,6 +584,43 @@ private:
     }
   }
 
+  void handle_external_odometry_prior(const nav_msgs::msg::Odometry & msg)
+  {
+    try {
+      const int64_t stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+      if (!accept_stream_stamp(
+          "external_odometry_prior",
+          stamp_ns,
+          last_external_odometry_prior_input_stamp_ns_,
+          external_odometry_prior_stamp_regressions_,
+          false))
+      {
+        return;
+      }
+      if (!valid_pose_msg(msg.pose.pose)) {
+        ++external_odometry_prior_invalid_messages_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "dropping external odometry prior with non-finite pose or invalid quaternion");
+        return;
+      }
+      external_odometry_priors_.push_back(
+        external_pose_prior_from_msg(stamp_ns, msg.pose.pose));
+      last_external_odometry_prior_stamp_ns_ = stamp_ns;
+      ++external_odometry_priors_received_;
+      while (external_odometry_priors_.size() >
+        static_cast<size_t>(external_odometry_prior_cache_size_))
+      {
+        external_odometry_priors_.pop_front();
+      }
+    } catch (const std::exception & ex) {
+      ++external_odometry_prior_invalid_messages_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "failed to cache external odometry prior: %s", ex.what());
+    }
+  }
+
   void handle_camera_info(const sensor_msgs::msg::CameraInfo & msg)
   {
     camera_info_pub_->publish(msg);
@@ -583,6 +652,39 @@ private:
            state.gyro_bias.allFinite() && state.accel_bias.allFinite() &&
            state.q_w_i.coeffs().allFinite() &&
            state.q_w_i.norm() > std::numeric_limits<double>::epsilon();
+  }
+
+  static bool valid_pose_msg(const geometry_msgs::msg::Pose & pose)
+  {
+    const Eigen::Vector3d p{
+      pose.position.x,
+      pose.position.y,
+      pose.position.z};
+    const Eigen::Quaterniond q{
+      pose.orientation.w,
+      pose.orientation.x,
+      pose.orientation.y,
+      pose.orientation.z};
+    return p.allFinite() && q.coeffs().allFinite() &&
+           q.norm() > std::numeric_limits<double>::epsilon();
+  }
+
+  static ExternalPosePrior external_pose_prior_from_msg(
+    const int64_t stamp_ns,
+    const geometry_msgs::msg::Pose & pose)
+  {
+    ExternalPosePrior prior;
+    prior.stamp_ns = stamp_ns;
+    prior.p_w_i = Eigen::Vector3d{
+      pose.position.x,
+      pose.position.y,
+      pose.position.z};
+    prior.q_w_i = Eigen::Quaterniond{
+      pose.orientation.w,
+      pose.orientation.x,
+      pose.orientation.y,
+      pose.orientation.z}.normalized();
+    return prior;
   }
 
   static Eigen::Vector3d vector3_from_parameter(
@@ -1107,6 +1209,29 @@ private:
     prior.rotation_weight = sliding_window_pose_rotation_weight_;
     sliding_window_optimizer_.add_pose_prior(prior);
     bool window_factor_added = false;
+    if (enable_external_odometry_prior_) {
+      const auto external_prior = select_external_odometry_prior(input_pose.stamp_ns);
+      if (external_prior.has_value()) {
+        gaussian_lic_tracking::SlidingWindowPosePrior odometry_prior;
+        odometry_prior.stamp_ns = input_pose.stamp_ns;
+        odometry_prior.p_w_i = external_prior->p_w_i;
+        odometry_prior.q_w_i = external_prior->q_w_i;
+        odometry_prior.translation_weight = external_odometry_prior_translation_weight_;
+        odometry_prior.rotation_weight = external_odometry_prior_rotation_weight_;
+        try {
+          sliding_window_optimizer_.add_pose_prior(odometry_prior);
+          ++external_odometry_prior_matches_;
+          window_factor_added = true;
+        } catch (const std::exception & ex) {
+          ++external_odometry_prior_invalid_messages_;
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "external odometry pose prior skipped: %s", ex.what());
+        }
+      } else {
+        ++external_odometry_prior_misses_;
+      }
+    }
     for (const auto & point_factor : point_factors) {
       try {
         sliding_window_optimizer_.add_point_to_point_factor(point_factor);
@@ -1313,6 +1438,27 @@ private:
     sliding_window_preintegrator_.reset(input_pose.stamp_ns, sliding_window_bias_);
     sliding_window_preintegrator_initialized_ = true;
     return output_pose;
+  }
+
+  std::optional<ExternalPosePrior> select_external_odometry_prior(const int64_t stamp_ns) const
+  {
+    if (!enable_external_odometry_prior_ || external_odometry_priors_.empty()) {
+      return std::nullopt;
+    }
+    const ExternalPosePrior * best_prior = nullptr;
+    int64_t best_abs_dt_ns = std::numeric_limits<int64_t>::max();
+    for (const auto & prior : external_odometry_priors_) {
+      const int64_t dt_ns = prior.stamp_ns - stamp_ns;
+      const int64_t abs_dt_ns = dt_ns < 0 ? -dt_ns : dt_ns;
+      if (abs_dt_ns < best_abs_dt_ns) {
+        best_abs_dt_ns = abs_dt_ns;
+        best_prior = &prior;
+      }
+    }
+    if (best_prior == nullptr || best_abs_dt_ns > external_odometry_prior_max_dt_ns_) {
+      return std::nullopt;
+    }
+    return *best_prior;
   }
 
   bool prepare_sliding_window_imu_preintegration(
@@ -2113,7 +2259,11 @@ private:
     status.rendered_stamp_regressions = rendered_stamp_regressions_;
     status.pointcloud_stamp_regressions = pointcloud_stamp_regressions_;
     status.imu_stamp_regressions = imu_stamp_regressions_;
+    status.external_odometry_prior_stamp_regressions =
+      external_odometry_prior_stamp_regressions_;
     status.imu_invalid_measurements = imu_invalid_measurements_;
+    status.external_odometry_prior_invalid_messages =
+      external_odometry_prior_invalid_messages_;
     status.camera_info_invalid_intrinsics = camera_info_invalid_intrinsics_;
     status.image_invalid_frames = image_invalid_frames_;
     status.depth_invalid_frames = depth_invalid_frames_;
@@ -2138,6 +2288,10 @@ private:
     status.num_raw_pointclouds = num_raw_pointclouds_;
     status.num_raw_imus = num_raw_imus_;
     status.num_published_poses = num_published_poses_;
+    status.external_odometry_priors_received = external_odometry_priors_received_;
+    status.external_odometry_prior_matches = external_odometry_prior_matches_;
+    status.external_odometry_prior_misses = external_odometry_prior_misses_;
+    status.last_external_odometry_prior_stamp_ns = last_external_odometry_prior_stamp_ns_;
 
     status.num_lidar_keyframes = num_lidar_keyframes_;
     status.lidar_map_points = static_cast<uint64_t>(lidar_factor_.map_size());
@@ -2382,6 +2536,7 @@ private:
   std::string raw_depth_topic_;
   std::string raw_pointcloud_topic_;
   std::string raw_imu_topic_;
+  std::string external_odometry_prior_topic_;
   std::string image_topic_;
   std::string camera_info_topic_;
   std::string depth_topic_;
@@ -2413,6 +2568,7 @@ private:
   bool serialize_callbacks_{true};
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
+  bool enable_external_odometry_prior_{false};
   int visual_max_pixels_{200000};
   int64_t visual_factor_max_dt_ns_{150000000LL};
   int depth_frame_cache_size_{8};
@@ -2445,6 +2601,8 @@ private:
   double lidar_max_abs_point_time_offset_s_{0.25};
   int imu_history_size_{4000};
   int64_t trajectory_control_interval_ns_{50000000LL};
+  int64_t external_odometry_prior_max_dt_ns_{100000000LL};
+  int external_odometry_prior_cache_size_{128};
   int sliding_window_max_states_{12};
   int sliding_window_max_iterations_{3};
   double sliding_window_max_rotation_step_rad_{0.5};
@@ -2466,6 +2624,8 @@ private:
   double sliding_window_bias_weight_{1.0};
   double sliding_window_pose_translation_weight_{2.0};
   double sliding_window_pose_rotation_weight_{2.0};
+  double external_odometry_prior_translation_weight_{4.0};
+  double external_odometry_prior_rotation_weight_{4.0};
   bool enable_sliding_window_smoothness_factor_{true};
   double sliding_window_smoothness_rotation_weight_{0.1};
   double sliding_window_smoothness_position_weight_{0.1};
@@ -2490,6 +2650,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr external_odometry_prior_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rendered_image_sub_;
   rclcpp::Subscription<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr gaussian_map_sub_;
   std::mutex callback_mutex_;
@@ -2505,6 +2666,7 @@ private:
   gaussian_lic_tracking::ImuPropagator imu_propagator_;
   gaussian_lic_tracking::TrajectoryManager trajectory_manager_;
   gaussian_lic_tracking::SlidingWindowOptimizer sliding_window_optimizer_;
+  std::deque<ExternalPosePrior> external_odometry_priors_;
   gaussian_lic_tracking::ImuPreintegrator sliding_window_preintegrator_;
   gaussian_lic_tracking::ImuBias sliding_window_bias_;
   bool sliding_window_preintegrator_initialized_{false};
@@ -2584,6 +2746,9 @@ private:
   uint64_t num_raw_pointclouds_{0};
   uint64_t num_raw_imus_{0};
   uint64_t num_published_poses_{0};
+  uint64_t external_odometry_priors_received_{0};
+  uint64_t external_odometry_prior_matches_{0};
+  uint64_t external_odometry_prior_misses_{0};
   uint64_t lidar_invalid_points_{0};
   uint64_t lidar_invalid_point_times_{0};
   uint64_t lidar_out_of_range_point_times_{0};
@@ -2591,17 +2756,21 @@ private:
   int64_t last_image_stamp_ns_{0};
   int64_t last_pointcloud_stamp_ns_{0};
   int64_t last_imu_stamp_ns_{0};
+  int64_t last_external_odometry_prior_stamp_ns_{0};
   std::optional<int64_t> last_image_input_stamp_ns_;
   std::optional<int64_t> last_depth_input_stamp_ns_;
   std::optional<int64_t> last_rendered_input_stamp_ns_;
   std::optional<int64_t> last_pointcloud_input_stamp_ns_;
   std::optional<int64_t> last_imu_input_stamp_ns_;
+  std::optional<int64_t> last_external_odometry_prior_input_stamp_ns_;
   uint64_t image_stamp_regressions_{0};
   uint64_t depth_stamp_regressions_{0};
   uint64_t rendered_stamp_regressions_{0};
   uint64_t pointcloud_stamp_regressions_{0};
   uint64_t imu_stamp_regressions_{0};
+  uint64_t external_odometry_prior_stamp_regressions_{0};
   uint64_t imu_invalid_measurements_{0};
+  uint64_t external_odometry_prior_invalid_messages_{0};
   uint64_t camera_info_invalid_intrinsics_{0};
   uint64_t image_invalid_frames_{0};
   uint64_t depth_invalid_frames_{0};

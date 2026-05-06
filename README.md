@@ -158,6 +158,26 @@ This records native tracking odometry/status and mapper-contract outputs, then
 gates signed-time, IMU, LiDAR, sliding-window, and numeric-Jacobian health in
 `native_tracking_report.json`.
 
+Add reference trajectory gating when the frontend-raw bag carries a trusted
+odometry stream:
+
+```bash
+./scripts/run_native_tracking_bag_report.sh \
+  --bag bags/synthetic_frontend_raw_visual_demo \
+  --output /tmp/gaussian_lic_native_tracking_reference_prior_probe \
+  --playback-duration 4 \
+  --enable-external-odometry-prior \
+  --require-reference-trajectory \
+  --min-reference-poses 5
+```
+
+The default native path stays sensor-only; `--enable-external-odometry-prior`
+must be set explicitly before the `/gaussian_lic/frontend/input_odometry`
+stream is admitted as a sliding-window pose prior. The report then records both
+`trajectory.tum` and `reference_trajectory.tum`, runs
+`scripts/trajectory_compare.py`, and stores the result in
+`native_tracking_trajectory_compare.json`.
+
 Latest local real-bag check:
 
 ```text
@@ -168,6 +188,10 @@ normal_equation_rows=87779, numeric_jacobian_blocks=0
 results/fastlivo2/CBD_Building_01_native_tracking_8s/native_tracking_report.json
 ok=true, poses=22, /points_for_gs=23, status_samples=22, imu_factors=3,
 normal_equation_rows=65611, numeric_jacobian_blocks=0
+
+/tmp/gaussian_lic_native_tracking_reference_prior_probe/native_tracking_report.json
+ok=true, poses=32, reference_poses=32, external_prior_matches=25,
+trajectory_rmse=0.101496 m, coverage=100.00%
 ```
 
 Run the full local verification wrapper:

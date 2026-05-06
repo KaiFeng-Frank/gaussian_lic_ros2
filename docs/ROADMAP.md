@@ -281,7 +281,7 @@ baseline_manifest.json
 - [x] Status schema page.
 - [x] Offline rosbag2 artifact extraction CLI skeleton.
 - [x] Performance regression comparison script.
-- [x] Jazzy/Humble build-only CI skeleton.
+- [x] Jazzy-only GitHub Actions CI matrix.
 - [x] Python-only CI artifact gates for baseline manifests and reproduction reports.
 - [x] FAST-LIVO2 data fetch/readiness scripts for executable baseline status.
 - [x] Reproducible ROS1 upstream baseline build-attempt script for the local Noetic Docker environment.
@@ -324,6 +324,9 @@ baseline_manifest.json
 - [x] Add a real frontend-raw native tracking report script that records odometry/status/mapper-contract outputs and gates signed-time, IMU, LiDAR, sliding-window, and numeric-Jacobian health.
   - 2026-05-06 local Bright 8s run at `results/fastlivo2/Bright_Screen_Wall_native_tracking_8s/native_tracking_report.json` passes with 20 odometry poses, 21 mapper point frames, 20 status samples, 3 IMU factors, 87,779 normal-equation rows, and zero numeric-Jacobian fallback.
   - 2026-05-06 local CBD 8s run at `results/fastlivo2/CBD_Building_01_native_tracking_8s/native_tracking_report.json` passes with 22 odometry poses, 23 mapper point frames, 22 status samples, 3 IMU factors, 65,611 normal-equation rows, and zero numeric-Jacobian fallback.
+- [x] Add optional reference-trajectory native tracking evidence with explicit external-odometry pose priors.
+  - The native report now records `reference_trajectory.tum`, can require `trajectory_compare.py` against `/gaussian_lic/frontend/input_odometry`, and keeps the odometry prior off by default so sensor-only tracking is not silently assisted.
+  - 2026-05-06 synthetic frontend-raw visual run with `--enable-external-odometry-prior --require-reference-trajectory` passes with 32 native poses, 32 reference poses, 25 external-prior matches, 100.00% trajectory coverage, and 0.101496 m RMSE.
 - [x] Local SPNet TensorRT engine benchmark passes the runtime target.
   - TensorRT 10.9 CUDA 12.8 builds `/home/frank/Software/TensorRT-engines/spnet_512_640_fp16.engine` for the RTX 5070 Ti `sm_120` GPU.
   - Mean `trtexec` latency is 26.4492 ms at `512x640`, below the 30 ms/frame target.

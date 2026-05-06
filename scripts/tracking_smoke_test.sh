@@ -220,7 +220,12 @@ status_matches() {
     rg -q "rendered_stamp_regressions: 0" "${status_file}" &&
     rg -q "pointcloud_stamp_regressions: 0" "${status_file}" &&
     rg -q "imu_stamp_regressions: 0" "${status_file}" &&
+    rg -q "external_odometry_prior_stamp_regressions: 0" "${status_file}" &&
     rg -q "imu_invalid_measurements: 0" "${status_file}" &&
+    rg -q "external_odometry_prior_invalid_messages: 0" "${status_file}" &&
+    rg -q "external_odometry_priors_received:" "${status_file}" &&
+    rg -q "external_odometry_prior_matches:" "${status_file}" &&
+    rg -q "external_odometry_prior_misses:" "${status_file}" &&
     rg -q "camera_info_invalid_intrinsics: 0" "${status_file}" &&
     rg -q "image_invalid_frames: 0" "${status_file}" &&
     rg -q "depth_invalid_frames: 0" "${status_file}" &&

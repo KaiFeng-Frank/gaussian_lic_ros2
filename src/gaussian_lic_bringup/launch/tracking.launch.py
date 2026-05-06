@@ -13,6 +13,7 @@ def generate_launch_description():
     raw_depth_topic = LaunchConfiguration("raw_depth_topic")
     raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
     raw_imu_topic = LaunchConfiguration("raw_imu_topic")
+    external_odometry_prior_topic = LaunchConfiguration("external_odometry_prior_topic")
     tracking_status_topic = LaunchConfiguration("tracking_status_topic")
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
@@ -51,6 +52,15 @@ def generate_launch_description():
         for suffix in ("qos_reliability", "qos_history", "qos_depth")
     ]
     enable_lio_factor = LaunchConfiguration("enable_lio_factor")
+    enable_external_odometry_prior = LaunchConfiguration("enable_external_odometry_prior")
+    external_odometry_prior_max_dt_ns = LaunchConfiguration("external_odometry_prior_max_dt_ns")
+    external_odometry_prior_cache_size = LaunchConfiguration("external_odometry_prior_cache_size")
+    external_odometry_prior_translation_weight = LaunchConfiguration(
+        "external_odometry_prior_translation_weight"
+    )
+    external_odometry_prior_rotation_weight = LaunchConfiguration(
+        "external_odometry_prior_rotation_weight"
+    )
     enable_lidar_plane_factor = LaunchConfiguration("enable_lidar_plane_factor")
     lidar_min_points = LaunchConfiguration("lidar_min_points")
     lidar_max_frame_points = LaunchConfiguration("lidar_max_frame_points")
@@ -134,6 +144,10 @@ def generate_launch_description():
             DeclareLaunchArgument("raw_depth_topic", default_value="/camera/depth"),
             DeclareLaunchArgument("raw_pointcloud_topic", default_value="/livox/lidar"),
             DeclareLaunchArgument("raw_imu_topic", default_value="/imu"),
+            DeclareLaunchArgument(
+                "external_odometry_prior_topic",
+                default_value="/gaussian_lic/frontend/input_odometry",
+            ),
             DeclareLaunchArgument("tracking_status_topic", default_value="/gaussian_lic/frontend/status"),
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
@@ -143,6 +157,11 @@ def generate_launch_description():
             DeclareLaunchArgument("sensor_qos_depth", default_value="5"),
             *qos_launch_arguments,
             DeclareLaunchArgument("enable_lio_factor", default_value="true"),
+            DeclareLaunchArgument("enable_external_odometry_prior", default_value="false"),
+            DeclareLaunchArgument("external_odometry_prior_max_dt_ns", default_value="100000000"),
+            DeclareLaunchArgument("external_odometry_prior_cache_size", default_value="128"),
+            DeclareLaunchArgument("external_odometry_prior_translation_weight", default_value="4.0"),
+            DeclareLaunchArgument("external_odometry_prior_rotation_weight", default_value="4.0"),
             DeclareLaunchArgument("enable_lidar_plane_factor", default_value="true"),
             DeclareLaunchArgument("lidar_min_points", default_value="32"),
             DeclareLaunchArgument("lidar_max_frame_points", default_value="2000"),
@@ -228,6 +247,7 @@ def generate_launch_description():
                         "raw_depth_topic": raw_depth_topic,
                         "raw_pointcloud_topic": raw_pointcloud_topic,
                         "raw_imu_topic": raw_imu_topic,
+                        "external_odometry_prior_topic": external_odometry_prior_topic,
                         "tracking_status_topic": tracking_status_topic,
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,
@@ -237,6 +257,15 @@ def generate_launch_description():
                         "sensor_qos_depth": sensor_qos_depth,
                         **qos_launch_configs,
                         "enable_lio_factor": enable_lio_factor,
+                        "enable_external_odometry_prior": enable_external_odometry_prior,
+                        "external_odometry_prior_max_dt_ns": external_odometry_prior_max_dt_ns,
+                        "external_odometry_prior_cache_size": external_odometry_prior_cache_size,
+                        "external_odometry_prior_translation_weight": (
+                            external_odometry_prior_translation_weight
+                        ),
+                        "external_odometry_prior_rotation_weight": (
+                            external_odometry_prior_rotation_weight
+                        ),
                         "enable_lidar_plane_factor": enable_lidar_plane_factor,
                         "lidar_min_points": lidar_min_points,
                         "lidar_max_frame_points": lidar_max_frame_points,

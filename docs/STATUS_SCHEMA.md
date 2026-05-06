@@ -70,7 +70,9 @@ depth_stamp_regressions
 rendered_stamp_regressions
 pointcloud_stamp_regressions
 imu_stamp_regressions
+external_odometry_prior_stamp_regressions
 imu_invalid_measurements
+external_odometry_prior_invalid_messages
 camera_info_invalid_intrinsics
 image_invalid_frames
 depth_invalid_frames
@@ -79,6 +81,10 @@ num_raw_images
 num_raw_pointclouds
 num_raw_imus
 num_published_poses
+external_odometry_priors_received
+external_odometry_prior_matches
+external_odometry_prior_misses
+last_external_odometry_prior_stamp_ns
 num_lidar_keyframes
 lidar_map_points
 lidar_spatial_index_voxels
@@ -263,6 +269,10 @@ or synchronization stalls that would otherwise look like an ordinary BA solve.
 It also gates nonzero trajectory smoothness factors, which constrain adjacent
 three-state rotation-rate, position-rate, velocity-acceleration, and bias-rate
 continuity in the native joint BA window.
+When `enable_external_odometry_prior` is explicitly enabled, the frontend also
+reports received, matched, missed, invalid, and stamp-regression counts for the
+reference odometry pose-prior stream. This keeps reference-assisted trajectory
+gates visible and separate from the default sensor-only native tracking path.
 The same gate requires zero global numeric-Jacobian fallback blocks/columns, so
 smoothness rotation rows and other active BA factors must stay on local analytic
 or bounded local-linearization paths instead of triggering full residual

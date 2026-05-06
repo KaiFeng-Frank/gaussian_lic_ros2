@@ -8,6 +8,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 
+from geometry_msgs.msg import PoseStamped
 from gaussian_lic_msgs.msg import TrackingStatus
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2
@@ -49,6 +50,8 @@ class NativeTrackingRecorder(Node):
         self.pointcloud_topic = self.declare_parameter("pointcloud_topic", "/points_for_gs").value
         self.status_topic = self.declare_parameter(
             "status_topic", "/gaussian_lic/frontend/status").value
+        self.reference_odometry_topic = self.declare_parameter("reference_odometry_topic", "").value
+        self.reference_pose_topic = self.declare_parameter("reference_pose_topic", "").value
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         qos = QoSProfile(
@@ -57,11 +60,16 @@ class NativeTrackingRecorder(Node):
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
         )
         self.poses = []
+        self.reference_poses = []
         self.topic_counts = {
             self.odometry_topic: 0,
             self.pointcloud_topic: 0,
             self.status_topic: 0,
         }
+        if self.reference_odometry_topic:
+            self.topic_counts[self.reference_odometry_topic] = 0
+        if self.reference_pose_topic:
+            self.topic_counts[self.reference_pose_topic] = 0
         self.first_stamp_ns = None
         self.last_stamp_ns = None
         self.last_status = {}
@@ -69,10 +77,21 @@ class NativeTrackingRecorder(Node):
         self.create_subscription(Odometry, self.odometry_topic, self.on_odometry, qos)
         self.create_subscription(PointCloud2, self.pointcloud_topic, self.on_pointcloud, qos)
         self.create_subscription(TrackingStatus, self.status_topic, self.on_status, qos)
+        if self.reference_odometry_topic:
+            self.create_subscription(
+                Odometry, self.reference_odometry_topic, self.on_reference_odometry, qos)
+        if self.reference_pose_topic:
+            self.create_subscription(
+                PoseStamped, self.reference_pose_topic, self.on_reference_pose, qos)
         self.create_timer(1.0, self.flush)
+        reference_topics = [
+            topic for topic in (self.reference_odometry_topic, self.reference_pose_topic) if topic
+        ]
+        reference_suffix = f", references={reference_topics}" if reference_topics else ""
         self.get_logger().info(
             "Recording native tracking evidence to "
-            f"{self.output_dir} from {self.odometry_topic}, {self.pointcloud_topic}, {self.status_topic}")
+            f"{self.output_dir} from {self.odometry_topic}, {self.pointcloud_topic}, "
+            f"{self.status_topic}{reference_suffix}")
 
     def update_span(self, stamp):
         stamp_ns = stamp_to_nsec(stamp)
@@ -84,9 +103,11 @@ class NativeTrackingRecorder(Node):
     def on_odometry(self, msg):
         self.topic_counts[self.odometry_topic] += 1
         self.update_span(msg.header.stamp)
-        pose = msg.pose.pose
-        self.poses.append((
-            stamp_to_tum(msg.header.stamp),
+        self.poses.append(self.pose_to_tum_record(msg.header.stamp, msg.pose.pose))
+
+    def pose_to_tum_record(self, stamp, pose):
+        return (
+            stamp_to_tum(stamp),
             finite_float(pose.position.x),
             finite_float(pose.position.y),
             finite_float(pose.position.z),
@@ -94,7 +115,36 @@ class NativeTrackingRecorder(Node):
             finite_float(pose.orientation.y),
             finite_float(pose.orientation.z),
             finite_float(pose.orientation.w),
-        ))
+        )
+
+    def on_reference_odometry(self, msg):
+        self.topic_counts[self.reference_odometry_topic] += 1
+        self.reference_poses.append(self.pose_to_tum_record(msg.header.stamp, msg.pose.pose))
+
+    def on_reference_pose(self, msg):
+        self.topic_counts[self.reference_pose_topic] += 1
+        self.reference_poses.append(self.pose_to_tum_record(msg.header.stamp, msg.pose))
+
+    @staticmethod
+    def write_tum(path, poses):
+        with path.open("w", encoding="utf-8") as stream:
+            for pose in sorted(poses, key=lambda item: item[0]):
+                stream.write(
+                    f"{pose[0]:.9f} {pose[1]:.9f} {pose[2]:.9f} {pose[3]:.9f} "
+                    f"{pose[4]:.9f} {pose[5]:.9f} {pose[6]:.9f} {pose[7]:.9f}\n")
+
+    @staticmethod
+    def path_length(poses):
+        if len(poses) < 2:
+            return 0.0
+        total = 0.0
+        ordered = sorted(poses, key=lambda item: item[0])
+        for previous, current in zip(ordered, ordered[1:]):
+            dx = current[1] - previous[1]
+            dy = current[2] - previous[2]
+            dz = current[3] - previous[3]
+            total += math.sqrt(dx * dx + dy * dy + dz * dz)
+        return total
 
     def on_pointcloud(self, msg):
         self.topic_counts[self.pointcloud_topic] += 1
@@ -106,12 +156,10 @@ class NativeTrackingRecorder(Node):
 
     def flush(self):
         trajectory_path = self.output_dir / "trajectory.tum"
+        reference_trajectory_path = self.output_dir / "reference_trajectory.tum"
         metrics_path = self.output_dir / "metrics.json"
-        with trajectory_path.open("w", encoding="utf-8") as stream:
-            for pose in sorted(self.poses, key=lambda item: item[0]):
-                stream.write(
-                    f"{pose[0]:.9f} {pose[1]:.9f} {pose[2]:.9f} {pose[3]:.9f} "
-                    f"{pose[4]:.9f} {pose[5]:.9f} {pose[6]:.9f} {pose[7]:.9f}\n")
+        self.write_tum(trajectory_path, self.poses)
+        self.write_tum(reference_trajectory_path, self.reference_poses)
 
         duration_sec = 0.0
         if self.first_stamp_ns is not None and self.last_stamp_ns is not None:
@@ -125,12 +173,16 @@ class NativeTrackingRecorder(Node):
             "topic_counts": dict(self.topic_counts),
             "topic_hz": topic_hz,
             "trajectory_poses": len(self.poses),
+            "trajectory_path_length_m": self.path_length(self.poses),
+            "reference_trajectory_poses": len(self.reference_poses),
+            "reference_trajectory_path_length_m": self.path_length(self.reference_poses),
             "tracking_status": {
                 "samples": self.topic_counts[self.status_topic],
                 "last": self.last_status,
             },
             "outputs": {
                 "trajectory_tum": str(trajectory_path),
+                "reference_trajectory_tum": str(reference_trajectory_path),
             },
         }
         metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")

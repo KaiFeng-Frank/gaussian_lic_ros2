@@ -23,7 +23,9 @@ uint64 depth_stamp_regressions
 uint64 rendered_stamp_regressions
 uint64 pointcloud_stamp_regressions
 uint64 imu_stamp_regressions
+uint64 external_odometry_prior_stamp_regressions
 uint64 imu_invalid_measurements
+uint64 external_odometry_prior_invalid_messages
 uint64 camera_info_invalid_intrinsics
 uint64 image_invalid_frames
 uint64 depth_invalid_frames
@@ -33,6 +35,10 @@ uint64 num_raw_images
 uint64 num_raw_pointclouds
 uint64 num_raw_imus
 uint64 num_published_poses
+uint64 external_odometry_priors_received
+uint64 external_odometry_prior_matches
+uint64 external_odometry_prior_misses
+int64 last_external_odometry_prior_stamp_ns
 
 uint64 num_lidar_keyframes
 uint64 lidar_map_points

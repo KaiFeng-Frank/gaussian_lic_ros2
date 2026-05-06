@@ -6,7 +6,7 @@ Goal: make strict reproduction measurable before the native algorithm port grows
 
 - Run and archive upstream Gaussian-LIC/Gaussian-LIC2 baseline artifacts for the selected FAST-LIVO2 sequence.
 - Add rosbag conversion tooling for ROS1 `.bag` to rosbag2 `.mcap`.
-- Keep Jazzy as the primary target and add Humble build-only CI scaffolding.
+- Keep Jazzy as the primary target and keep GitHub Actions on a Jazzy-only matrix.
 - Keep `gaussian_lic_offline` available for non-launch rosbag2 artifact extraction.
 - Freeze `/gaussian_lic/status` and `metrics.json` schemas for later CI comparison.
 - Add performance regression gates for tracking FPS, mapping FPS, and iteration time.

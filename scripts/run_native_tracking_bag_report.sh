@@ -15,6 +15,21 @@ MIN_POINT_FRAMES=10
 LIDAR_MIN_POINTS=32
 REQUIRE_BA_FEEDBACK=false
 ENABLE_VISUAL_FACTORS=false
+ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
+REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
+REFERENCE_POSE_TOPIC=""
+REQUIRE_REFERENCE_TRAJECTORY=false
+MIN_REFERENCE_POSES=10
+REFERENCE_TRAJECTORY_ALIGN=first
+REFERENCE_MAX_ASSOCIATION_DT=0.2
+REFERENCE_MIN_COVERAGE=0.4
+REFERENCE_MAX_RMSE_M=2.0
+REFERENCE_MAX_MEAN_M=1.5
+REFERENCE_MAX_ERROR_M=5.0
+REFERENCE_MAX_PATH_DRIFT=0.75
+EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS=100000000
+EXTERNAL_ODOMETRY_PRIOR_TRANSLATION_WEIGHT=4.0
+EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT=4.0
 
 usage() {
   cat <<'EOF'
@@ -37,6 +52,28 @@ Options:
   --lidar-min-points N         Tracking LiDAR frame minimum. Default: 32.
   --require-ba-feedback        Require accepted sliding-window feedback.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
+  --enable-external-odometry-prior
+                               Feed the reference odometry topic into tracking BA as an optional pose prior.
+  --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
+  --reference-pose-topic T     Optional PoseStamped reference trajectory topic.
+  --require-reference-trajectory
+                               Require reference trajectory samples and trajectory_compare.py gate.
+  --min-reference-poses N      Minimum reference poses when required. Default: 10.
+  --reference-trajectory-align none|first
+                               Alignment mode passed to trajectory_compare.py. Default: first.
+  --reference-max-association-dt SEC
+                               Max timestamp association delta for reference comparison. Default: 0.2.
+  --reference-min-coverage R   Minimum reference trajectory coverage. Default: 0.4.
+  --reference-max-rmse-m M     Max native-vs-reference translation RMSE. Default: 2.0.
+  --reference-max-mean-m M     Max native-vs-reference translation mean error. Default: 1.5.
+  --reference-max-error-m M    Max native-vs-reference translation max error. Default: 5.0.
+  --reference-max-path-drift R Max relative path-length drift. Default: 0.75.
+  --external-odometry-prior-max-dt-ns NS
+                               Freshness window for optional external odometry BA prior. Default: 100000000.
+  --external-odometry-prior-translation-weight W
+                               Optional external odometry prior translation weight. Default: 4.0.
+  --external-odometry-prior-rotation-weight W
+                               Optional external odometry prior rotation weight. Default: 4.0.
 EOF
 }
 
@@ -85,6 +122,66 @@ while [[ $# -gt 0 ]]; do
     --enable-visual-factors)
       ENABLE_VISUAL_FACTORS=true
       shift
+      ;;
+    --enable-external-odometry-prior)
+      ENABLE_EXTERNAL_ODOMETRY_PRIOR=true
+      shift
+      ;;
+    --reference-odometry-topic)
+      REFERENCE_ODOMETRY_TOPIC="$2"
+      shift 2
+      ;;
+    --reference-pose-topic)
+      REFERENCE_POSE_TOPIC="$2"
+      shift 2
+      ;;
+    --require-reference-trajectory)
+      REQUIRE_REFERENCE_TRAJECTORY=true
+      shift
+      ;;
+    --min-reference-poses)
+      MIN_REFERENCE_POSES="$2"
+      shift 2
+      ;;
+    --reference-trajectory-align)
+      REFERENCE_TRAJECTORY_ALIGN="$2"
+      shift 2
+      ;;
+    --reference-max-association-dt)
+      REFERENCE_MAX_ASSOCIATION_DT="$2"
+      shift 2
+      ;;
+    --reference-min-coverage)
+      REFERENCE_MIN_COVERAGE="$2"
+      shift 2
+      ;;
+    --reference-max-rmse-m)
+      REFERENCE_MAX_RMSE_M="$2"
+      shift 2
+      ;;
+    --reference-max-mean-m)
+      REFERENCE_MAX_MEAN_M="$2"
+      shift 2
+      ;;
+    --reference-max-error-m)
+      REFERENCE_MAX_ERROR_M="$2"
+      shift 2
+      ;;
+    --reference-max-path-drift)
+      REFERENCE_MAX_PATH_DRIFT="$2"
+      shift 2
+      ;;
+    --external-odometry-prior-max-dt-ns)
+      EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS="$2"
+      shift 2
+      ;;
+    --external-odometry-prior-translation-weight)
+      EXTERNAL_ODOMETRY_PRIOR_TRANSLATION_WEIGHT="$2"
+      shift 2
+      ;;
+    --external-odometry-prior-rotation-weight)
+      EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -165,6 +262,11 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
+  enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
+  external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC}" \
+  external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
+  external_odometry_prior_translation_weight:="${EXTERNAL_ODOMETRY_PRIOR_TRANSLATION_WEIGHT}" \
+  external_odometry_prior_rotation_weight:="${EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:=0.0 \
   lidar_nearest_distance_m:=1.0 \
@@ -177,12 +279,22 @@ launch_pid=$!
 
 sleep 2
 
+recorder_args=(
+  --ros-args
+  -p output_dir:="${ARTIFACT_DIR}"
+  -p odometry_topic:=/gaussian_lic/frontend/odometry
+  -p pointcloud_topic:=/points_for_gs
+  -p status_topic:=/gaussian_lic/frontend/status
+)
+if [[ -n "${REFERENCE_ODOMETRY_TOPIC}" ]]; then
+  recorder_args+=(-p reference_odometry_topic:="${REFERENCE_ODOMETRY_TOPIC}")
+fi
+if [[ -n "${REFERENCE_POSE_TOPIC}" ]]; then
+  recorder_args+=(-p reference_pose_topic:="${REFERENCE_POSE_TOPIC}")
+fi
+
 setsid ros2 run gaussian_lic_tools native_tracking_recorder \
-  --ros-args \
-  -p output_dir:="${ARTIFACT_DIR}" \
-  -p odometry_topic:=/gaussian_lic/frontend/odometry \
-  -p pointcloud_topic:=/points_for_gs \
-  -p status_topic:=/gaussian_lic/frontend/status \
+  "${recorder_args[@]}" \
   >"${recorder_log}" 2>&1 &
 record_pid=$!
 
@@ -219,7 +331,8 @@ stop_process_group "${launch_pid}" TERM
 unset launch_pid
 
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
-  "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" <<'PY'
+  "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
+  "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -230,6 +343,8 @@ min_poses = int(sys.argv[3])
 min_status = int(sys.argv[4])
 min_point_frames = int(sys.argv[5])
 require_ba_feedback = sys.argv[6].lower() == "true"
+require_reference_trajectory = sys.argv[7].lower() == "true"
+min_reference_poses = int(sys.argv[8])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -243,12 +358,17 @@ if status.get("samples", 0) < min_status:
     errors.append(f"tracking status samples {status.get('samples', 0)} < {min_status}")
 if topic_counts.get("/points_for_gs", 0) < min_point_frames:
     errors.append(f"/points_for_gs frames {topic_counts.get('/points_for_gs', 0)} < {min_point_frames}")
+if require_reference_trajectory and metrics.get("reference_trajectory_poses", 0) < min_reference_poses:
+    errors.append(
+        f"reference trajectory poses {metrics.get('reference_trajectory_poses', 0)} < {min_reference_poses}")
 
 for key in (
     "image_stamp_regressions",
     "pointcloud_stamp_regressions",
     "imu_stamp_regressions",
+    "external_odometry_prior_stamp_regressions",
     "imu_invalid_measurements",
+    "external_odometry_prior_invalid_messages",
     "lidar_invalid_frames",
     "lidar_invalid_points",
     "lidar_invalid_point_times",
@@ -291,8 +411,56 @@ print(
     f"poses={metrics.get('trajectory_poses', 0)} "
     f"points_frames={topic_counts.get('/points_for_gs', 0)} "
     f"status_samples={status.get('samples', 0)} "
+    f"reference_poses={metrics.get('reference_trajectory_poses', 0)} "
     f"imu_factors={last.get('sliding_window_total_imu_factors', 0)}"
 )
 PY
+
+COMPARE_JSON="${OUTPUT_DIR}/native_tracking_trajectory_compare.json"
+REFERENCE_TUM="${ARTIFACT_DIR}/reference_trajectory.tum"
+CURRENT_TUM="${ARTIFACT_DIR}/trajectory.tum"
+if [[ -s "${REFERENCE_TUM}" && -s "${CURRENT_TUM}" ]]; then
+  compare_cmd=(
+    "${ROOT_DIR}/scripts/trajectory_compare.py"
+    --baseline "${REFERENCE_TUM}"
+    --current "${CURRENT_TUM}"
+    --output "${COMPARE_JSON}"
+    --align "${REFERENCE_TRAJECTORY_ALIGN}"
+    --max-association-dt "${REFERENCE_MAX_ASSOCIATION_DT}"
+    --min-matches "${MIN_REFERENCE_POSES}"
+    --min-coverage "${REFERENCE_MIN_COVERAGE}"
+    --max-rmse-m "${REFERENCE_MAX_RMSE_M}"
+    --max-mean-m "${REFERENCE_MAX_MEAN_M}"
+    --max-error-m "${REFERENCE_MAX_ERROR_M}"
+    --max-path-drift "${REFERENCE_MAX_PATH_DRIFT}"
+  )
+  if [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
+    "${compare_cmd[@]}"
+  else
+    set +e
+    "${compare_cmd[@]}"
+    compare_status=$?
+    set -e
+    if [[ "${compare_status}" -ne 0 ]]; then
+      echo "[native-tracking] reference trajectory comparison did not meet thresholds; report kept non-gating at ${COMPARE_JSON}" >&2
+    fi
+  fi
+
+  python3 - "${REPORT_JSON}" "${COMPARE_JSON}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report_path = Path(sys.argv[1])
+compare_path = Path(sys.argv[2])
+report = json.loads(report_path.read_text(encoding="utf-8"))
+if compare_path.exists():
+    report["trajectory_compare"] = json.loads(compare_path.read_text(encoding="utf-8"))
+report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+elif [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
+  echo "required reference/current trajectory file is empty or missing" >&2
+  exit 1
+fi
 
 echo "[native-tracking] report: ${REPORT_JSON}"
