@@ -332,10 +332,18 @@ def main() -> int:
         errors.append("sliding_window_optimizer must distinguish same-stamp factor sources before replacement")
     if "imu_factor_replacement_count_" not in sliding_window_text or "sliding_window_smoothness_factor_replacement_count" not in tracking_node_text:
         errors.append("tracking status must publish duplicate IMU/smoothness replacement counters")
+    if "so3_left_jacobian_inverse" not in sliding_window_text:
+        errors.append("smoothness rotation rows must use closed-form SO(3) Jacobian blocks")
+    if "smoothness_rotation_jacobian" in sliding_window_text and "const double epsilon)" in sliding_window_text:
+        errors.append("smoothness rotation rows must not depend on local finite-difference epsilon")
     if 'declare_parameter("imu_samples_per_frame", 3)' not in synthetic_pub_text:
         errors.append("synthetic_gs_frame_pub must publish at least three IMU samples per frame by default")
     if 'declare_parameter("imu_stamp_lead_ns", 10000000)' not in synthetic_pub_text:
         errors.append("synthetic_gs_frame_pub must keep IMU samples before pose stamps by default")
+    if "last_frame_stamp_ns" not in synthetic_pub_text or "last_imu_stamp_ns" not in synthetic_pub_text:
+        errors.append("synthetic_gs_frame_pub must keep monotonic IMU/frame stamp state")
+    if "start_ns = self.last_frame_stamp_ns + lead_ns" not in synthetic_pub_text:
+        errors.append("synthetic_gs_frame_pub must place IMU samples inside the previous/current frame interval")
     if 'run_id="${ROS_DOMAIN_ID}_${BASHPID}"' not in tracking_smoke_text:
         errors.append("tracking_smoke_test must isolate status/log files by ROS_DOMAIN_ID and BASHPID")
     if 'status_file="/tmp/gaussian_lic_tracking_smoke_status_${run_id}.txt"' not in tracking_smoke_text:

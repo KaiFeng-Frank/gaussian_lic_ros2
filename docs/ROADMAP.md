@@ -219,6 +219,7 @@ baseline_manifest.json
 - [x] Publish per-factor skip counters for LiDAR point/plane, visual, SE3 photometric, smoothness, IMU, and optimizer failures.
 - [x] Publish the last consumed IMU preintegration block sample count, dt, and signed-nanosecond span through `TrackingStatus`.
 - [x] Publish cumulative sliding-window IMU-factor/preintegration totals so optimized runs still prove IMU usage after active-window marginalization.
+- [x] Make synthetic rosbag IMU samples monotonic inside the previous/current frame interval so timer jitter cannot create false IMU stamp regressions.
 - [x] Reject IMU factors whose preintegration span does not cover the BA state interval, with bounded final-sample extrapolation and time-gap skip status.
 - [x] Report and gate orphan sliding-window factors whose referenced states are absent instead of silently skipping residual blocks.
 - [x] Publish active-window min/max state spacing and gate oversized state gaps before solving BA.
@@ -254,6 +255,7 @@ baseline_manifest.json
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.
 - [x] Add default-enabled three-state continuous-time trajectory smoothness factors to the tracking window, with analytic linear Jacobian blocks, deterministic CTest, and native tracking smoke coverage.
 - [x] Publish and smoke-gate sliding-window numeric-Jacobian fallback block/column counts, and keep smoothness rotation rows off the global residual-rebuild path.
+- [x] Replace trajectory smoothness rotation local finite-difference blocks with closed-form SO(3) left-Jacobian inverse blocks and deterministic finite-difference CTest coverage.
 - [x] Tighten native tracking smoke's default sliding-window optimization budget to 1000 ms under the optimized `RelWithDebInfo` build path.
 - [x] Isolate native tracking smoke status/log artifacts per ROS domain and process so parallel BA smoke runs cannot race on `/tmp` state files.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks and cache chunk-complete Gaussian-map snapshots for the reverse channel.

@@ -12,6 +12,93 @@ Eigen::Quaterniond yaw_quaternion(const double yaw_rad)
   return Eigen::Quaterniond(Eigen::AngleAxisd(yaw_rad, Eigen::Vector3d::UnitZ()));
 }
 
+Eigen::Quaterniond axis_angle_quaternion(const Eigen::Vector3d & axis, const double angle_rad)
+{
+  return Eigen::Quaterniond(Eigen::AngleAxisd(angle_rad, axis.normalized()));
+}
+
+Eigen::Vector3d quaternion_log_vector(Eigen::Quaterniond quaternion)
+{
+  quaternion.normalize();
+  if (quaternion.w() < 0.0) {
+    quaternion.coeffs() *= -1.0;
+  }
+  const Eigen::Vector3d vector = quaternion.vec();
+  const double vector_norm = vector.norm();
+  if (vector_norm < 1.0e-12) {
+    return 2.0 * vector;
+  }
+  const double angle = 2.0 * std::atan2(vector_norm, quaternion.w());
+  return angle * vector / vector_norm;
+}
+
+Eigen::Vector3d relative_rotation_vector(
+  const Eigen::Quaterniond & from,
+  const Eigen::Quaterniond & to)
+{
+  return quaternion_log_vector(from.normalized().inverse() * to.normalized());
+}
+
+Eigen::Vector3d smoothness_rotation_residual(
+  const gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor & factor,
+  const gaussian_lic_tracking::SlidingWindowState & previous,
+  const gaussian_lic_tracking::SlidingWindowState & current,
+  const gaussian_lic_tracking::SlidingWindowState & next)
+{
+  const double previous_dt_s =
+    static_cast<double>(current.stamp_ns - previous.stamp_ns) / 1.0e9;
+  const double next_dt_s =
+    static_cast<double>(next.stamp_ns - current.stamp_ns) / 1.0e9;
+  return std::sqrt(factor.rotation_rate_weight) *
+         (relative_rotation_vector(current.q_w_i, next.q_w_i) / next_dt_s -
+         relative_rotation_vector(previous.q_w_i, current.q_w_i) / previous_dt_s);
+}
+
+void apply_left_rotation_delta(Eigen::Quaterniond & q_w_i, const Eigen::Vector3d & dtheta)
+{
+  const double angle = dtheta.norm();
+  if (angle > 1.0e-12) {
+    q_w_i = (Eigen::Quaterniond(Eigen::AngleAxisd(angle, dtheta / angle)) * q_w_i).normalized();
+  }
+}
+
+Eigen::Matrix<double, 3, 45> finite_difference_smoothness_rotation_jacobian(
+  const gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor & factor,
+  const gaussian_lic_tracking::SlidingWindowState & previous,
+  const gaussian_lic_tracking::SlidingWindowState & current,
+  const gaussian_lic_tracking::SlidingWindowState & next)
+{
+  constexpr double kEpsilon = 1.0e-7;
+  Eigen::Matrix<double, 3, 45> jacobian = Eigen::Matrix<double, 3, 45>::Zero();
+  for (int state_index = 0; state_index < 3; ++state_index) {
+    for (Eigen::Index axis = 0; axis < 3; ++axis) {
+      auto plus_previous = previous;
+      auto plus_current = current;
+      auto plus_next = next;
+      auto minus_previous = previous;
+      auto minus_current = current;
+      auto minus_next = next;
+      Eigen::Vector3d dtheta = Eigen::Vector3d::Zero();
+      dtheta[axis] = kEpsilon;
+      if (state_index == 0) {
+        apply_left_rotation_delta(plus_previous.q_w_i, dtheta);
+        apply_left_rotation_delta(minus_previous.q_w_i, -dtheta);
+      } else if (state_index == 1) {
+        apply_left_rotation_delta(plus_current.q_w_i, dtheta);
+        apply_left_rotation_delta(minus_current.q_w_i, -dtheta);
+      } else {
+        apply_left_rotation_delta(plus_next.q_w_i, dtheta);
+        apply_left_rotation_delta(minus_next.q_w_i, -dtheta);
+      }
+      jacobian.col(state_index * 15 + axis) =
+        (smoothness_rotation_residual(factor, plus_previous, plus_current, plus_next) -
+        smoothness_rotation_residual(factor, minus_previous, minus_current, minus_next)) /
+        (2.0 * kEpsilon);
+    }
+  }
+  return jacobian;
+}
+
 double yaw_error_rad(const Eigen::Quaterniond & expected, const Eigen::Quaterniond & actual)
 {
   Eigen::Quaterniond error = (expected.normalized().inverse() * actual.normalized()).normalized();
@@ -28,6 +115,48 @@ int main()
   config.max_iterations = 12;
   config.damping = 1.0e-8;
   gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+
+  gaussian_lic_tracking::SlidingWindowState jacobian_previous;
+  jacobian_previous.stamp_ns = 0;
+  jacobian_previous.q_w_i =
+    axis_angle_quaternion(Eigen::Vector3d{0.7, -0.2, 0.3}, 0.35);
+  gaussian_lic_tracking::SlidingWindowState jacobian_current;
+  jacobian_current.stamp_ns = 1300000000LL;
+  jacobian_current.q_w_i =
+    axis_angle_quaternion(Eigen::Vector3d{-0.1, 0.9, 0.4}, -0.55);
+  gaussian_lic_tracking::SlidingWindowState jacobian_next;
+  jacobian_next.stamp_ns = 2500000000LL;
+  jacobian_next.q_w_i =
+    axis_angle_quaternion(Eigen::Vector3d{0.2, 0.4, 0.8}, 0.25);
+  gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor jacobian_factor;
+  jacobian_factor.previous_stamp_ns = jacobian_previous.stamp_ns;
+  jacobian_factor.current_stamp_ns = jacobian_current.stamp_ns;
+  jacobian_factor.next_stamp_ns = jacobian_next.stamp_ns;
+  jacobian_factor.rotation_rate_weight = 7.0;
+  jacobian_factor.position_rate_weight = 0.0;
+  jacobian_factor.velocity_acceleration_weight = 0.0;
+  jacobian_factor.gyro_bias_rate_weight = 0.0;
+  jacobian_factor.accel_bias_rate_weight = 0.0;
+  gaussian_lic_tracking::SlidingWindowOptimizer jacobian_optimizer(config);
+  jacobian_optimizer.add_or_update_state(jacobian_previous);
+  jacobian_optimizer.add_or_update_state(jacobian_current);
+  jacobian_optimizer.add_or_update_state(jacobian_next);
+  jacobian_optimizer.add_trajectory_smoothness_factor(jacobian_factor);
+  const auto jacobian_normal = jacobian_optimizer.build_normal_equation(0.0);
+  const Eigen::Matrix<double, 3, 45> expected_rotation_jacobian =
+    finite_difference_smoothness_rotation_jacobian(
+    jacobian_factor, jacobian_previous, jacobian_current, jacobian_next);
+  const double max_rotation_jacobian_error =
+    (jacobian_normal.jacobian.block(0, 0, 3, 45) - expected_rotation_jacobian)
+    .cwiseAbs()
+    .maxCoeff();
+  if (!jacobian_normal.valid || jacobian_normal.jacobian.rows() != 15 ||
+    jacobian_normal.jacobian.cols() != 45 || max_rotation_jacobian_error > 1.0e-5)
+  {
+    std::cerr << "smoothness analytic rotation Jacobian mismatch: "
+              << max_rotation_jacobian_error << "\n";
+    return 1;
+  }
 
   gaussian_lic_tracking::SlidingWindowState previous;
   previous.stamp_ns = 0;

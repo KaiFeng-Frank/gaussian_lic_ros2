@@ -130,6 +130,8 @@ class SyntheticGsFramePublisher(Node):
         self.publish_period_ns = max(1, int(round(1000000000.0 / rate)))
         self.timer = self.create_timer(1.0 / rate, self.publish_frame)
         self.frame_id = 0
+        self.last_frame_stamp_ns = None
+        self.last_imu_stamp_ns = None
 
         self.get_logger().info(
             "Publishing synthetic synchronized GS input frames "
@@ -139,14 +141,38 @@ class SyntheticGsFramePublisher(Node):
             f"image={self.image_width}x{self.image_height}:{self.image_pattern}, "
             f"publish_rendered_image={self.publish_rendered_image})")
 
-    def make_imu_stamp(self, stamp, lead_ns):
-        if lead_ns == 0:
-            return stamp
-        total_ns = stamp.sec * 1000000000 + stamp.nanosec
-        shifted_ns = max(0, total_ns - lead_ns)
+    @staticmethod
+    def stamp_to_nsec(stamp):
+        return stamp.sec * 1000000000 + stamp.nanosec
+
+    @staticmethod
+    def nsec_to_stamp(total_ns):
         return Time(
-            sec=shifted_ns // 1000000000,
-            nanosec=shifted_ns % 1000000000)
+            sec=total_ns // 1000000000,
+            nanosec=total_ns % 1000000000)
+
+    def make_imu_stamp(self, stamp, sample_index):
+        frame_ns = self.stamp_to_nsec(stamp)
+        if frame_ns <= 0:
+            return None
+        if self.last_frame_stamp_ns is not None and frame_ns > self.last_frame_stamp_ns:
+            lead_ns = min(self.imu_stamp_lead_ns, max(0, (frame_ns - self.last_frame_stamp_ns) // 4))
+            start_ns = self.last_frame_stamp_ns + lead_ns
+            end_ns = frame_ns - lead_ns
+            if end_ns >= start_ns and self.imu_samples_per_frame > 1:
+                alpha = float(sample_index) / float(self.imu_samples_per_frame - 1)
+                candidate_ns = int(round(start_ns + alpha * (end_ns - start_ns)))
+            else:
+                candidate_ns = max(0, frame_ns - lead_ns)
+        else:
+            candidate_ns = max(0, frame_ns - self.imu_lead_ns_for_sample(sample_index))
+        if self.last_imu_stamp_ns is not None and candidate_ns <= self.last_imu_stamp_ns:
+            candidate_ns = self.last_imu_stamp_ns + 1
+        if candidate_ns >= frame_ns:
+            candidate_ns = frame_ns - 1
+        if self.last_imu_stamp_ns is not None and candidate_ns <= self.last_imu_stamp_ns:
+            return None
+        return self.nsec_to_stamp(candidate_ns)
 
     def imu_lead_ns_for_sample(self, sample_index):
         if self.imu_samples_per_frame == 1:
@@ -250,9 +276,11 @@ class SyntheticGsFramePublisher(Node):
         stamp = self.get_clock().now().to_msg()
 
         for sample_index in range(self.imu_samples_per_frame):
+            imu_stamp = self.make_imu_stamp(stamp, sample_index)
+            if imu_stamp is None:
+                continue
             imu = Imu()
-            imu.header.stamp = self.make_imu_stamp(
-                stamp, self.imu_lead_ns_for_sample(sample_index))
+            imu.header.stamp = imu_stamp
             imu.header.frame_id = "imu"
             imu.orientation.w = 1.0
             imu.orientation_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
@@ -260,6 +288,7 @@ class SyntheticGsFramePublisher(Node):
             imu.linear_acceleration.z = 9.80665
             imu.linear_acceleration_covariance = [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
             self.imu_pub.publish(imu)
+            self.last_imu_stamp_ns = self.stamp_to_nsec(imu_stamp)
 
         point_fields, point_step, point_data = self.make_pointcloud_data()
         points = PointCloud2()
@@ -322,6 +351,7 @@ class SyntheticGsFramePublisher(Node):
             depth.data = struct.pack("f", 1.0) * (self.image_width * self.image_height)
             self.depth_pub.publish(depth)
 
+        self.last_frame_stamp_ns = self.stamp_to_nsec(stamp)
         self.frame_id += 1
 
 

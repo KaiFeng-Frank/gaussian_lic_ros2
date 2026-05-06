@@ -158,6 +158,20 @@ Eigen::Vector3d relative_rotation_vector(
   return quaternion_log_vector(from.normalized().inverse() * to.normalized());
 }
 
+Eigen::Matrix3d so3_left_jacobian_inverse(const Eigen::Vector3d & phi)
+{
+  const Eigen::Matrix3d phi_hat = skew_symmetric(phi);
+  const Eigen::Matrix3d phi_hat_sq = phi_hat * phi_hat;
+  const double theta_sq = phi.squaredNorm();
+  if (theta_sq < 1.0e-12) {
+    return Eigen::Matrix3d::Identity() - 0.5 * phi_hat + (1.0 / 12.0) * phi_hat_sq;
+  }
+  const double theta = std::sqrt(theta_sq);
+  const double coefficient =
+    (1.0 / theta_sq) - ((1.0 + std::cos(theta)) / (2.0 * theta * std::sin(theta)));
+  return Eigen::Matrix3d::Identity() - 0.5 * phi_hat + coefficient * phi_hat_sq;
+}
+
 Eigen::Matrix3d left_perturbation_rotation_residual_jacobian(
   const Eigen::Quaterniond & reference_q)
 {
@@ -360,68 +374,42 @@ Eigen::Matrix<double, 15, 1> smoothness_residual(
   return residual;
 }
 
-void apply_left_rotation_delta(SlidingWindowState & state, const Eigen::Vector3d & dtheta)
-{
-  const double angle = dtheta.norm();
-  if (angle > 1.0e-12) {
-    state.q_w_i =
-      (Eigen::Quaterniond(Eigen::AngleAxisd(angle, dtheta / angle)) *
-      state.q_w_i).normalized();
-  }
-}
-
 Eigen::Matrix<double, 3, 9> smoothness_rotation_jacobian(
   const SlidingWindowTrajectorySmoothnessFactor & factor,
   const SlidingWindowState & previous,
   const SlidingWindowState & current,
-  const SlidingWindowState & next,
-  const double epsilon)
+  const SlidingWindowState & next)
 {
   Eigen::Matrix<double, 3, 9> jacobian = Eigen::Matrix<double, 3, 9>::Zero();
-  if (factor.rotation_rate_weight <= 0.0 || epsilon <= 0.0 ||
-    !std::isfinite(epsilon))
-  {
+  if (factor.rotation_rate_weight <= 0.0) {
+    return jacobian;
+  }
+  const double previous_dt_s =
+    static_cast<double>(current.stamp_ns - previous.stamp_ns) / 1.0e9;
+  const double next_dt_s =
+    static_cast<double>(next.stamp_ns - current.stamp_ns) / 1.0e9;
+  if (previous_dt_s <= 0.0 || next_dt_s <= 0.0) {
     return jacobian;
   }
 
-  auto perturb_state = [epsilon](
-      const int state_index,
-      const Eigen::Index axis,
-      const double scale,
-      SlidingWindowState & perturbed_previous,
-      SlidingWindowState & perturbed_current,
-      SlidingWindowState & perturbed_next) {
-      Eigen::Vector3d dtheta = Eigen::Vector3d::Zero();
-      dtheta[axis] = scale * epsilon;
-      if (state_index == 0) {
-        apply_left_rotation_delta(perturbed_previous, dtheta);
-      } else if (state_index == 1) {
-        apply_left_rotation_delta(perturbed_current, dtheta);
-      } else {
-        apply_left_rotation_delta(perturbed_next, dtheta);
-      }
-    };
+  const Eigen::Vector3d previous_phi =
+    relative_rotation_vector(previous.q_w_i, current.q_w_i);
+  const Eigen::Vector3d next_phi =
+    relative_rotation_vector(current.q_w_i, next.q_w_i);
+  const Eigen::Matrix3d previous_left_inv = so3_left_jacobian_inverse(previous_phi);
+  const Eigen::Matrix3d next_left_inv = so3_left_jacobian_inverse(next_phi);
+  const Eigen::Matrix3d previous_rotation = previous.q_w_i.normalized().inverse().toRotationMatrix();
+  const Eigen::Matrix3d current_rotation = current.q_w_i.normalized().inverse().toRotationMatrix();
+  const double scale = std::sqrt(factor.rotation_rate_weight);
 
-  for (int state_index = 0; state_index < 3; ++state_index) {
-    for (Eigen::Index axis = 0; axis < 3; ++axis) {
-      auto plus_previous = previous;
-      auto plus_current = current;
-      auto plus_next = next;
-      auto minus_previous = previous;
-      auto minus_current = current;
-      auto minus_next = next;
-      perturb_state(state_index, axis, 1.0, plus_previous, plus_current, plus_next);
-      perturb_state(state_index, axis, -1.0, minus_previous, minus_current, minus_next);
-      const Eigen::Vector3d plus_residual =
-        smoothness_residual(factor, plus_previous, plus_current, plus_next)
-        .template segment<3>(0);
-      const Eigen::Vector3d minus_residual =
-        smoothness_residual(factor, minus_previous, minus_current, minus_next)
-        .template segment<3>(0);
-      jacobian.col(state_index * 3 + axis) =
-        (plus_residual - minus_residual) / (2.0 * epsilon);
-    }
-  }
+  jacobian.template block<3, 3>(0, 0) =
+    scale * previous_left_inv * previous_rotation / previous_dt_s;
+  jacobian.template block<3, 3>(0, 3) =
+    scale * (
+    -next_left_inv * current_rotation / next_dt_s -
+    previous_left_inv * previous_rotation / previous_dt_s);
+  jacobian.template block<3, 3>(0, 6) =
+    scale * next_left_inv * current_rotation / next_dt_s;
   return jacobian;
 }
 }  // namespace
@@ -1624,8 +1612,7 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       factor,
       states[static_cast<size_t>(previous)],
       states[static_cast<size_t>(current)],
-      states[static_cast<size_t>(next)],
-      config_.numeric_epsilon);
+      states[static_cast<size_t>(next)]);
     const struct SmoothnessBlock
     {
       int state_index;
