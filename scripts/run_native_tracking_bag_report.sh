@@ -414,6 +414,7 @@ for key in (
     "lidar_invalid_points",
     "lidar_invalid_point_times",
     "lidar_out_of_range_point_times",
+    "pointcloud_imu_wait_dropped",
     "sliding_window_invalid_candidate_steps",
     "sliding_window_linearization_failure_count",
     "sliding_window_linear_solve_failure_count",
