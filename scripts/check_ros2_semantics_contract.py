@@ -192,6 +192,8 @@ def main() -> int:
         "sliding_window_pose_rotation_weight",
         "enable_sliding_window_smoothness_factor",
         "se3_photometric_factor_huber_delta",
+        "se3_photometric_min_hessian_rank",
+        "se3_photometric_max_hessian_condition",
         "sliding_window_smoothness_rotation_weight",
         "sliding_window_smoothness_position_weight",
         "sliding_window_smoothness_velocity_weight",
@@ -297,6 +299,19 @@ def main() -> int:
         errors.append("tracking_node must default SE3 photometric factor Huber delta to 1.0")
     if 'DeclareLaunchArgument("se3_photometric_factor_huber_delta", default_value="1.0")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose SE3 photometric factor Huber delta")
+    if 'declare_parameter<int>("se3_photometric_min_hessian_rank", 3)' not in tracking_node_text:
+        errors.append("tracking_node must default the SE3 photometric Hessian rank gate to 3")
+    if 'DeclareLaunchArgument("se3_photometric_min_hessian_rank", default_value="3")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose the SE3 photometric Hessian rank gate")
+    if 'declare_parameter<double>("se3_photometric_max_hessian_condition", 1.0e12)' not in tracking_node_text:
+        errors.append("tracking_node must default the SE3 photometric Hessian condition gate to 1e12")
+    if (
+        "se3_photometric_max_hessian_condition" not in tracking_launch_text
+        or 'default_value="1000000000000.0"' not in tracking_launch_text
+    ):
+        errors.append("tracking.launch.py must expose the SE3 photometric Hessian condition gate")
+    if "se3_photometric_hessian_is_healthy" not in tracking_node_text:
+        errors.append("tracking_node must reject degenerate SE3 photometric Hessians before BA")
     if 'declare_parameter<int>("depth_frame_cache_size", 8)' not in tracking_node_text:
         errors.append("tracking_node must default the visual depth-frame cache size to 8")
     if 'DeclareLaunchArgument("depth_frame_cache_size", default_value="8")' not in tracking_launch_text:
@@ -312,8 +327,13 @@ def main() -> int:
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
         "visual_se3_photometric_insufficient_sample_batches",
+        "visual_se3_photometric_degenerate_batches",
         "visual_se3_photometric_total_candidates",
         "visual_se3_photometric_total_samples",
+        "visual_se3_photometric_hessian_rank",
+        "visual_se3_photometric_hessian_condition_number",
+        "visual_se3_photometric_last_accepted_hessian_rank",
+        "visual_se3_photometric_last_accepted_hessian_condition_number",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
             errors.append(f"TrackingStatus must publish cumulative SE3 photometric diagnostics: {field_name}")
@@ -355,6 +375,14 @@ def main() -> int:
             'se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}"' not in native_tracking_report_text or \
             '"se3_photometric_min_samples": se3_photometric_min_samples' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must tighten and record the sparse-depth SE3 sample gate")
+    if "SE3_PHOTOMETRIC_MIN_HESSIAN_RANK=3" not in native_tracking_report_text or \
+            'se3_photometric_min_hessian_rank:="${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}"' not in native_tracking_report_text or \
+            '"se3_photometric_min_hessian_rank": se3_photometric_min_hessian_rank' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must enforce and record the SE3 Hessian rank gate")
+    if "SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION=1000000000000.0" not in native_tracking_report_text or \
+            'se3_photometric_max_hessian_condition:="${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}"' not in native_tracking_report_text or \
+            '"se3_photometric_max_hessian_condition": se3_photometric_max_hessian_condition' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must enforce and record the SE3 Hessian condition gate")
     if 'declare_parameter<bool>("enable_sliding_window_smoothness_factor", true)' not in tracking_node_text:
         errors.append("tracking_node must default trajectory smoothness BA factors to true")
     if 'DeclareLaunchArgument("enable_sliding_window_smoothness_factor", default_value="true")' not in tracking_launch_text:
@@ -570,6 +598,15 @@ def main() -> int:
         "visual_se3_photometric_rejected_depth",
         "visual_se3_photometric_rejected_gradient",
         "visual_se3_photometric_rejected_residual",
+        "visual_se3_photometric_degenerate_batches",
+        "visual_se3_photometric_hessian_rank",
+        "visual_se3_photometric_hessian_min_singular_value",
+        "visual_se3_photometric_hessian_max_singular_value",
+        "visual_se3_photometric_hessian_condition_number",
+        "visual_se3_photometric_last_accepted_hessian_rank",
+        "visual_se3_photometric_last_accepted_hessian_min_singular_value",
+        "visual_se3_photometric_last_accepted_hessian_max_singular_value",
+        "visual_se3_photometric_last_accepted_hessian_condition_number",
     ]:
         if field not in tracking_status_msg_text or field not in tracking_node_text:
             errors.append(f"tracking status must publish frontend health field {field}")

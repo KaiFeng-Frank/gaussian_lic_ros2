@@ -296,9 +296,11 @@ transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment, Huber-robust visual-alignment factors, and
 photometric Gauss-Newton linearization status, plus nonzero Huber-robust SE3 photometric window factors extracted from
 nearest-fresh-render/current/depth images. The SE3 status fields expose candidate pixels,
-accepted robust samples, inlier ratio, mean absolute residual, cost, and
-Gauss-Newton step norm so bad depth, flat gradients, or large photometric
-outliers are visible in CI logs. The synthetic bag intentionally lowers the
+accepted robust samples, inlier ratio, mean absolute residual, cost,
+Gauss-Newton step norm, current and last-accepted Hessian rank, singular values,
+condition number, and degenerate-batch counters so bad depth, flat gradients,
+large photometric outliers, or rank-deficient SE3 normal equations are visible
+in CI logs. The synthetic bag intentionally lowers the
 LiDAR point threshold to one point; dataset profiles keep production thresholds.
 
 ## Render Mode Policy

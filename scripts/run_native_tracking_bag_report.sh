@@ -35,6 +35,8 @@ VISUAL_DEPTH_FRAME_CACHE_SIZE=64
 VISUAL_DEPTH_DILATION_PX=5
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 SE3_PHOTOMETRIC_MIN_SAMPLES=8
+SE3_PHOTOMETRIC_MIN_HESSIAN_RANK=3
+SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION=1000000000000.0
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -95,6 +97,10 @@ Options:
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
   --se3-photometric-min-samples N
                                Minimum valid sparse-depth samples needed before adding an SE3 photometric BA factor. Default: 8.
+  --se3-photometric-min-hessian-rank N
+                               Minimum 6x6 SE3 photometric Hessian rank before accepting a BA factor. Default: 3.
+  --se3-photometric-max-hessian-condition C
+                               Maximum SE3 photometric Hessian condition before rejecting a BA factor. Default: 1e12.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
   --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
@@ -237,6 +243,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --se3-photometric-min-samples)
       SE3_PHOTOMETRIC_MIN_SAMPLES="$2"
+      shift 2
+      ;;
+    --se3-photometric-min-hessian-rank)
+      SE3_PHOTOMETRIC_MIN_HESSIAN_RANK="$2"
+      shift 2
+      ;;
+    --se3-photometric-max-hessian-condition)
+      SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION="$2"
       shift 2
       ;;
     --enable-external-odometry-prior)
@@ -390,6 +404,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   observed_frame_cache_size:=128 \
   visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
   se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
+  se3_photometric_min_hessian_rank:="${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" \
+  se3_photometric_max_hessian_condition:="${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
   enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
   external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC}" \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
@@ -489,7 +505,8 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
   "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
   "${VISUAL_FACTOR_MAX_DT_NS}" "${VISUAL_DEPTH_MAX_DT_NS}" \
-  "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" <<'PY'
+  "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
+  "${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" "${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -510,6 +527,8 @@ visual_factor_max_dt_ns = int(sys.argv[13])
 visual_depth_max_dt_ns = int(sys.argv[14])
 visual_depth_dilation_px = int(sys.argv[15])
 se3_photometric_min_samples = int(sys.argv[16])
+se3_photometric_min_hessian_rank = int(sys.argv[17])
+se3_photometric_max_hessian_condition = float(sys.argv[18])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -585,7 +604,12 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_stale_drops",
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
+        "visual_se3_photometric_degenerate_batches",
         "visual_se3_photometric_total_samples",
+        "visual_se3_photometric_hessian_rank",
+        "visual_se3_photometric_hessian_condition_number",
+        "visual_se3_photometric_last_accepted_hessian_rank",
+        "visual_se3_photometric_last_accepted_hessian_condition_number",
     ):
         if key not in last:
             errors.append(f"{key} is missing")
@@ -601,6 +625,22 @@ if enable_visual_factors:
         errors.append("visual_se3_photometric_valid_batches is zero")
     if int(last.get("visual_se3_photometric_total_samples", 0)) <= 0:
         errors.append("visual_se3_photometric_total_samples is zero")
+    if int(last.get("visual_se3_photometric_last_accepted_hessian_rank", 0)) < se3_photometric_min_hessian_rank:
+        errors.append(
+            "visual_se3_photometric_last_accepted_hessian_rank "
+            f"{last.get('visual_se3_photometric_last_accepted_hessian_rank', 0)} "
+            f"< {se3_photometric_min_hessian_rank}"
+        )
+    hessian_condition = float(
+        last.get("visual_se3_photometric_last_accepted_hessian_condition_number", 0.0))
+    if (
+        se3_photometric_max_hessian_condition > 0.0
+        and (hessian_condition <= 0.0 or hessian_condition > se3_photometric_max_hessian_condition)
+    ):
+        errors.append(
+            "visual_se3_photometric_last_accepted_hessian_condition_number "
+            f"{hessian_condition} > {se3_photometric_max_hessian_condition}"
+        )
 if (
     enable_visual_factors
     and int(last.get("sliding_window_total_visual_factors", 0)) <= 0
@@ -627,6 +667,8 @@ report = {
         "visual_depth_dilation_px": visual_depth_dilation_px,
         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
         "se3_photometric_min_samples": se3_photometric_min_samples,
+        "se3_photometric_min_hessian_rank": se3_photometric_min_hessian_rank,
+        "se3_photometric_max_hessian_condition": se3_photometric_max_hessian_condition,
     },
     "metrics": metrics,
 }

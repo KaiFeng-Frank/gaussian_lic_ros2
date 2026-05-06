@@ -128,6 +128,29 @@ VisualSe3PhotometricLinearization linearize_se3_photometric_samples(
   if (output.sample_count == 0U || !output.hessian.allFinite() || !output.rhs.allFinite()) {
     return output;
   }
+  const Eigen::Matrix<double, 6, 6> symmetric_hessian =
+    0.5 * (output.hessian + output.hessian.transpose());
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 6, 6>> eigen_solver(
+    symmetric_hessian);
+  if (eigen_solver.info() != Eigen::Success || eigen_solver.eigenvalues().size() == 0) {
+    return output;
+  }
+  output.hessian_max_singular_value = std::max(0.0, eigen_solver.eigenvalues().maxCoeff());
+  const double rank_threshold = 6.0 * std::numeric_limits<double>::epsilon() *
+    std::max(output.hessian_max_singular_value, 1.0);
+  double min_positive = std::numeric_limits<double>::infinity();
+  for (Eigen::Index index = 0; index < eigen_solver.eigenvalues().size(); ++index) {
+    const double value = std::max(0.0, eigen_solver.eigenvalues()[index]);
+    if (value > rank_threshold) {
+      ++output.hessian_rank;
+      min_positive = std::min(min_positive, value);
+    }
+  }
+  if (std::isfinite(min_positive)) {
+    output.hessian_min_singular_value = min_positive;
+    output.hessian_condition_number =
+      output.hessian_max_singular_value / output.hessian_min_singular_value;
+  }
   const Eigen::LDLT<Eigen::Matrix<double, 6, 6>> ldlt(output.hessian);
   if (ldlt.info() != Eigen::Success) {
     return output;

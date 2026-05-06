@@ -94,8 +94,12 @@ int main()
   const double step_error = (linearization.gauss_newton_step - expected_step).norm();
   std::cout << " se3_samples=" << linearization.sample_count
             << " se3_step=" << linearization.gauss_newton_step.transpose()
-            << " se3_step_error=" << step_error;
+            << " se3_step_error=" << step_error
+            << " hessian_rank=" << linearization.hessian_rank
+            << " hessian_condition=" << linearization.hessian_condition_number;
   if (!linearization.valid || linearization.sample_count != samples.size() ||
+    linearization.hessian_rank != 6U ||
+    linearization.hessian_condition_number <= 0.0 ||
     step_error > 1.0e-6)
   {
     std::cerr << "SE3 photometric sample linearization failed to recover the synthetic step\n";

@@ -77,7 +77,11 @@ struct VisualSe3PhotometricLinearization
 {
   bool valid{false};
   size_t sample_count{0};
+  size_t hessian_rank{0};
   double cost{0.0};
+  double hessian_min_singular_value{0.0};
+  double hessian_max_singular_value{0.0};
+  double hessian_condition_number{0.0};
   Eigen::Matrix<double, 6, 6> hessian{Eigen::Matrix<double, 6, 6>::Zero()};
   Eigen::Matrix<double, 6, 1> rhs{Eigen::Matrix<double, 6, 1>::Zero()};
   Eigen::Matrix<double, 6, 1> gauss_newton_step{Eigen::Matrix<double, 6, 1>::Zero()};

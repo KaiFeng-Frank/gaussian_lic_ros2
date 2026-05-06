@@ -180,6 +180,15 @@ public:
     if (se3_photometric_max_samples_ < se3_photometric_min_samples_) {
       throw std::runtime_error("se3_photometric_max_samples must be >= se3_photometric_min_samples");
     }
+    se3_photometric_min_hessian_rank_ = integer_parameter_at_least(
+      "se3_photometric_min_hessian_rank",
+      declare_parameter<int>("se3_photometric_min_hessian_rank", 3), 0);
+    if (se3_photometric_min_hessian_rank_ > 6) {
+      throw std::runtime_error("se3_photometric_min_hessian_rank must be <= 6");
+    }
+    se3_photometric_max_hessian_condition_ = finite_nonnegative_parameter(
+      "se3_photometric_max_hessian_condition",
+      declare_parameter<double>("se3_photometric_max_hessian_condition", 1.0e12));
     se3_photometric_min_depth_m_ = finite_positive_parameter(
       "se3_photometric_min_depth_m",
       declare_parameter<double>("se3_photometric_min_depth_m", 0.05));
@@ -965,11 +974,22 @@ private:
       last_visual_se3_photometric_mean_abs_residual_ = se3_samples.mean_abs_residual;
       last_visual_se3_photometric_linearization_ =
         gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
-      if (last_visual_se3_photometric_linearization_.valid &&
+      const bool has_enough_samples = last_visual_se3_photometric_linearization_.valid &&
         last_visual_se3_photometric_linearization_.sample_count >=
-        static_cast<size_t>(se3_photometric_min_samples_))
+        static_cast<size_t>(se3_photometric_min_samples_);
+      const bool hessian_is_healthy =
+        se3_photometric_hessian_is_healthy(last_visual_se3_photometric_linearization_);
+      if (has_enough_samples && hessian_is_healthy)
       {
         ++visual_se3_photometric_valid_batches_;
+        last_accepted_visual_se3_photometric_hessian_rank_ =
+          last_visual_se3_photometric_linearization_.hessian_rank;
+        last_accepted_visual_se3_photometric_hessian_min_singular_value_ =
+          last_visual_se3_photometric_linearization_.hessian_min_singular_value;
+        last_accepted_visual_se3_photometric_hessian_max_singular_value_ =
+          last_visual_se3_photometric_linearization_.hessian_max_singular_value;
+        last_accepted_visual_se3_photometric_hessian_condition_number_ =
+          last_visual_se3_photometric_linearization_.hessian_condition_number;
         PendingSe3PhotometricFactor pending;
         pending.stamp_ns = observed.stamp_ns;
         pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
@@ -977,7 +997,11 @@ private:
         pending_visual_se3_photometric_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
       } else if (se3_samples.accepted_pixels > 0U) {
-        ++visual_se3_photometric_insufficient_sample_batches_;
+        if (has_enough_samples) {
+          ++visual_se3_photometric_degenerate_batches_;
+        } else {
+          ++visual_se3_photometric_insufficient_sample_batches_;
+        }
       }
     }
     if (last_visual_alignment_.valid) {
@@ -1813,6 +1837,25 @@ private:
     const int64_t current_stamp_ns) const
   {
     return factor_stamp_ns + max_visual_factor_reference_delta_ns() < current_stamp_ns;
+  }
+
+  bool se3_photometric_hessian_is_healthy(
+    const gaussian_lic_tracking::VisualSe3PhotometricLinearization & linearization) const
+  {
+    if (!linearization.valid) {
+      return false;
+    }
+    if (linearization.hessian_rank < static_cast<size_t>(se3_photometric_min_hessian_rank_)) {
+      return false;
+    }
+    if (se3_photometric_max_hessian_condition_ > 0.0 &&
+      (!std::isfinite(linearization.hessian_condition_number) ||
+      linearization.hessian_condition_number <= 0.0 ||
+      linearization.hessian_condition_number > se3_photometric_max_hessian_condition_))
+    {
+      return false;
+    }
+    return true;
   }
 
   static uint8_t visual_factor_source_id(
@@ -2941,14 +2984,18 @@ private:
     status.visual_photometric_step_dy = last_visual_photometric_linearization_.valid
       ? last_visual_photometric_linearization_.gauss_newton_step.y()
       : 0.0;
-    const bool se3_photometric_valid = last_visual_se3_photometric_linearization_.valid &&
+    const bool se3_photometric_valid =
+      last_visual_se3_photometric_linearization_.valid &&
       last_visual_se3_photometric_linearization_.sample_count >=
-      static_cast<size_t>(se3_photometric_min_samples_);
+      static_cast<size_t>(se3_photometric_min_samples_) &&
+      se3_photometric_hessian_is_healthy(last_visual_se3_photometric_linearization_);
     status.visual_se3_photometric_valid = se3_photometric_valid;
     status.visual_se3_photometric_total_batches = visual_se3_photometric_total_batches_;
     status.visual_se3_photometric_valid_batches = visual_se3_photometric_valid_batches_;
     status.visual_se3_photometric_insufficient_sample_batches =
       visual_se3_photometric_insufficient_sample_batches_;
+    status.visual_se3_photometric_degenerate_batches =
+      visual_se3_photometric_degenerate_batches_;
     status.visual_se3_photometric_total_candidates =
       visual_se3_photometric_total_candidate_pixels_;
     status.visual_se3_photometric_total_samples =
@@ -2975,6 +3022,22 @@ private:
     status.visual_se3_photometric_step_norm = se3_photometric_valid
       ? last_visual_se3_photometric_linearization_.gauss_newton_step.norm()
       : 0.0;
+    status.visual_se3_photometric_hessian_rank =
+      static_cast<uint64_t>(last_visual_se3_photometric_linearization_.hessian_rank);
+    status.visual_se3_photometric_hessian_min_singular_value =
+      last_visual_se3_photometric_linearization_.hessian_min_singular_value;
+    status.visual_se3_photometric_hessian_max_singular_value =
+      last_visual_se3_photometric_linearization_.hessian_max_singular_value;
+    status.visual_se3_photometric_hessian_condition_number =
+      last_visual_se3_photometric_linearization_.hessian_condition_number;
+    status.visual_se3_photometric_last_accepted_hessian_rank =
+      static_cast<uint64_t>(last_accepted_visual_se3_photometric_hessian_rank_);
+    status.visual_se3_photometric_last_accepted_hessian_min_singular_value =
+      last_accepted_visual_se3_photometric_hessian_min_singular_value_;
+    status.visual_se3_photometric_last_accepted_hessian_max_singular_value =
+      last_accepted_visual_se3_photometric_hessian_max_singular_value_;
+    status.visual_se3_photometric_last_accepted_hessian_condition_number =
+      last_accepted_visual_se3_photometric_hessian_condition_number_;
     tracking_status_pub_->publish(status);
   }
 
@@ -3039,11 +3102,13 @@ private:
   double se3_photometric_factor_huber_delta_{1.0};
   int se3_photometric_max_samples_{2000};
   int se3_photometric_min_samples_{16};
+  int se3_photometric_min_hessian_rank_{3};
   double se3_photometric_min_depth_m_{0.05};
   double se3_photometric_max_depth_m_{200.0};
   double se3_photometric_min_gradient_{1.0e-4};
   double se3_photometric_huber_delta_{0.15};
   double se3_photometric_max_abs_residual_{1.0};
+  double se3_photometric_max_hessian_condition_{1.0e12};
   bool enable_lio_factor_{true};
   bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
@@ -3181,6 +3246,10 @@ private:
   size_t last_visual_se3_photometric_rejected_gradient_pixels_{0};
   size_t last_visual_se3_photometric_rejected_residual_pixels_{0};
   double last_visual_se3_photometric_mean_abs_residual_{0.0};
+  size_t last_accepted_visual_se3_photometric_hessian_rank_{0};
+  double last_accepted_visual_se3_photometric_hessian_min_singular_value_{0.0};
+  double last_accepted_visual_se3_photometric_hessian_max_singular_value_{0.0};
+  double last_accepted_visual_se3_photometric_hessian_condition_number_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   std::deque<DepthFrame> depth_frame_cache_;
   std::deque<gaussian_lic_tracking::VisualFrame> observed_frame_cache_;
@@ -3199,6 +3268,7 @@ private:
   uint64_t visual_se3_photometric_total_batches_{0};
   uint64_t visual_se3_photometric_valid_batches_{0};
   uint64_t visual_se3_photometric_insufficient_sample_batches_{0};
+  uint64_t visual_se3_photometric_degenerate_batches_{0};
   uint64_t visual_se3_photometric_total_candidate_pixels_{0};
   uint64_t visual_se3_photometric_total_accepted_pixels_{0};
   gaussian_lic_tracking::SlidingWindowSummary last_sliding_window_summary_;

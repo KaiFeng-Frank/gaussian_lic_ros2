@@ -99,6 +99,10 @@ def generate_launch_description():
     se3_photometric_factor_huber_delta = LaunchConfiguration("se3_photometric_factor_huber_delta")
     se3_photometric_max_samples = LaunchConfiguration("se3_photometric_max_samples")
     se3_photometric_min_samples = LaunchConfiguration("se3_photometric_min_samples")
+    se3_photometric_min_hessian_rank = LaunchConfiguration("se3_photometric_min_hessian_rank")
+    se3_photometric_max_hessian_condition = LaunchConfiguration(
+        "se3_photometric_max_hessian_condition"
+    )
     se3_photometric_min_depth_m = LaunchConfiguration("se3_photometric_min_depth_m")
     se3_photometric_max_depth_m = LaunchConfiguration("se3_photometric_max_depth_m")
     se3_photometric_min_gradient = LaunchConfiguration("se3_photometric_min_gradient")
@@ -213,6 +217,8 @@ def generate_launch_description():
             DeclareLaunchArgument("se3_photometric_factor_huber_delta", default_value="1.0"),
             DeclareLaunchArgument("se3_photometric_max_samples", default_value="2000"),
             DeclareLaunchArgument("se3_photometric_min_samples", default_value="16"),
+            DeclareLaunchArgument("se3_photometric_min_hessian_rank", default_value="3"),
+            DeclareLaunchArgument("se3_photometric_max_hessian_condition", default_value="1000000000000.0"),
             DeclareLaunchArgument("se3_photometric_min_depth_m", default_value="0.05"),
             DeclareLaunchArgument("se3_photometric_max_depth_m", default_value="200.0"),
             DeclareLaunchArgument("se3_photometric_min_gradient", default_value="0.0001"),
@@ -325,6 +331,8 @@ def generate_launch_description():
                         "se3_photometric_factor_huber_delta": se3_photometric_factor_huber_delta,
                         "se3_photometric_max_samples": se3_photometric_max_samples,
                         "se3_photometric_min_samples": se3_photometric_min_samples,
+                        "se3_photometric_min_hessian_rank": se3_photometric_min_hessian_rank,
+                        "se3_photometric_max_hessian_condition": se3_photometric_max_hessian_condition,
                         "se3_photometric_min_depth_m": se3_photometric_min_depth_m,
                         "se3_photometric_max_depth_m": se3_photometric_max_depth_m,
                         "se3_photometric_min_gradient": se3_photometric_min_gradient,

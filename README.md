@@ -330,6 +330,17 @@ visual_pending_stale_drops=0, se3_pending_stale_drops=0,
 imu_factor_skip_count=0, imu_time_gap_skip_count=0,
 normal_equation_rows=44808, condition=7.019e6,
 numeric_jacobian_blocks=0
+
+results/fastlivo2/Bright_Screen_Wall_native_tracking_se3_hessian_gate_30s/native_tracking_report.json
+ok=true, poses=87, /points_for_gs=88, status_samples=87, imu_factors=85,
+visual_factors=46, se3_photometric_factors=10,
+se3_total_batches=46, se3_valid_batches=10, se3_degenerate_batches=0,
+se3_total_samples=19176, se3_min_hessian_rank_gate=3,
+last_accepted_se3_hessian_rank=6, last_accepted_se3_hessian_condition=7.240e3,
+trajectory_deskew_queries=2088000, trajectory_deskew_hits=2031012,
+imu_factor_skip_count=0, imu_time_gap_skip_count=0, feedback_updates=85,
+normal_equation_rows=40555, condition=9.543e6, rank_ratio=1.0,
+numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:
