@@ -98,9 +98,10 @@ source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source install/setup.bash
 set -u
 
-launch_log="${ROOT_DIR}/log/tracking_smoke_launch.log"
-play_log="${ROOT_DIR}/log/tracking_smoke_play.log"
-render_log="${ROOT_DIR}/log/tracking_smoke_rendered_pub.log"
+run_id="${ROS_DOMAIN_ID}_${BASHPID}"
+launch_log="${ROOT_DIR}/log/tracking_smoke_${run_id}_launch.log"
+play_log="${ROOT_DIR}/log/tracking_smoke_${run_id}_play.log"
+render_log="${ROOT_DIR}/log/tracking_smoke_${run_id}_rendered_pub.log"
 mkdir -p "${ROOT_DIR}/log"
 rm -f "${launch_log}" "${play_log}" "${render_log}"
 
@@ -166,8 +167,9 @@ for topic in /pose_for_gs /points_for_gs /gaussian_lic/frontend/odometry /gaussi
   timeout "${TIMEOUT_SEC}" ros2 topic echo --once "${topic}" >/dev/null
 done
 
-status_file=/tmp/gaussian_lic_tracking_smoke_status.txt
-status_tmp=/tmp/gaussian_lic_tracking_smoke_status.tmp
+status_file="/tmp/gaussian_lic_tracking_smoke_status_${run_id}.txt"
+status_tmp="${status_file}.tmp"
+legacy_status_file=/tmp/gaussian_lic_tracking_smoke_status.txt
 rm -f "${status_file}" "${status_tmp}"
 
 status_has_finite_number() {
@@ -361,5 +363,7 @@ if [[ ! -f "${status_file}" ]] || ! status_matches; then
   exit 1
 fi
 
+cp "${status_file}" "${legacy_status_file}"
 echo "[tracking-smoke] passed"
+echo "[tracking-smoke] status file: ${status_file}"
 echo "[tracking-smoke] launch log: ${launch_log}"

@@ -129,6 +129,10 @@ Native C++ packages default to `RelWithDebInfo` when `CMAKE_BUILD_TYPE` is not
 set, so local smoke and BA timing runs exercise optimized production code while
 still preserving debug symbols. Explicit `colcon build --cmake-args
 -DCMAKE_BUILD_TYPE=Debug` remains honored.
+Native tracking smoke status and log artifacts are isolated by ROS domain and
+process id, so concurrent local/CI runs cannot race on the same `/tmp` status
+file; the latest successful status is still mirrored to
+`/tmp/gaussian_lic_tracking_smoke_status.txt` for inspection.
 
 Run the native tracking probe suite:
 
