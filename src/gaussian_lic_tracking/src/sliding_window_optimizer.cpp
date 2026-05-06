@@ -172,10 +172,12 @@ Eigen::Matrix3d so3_left_jacobian_inverse(const Eigen::Vector3d & phi)
   return Eigen::Matrix3d::Identity() - 0.5 * phi_hat + coefficient * phi_hat_sq;
 }
 
-Eigen::Matrix3d left_perturbation_rotation_residual_jacobian(
-  const Eigen::Quaterniond & reference_q)
+Eigen::Matrix3d rotation_residual_left_perturbation_jacobian(
+  const Eigen::Quaterniond & reference_q,
+  const Eigen::Quaterniond & state_q)
 {
-  return reference_q.normalized().inverse().toRotationMatrix();
+  return so3_left_jacobian_inverse(relative_rotation_vector(reference_q, state_q)) *
+         reference_q.normalized().inverse().toRotationMatrix();
 }
 
 Eigen::Matrix3d rotation_residual_middle_perturbation_jacobian(
@@ -285,11 +287,12 @@ Eigen::Matrix<double, 9, 6> imu_preintegration_bias_residual_jacobian(
 }
 
 Eigen::Matrix<double, 15, 15> state_delta_left_perturbation_jacobian(
-  const Eigen::Quaterniond & reference_q)
+  const Eigen::Quaterniond & reference_q,
+  const Eigen::Quaterniond & state_q)
 {
   Eigen::Matrix<double, 15, 15> jacobian = Eigen::Matrix<double, 15, 15>::Zero();
   jacobian.template block<3, 3>(0, 0) =
-    left_perturbation_rotation_residual_jacobian(reference_q);
+    rotation_residual_left_perturbation_jacobian(reference_q, state_q);
   jacobian.template block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
   jacobian.template block<3, 3>(6, 6) = Eigen::Matrix3d::Identity();
   jacobian.template block<3, 3>(9, 9) = Eigen::Matrix3d::Identity();
@@ -1029,11 +1032,7 @@ Eigen::Vector3d SlidingWindowOptimizer::rotation_residual(
   const Eigen::Quaterniond & measured_q,
   const Eigen::Quaterniond & predicted_q)
 {
-  Eigen::Quaterniond error = (measured_q.normalized().inverse() * predicted_q.normalized()).normalized();
-  if (error.w() < 0.0) {
-    error.coeffs() *= -1.0;
-  }
-  return 2.0 * error.vec();
+  return relative_rotation_vector(measured_q, predicted_q);
 }
 
 Eigen::Matrix<double, 15, 1> SlidingWindowOptimizer::state_delta(
@@ -1413,9 +1412,10 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       return fallback_to_numeric();
     }
     if (offset >= 0) {
+      const auto & state = states[static_cast<size_t>(index)];
       jacobian.template block<3, 3>(row, offset) =
         std::sqrt(prior.rotation_weight) *
-        left_perturbation_rotation_residual_jacobian(prior.q_w_i);
+        rotation_residual_left_perturbation_jacobian(prior.q_w_i, state.q_w_i);
       jacobian.template block<3, 3>(row + 3, offset + 6) =
         std::sqrt(prior.translation_weight) * Eigen::Matrix3d::Identity();
     }
@@ -1432,9 +1432,10 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       return fallback_to_numeric();
     }
     if (offset >= 0) {
+      const auto & state = states[static_cast<size_t>(index)];
       jacobian.template block<15, 15>(row, offset) =
         effective_state_prior_sqrt_information(prior) *
-        state_delta_left_perturbation_jacobian(prior.q_w_i);
+        state_delta_left_perturbation_jacobian(prior.q_w_i, state.q_w_i);
     }
     row += 15;
   }
@@ -1470,7 +1471,9 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         jacobian.block(row, offset, prior.sqrt_information.rows(), static_cast<Eigen::Index>(kStateDof)) =
           prior.sqrt_information.block(
           0, prior_offset, prior.sqrt_information.rows(), static_cast<Eigen::Index>(kStateDof)) *
-          state_delta_left_perturbation_jacobian(prior.reference_states[reference_index].q_w_i);
+          state_delta_left_perturbation_jacobian(
+          prior.reference_states[reference_index].q_w_i,
+          states[local_index].q_w_i);
       }
       row += prior.sqrt_information.rows();
     }
@@ -1577,7 +1580,7 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
       Eigen::Matrix<double, 6, 15> delta_jacobian = Eigen::Matrix<double, 6, 15>::Zero();
       delta_jacobian.template block<3, 3>(0, 0) =
-        left_perturbation_rotation_residual_jacobian(factor.reference_q_w_i);
+        rotation_residual_left_perturbation_jacobian(factor.reference_q_w_i, state.q_w_i);
       delta_jacobian.template block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
       jacobian.block(row, offset, 6, static_cast<Eigen::Index>(kStateDof)) =
         robust_scale * factor.sqrt_information * delta_jacobian;

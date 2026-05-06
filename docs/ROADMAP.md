@@ -250,6 +250,7 @@ baseline_manifest.json
 - [x] Reject invalid optimized sliding-window states before odometry/IMU feedback and reject invalid trajectory-control poses before B-spline deskew use.
 - [x] Publish and smoke-gate optimized IMU re-anchor and B-spline trajectory-control runtime status fields.
 - [x] Add optional SE3 photometric pose factors to the sliding-window optimizer with deterministic CTest coverage.
+- [x] Use SO(3) log-map rotation residuals and left-Jacobian inverse blocks for pose/state/dense/SE3 priors, with nonzero-residual finite-difference CTest coverage.
 - [x] Extract runtime SE3 photometric window factors from rendered/current/depth images and gate them in native tracking smoke.
 - [x] Add robust runtime SE3 photometric sampling gates for depth range, image gradient, residual outliers, Huber weighting, and status-reported sample quality.
 - [x] Publish cumulative visual-alignment and SE3 photometric window-factor totals so optimized runs still prove visual BA usage after active-window trimming.

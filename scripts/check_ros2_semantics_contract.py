@@ -340,6 +340,10 @@ def main() -> int:
         errors.append("smoothness rotation rows must use closed-form SO(3) Jacobian blocks")
     if "smoothness_rotation_jacobian" in sliding_window_text and "const double epsilon)" in sliding_window_text:
         errors.append("smoothness rotation rows must not depend on local finite-difference epsilon")
+    if "return relative_rotation_vector(measured_q, predicted_q);" not in sliding_window_text:
+        errors.append("sliding-window rotation priors must use SO(3) log-map residuals")
+    if "rotation_residual_left_perturbation_jacobian" not in sliding_window_text:
+        errors.append("sliding-window rotation priors must use SO(3) left-Jacobian inverse blocks")
     if 'declare_parameter("imu_samples_per_frame", 3)' not in synthetic_pub_text:
         errors.append("synthetic_gs_frame_pub must publish at least three IMU samples per frame by default")
     if 'declare_parameter("imu_stamp_lead_ns", 10000000)' not in synthetic_pub_text:
