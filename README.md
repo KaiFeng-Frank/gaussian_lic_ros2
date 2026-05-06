@@ -196,6 +196,25 @@ non-degenerate and tune the LiDAR factor budget explicitly:
   --require-nondegenerate-ba
 ```
 
+For the real-bag visual/SE3 photometric feedback path, launch mapper feedback
+beside native tracking:
+
+```bash
+./scripts/run_native_tracking_bag_report.sh \
+  --bag /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --output results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_12s \
+  --playback-duration 12 \
+  --timeout 45 \
+  --min-poses 30 \
+  --min-point-frames 20 \
+  --lidar-max-frame-points 1200 \
+  --lidar-max-map-points 16000 \
+  --sliding-window-max-iterations 2 \
+  --sliding-window-max-state-gap-s 1.5 \
+  --require-nondegenerate-ba \
+  --enable-mapper-feedback
+```
+
 Latest local real-bag check:
 
 ```text
@@ -219,6 +238,13 @@ imu_factor_skip_count=0, imu_time_gap_skip_count=0,
 pointcloud_imu_wait_deferred=7, pointcloud_imu_wait_released=7,
 pointcloud_imu_wait_dropped=0, normal_equation_rows=30465,
 condition=5.773e5, numeric_jacobian_blocks=0
+
+results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_12s/native_tracking_report.json
+ok=true, poses=36, /points_for_gs=36, status_samples=36, imu_factors=35,
+visual_factors=2, se3_photometric_factors=2, se3_samples=68,
+visual_depth_cache_size=4, visual_depth_match_delta_ns=95735550,
+imu_factor_skip_count=0, imu_time_gap_skip_count=0,
+normal_equation_rows=33855, condition=8.363e5, numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:

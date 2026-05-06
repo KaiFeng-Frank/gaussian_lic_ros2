@@ -833,6 +833,8 @@ private:
         "dropping camera image with unsupported encoding, layout, or dimensions");
       return;
     }
+    last_observed_image_width_ = observed.width;
+    last_observed_image_height_ = observed.height;
     int64_t rendered_match_delta_ns = 0;
     bool rendered_cache_had_size_match = false;
     const gaussian_lic_tracking::VisualFrame * rendered_frame =
@@ -1057,6 +1059,7 @@ private:
       }
     }
     pointcloud_pub_->publish(output_cloud);
+    cache_sparse_lidar_depth_frame(tracking_pose.stamp_ns, lidar_points);
 
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> window_point_factors;
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> window_plane_factors;
@@ -1682,6 +1685,66 @@ private:
     const auto max_cache_size = static_cast<size_t>(depth_frame_cache_size_);
     while (depth_frame_cache_.size() > max_cache_size) {
       depth_frame_cache_.pop_front();
+    }
+  }
+
+  void cache_sparse_lidar_depth_frame(
+    const int64_t stamp_ns,
+    const std::vector<Eigen::Vector3d> & points_i)
+  {
+    if (!enable_visual_factor_ || !enable_se3_photometric_window_factor_ ||
+      !has_camera_intrinsics_ || last_observed_image_width_ == 0U ||
+      last_observed_image_height_ == 0U || points_i.empty())
+    {
+      return;
+    }
+
+    DepthFrame frame;
+    frame.stamp_ns = stamp_ns;
+    frame.width = last_observed_image_width_;
+    frame.height = last_observed_image_height_;
+    frame.depth_m.assign(
+      frame.width * frame.height,
+      std::numeric_limits<float>::quiet_NaN());
+
+    const Eigen::Quaterniond q_c_i = q_i_c_.normalized().inverse();
+    size_t projected_count = 0U;
+    for (const auto & point_i : points_i) {
+      if (!point_i.allFinite()) {
+        continue;
+      }
+      const Eigen::Vector3d point_c = q_c_i * (point_i - p_i_c_);
+      const double z = point_c.z();
+      if (!std::isfinite(z) || z <= se3_photometric_min_depth_m_ ||
+        z > se3_photometric_max_depth_m_)
+      {
+        continue;
+      }
+      const double u_f = camera_intrinsics_.fx * point_c.x() / z + camera_intrinsics_.cx;
+      const double v_f = camera_intrinsics_.fy * point_c.y() / z + camera_intrinsics_.cy;
+      if (!std::isfinite(u_f) || !std::isfinite(v_f)) {
+        continue;
+      }
+      const auto u = static_cast<int64_t>(std::llround(u_f));
+      const auto v = static_cast<int64_t>(std::llround(v_f));
+      if (u < 0 || v < 0 ||
+        u >= static_cast<int64_t>(frame.width) ||
+        v >= static_cast<int64_t>(frame.height))
+      {
+        continue;
+      }
+      const size_t index = static_cast<size_t>(v) * frame.width + static_cast<size_t>(u);
+      const float depth = static_cast<float>(z);
+      if (!std::isfinite(frame.depth_m[index]) || depth < frame.depth_m[index]) {
+        if (!std::isfinite(frame.depth_m[index])) {
+          ++projected_count;
+        }
+        frame.depth_m[index] = depth;
+      }
+    }
+
+    if (projected_count >= static_cast<size_t>(se3_photometric_min_samples_)) {
+      cache_depth_frame(std::move(frame));
     }
   }
 
@@ -2830,6 +2893,8 @@ private:
   uint64_t visual_depth_stale_count_{0};
   uint64_t visual_depth_size_mismatch_count_{0};
   bool has_camera_intrinsics_{false};
+  size_t last_observed_image_width_{0};
+  size_t last_observed_image_height_{0};
   bool has_pending_visual_se3_photometric_{false};
   bool has_pending_visual_alignment_{false};
   uint64_t visual_alignment_pending_stale_drops_{0};

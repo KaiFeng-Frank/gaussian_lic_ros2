@@ -15,12 +15,17 @@ MIN_POINT_FRAMES=10
 LIDAR_MIN_POINTS=32
 LIDAR_MAX_FRAME_POINTS=4000
 LIDAR_MAX_MAP_POINTS=40000
+LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
+LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
+CAMERA_TO_IMU_TRANSLATION_M="[0.0673699, 0.0412418, 0.0764217]"
+CAMERA_TO_IMU_RPY_RAD="[-1.5768568829, 0.0154178108, -1.5646936365]"
 SLIDING_WINDOW_MAX_ITERATIONS=3
 SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
 SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
 REQUIRE_BA_FEEDBACK=false
 REQUIRE_NONDEGENERATE_BA=false
 ENABLE_VISUAL_FACTORS=false
+ENABLE_MAPPER_FEEDBACK=false
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -58,6 +63,10 @@ Options:
   --lidar-min-points N         Tracking LiDAR frame minimum. Default: 32.
   --lidar-max-frame-points N   Max LiDAR points used per frame factor. Default: 4000.
   --lidar-max-map-points N     Max LiDAR map points retained by the native factor. Default: 40000.
+  --lidar-to-imu-translation V  YAML vector for LiDAR->IMU translation. Default: FAST-LIVO2.
+  --lidar-to-imu-rpy V          YAML vector for LiDAR->IMU RPY radians. Default: FAST-LIVO2 identity.
+  --camera-to-imu-translation V YAML vector for camera->IMU translation. Default: FAST-LIVO2.
+  --camera-to-imu-rpy V         YAML vector for camera->IMU RPY radians. Default: FAST-LIVO2.
   --sliding-window-max-iterations N
                                Max BA iterations per solve. Default: 3.
   --sliding-window-max-state-gap-s SEC
@@ -67,6 +76,7 @@ Options:
   --require-ba-feedback        Require accepted sliding-window feedback.
   --require-nondegenerate-ba   Require the last reported BA normal equation and state cadence to be non-degenerate.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
+  --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
   --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
@@ -138,6 +148,22 @@ while [[ $# -gt 0 ]]; do
       LIDAR_MAX_MAP_POINTS="$2"
       shift 2
       ;;
+    --lidar-to-imu-translation)
+      LIDAR_TO_IMU_TRANSLATION_M="$2"
+      shift 2
+      ;;
+    --lidar-to-imu-rpy)
+      LIDAR_TO_IMU_RPY_RAD="$2"
+      shift 2
+      ;;
+    --camera-to-imu-translation)
+      CAMERA_TO_IMU_TRANSLATION_M="$2"
+      shift 2
+      ;;
+    --camera-to-imu-rpy)
+      CAMERA_TO_IMU_RPY_RAD="$2"
+      shift 2
+      ;;
     --sliding-window-max-iterations)
       SLIDING_WINDOW_MAX_ITERATIONS="$2"
       shift 2
@@ -159,6 +185,11 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --enable-visual-factors)
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --enable-mapper-feedback)
+      ENABLE_MAPPER_FEEDBACK=true
       ENABLE_VISUAL_FACTORS=true
       shift
       ;;
@@ -259,6 +290,7 @@ rm -rf "${OUTPUT_DIR}"
 mkdir -p "${LOG_DIR}" "${ARTIFACT_DIR}"
 
 launch_log="${LOG_DIR}/tracking_launch.log"
+mapper_log="${LOG_DIR}/mapping_feedback.log"
 play_log="${LOG_DIR}/rosbag_play.log"
 recorder_log="${LOG_DIR}/native_tracking_recorder.log"
 
@@ -289,6 +321,9 @@ cleanup() {
   if [[ -n "${record_pid:-}" ]]; then
     stop_process_group "${record_pid}" TERM
   fi
+  if [[ -n "${mapper_pid:-}" ]]; then
+    stop_process_group "${mapper_pid}" TERM
+  fi
   if [[ -n "${launch_pid:-}" ]]; then
     stop_process_group "${launch_pid}" TERM
   fi
@@ -308,6 +343,10 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   external_odometry_prior_rotation_weight:="${EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:=0.0 \
+  lidar_to_imu_translation_m:="${LIDAR_TO_IMU_TRANSLATION_M}" \
+  lidar_to_imu_rpy_rad:="${LIDAR_TO_IMU_RPY_RAD}" \
+  camera_to_imu_translation_m:="${CAMERA_TO_IMU_TRANSLATION_M}" \
+  camera_to_imu_rpy_rad:="${CAMERA_TO_IMU_RPY_RAD}" \
   lidar_nearest_distance_m:=1.0 \
   lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
   lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
@@ -316,6 +355,25 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
   >"${launch_log}" 2>&1 &
 launch_pid=$!
+
+if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
+  setsid ros2 run gaussian_lic_mapping mapping_node \
+    --ros-args \
+    --params-file "${ROOT_DIR}/src/gaussian_lic_bringup/config/default.yaml" \
+    -p use_sim_time:=true \
+    -p render_mode:=debug_input \
+    -p require_depth_topic:=false \
+    -p publish_gaussian_map:=false \
+    -p enable_torch_camera_conversion:=false \
+    -p enable_torch_gaussian_init:=false \
+    -p enable_torch_gaussian_extend:=false \
+    -p enable_torch_gaussian_optimization:=false \
+    -p enable_torch_gaussian_pruning:=false \
+    -p enable_torch_gaussian_densification:=false \
+    -p torch_gaussian_device:=cpu \
+    >"${mapper_log}" 2>&1 &
+  mapper_pid=$!
+fi
 
 sleep 2
 
@@ -372,7 +430,8 @@ unset launch_pid
 
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
-  "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" <<'PY'
+  "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
+  "${ENABLE_VISUAL_FACTORS}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -386,6 +445,7 @@ require_ba_feedback = sys.argv[6].lower() == "true"
 require_reference_trajectory = sys.argv[7].lower() == "true"
 min_reference_poses = int(sys.argv[8])
 require_nondegenerate_ba = sys.argv[9].lower() == "true"
+enable_visual_factors = sys.argv[10].lower() == "true"
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -449,6 +509,14 @@ if require_nondegenerate_ba and int(last.get("sliding_window_imu_factor_skip_cou
 if require_nondegenerate_ba and int(last.get("sliding_window_imu_time_gap_skip_count", 0)) != 0:
     errors.append(
         f"sliding_window_imu_time_gap_skip_count is {last.get('sliding_window_imu_time_gap_skip_count')}")
+if enable_visual_factors and int(last.get("sliding_window_total_visual_factors", 0)) <= 0:
+    errors.append("sliding_window_total_visual_factors is zero")
+if enable_visual_factors and int(last.get("sliding_window_total_se3_photometric_factors", 0)) <= 0:
+    errors.append("sliding_window_total_se3_photometric_factors is zero")
+if enable_visual_factors and not bool(last.get("visual_photometric_valid", False)):
+    errors.append("visual_photometric_valid is false")
+if enable_visual_factors and not bool(last.get("visual_se3_photometric_valid", False)):
+    errors.append("visual_se3_photometric_valid is false")
 
 report = {
     "ok": not errors,
