@@ -178,6 +178,24 @@ stream is admitted as a sliding-window pose prior. The report then records both
 `scripts/trajectory_compare.py`, and stores the result in
 `native_tracking_trajectory_compare.json`.
 
+For pure sensor-only native tracking, require the last BA solve to be
+non-degenerate and tune the LiDAR factor budget explicitly:
+
+```bash
+./scripts/run_native_tracking_bag_report.sh \
+  --bag /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
+  --output results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s \
+  --playback-duration 12 \
+  --timeout 45 \
+  --min-poses 35 \
+  --min-point-frames 20 \
+  --lidar-max-frame-points 1200 \
+  --lidar-max-map-points 16000 \
+  --sliding-window-max-iterations 2 \
+  --sliding-window-max-state-gap-s 1.5 \
+  --require-nondegenerate-ba
+```
+
 Latest local real-bag check:
 
 ```text
@@ -192,6 +210,12 @@ normal_equation_rows=65611, numeric_jacobian_blocks=0
 /tmp/gaussian_lic_native_tracking_reference_prior_probe/native_tracking_report.json
 ok=true, poses=32, reference_poses=32, external_prior_matches=25,
 trajectory_rmse=0.101496 m, coverage=100.00%
+
+results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s/native_tracking_report.json
+ok=true, poses=37, /points_for_gs=37, status_samples=37, imu_factors=6,
+state=tracking_with_sliding_window, normal_equation_degenerate=false,
+state_gap_degenerate=false, accepted_steps=2, feedback_updates=36,
+normal_equation_rows=32445, condition=1.995e9, numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:

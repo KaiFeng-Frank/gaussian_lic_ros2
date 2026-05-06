@@ -13,7 +13,13 @@ MIN_POSES=20
 MIN_STATUS_SAMPLES=1
 MIN_POINT_FRAMES=10
 LIDAR_MIN_POINTS=32
+LIDAR_MAX_FRAME_POINTS=4000
+LIDAR_MAX_MAP_POINTS=40000
+SLIDING_WINDOW_MAX_ITERATIONS=3
+SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
+SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
 REQUIRE_BA_FEEDBACK=false
+REQUIRE_NONDEGENERATE_BA=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
@@ -50,7 +56,16 @@ Options:
   --min-status-samples N       Minimum TrackingStatus samples. Default: 1.
   --min-point-frames N         Minimum recorded /points_for_gs frames. Default: 10.
   --lidar-min-points N         Tracking LiDAR frame minimum. Default: 32.
+  --lidar-max-frame-points N   Max LiDAR points used per frame factor. Default: 4000.
+  --lidar-max-map-points N     Max LiDAR map points retained by the native factor. Default: 40000.
+  --sliding-window-max-iterations N
+                               Max BA iterations per solve. Default: 3.
+  --sliding-window-max-state-gap-s SEC
+                               Max active-window state gap before BA is marked degenerate. Default: 1.0.
+  --sliding-window-max-condition C
+                               Max normal-equation condition before BA is marked degenerate. Default: 1e13.
   --require-ba-feedback        Require accepted sliding-window feedback.
+  --require-nondegenerate-ba   Require the last reported BA normal equation and state cadence to be non-degenerate.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
@@ -115,8 +130,32 @@ while [[ $# -gt 0 ]]; do
       LIDAR_MIN_POINTS="$2"
       shift 2
       ;;
+    --lidar-max-frame-points)
+      LIDAR_MAX_FRAME_POINTS="$2"
+      shift 2
+      ;;
+    --lidar-max-map-points)
+      LIDAR_MAX_MAP_POINTS="$2"
+      shift 2
+      ;;
+    --sliding-window-max-iterations)
+      SLIDING_WINDOW_MAX_ITERATIONS="$2"
+      shift 2
+      ;;
+    --sliding-window-max-state-gap-s)
+      SLIDING_WINDOW_MAX_STATE_GAP_S="$2"
+      shift 2
+      ;;
+    --sliding-window-max-condition)
+      SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION="$2"
+      shift 2
+      ;;
     --require-ba-feedback)
       REQUIRE_BA_FEEDBACK=true
+      shift
+      ;;
+    --require-nondegenerate-ba)
+      REQUIRE_NONDEGENERATE_BA=true
       shift
       ;;
     --enable-visual-factors)
@@ -270,10 +309,11 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:=0.0 \
   lidar_nearest_distance_m:=1.0 \
-  lidar_max_frame_points:=4000 \
-  lidar_max_map_points:=40000 \
-  sliding_window_max_iterations:=3 \
-  sliding_window_max_normal_equation_condition:=10000000000000.0 \
+  lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
+  lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
+  sliding_window_max_iterations:="${SLIDING_WINDOW_MAX_ITERATIONS}" \
+  sliding_window_max_state_gap_s:="${SLIDING_WINDOW_MAX_STATE_GAP_S}" \
+  sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
   >"${launch_log}" 2>&1 &
 launch_pid=$!
 
@@ -332,7 +372,7 @@ unset launch_pid
 
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
-  "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" <<'PY'
+  "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -345,6 +385,7 @@ min_point_frames = int(sys.argv[5])
 require_ba_feedback = sys.argv[6].lower() == "true"
 require_reference_trajectory = sys.argv[7].lower() == "true"
 min_reference_poses = int(sys.argv[8])
+require_nondegenerate_ba = sys.argv[9].lower() == "true"
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -395,6 +436,12 @@ if int(last.get("sliding_window_smoothness_factors", 0)) <= 0:
 if require_ba_feedback and int(last.get("sliding_window_feedback_updates", 0)) <= 0:
     errors.append("sliding_window_feedback_updates is zero")
 if require_ba_feedback and int(last.get("sliding_window_accepted_steps", 0)) <= 0:
+    errors.append("sliding_window_accepted_steps is zero")
+if require_nondegenerate_ba and bool(last.get("sliding_window_normal_equation_degenerate", False)):
+    errors.append("sliding_window_normal_equation_degenerate is true")
+if require_nondegenerate_ba and bool(last.get("sliding_window_state_gap_degenerate", False)):
+    errors.append("sliding_window_state_gap_degenerate is true")
+if require_nondegenerate_ba and int(last.get("sliding_window_accepted_steps", 0)) <= 0:
     errors.append("sliding_window_accepted_steps is zero")
 
 report = {

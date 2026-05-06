@@ -327,6 +327,9 @@ baseline_manifest.json
 - [x] Add optional reference-trajectory native tracking evidence with explicit external-odometry pose priors.
   - The native report now records `reference_trajectory.tum`, can require `trajectory_compare.py` against `/gaussian_lic/frontend/input_odometry`, and keeps the odometry prior off by default so sensor-only tracking is not silently assisted.
   - 2026-05-06 synthetic frontend-raw visual run with `--enable-external-odometry-prior --require-reference-trajectory` passes with 32 native poses, 32 reference poses, 25 external-prior matches, 100.00% trajectory coverage, and 0.101496 m RMSE.
+- [x] Add a native tracking report non-degenerate BA gate and a real sensor-only Bright pass.
+  - `run_native_tracking_bag_report.sh` now exposes LiDAR factor budget, BA iteration, max state-gap, condition-number, and `--require-nondegenerate-ba` controls.
+  - 2026-05-06 local Bright 12s sensor-only run at `results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s/native_tracking_report.json` passes with 37 odometry poses, 37 mapper point frames, 6 IMU factors, `tracking_with_sliding_window`, non-degenerate state cadence, non-degenerate normal equations, 2 accepted BA steps, 36 feedback updates, 32,445 normal-equation rows, condition number 1.995e9, and zero numeric-Jacobian fallback.
 - [x] Local SPNet TensorRT engine benchmark passes the runtime target.
   - TensorRT 10.9 CUDA 12.8 builds `/home/frank/Software/TensorRT-engines/spnet_512_640_fp16.engine` for the RTX 5070 Ti `sm_120` GPU.
   - Mean `trtexec` latency is 26.4492 ms at `512x640`, below the 30 ms/frame target.
