@@ -51,14 +51,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 63768215552,
-    "free_gb": 59.38877868652344,
+    "free_bytes": 63158886400,
+    "free_gb": 58.82129669189453,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 890929000448
+    "used_bytes": 891538329600
   },
   "disk_ok": false,
-  "generated_at": "2026-05-06T10:48:39+00:00",
+  "generated_at": "2026-05-06T11:06:21+00:00",
   "min_free_gb": 100.0,
   "ok": false,
   "profiles": {
@@ -91,7 +91,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "LiDAR_Degenerate"
+          "sequence": "LiDAR_Degenerate",
+          "split_raw_components": {}
         },
         {
           "frontend_raw_rosbag2": [],
@@ -111,7 +112,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "Visual_Challenge"
+          "sequence": "Visual_Challenge",
+          "split_raw_components": {}
         },
         {
           "frontend_raw_rosbag2": [],
@@ -131,7 +133,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "hku1"
+          "sequence": "hku1",
+          "split_raw_components": {}
         },
         {
           "frontend_raw_rosbag2": [],
@@ -151,7 +154,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "hku2"
+          "sequence": "hku2",
+          "split_raw_components": {}
         }
       ],
       "source_urls": [
@@ -259,7 +263,8 @@
               "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_visual_ba_sync50ms_120s"
             }
           ],
-          "sequence": "CBD_Building_01"
+          "sequence": "CBD_Building_01",
+          "split_raw_components": {}
         },
         {
           "frontend_raw_rosbag2": [
@@ -298,7 +303,8 @@
               "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Retail_Street_native_tracking_scan_order_60s"
             }
           ],
-          "sequence": "Retail_Street"
+          "sequence": "Retail_Street",
+          "split_raw_components": {}
         }
       ],
       "source_urls": [
@@ -335,7 +341,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "room_01"
+          "sequence": "room_01",
+          "split_raw_components": {}
         },
         {
           "frontend_raw_rosbag2": [],
@@ -355,7 +362,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "room_02"
+          "sequence": "room_02",
+          "split_raw_components": {}
         },
         {
           "frontend_raw_rosbag2": [],
@@ -375,7 +383,8 @@
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "room_03"
+          "sequence": "room_03",
+          "split_raw_components": {}
         }
       ],
       "source_urls": [
@@ -387,7 +396,7 @@
       "missing": [
         "frontend_raw_rosbag2",
         "native_reference_trajectory",
-        "raw_ros1_bag",
+        "raw_component_camera_d435i",
         "ros1_baseline_artifacts",
         "ros2_current_artifacts"
       ],
@@ -396,7 +405,7 @@
         {
           "frontend_raw_rosbag2": [],
           "missing": [
-            "raw_ros1_bag",
+            "raw_component_camera_d435i",
             "frontend_raw_rosbag2",
             "ros1_baseline_artifacts",
             "ros2_current_artifacts",
@@ -404,14 +413,50 @@
           ],
           "native_reference_trajectory": [],
           "ok": false,
-          "raw_ros1_bag": [],
+          "raw_ros1_bag": [
+            {
+              "bytes": 568196474,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/mcd/ntu_day_01/ntu_day_01_mid70.bag.bz2"
+            },
+            {
+              "bytes": 33957020,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/mcd/ntu_day_01/ntu_day_01_vn100.bag.bz2"
+            }
+          ],
           "roots": [
             "/home/frank/data/mcd",
             "/home/frank/data/MCD"
           ],
           "ros1_baseline_artifacts": [],
           "ros2_current_artifacts": [],
-          "sequence": "ntu_day_01"
+          "sequence": "ntu_day_01",
+          "split_raw_components": {
+            "camera_d435i": [],
+            "imu_vn100_or_vn200": [
+              {
+                "bytes": 33957020,
+                "exists": true,
+                "is_dir": false,
+                "is_file": true,
+                "path": "/home/frank/data/mcd/ntu_day_01/ntu_day_01_vn100.bag.bz2"
+              }
+            ],
+            "lidar_mid70": [
+              {
+                "bytes": 568196474,
+                "exists": true,
+                "is_dir": false,
+                "is_file": true,
+                "path": "/home/frank/data/mcd/ntu_day_01/ntu_day_01_mid70.bag.bz2"
+              }
+            ]
+          }
         }
       ],
       "source_urls": [
@@ -463,7 +508,8 @@
               "path": "/home/frank/gaussian_lic_ros2/results/r3live/hku_park_00_native_tracking_scan_order_60s"
             }
           ],
-          "sequence": "hku_park_00"
+          "sequence": "hku_park_00",
+          "split_raw_components": {}
         }
       ],
       "source_urls": [

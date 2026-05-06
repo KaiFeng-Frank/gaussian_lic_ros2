@@ -49,6 +49,11 @@ CATALOG: dict[str, dict[str, Any]] = {
         "dataset": "MCD",
         "roots": ("mcd", "MCD"),
         "required_sequences": ("ntu_day_01",),
+        "split_raw_components": {
+            "camera_d435i": ("d435i",),
+            "lidar_mid70": ("mid70", "livox"),
+            "imu_vn100_or_vn200": ("vn100", "vn200"),
+        },
         "source_urls": ("https://mcdviral.github.io/Download.html",),
     },
     "r3live": {
@@ -167,6 +172,27 @@ def find_matches(paths: list[Path], sequence: str, limit: int) -> list[dict[str,
     return [path_entry(path) for path in paths if sequence_matches(path, sequence)][:limit]
 
 
+def split_raw_component_matches(
+    paths: list[Path],
+    sequence: str,
+    components: dict[str, tuple[str, ...]],
+    max_candidates: int,
+) -> dict[str, list[dict[str, Any]]]:
+    result: dict[str, list[dict[str, Any]]] = {}
+    for name, tokens in components.items():
+        matches = []
+        for path in paths:
+            text = normalize(str(path))
+            if not sequence_matches(path, sequence):
+                continue
+            if any(normalize(token) in text for token in tokens):
+                matches.append(path_entry(path))
+                if len(matches) >= max_candidates:
+                    break
+        result[name] = matches
+    return result
+
+
 def audit_sequence(
     repo_root: Path,
     data_root: Path,
@@ -189,6 +215,12 @@ def audit_sequence(
     currents = artifact_dirs(results_root, max_candidates * 16)
 
     raw = find_matches(raw_paths, sequence, max_candidates)
+    split_components = split_raw_component_matches(
+        raw_paths,
+        sequence,
+        dict(CATALOG[profile].get("split_raw_components", {})),
+        max_candidates,
+    )
     frontend = [
         path_entry(path)
         for path in frontend_paths
@@ -201,6 +233,9 @@ def audit_sequence(
     missing = []
     if not raw:
         missing.append("raw_ros1_bag")
+    for name, matches in split_components.items():
+        if not matches:
+            missing.append(f"raw_component_{name}")
     if not frontend:
         missing.append("frontend_raw_rosbag2")
     if not baseline:
@@ -214,6 +249,7 @@ def audit_sequence(
         "sequence": sequence,
         "roots": [str(root) for root in roots],
         "raw_ros1_bag": raw,
+        "split_raw_components": split_components,
         "frontend_raw_rosbag2": frontend,
         "ros1_baseline_artifacts": baseline,
         "ros2_current_artifacts": current,
@@ -382,6 +418,10 @@ def render_markdown(report: dict[str, Any]) -> str:
                 paths = [item["path"] for item in sequence[key]]
                 if paths:
                     lines.append(f"  - {key}: `{paths[0]}`")
+            for component, matches in sequence.get("split_raw_components", {}).items():
+                paths = [item["path"] for item in matches]
+                status = paths[0] if paths else "missing"
+                lines.append(f"  - raw_component_{component}: `{status}`")
         lines.append("")
 
     cleanup = report.get("cleanup_candidates", [])

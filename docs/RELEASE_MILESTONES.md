@@ -105,6 +105,10 @@ FAST-LIVO2 `Retail_Street` is also fetched, converted to frontend-raw, and
 runtime-gated through a 60s native scan-order deskew tracking report; it remains
 optional coverage until a matching ROS1 baseline/reference trajectory and strict
 current artifact are archived.
+MCD acquisition has started through `scripts/fetch_google_drive_file.py`; the
+local `ntu_day_01` directory has Livox `mid70` and `vn100` components, and the
+data audit keeps MCD failing until the `d435i` camera component and downstream
+frontend/baseline/current/reference artifacts are present.
 The native tracking launch now defaults the sliding-window BA, visual-alignment
 window factors, and SE3 photometric window factors to enabled so ordinary
 tracking launch paths exercise the joint optimizer when the corresponding
