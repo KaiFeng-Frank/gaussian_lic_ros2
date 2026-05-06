@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(gaussian_lic_mapping)
 
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(GAUSSIAN_LIC_ENABLE_TORCH "Build optional libtorch/CUDA mapper backend probes" OFF)

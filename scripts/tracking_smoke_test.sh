@@ -237,6 +237,11 @@ status_matches() {
     rg -q "sliding_window_imu_factor_skip_count:" "${status_file}" &&
     rg -q "sliding_window_imu_time_gap_skip_count:" "${status_file}" &&
     rg -q "sliding_window_last_imu_preintegration_samples:" "${status_file}" &&
+    rg -q "sliding_window_total_imu_factors:" "${status_file}" &&
+    rg -q "sliding_window_total_imu_preintegration_samples:" "${status_file}" &&
+    status_has_finite_number "sliding_window_total_imu_preintegration_dt_s" &&
+    rg -q "sliding_window_total_visual_factors:" "${status_file}" &&
+    rg -q "sliding_window_total_se3_photometric_factors:" "${status_file}" &&
     rg -q "sliding_window_last_imu_preintegration_dt_s:" "${status_file}" &&
     rg -q "sliding_window_last_imu_preintegration_extrapolated_dt_s:" "${status_file}" &&
     rg -q "sliding_window_last_imu_preintegration_start_stamp_ns:" "${status_file}" &&
@@ -302,17 +307,16 @@ status_matches() {
       rg -q "sliding_window_normal_equation_degenerate: false" "${status_file}" &&
       rg -q "sliding_window_last_step_scale: .*[1-9]" "${status_file}" &&
       rg -q "sliding_window_last_damping: .*[1-9]" "${status_file}" &&
-      rg -q "sliding_window_imu_factors: [1-9]" "${status_file}" &&
-      rg -q "sliding_window_last_imu_preintegration_samples: [1-9]" "${status_file}" &&
-      rg -q "sliding_window_last_imu_preintegration_dt_s: .*[1-9]" "${status_file}" &&
-      rg -q "sliding_window_last_imu_preintegration_start_stamp_ns: [1-9]" "${status_file}" &&
-      rg -q "sliding_window_last_imu_preintegration_end_stamp_ns: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_total_imu_factors: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_total_imu_preintegration_samples: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_total_imu_preintegration_dt_s: .*[1-9]" "${status_file}" &&
       rg -q "sliding_window_gyro_bias_observability: [1-9]" "${status_file}" &&
       rg -q "sliding_window_accel_bias_observability: [1-9]" "${status_file}" &&
       rg -q "sliding_window_imu_reanchors: [1-9]" "${status_file}" || return 1
   else
     rg -q "state: [23]" "${status_file}" &&
       rg -q "sliding_window_imu_factors: 0" "${status_file}" &&
+      rg -q "sliding_window_total_imu_factors: 0" "${status_file}" &&
       rg -q "sliding_window_imu_factor_skip_count: [1-9]" "${status_file}" || return 1
     if ! rg -q "sliding_window_(accepted|rejected)_steps: [1-9]" "${status_file}"; then
       return 1
@@ -333,8 +337,8 @@ status_matches() {
       rg -q "visual_se3_photometric_rejected_residual:" "${status_file}" &&
       rg -q "visual_se3_photometric_inlier_ratio: .*[1-9]" "${status_file}" &&
       rg -q "visual_se3_photometric_step_norm: .*[1-9]" "${status_file}" &&
-      rg -q "sliding_window_visual_factors: [1-9]" "${status_file}" &&
-      rg -q "sliding_window_se3_photometric_factors: [1-9]" "${status_file}" || return 1
+      rg -q "sliding_window_total_visual_factors: [1-9]" "${status_file}" &&
+      rg -q "sliding_window_total_se3_photometric_factors: [1-9]" "${status_file}" || return 1
   fi
 }
 

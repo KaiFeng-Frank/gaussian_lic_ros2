@@ -4,6 +4,7 @@ import math
 import struct
 
 import rclpy
+from builtin_interfaces.msg import Time
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from rclpy._rclpy_pybind11 import RCLError
@@ -53,6 +54,7 @@ class SyntheticGsFramePublisher(Node):
         self.declare_parameter("publish_depth", True)
         self.declare_parameter("pose_output_mode", "pose_stamped")
         self.declare_parameter("child_frame_id", "base_link")
+        self.declare_parameter("imu_stamp_lead_ns", 10000000)
 
         self.pointcloud_color_mode = str(
             self.get_parameter("pointcloud_color_mode").value).strip().lower()
@@ -68,6 +70,9 @@ class SyntheticGsFramePublisher(Node):
             raise ValueError(
                 "pose_output_mode must be pose_stamped, odometry, both, or none")
         self.child_frame_id = str(self.get_parameter("child_frame_id").value)
+        self.imu_stamp_lead_ns = int(self.get_parameter("imu_stamp_lead_ns").value)
+        if self.imu_stamp_lead_ns < 0:
+            raise ValueError("imu_stamp_lead_ns must be non-negative")
         self.image_width = int(self.get_parameter("image_width").value)
         self.image_height = int(self.get_parameter("image_height").value)
         if self.image_width <= 0 or self.image_height <= 0:
@@ -120,6 +125,15 @@ class SyntheticGsFramePublisher(Node):
         rate = float(self.get_parameter("publish_rate_hz").value)
         self.timer = self.create_timer(1.0 / rate, self.publish_frame)
         self.frame_id = 0
+
+    def make_imu_stamp(self, stamp):
+        if self.imu_stamp_lead_ns == 0:
+            return stamp
+        total_ns = stamp.sec * 1000000000 + stamp.nanosec
+        shifted_ns = max(0, total_ns - self.imu_stamp_lead_ns)
+        return Time(
+            sec=shifted_ns // 1000000000,
+            nanosec=shifted_ns % 1000000000)
         self.get_logger().info(
             "Publishing synthetic synchronized GS input frames "
             f"(pointcloud_color_mode={self.pointcloud_color_mode}, "
@@ -219,6 +233,16 @@ class SyntheticGsFramePublisher(Node):
     def publish_frame(self):
         stamp = self.get_clock().now().to_msg()
 
+        imu = Imu()
+        imu.header.stamp = self.make_imu_stamp(stamp)
+        imu.header.frame_id = "imu"
+        imu.orientation.w = 1.0
+        imu.orientation_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+        imu.angular_velocity_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+        imu.linear_acceleration.z = 9.80665
+        imu.linear_acceleration_covariance = [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
+        self.imu_pub.publish(imu)
+
         point_fields, point_step, point_data = self.make_pointcloud_data()
         points = PointCloud2()
         points.header.stamp = stamp
@@ -279,16 +303,6 @@ class SyntheticGsFramePublisher(Node):
             depth.step = self.image_width * 4
             depth.data = struct.pack("f", 1.0) * (self.image_width * self.image_height)
             self.depth_pub.publish(depth)
-
-        imu = Imu()
-        imu.header.stamp = stamp
-        imu.header.frame_id = "imu"
-        imu.orientation.w = 1.0
-        imu.orientation_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
-        imu.angular_velocity_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
-        imu.linear_acceleration.z = 9.80665
-        imu.linear_acceleration_covariance = [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
-        self.imu_pub.publish(imu)
 
         self.frame_id += 1
 

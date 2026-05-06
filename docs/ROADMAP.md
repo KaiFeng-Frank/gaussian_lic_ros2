@@ -218,6 +218,7 @@ baseline_manifest.json
 - [x] Trigger sliding-window BA from any accepted LiDAR, plane, visual, SE3 photometric, smoothness, or IMU factor instead of silently waiting for a valid IMU factor.
 - [x] Publish per-factor skip counters for LiDAR point/plane, visual, SE3 photometric, smoothness, IMU, and optimizer failures.
 - [x] Publish the last consumed IMU preintegration block sample count, dt, and signed-nanosecond span through `TrackingStatus`.
+- [x] Publish cumulative sliding-window IMU-factor/preintegration totals so optimized runs still prove IMU usage after active-window marginalization.
 - [x] Reject IMU factors whose preintegration span does not cover the BA state interval, with bounded final-sample extrapolation and time-gap skip status.
 - [x] Report and gate orphan sliding-window factors whose referenced states are absent instead of silently skipping residual blocks.
 - [x] Publish active-window min/max state spacing and gate oversized state gaps before solving BA.
@@ -249,6 +250,7 @@ baseline_manifest.json
 - [x] Add optional SE3 photometric pose factors to the sliding-window optimizer with deterministic CTest coverage.
 - [x] Extract runtime SE3 photometric window factors from rendered/current/depth images and gate them in native tracking smoke.
 - [x] Add robust runtime SE3 photometric sampling gates for depth range, image gradient, residual outliers, Huber weighting, and status-reported sample quality.
+- [x] Publish cumulative visual-alignment and SE3 photometric window-factor totals so optimized runs still prove visual BA usage after active-window trimming.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.
 - [x] Add default-enabled three-state continuous-time trajectory smoothness factors to the tracking window, with analytic linear Jacobian blocks, deterministic CTest, and native tracking smoke coverage.
 - [x] Publish and smoke-gate sliding-window numeric-Jacobian fallback block/column counts, and keep smoothness rotation rows off the global residual-rebuild path.

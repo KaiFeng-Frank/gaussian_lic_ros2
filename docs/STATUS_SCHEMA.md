@@ -182,7 +182,9 @@ visual_se3_photometric_step_norm
 `STATE_TRACKING`, publishes frontend odometry/path, and exercises the sliding
 window with callback serialization enabled, nonzero signed-nanosecond image,
 LiDAR, and IMU stamps, last-consumed IMU preintegration sample/dt/span status
-plus time-gap skip counts, bounded best-effort sensor QoS, bias-observability,
+plus cumulative IMU-factor/preintegration totals that survive window
+marginalization, cumulative visual/SE3 factor totals that survive active-window
+trimming, time-gap skip counts, bounded best-effort sensor QoS, bias-observability,
 and visual factors.
 The sliding-window gate also requires nonzero dense-prior rank and singular
 value coverage after marginalization so retained-state priors are numerically

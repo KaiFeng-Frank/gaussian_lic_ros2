@@ -1132,6 +1132,7 @@ private:
     for (const auto & visual_factor : visual_factors) {
       try {
         sliding_window_optimizer_.add_visual_alignment_factor(visual_factor);
+        ++sliding_window_total_visual_factors_;
         window_factor_added = true;
       } catch (const std::exception & ex) {
         ++sliding_window_visual_factor_skip_count_;
@@ -1143,6 +1144,7 @@ private:
     for (const auto & se3_factor : se3_photometric_factors) {
       try {
         sliding_window_optimizer_.add_se3_photometric_factor(se3_factor);
+        ++sliding_window_total_se3_photometric_factors_;
         window_factor_added = true;
       } catch (const std::exception & ex) {
         ++sliding_window_se3_photometric_factor_skip_count_;
@@ -1195,6 +1197,10 @@ private:
         factor.bias_weight = sliding_window_bias_weight_;
         try {
           sliding_window_optimizer_.add_imu_factor(factor);
+          ++sliding_window_total_imu_factors_;
+          sliding_window_total_imu_preintegration_samples_ +=
+            static_cast<uint64_t>(preintegration.samples().size());
+          sliding_window_total_imu_preintegration_dt_s_ += preintegration.delta_t_s();
           window_factor_added = true;
         } catch (const std::exception & ex) {
           ++sliding_window_imu_factor_skip_count_;
@@ -2165,6 +2171,14 @@ private:
       ? static_cast<uint64_t>(summary.state_count)
       : static_cast<uint64_t>(sliding_window_optimizer_.states().size());
     status.sliding_window_imu_factors = static_cast<uint64_t>(summary.imu_factor_count);
+    status.sliding_window_total_imu_factors = sliding_window_total_imu_factors_;
+    status.sliding_window_total_imu_preintegration_samples =
+      sliding_window_total_imu_preintegration_samples_;
+    status.sliding_window_total_imu_preintegration_dt_s =
+      sliding_window_total_imu_preintegration_dt_s_;
+    status.sliding_window_total_visual_factors = sliding_window_total_visual_factors_;
+    status.sliding_window_total_se3_photometric_factors =
+      sliding_window_total_se3_photometric_factors_;
     status.sliding_window_pose_priors = static_cast<uint64_t>(summary.pose_prior_count);
     status.sliding_window_dense_priors = static_cast<uint64_t>(summary.dense_prior_count);
     status.sliding_window_point_factors = static_cast<uint64_t>(summary.point_factor_count);
@@ -2499,6 +2513,11 @@ private:
   std::optional<int64_t> previous_sliding_window_stamp_ns_;
   std::optional<int64_t> last_trajectory_control_stamp_ns_;
   uint64_t num_sliding_window_imu_reanchors_{0};
+  uint64_t sliding_window_total_imu_factors_{0};
+  uint64_t sliding_window_total_imu_preintegration_samples_{0};
+  double sliding_window_total_imu_preintegration_dt_s_{0.0};
+  uint64_t sliding_window_total_visual_factors_{0};
+  uint64_t sliding_window_total_se3_photometric_factors_{0};
   uint64_t sliding_window_point_factor_skip_count_{0};
   uint64_t sliding_window_plane_factor_skip_count_{0};
   uint64_t sliding_window_visual_factor_skip_count_{0};
