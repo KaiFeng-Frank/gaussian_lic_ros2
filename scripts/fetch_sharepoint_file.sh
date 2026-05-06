@@ -75,6 +75,20 @@ fi
 mkdir -p "$(dirname "$output")"
 touch "$cookie"
 
+if [[ -f "$output" ]]; then
+  if [[ -z "$expected_bytes" ]]; then
+    echo "sharepoint fetch skipped existing output: $output" >&2
+    exit 0
+  fi
+  existing_bytes="$(stat -c '%s' "$output")"
+  if [[ "$existing_bytes" == "$expected_bytes" ]]; then
+    echo "sharepoint fetch skipped existing output: $output (${existing_bytes} bytes)" >&2
+    exit 0
+  fi
+  echo "existing output byte-count mismatch for $output: got $existing_bytes expected $expected_bytes" >&2
+  exit 4
+fi
+
 free_kb="$(df -Pk "$(dirname "$output")" | awk 'NR==2 {print $4}')"
 need_kb="$(python3 - <<PY
 print(int(float("$min_free_gb") * 1024 * 1024))
