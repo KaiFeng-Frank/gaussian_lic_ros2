@@ -1,8 +1,8 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-06T12:27:24+00:00`
+Generated: `2026-05-06T13:19:36+00:00`
 Data root: `/home/frank/data`
-Disk free: `190.26 GiB` (minimum requested `100.00 GiB`) - PASS
+Disk free: `180.71 GiB` (minimum requested `100.00 GiB`) - PASS
 Strict evidence currently materialized: `2/7`
 
 | Profile | Dataset | Status | Missing Inputs |
@@ -17,7 +17,10 @@ Strict evidence currently materialized: `2/7`
 
 ### fastlivo
 - `LiDAR_Degenerate`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts, native_reference_trajectory
-- `Visual_Challenge`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts, native_reference_trajectory
+- `Visual_Challenge`: MISSING; missing: ros1_baseline_artifacts, native_reference_trajectory
+  - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/Visual_Challenge/Visual_Challenge_0.mcap`
+  - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/Visual_Challenge_frontend_raw`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/Visual_Challenge_native_tracking_scan_order_60s`
 - `hku1`: MISSING; missing: ros1_baseline_artifacts, native_reference_trajectory
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/hku1/hku1_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/hku1_frontend_raw`

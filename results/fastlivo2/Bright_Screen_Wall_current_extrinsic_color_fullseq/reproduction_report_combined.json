@@ -1,0 +1,351 @@
+{
+  "baseline_dir": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s",
+  "baseline_manifest": {
+    "artifacts": {
+      "metrics.json": {
+        "bytes": 2452,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/metrics.json",
+        "sha256": "9c9118ef0c0d1899c60f9ddd1f5262e198118f5835b6013585c7ebfe998f6ce9"
+      },
+      "point_cloud.ply": {
+        "bytes": 100843805,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/point_cloud.ply",
+        "sha256": "2bc037ec05a4954f7bd6dff4e2933ab99c7778616c7bb082ed16aba2d0586c2d"
+      },
+      "run.log": {
+        "bytes": 4822,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/run.log",
+        "sha256": "28316a9ba04e1871c000eafc80d062c08b00078f5a2928c0e771747cb19ef152"
+      },
+      "trajectory.tum": {
+        "bytes": 8400,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/trajectory.tum",
+        "sha256": "23a889c6aa3cd5694e89c42d3c1e053c7201f866a6ab35b1e83f4cad8f04c8a9"
+      }
+    },
+    "baseline_dir": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s",
+    "dataset": "fastlivo2",
+    "errors": [],
+    "ok": true,
+    "renders": {
+      "bytes": 57770,
+      "file_count": 1,
+      "files": [
+        {
+          "bytes": 57770,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/renders/train_0004.jpg",
+          "sha256": "50facf7d94ed24dac6fdacb80791030584a82106af7df7f490d99e301cc2fd5f"
+        }
+      ],
+      "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/renders"
+    },
+    "required_files": [
+      "trajectory.tum",
+      "point_cloud.ply",
+      "metrics.json",
+      "run.log"
+    ],
+    "schema": "gaussian_lic_baseline_manifest/v1",
+    "sequence": "Bright_Screen_Wall_fastlivo2_color_8s",
+    "summary": {
+      "metrics_keys": [
+        "bag",
+        "bag_format",
+        "debug_cloud",
+        "debug_points",
+        "duration_sec",
+        "message_count",
+        "outputs",
+        "pointcloud_topic",
+        "pose_topic",
+        "quality",
+        "run_log",
+        "runtime",
+        "schema",
+        "sequence",
+        "storage_identifier",
+        "topic_counts",
+        "topic_hz",
+        "trajectory",
+        "trajectory_poses"
+      ],
+      "point_cloud_vertices": 427298,
+      "trajectory_poses": 80
+    }
+  },
+  "current_dir": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq",
+  "dataset": "fastlivo2",
+  "gaussian_color": {
+    "alignment": {
+      "current_offset_removed": [
+        -0.10999760293030539,
+        0.36125897350354197,
+        -0.8779466855969886
+      ],
+      "mode": "centroid"
+    },
+    "baseline": {
+      "bounds": {
+        "max": [
+          3.4543263912200928,
+          1.4016567468643188,
+          7.485107421875
+        ],
+        "min": [
+          -3.629873514175415,
+          -2.4888358116149902,
+          1.0194091796875
+        ]
+      },
+      "centroid": [
+        0.0735673088033771,
+        -0.3249509113189066,
+        4.533090050451788
+      ],
+      "declared_vertices": 427298,
+      "downsampled_points": 16143,
+      "has_rgb": true,
+      "loaded_points": 47478,
+      "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/point_cloud.ply"
+    },
+    "centroid_drift_m": 3.375870225415511e-14,
+    "color": {
+      "baseline_mean_rgb": [
+        33.455331939617146,
+        51.306043082985916,
+        98.42268886172363
+      ],
+      "compared": true,
+      "current_mean_rgb": [
+        28.259045282037874,
+        49.55674526230765,
+        108.7099257252823
+      ],
+      "mean_rgb_distance": 11.657130014721746
+    },
+    "count_ratio": 1.0531193394835503,
+    "current": {
+      "bounds": {
+        "max": [
+          3.1865912429303056,
+          1.289954196496458,
+          8.75460226559699
+        ],
+        "min": [
+          -4.073156507069695,
+          -2.6727371135035423,
+          2.3313852055969884
+        ]
+      },
+      "centroid": [
+        0.0735673088033775,
+        -0.3249509113189072,
+        4.533090050451754
+      ],
+      "declared_vertices": 200000,
+      "downsampled_points": 28682,
+      "has_rgb": true,
+      "loaded_points": 50000,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch/point_cloud.ply"
+    },
+    "errors": [],
+    "nearest": {
+      "bidirectional": {
+        "max_m": 0.5,
+        "mean_m": 0.22596148339781558,
+        "median_m": 0.1702925587698707,
+        "rmse_m": 0.28647679021704137,
+        "unmatched": 8543,
+        "unmatched_ratio": 0.1905856107083101
+      },
+      "forward": {
+        "max_m": 0.5,
+        "mean_m": 0.1909229553996426,
+        "median_m": 0.10608853533787306,
+        "rmse_m": 0.25842769895274464,
+        "unmatched": 2098
+      },
+      "reverse": {
+        "max_m": 0.5,
+        "mean_m": 0.2456821080918573,
+        "median_m": 0.19868222199832888,
+        "rmse_m": 0.3011166546283363,
+        "unmatched": 6445
+      }
+    },
+    "ok": true,
+    "thresholds": {
+      "max_centroid_drift_m": 0.5,
+      "max_chamfer_max_m": 0.5,
+      "max_chamfer_mean_m": 0.5,
+      "max_chamfer_rmse_m": 0.5,
+      "max_count_ratio": 5.0,
+      "max_mean_rgb_drift": 40.0,
+      "max_nearest_m": 0.5,
+      "max_unmatched_ratio": 0.25,
+      "min_count_ratio": 0.5
+    },
+    "voxel_size_m": 0.05
+  },
+  "metrics": {
+    "baseline": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/metrics.json",
+    "comparisons": [
+      {
+        "baseline": 200000.0,
+        "current": 200000.0,
+        "direction": "higher_is_better",
+        "key": "debug_points",
+        "max_regression": 0.15,
+        "ok": true,
+        "regression": 0.0
+      }
+    ],
+    "current": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/metrics.json",
+    "errors": [],
+    "ok": true,
+    "skipped": []
+  },
+  "ok": true,
+  "point_cloud": {
+    "alignment": {
+      "current_offset_removed": [
+        -0.07140818325577095,
+        0.2695462407415847,
+        -0.8177714277217798
+      ],
+      "mode": "centroid"
+    },
+    "baseline": {
+      "bounds": {
+        "max": [
+          3.4543263912200928,
+          1.4016567468643188,
+          7.485107421875
+        ],
+        "min": [
+          -3.629873514175415,
+          -2.4888358116149902,
+          1.0194091796875
+        ]
+      },
+      "centroid": [
+        0.0735673088033771,
+        -0.3249509113189066,
+        4.533090050451788
+      ],
+      "declared_vertices": 427298,
+      "downsampled_points": 16143,
+      "has_rgb": false,
+      "loaded_points": 47478,
+      "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/point_cloud.ply"
+    },
+    "centroid_drift_m": 2.670389663119829e-14,
+    "color": {
+      "baseline_mean_rgb": [],
+      "compared": false,
+      "current_mean_rgb": [
+        29.125660000000003,
+        46.394020000000005,
+        82.18532
+      ],
+      "mean_rgb_distance": 0.0
+    },
+    "count_ratio": 1.0531193394835503,
+    "current": {
+      "bounds": {
+        "max": [
+          3.372643863255771,
+          1.0163660392584153,
+          8.71070097772178
+        ],
+        "min": [
+          -5.2105623167442285,
+          -2.3269664907415843,
+          2.15927158772178
+        ]
+      },
+      "centroid": [
+        0.0735673088033775,
+        -0.3249509113189083,
+        4.5330900504517615
+      ],
+      "declared_vertices": 200000,
+      "downsampled_points": 32613,
+      "has_rgb": true,
+      "loaded_points": 50000,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/point_cloud.ply"
+    },
+    "errors": [],
+    "nearest": {
+      "bidirectional": {
+        "max_m": 0.5,
+        "mean_m": 0.20537985760238817,
+        "median_m": 0.15515007067204162,
+        "rmse_m": 0.25952184177630633,
+        "unmatched": 4684,
+        "unmatched_ratio": 0.09607022725408156
+      },
+      "forward": {
+        "max_m": 0.5,
+        "mean_m": 0.1775519391347535,
+        "median_m": 0.09596418406992734,
+        "rmse_m": 0.24345066665460485,
+        "unmatched": 1784
+      },
+      "reverse": {
+        "max_m": 0.5,
+        "mean_m": 0.21915430606843014,
+        "median_m": 0.18302982269893275,
+        "rmse_m": 0.26711933920452274,
+        "unmatched": 2900
+      }
+    },
+    "ok": true,
+    "thresholds": {
+      "max_centroid_drift_m": 0.5,
+      "max_chamfer_max_m": 0.5,
+      "max_chamfer_mean_m": 0.5,
+      "max_chamfer_rmse_m": 0.5,
+      "max_count_ratio": 5.0,
+      "max_mean_rgb_drift": 40.0,
+      "max_nearest_m": 0.5,
+      "max_unmatched_ratio": 0.25,
+      "min_count_ratio": 0.5
+    },
+    "voxel_size_m": 0.05
+  },
+  "schema": "gaussian_lic_reproduction_report/v1",
+  "sequence": "Bright_Screen_Wall_fastlivo2_color_8s",
+  "trajectory": {
+    "alignment": "first",
+    "baseline": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Bright_Screen_Wall_fastlivo2_color_8s/trajectory.tum",
+    "baseline_poses": 80,
+    "coverage": 0.5,
+    "current": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_fullseq/trajectory.tum",
+    "current_poses": 41,
+    "errors": [],
+    "matched_poses": 40,
+    "max_association_dt_sec": 0.2,
+    "ok": true,
+    "path_length": {
+      "absolute_drift_m": 0.0,
+      "baseline_m": 0.0,
+      "current_m": 0.0,
+      "relative_drift": 0.0
+    },
+    "thresholds": {
+      "max_error_m": 0.15,
+      "max_mean_m": 0.03,
+      "max_path_drift": 0.05,
+      "max_rmse_m": 0.05,
+      "min_coverage": 0.4,
+      "min_matches": 2
+    },
+    "translation": {
+      "max_m": 0.0,
+      "mean_m": 0.0,
+      "median_m": 0.0,
+      "rmse_m": 0.0
+    }
+  }
+}
