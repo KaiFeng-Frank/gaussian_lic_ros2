@@ -224,6 +224,8 @@ visual_depth_match_delta_ns
 visual_depth_miss_count
 visual_depth_stale_count
 visual_depth_size_mismatch_count
+visual_alignment_pending_queue_size
+visual_se3_photometric_pending_queue_size
 visual_alignment_pending_stale_drops
 visual_se3_photometric_pending_stale_drops
 visual_alignment_valid
@@ -254,7 +256,8 @@ LiDAR, and IMU stamps, last-consumed IMU preintegration sample/dt/span status
 plus cumulative IMU-factor/preintegration totals that survive window
 marginalization, cumulative visual/SE3 factor totals that survive active-window
 trimming, time-gap skip counts, bounded best-effort sensor QoS, bias-observability,
-and visual factors.
+and visual factors. Pending visual-alignment and SE3 photometric queue-size
+fields make mapper-feedback backlog visible separately from stale-drop counters.
 The sliding-window gate also requires nonzero dense-prior rank and singular
 value coverage after marginalization so retained-state priors are numerically
 observable rather than only present by count; the optimizer itself bounds LM

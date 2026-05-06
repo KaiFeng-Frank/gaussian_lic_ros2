@@ -163,9 +163,14 @@ fi
 ros2 bag play "${BAG_PATH}" --clock --rate 1.0 >"${play_log}" 2>&1 &
 play_pid=$!
 
-for topic in /pose_for_gs /points_for_gs /gaussian_lic/frontend/odometry /gaussian_lic/frontend/path; do
-  timeout "${TIMEOUT_SEC}" ros2 topic echo --once "${topic}" >/dev/null
-done
+timeout "${TIMEOUT_SEC}" ros2 topic echo --once \
+  /pose_for_gs geometry_msgs/msg/PoseStamped >/dev/null
+timeout "${TIMEOUT_SEC}" ros2 topic echo --once \
+  /points_for_gs sensor_msgs/msg/PointCloud2 >/dev/null
+timeout "${TIMEOUT_SEC}" ros2 topic echo --once \
+  /gaussian_lic/frontend/odometry nav_msgs/msg/Odometry >/dev/null
+timeout "${TIMEOUT_SEC}" ros2 topic echo --once \
+  /gaussian_lic/frontend/path nav_msgs/msg/Path >/dev/null
 
 status_file="/tmp/gaussian_lic_tracking_smoke_status_${run_id}.txt"
 status_tmp="${status_file}.tmp"
@@ -339,6 +344,8 @@ status_matches() {
       rg -q "visual_photometric_pixels: [1-9]" "${status_file}" &&
       rg -q "visual_rendered_cache_size: [1-9]" "${status_file}" &&
       rg -q "visual_depth_cache_size: [1-9]" "${status_file}" &&
+      rg -q "visual_alignment_pending_queue_size:" "${status_file}" &&
+      rg -q "visual_se3_photometric_pending_queue_size:" "${status_file}" &&
       rg -q "visual_se3_photometric_valid: true" "${status_file}" &&
       rg -q "visual_se3_photometric_candidates: [1-9]" "${status_file}" &&
       rg -q "visual_se3_photometric_samples: [1-9]" "${status_file}" &&

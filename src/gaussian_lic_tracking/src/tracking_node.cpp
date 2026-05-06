@@ -2848,6 +2848,10 @@ private:
     status.visual_depth_miss_count = visual_depth_miss_count_;
     status.visual_depth_stale_count = visual_depth_stale_count_;
     status.visual_depth_size_mismatch_count = visual_depth_size_mismatch_count_;
+    status.visual_alignment_pending_queue_size =
+      static_cast<uint64_t>(pending_visual_alignment_factors_.size());
+    status.visual_se3_photometric_pending_queue_size =
+      static_cast<uint64_t>(pending_visual_se3_photometric_factors_.size());
     status.visual_alignment_pending_stale_drops = visual_alignment_pending_stale_drops_;
     status.visual_se3_photometric_pending_stale_drops = visual_se3_photometric_pending_stale_drops_;
     status.visual_alignment_valid = last_visual_alignment_.valid;

@@ -506,6 +506,8 @@ def main() -> int:
         "visual_depth_match_delta_ns",
         "lidar_spatial_index_voxels",
         "lidar_spatial_index_voxel_size_m",
+        "visual_alignment_pending_queue_size",
+        "visual_se3_photometric_pending_queue_size",
         "visual_alignment_pending_stale_drops",
         "visual_se3_photometric_pending_stale_drops",
         "last_window_point_confidence_mean",
