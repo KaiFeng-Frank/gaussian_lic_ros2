@@ -1,8 +1,8 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-06T11:33:21+00:00`
+Generated: `2026-05-06T11:52:55+00:00`
 Data root: `/home/frank/data`
-Disk free: `202.18 GiB` (minimum requested `100.00 GiB`) - PASS
+Disk free: `197.37 GiB` (minimum requested `100.00 GiB`) - PASS
 Strict evidence currently materialized: `2/7`
 
 | Profile | Dataset | Status | Missing Inputs |
@@ -19,7 +19,10 @@ Strict evidence currently materialized: `2/7`
 - `LiDAR_Degenerate`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts, native_reference_trajectory
 - `Visual_Challenge`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts, native_reference_trajectory
 - `hku1`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts, native_reference_trajectory
-- `hku2`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts, native_reference_trajectory
+- `hku2`: MISSING; missing: ros1_baseline_artifacts, native_reference_trajectory
+  - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/hku2/hku2_0.mcap`
+  - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/hku2_frontend_raw`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_native_tracking_scan_order_60s`
 
 ### fastlivo2
 - `CBD_Building_01`: MISSING; missing: native_reference_trajectory
@@ -34,16 +37,16 @@ Strict evidence currently materialized: `2/7`
 
 ### m2dgr
 - `room_01`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
-  - native_reference_trajectory: `/home/frank/data/m2dgr/room_01/room_01_gt.txt`
+  - native_reference_trajectory: `/home/frank/data/m2dgr/room_01/room_01_gt.tum`
 - `room_02`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
-  - native_reference_trajectory: `/home/frank/data/m2dgr/room_02/room_02_gt.txt`
+  - native_reference_trajectory: `/home/frank/data/m2dgr/room_02/room_02_gt.tum`
 - `room_03`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
-  - native_reference_trajectory: `/home/frank/data/m2dgr/room_03/room_03_gt.txt`
+  - native_reference_trajectory: `/home/frank/data/m2dgr/room_03/room_03_gt.tum`
 
 ### mcd
 - `ntu_day_01`: MISSING; missing: raw_component_camera_d435i, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
   - raw_ros1_bag: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_mid70.bag.bz2`
-  - native_reference_trajectory: `/home/frank/data/mcd/ntu_day_01/groundtruth/pose_inW.csv`
+  - native_reference_trajectory: `/home/frank/data/mcd/ntu_day_01/groundtruth/pose_inW.tum`
   - raw_component_camera_d435i: `missing`
   - raw_component_lidar_mid70: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_mid70.bag.bz2`
   - raw_component_imu_vn100_or_vn200: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_vn100.bag.bz2`
