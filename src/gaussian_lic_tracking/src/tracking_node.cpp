@@ -2342,9 +2342,15 @@ private:
     const size_t coverage_grid_rows = static_cast<size_t>(se3_photometric_coverage_grid_rows_);
     batch.coverage_total_tiles = coverage_grid_cols * coverage_grid_rows;
     std::vector<bool> occupied_coverage_tiles(batch.coverage_total_tiles, false);
-    std::vector<size_t> valid_depth_indices;
-    valid_depth_indices.reserve(std::min(pixel_count, max_samples));
+    std::vector<std::vector<size_t>> valid_depth_tiles(batch.coverage_total_tiles);
+    const auto coverage_tile_for_pixel = [coverage_grid_cols, coverage_grid_rows, &observed](
+        const size_t x, const size_t y) {
+        const size_t tile_x = std::min(coverage_grid_cols - 1U, (x * coverage_grid_cols) / observed.width);
+        const size_t tile_y = std::min(coverage_grid_rows - 1U, (y * coverage_grid_rows) / observed.height);
+        return tile_y * coverage_grid_cols + tile_x;
+      };
     size_t interior_pixels = 0U;
+    size_t valid_depth_pixels = 0U;
     for (size_t index = 0; index < pixel_count; ++index) {
       const size_t x = index % observed.width;
       const size_t y = index / observed.width;
@@ -2359,21 +2365,62 @@ private:
       {
         continue;
       }
-      valid_depth_indices.push_back(index);
+      valid_depth_tiles[coverage_tile_for_pixel(x, y)].push_back(index);
+      ++valid_depth_pixels;
     }
     batch.candidate_pixels = interior_pixels;
-    batch.rejected_depth_pixels = interior_pixels - valid_depth_indices.size();
-    if (valid_depth_indices.empty()) {
+    batch.rejected_depth_pixels = interior_pixels - valid_depth_pixels;
+    if (valid_depth_pixels == 0U) {
       return batch;
     }
-    const size_t stride = valid_depth_indices.size() > max_samples
-      ? static_cast<size_t>(
-        std::ceil(static_cast<double>(valid_depth_indices.size()) / static_cast<double>(max_samples)))
-      : 1U;
+    std::vector<size_t> tile_quotas(valid_depth_tiles.size(), 0U);
+    size_t active_tiles = 0U;
+    for (const auto & tile_indices : valid_depth_tiles) {
+      if (!tile_indices.empty()) {
+        ++active_tiles;
+      }
+    }
+    size_t remaining_samples = std::min(valid_depth_pixels, max_samples);
+    while (remaining_samples > 0U && active_tiles > 0U) {
+      const size_t share = std::max<size_t>(1U, remaining_samples / active_tiles);
+      bool made_progress = false;
+      for (size_t tile = 0; tile < valid_depth_tiles.size() && remaining_samples > 0U; ++tile) {
+        const size_t tile_remaining = valid_depth_tiles[tile].size() - tile_quotas[tile];
+        if (tile_remaining == 0U) {
+          continue;
+        }
+        const size_t take = std::min(tile_remaining, share);
+        tile_quotas[tile] += take;
+        remaining_samples -= take;
+        made_progress = true;
+        if (tile_quotas[tile] == valid_depth_tiles[tile].size()) {
+          --active_tiles;
+        }
+      }
+      if (!made_progress) {
+        break;
+      }
+    }
+    std::vector<size_t> valid_depth_indices;
+    valid_depth_indices.reserve(std::min(valid_depth_pixels, max_samples));
+    for (size_t tile = 0; tile < valid_depth_tiles.size(); ++tile) {
+      const auto & tile_indices = valid_depth_tiles[tile];
+      const size_t quota = tile_quotas[tile];
+      if (quota == 0U) {
+        continue;
+      }
+      if (quota >= tile_indices.size()) {
+        valid_depth_indices.insert(
+          valid_depth_indices.end(), tile_indices.begin(), tile_indices.end());
+        continue;
+      }
+      for (size_t i = 0; i < quota; ++i) {
+        valid_depth_indices.push_back(tile_indices[(i * tile_indices.size()) / quota]);
+      }
+    }
     batch.samples.reserve(std::min(pixel_count, max_samples));
     double abs_residual_sum = 0.0;
-    for (size_t valid_index = 0; valid_index < valid_depth_indices.size(); valid_index += stride) {
-      const size_t index = valid_depth_indices[valid_index];
+    for (const size_t index : valid_depth_indices) {
       const size_t x = index % observed.width;
       const size_t y = index / observed.width;
       const float depth = depth_frame->depth_m[index];
@@ -2408,9 +2455,7 @@ private:
       if (se3_photometric_huber_delta_ > 0.0 && abs_residual > se3_photometric_huber_delta_) {
         sample.weight = se3_photometric_huber_delta_ / abs_residual;
       }
-      const size_t tile_x = std::min(coverage_grid_cols - 1U, (x * coverage_grid_cols) / observed.width);
-      const size_t tile_y = std::min(coverage_grid_rows - 1U, (y * coverage_grid_rows) / observed.height);
-      occupied_coverage_tiles[tile_y * coverage_grid_cols + tile_x] = true;
+      occupied_coverage_tiles[coverage_tile_for_pixel(x, y)] = true;
       batch.samples.push_back(sample);
       ++batch.accepted_pixels;
       abs_residual_sum += abs_residual;
