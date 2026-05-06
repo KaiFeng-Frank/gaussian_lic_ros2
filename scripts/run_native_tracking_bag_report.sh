@@ -29,8 +29,11 @@ REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
+VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
+VISUAL_DEPTH_DILATION_PX=5
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
+SE3_PHOTOMETRIC_MIN_SAMPLES=8
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -86,6 +89,10 @@ Options:
   --require-nondegenerate-ba   Require the last reported BA normal equation and state cadence to be non-degenerate.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
+  --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed/depth visual BA pairing. Default: 300000000.
+  --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
+  --se3-photometric-min-samples N
+                               Minimum valid sparse-depth samples needed before adding an SE3 photometric BA factor. Default: 8.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
   --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
@@ -213,6 +220,18 @@ while [[ $# -gt 0 ]]; do
       ENABLE_MAPPER_FEEDBACK=true
       ENABLE_VISUAL_FACTORS=true
       shift
+      ;;
+    --visual-factor-max-dt-ns)
+      VISUAL_FACTOR_MAX_DT_NS="$2"
+      shift 2
+      ;;
+    --visual-depth-dilation-px)
+      VISUAL_DEPTH_DILATION_PX="$2"
+      shift 2
+      ;;
+    --se3-photometric-min-samples)
+      SE3_PHOTOMETRIC_MIN_SAMPLES="$2"
+      shift 2
       ;;
     --enable-external-odometry-prior)
       ENABLE_EXTERNAL_ODOMETRY_PRIOR=true
@@ -357,10 +376,13 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
+  visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
+  sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
   rendered_frame_cache_size:=64 \
   observed_frame_cache_size:=128 \
   visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
+  se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
   enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
   external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC}" \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
@@ -458,7 +480,8 @@ unset launch_pid
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
-  "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" <<'PY'
+  "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
+  "${VISUAL_FACTOR_MAX_DT_NS}" "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -475,6 +498,9 @@ require_nondegenerate_ba = sys.argv[9].lower() == "true"
 enable_visual_factors = sys.argv[10].lower() == "true"
 require_deskew = sys.argv[11].lower() == "true"
 visual_pending_factor_queue_size = int(sys.argv[12])
+visual_factor_max_dt_ns = int(sys.argv[13])
+visual_depth_dilation_px = int(sys.argv[14])
+se3_photometric_min_samples = int(sys.argv[15])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -548,6 +574,9 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_size",
         "visual_alignment_pending_stale_drops",
         "visual_se3_photometric_pending_stale_drops",
+        "visual_se3_photometric_total_batches",
+        "visual_se3_photometric_valid_batches",
+        "visual_se3_photometric_total_samples",
     ):
         if key not in last:
             errors.append(f"{key} is missing")
@@ -557,6 +586,12 @@ if enable_visual_factors:
     for key in ("visual_alignment_pending_stale_drops", "visual_se3_photometric_pending_stale_drops"):
         if int(last.get(key, 0)) != 0:
             errors.append(f"{key} is {last.get(key)}")
+    if int(last.get("visual_se3_photometric_total_batches", 0)) <= 0:
+        errors.append("visual_se3_photometric_total_batches is zero")
+    if int(last.get("visual_se3_photometric_valid_batches", 0)) <= 0:
+        errors.append("visual_se3_photometric_valid_batches is zero")
+    if int(last.get("visual_se3_photometric_total_samples", 0)) <= 0:
+        errors.append("visual_se3_photometric_total_samples is zero")
 if (
     enable_visual_factors
     and int(last.get("sliding_window_total_visual_factors", 0)) <= 0
@@ -577,6 +612,12 @@ if require_deskew and int(last.get("trajectory_deskew_hits", 0)) <= 0:
 report = {
     "ok": not errors,
     "errors": errors,
+    "gate_config": {
+        "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
+        "visual_depth_dilation_px": visual_depth_dilation_px,
+        "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
+        "se3_photometric_min_samples": se3_photometric_min_samples,
+    },
     "metrics": metrics,
 }
 report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -130,6 +130,9 @@ public:
       declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL), 0LL);
     depth_frame_cache_size_ = integer_parameter_at_least(
       "depth_frame_cache_size", declare_parameter<int>("depth_frame_cache_size", 8), 1);
+    sparse_lidar_depth_dilation_px_ = integer_parameter_at_least(
+      "sparse_lidar_depth_dilation_px",
+      declare_parameter<int>("sparse_lidar_depth_dilation_px", 1), 0);
     rendered_frame_cache_size_ = integer_parameter_at_least(
       "rendered_frame_cache_size", declare_parameter<int>("rendered_frame_cache_size", 8), 1);
     observed_frame_cache_size_ = integer_parameter_at_least(
@@ -946,6 +949,11 @@ private:
       visual_factor_.linearize_translation(rendered, observed);
     if (enable_se3_photometric_window_factor_) {
       const auto se3_samples = build_se3_photometric_samples(rendered, observed);
+      ++visual_se3_photometric_total_batches_;
+      visual_se3_photometric_total_candidate_pixels_ +=
+        static_cast<uint64_t>(se3_samples.candidate_pixels);
+      visual_se3_photometric_total_accepted_pixels_ +=
+        static_cast<uint64_t>(se3_samples.accepted_pixels);
       last_visual_se3_photometric_candidate_pixels_ = se3_samples.candidate_pixels;
       last_visual_se3_photometric_accepted_pixels_ = se3_samples.accepted_pixels;
       last_visual_se3_photometric_rejected_depth_pixels_ = se3_samples.rejected_depth_pixels;
@@ -958,12 +966,15 @@ private:
         last_visual_se3_photometric_linearization_.sample_count >=
         static_cast<size_t>(se3_photometric_min_samples_))
       {
+        ++visual_se3_photometric_valid_batches_;
         PendingSe3PhotometricFactor pending;
         pending.stamp_ns = observed.stamp_ns;
         pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
         pending.linearization = last_visual_se3_photometric_linearization_;
         pending_visual_se3_photometric_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
+      } else if (se3_samples.accepted_pixels > 0U) {
+        ++visual_se3_photometric_insufficient_sample_batches_;
       }
     }
     if (last_visual_alignment_.valid) {
@@ -1891,13 +1902,30 @@ private:
       {
         continue;
       }
-      const size_t index = static_cast<size_t>(v) * frame.width + static_cast<size_t>(u);
       const float depth = static_cast<float>(z);
-      if (!std::isfinite(frame.depth_m[index]) || depth < frame.depth_m[index]) {
-        if (!std::isfinite(frame.depth_m[index])) {
-          ++projected_count;
+      const int64_t dilation_px = static_cast<int64_t>(sparse_lidar_depth_dilation_px_);
+      for (int64_t dy = -dilation_px; dy <= dilation_px; ++dy) {
+        for (int64_t dx = -dilation_px; dx <= dilation_px; ++dx) {
+          if (dx * dx + dy * dy > dilation_px * dilation_px) {
+            continue;
+          }
+          const int64_t dilated_u = u + dx;
+          const int64_t dilated_v = v + dy;
+          if (dilated_u < 0 || dilated_v < 0 ||
+            dilated_u >= static_cast<int64_t>(frame.width) ||
+            dilated_v >= static_cast<int64_t>(frame.height))
+          {
+            continue;
+          }
+          const size_t index =
+            static_cast<size_t>(dilated_v) * frame.width + static_cast<size_t>(dilated_u);
+          if (!std::isfinite(frame.depth_m[index]) || depth < frame.depth_m[index]) {
+            if (!std::isfinite(frame.depth_m[index])) {
+              ++projected_count;
+            }
+            frame.depth_m[index] = depth;
+          }
         }
-        frame.depth_m[index] = depth;
       }
     }
 
@@ -2188,26 +2216,41 @@ private:
       return batch;
     }
     const size_t max_samples = static_cast<size_t>(se3_photometric_max_samples_);
-    const size_t stride = pixel_count > max_samples
-      ? static_cast<size_t>(std::ceil(static_cast<double>(pixel_count) / static_cast<double>(max_samples)))
-      : 1U;
-    batch.samples.reserve(std::min(pixel_count, max_samples));
-    double abs_residual_sum = 0.0;
-    for (size_t index = 0; index < pixel_count; index += stride) {
+    std::vector<size_t> valid_depth_indices;
+    valid_depth_indices.reserve(std::min(pixel_count, max_samples));
+    size_t interior_pixels = 0U;
+    for (size_t index = 0; index < pixel_count; ++index) {
       const size_t x = index % observed.width;
       const size_t y = index / observed.width;
       if (x == 0U || y == 0U || x + 1U >= observed.width || y + 1U >= observed.height) {
         continue;
       }
-      ++batch.candidate_pixels;
+      ++interior_pixels;
       const float depth = depth_frame->depth_m[index];
       if (!std::isfinite(depth) ||
         static_cast<double>(depth) < se3_photometric_min_depth_m_ ||
         static_cast<double>(depth) > se3_photometric_max_depth_m_)
       {
-        ++batch.rejected_depth_pixels;
         continue;
       }
+      valid_depth_indices.push_back(index);
+    }
+    batch.candidate_pixels = interior_pixels;
+    batch.rejected_depth_pixels = interior_pixels - valid_depth_indices.size();
+    if (valid_depth_indices.empty()) {
+      return batch;
+    }
+    const size_t stride = valid_depth_indices.size() > max_samples
+      ? static_cast<size_t>(
+        std::ceil(static_cast<double>(valid_depth_indices.size()) / static_cast<double>(max_samples)))
+      : 1U;
+    batch.samples.reserve(std::min(pixel_count, max_samples));
+    double abs_residual_sum = 0.0;
+    for (size_t valid_index = 0; valid_index < valid_depth_indices.size(); valid_index += stride) {
+      const size_t index = valid_depth_indices[valid_index];
+      const size_t x = index % observed.width;
+      const size_t y = index / observed.width;
+      const float depth = depth_frame->depth_m[index];
       auto at = [&observed](const size_t px, const size_t py) {
           return static_cast<double>(observed.gray[py * observed.width + px]);
         };
@@ -2863,6 +2906,7 @@ private:
     status.visual_rendered_stale_count = visual_rendered_stale_count_;
     status.visual_rendered_size_mismatch_count = visual_rendered_size_mismatch_count_;
     status.visual_depth_cache_size = static_cast<uint64_t>(last_visual_depth_cache_size_);
+    status.visual_depth_dilation_px = static_cast<uint32_t>(sparse_lidar_depth_dilation_px_);
     status.visual_depth_match_delta_ns = last_visual_depth_match_delta_ns_;
     status.visual_depth_miss_count = visual_depth_miss_count_;
     status.visual_depth_stale_count = visual_depth_stale_count_;
@@ -2893,6 +2937,14 @@ private:
       last_visual_se3_photometric_linearization_.sample_count >=
       static_cast<size_t>(se3_photometric_min_samples_);
     status.visual_se3_photometric_valid = se3_photometric_valid;
+    status.visual_se3_photometric_total_batches = visual_se3_photometric_total_batches_;
+    status.visual_se3_photometric_valid_batches = visual_se3_photometric_valid_batches_;
+    status.visual_se3_photometric_insufficient_sample_batches =
+      visual_se3_photometric_insufficient_sample_batches_;
+    status.visual_se3_photometric_total_candidates =
+      visual_se3_photometric_total_candidate_pixels_;
+    status.visual_se3_photometric_total_samples =
+      visual_se3_photometric_total_accepted_pixels_;
     status.visual_se3_photometric_candidates =
       static_cast<uint64_t>(last_visual_se3_photometric_candidate_pixels_);
     status.visual_se3_photometric_samples =
@@ -2962,6 +3014,7 @@ private:
   int visual_max_pixels_{200000};
   int64_t visual_factor_max_dt_ns_{150000000LL};
   int depth_frame_cache_size_{8};
+  int sparse_lidar_depth_dilation_px_{1};
   int rendered_frame_cache_size_{8};
   int observed_frame_cache_size_{64};
   int visual_pending_factor_queue_size_{64};
@@ -3134,6 +3187,11 @@ private:
   size_t last_observed_image_height_{0};
   uint64_t visual_alignment_pending_stale_drops_{0};
   uint64_t visual_se3_photometric_pending_stale_drops_{0};
+  uint64_t visual_se3_photometric_total_batches_{0};
+  uint64_t visual_se3_photometric_valid_batches_{0};
+  uint64_t visual_se3_photometric_insufficient_sample_batches_{0};
+  uint64_t visual_se3_photometric_total_candidate_pixels_{0};
+  uint64_t visual_se3_photometric_total_accepted_pixels_{0};
   gaussian_lic_tracking::SlidingWindowSummary last_sliding_window_summary_;
   bool has_last_sliding_window_summary_{false};
   double last_sliding_window_optimization_duration_ms_{0.0};

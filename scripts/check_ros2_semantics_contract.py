@@ -170,6 +170,7 @@ def main() -> int:
         "camera_to_imu_rpy_rad",
         "visual_factor_max_dt_ns",
         "depth_frame_cache_size",
+        "sparse_lidar_depth_dilation_px",
         "rendered_frame_cache_size",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
@@ -293,6 +294,22 @@ def main() -> int:
         errors.append("tracking_node must default the visual depth-frame cache size to 8")
     if 'DeclareLaunchArgument("depth_frame_cache_size", default_value="8")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default the visual depth-frame cache size to 8")
+    if 'declare_parameter<int>("sparse_lidar_depth_dilation_px", 1)' not in tracking_node_text:
+        errors.append("tracking_node must default sparse LiDAR depth dilation to 1px")
+    if 'DeclareLaunchArgument("sparse_lidar_depth_dilation_px", default_value="1")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose sparse LiDAR depth dilation")
+    if "visual_depth_dilation_px" not in tracking_status_msg_text or \
+            "status.visual_depth_dilation_px" not in tracking_node_text:
+        errors.append("TrackingStatus must publish the sparse LiDAR depth dilation radius")
+    for field_name in (
+        "visual_se3_photometric_total_batches",
+        "visual_se3_photometric_valid_batches",
+        "visual_se3_photometric_insufficient_sample_batches",
+        "visual_se3_photometric_total_candidates",
+        "visual_se3_photometric_total_samples",
+    ):
+        if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
+            errors.append(f"TrackingStatus must publish cumulative SE3 photometric diagnostics: {field_name}")
     if 'declare_parameter<int>("rendered_frame_cache_size", 8)' not in tracking_node_text:
         errors.append("tracking_node must default the visual rendered-frame cache size to 8")
     if 'DeclareLaunchArgument("rendered_frame_cache_size", default_value="8")' not in tracking_launch_text:
@@ -315,6 +332,18 @@ def main() -> int:
     if "VISUAL_PENDING_FACTOR_QUEUE_SIZE=128" not in native_tracking_report_text or \
             'visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}"' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must enlarge the visual pending-factor queue")
+    if "VISUAL_FACTOR_MAX_DT_NS=300000000" not in native_tracking_report_text or \
+            'visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}"' not in native_tracking_report_text or \
+            '"visual_factor_max_dt_ns": visual_factor_max_dt_ns' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must widen and record the visual BA pairing window")
+    if "VISUAL_DEPTH_DILATION_PX=5" not in native_tracking_report_text or \
+            'sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}"' not in native_tracking_report_text or \
+            '"visual_depth_dilation_px": visual_depth_dilation_px' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must enable and record sparse LiDAR depth dilation")
+    if "SE3_PHOTOMETRIC_MIN_SAMPLES=8" not in native_tracking_report_text or \
+            'se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}"' not in native_tracking_report_text or \
+            '"se3_photometric_min_samples": se3_photometric_min_samples' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must tighten and record the sparse-depth SE3 sample gate")
     if 'declare_parameter<bool>("enable_sliding_window_smoothness_factor", true)' not in tracking_node_text:
         errors.append("tracking_node must default trajectory smoothness BA factors to true")
     if 'DeclareLaunchArgument("enable_sliding_window_smoothness_factor", default_value="true")' not in tracking_launch_text:

@@ -178,6 +178,7 @@ uint64 visual_rendered_miss_count
 uint64 visual_rendered_stale_count
 uint64 visual_rendered_size_mismatch_count
 uint64 visual_depth_cache_size
+uint32 visual_depth_dilation_px
 int64 visual_depth_match_delta_ns
 uint64 visual_depth_miss_count
 uint64 visual_depth_stale_count
@@ -197,6 +198,11 @@ float64 visual_photometric_step_dx
 float64 visual_photometric_step_dy
 
 bool visual_se3_photometric_valid
+uint64 visual_se3_photometric_total_batches
+uint64 visual_se3_photometric_valid_batches
+uint64 visual_se3_photometric_insufficient_sample_batches
+uint64 visual_se3_photometric_total_candidates
+uint64 visual_se3_photometric_total_samples
 uint64 visual_se3_photometric_candidates
 uint64 visual_se3_photometric_samples
 uint64 visual_se3_photometric_rejected_depth

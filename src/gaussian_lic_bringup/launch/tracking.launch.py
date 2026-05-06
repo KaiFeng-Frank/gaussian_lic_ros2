@@ -82,6 +82,7 @@ def generate_launch_description():
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     visual_factor_max_dt_ns = LaunchConfiguration("visual_factor_max_dt_ns")
     depth_frame_cache_size = LaunchConfiguration("depth_frame_cache_size")
+    sparse_lidar_depth_dilation_px = LaunchConfiguration("sparse_lidar_depth_dilation_px")
     rendered_frame_cache_size = LaunchConfiguration("rendered_frame_cache_size")
     observed_frame_cache_size = LaunchConfiguration("observed_frame_cache_size")
     visual_pending_factor_queue_size = LaunchConfiguration("visual_pending_factor_queue_size")
@@ -194,6 +195,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="150000000"),
             DeclareLaunchArgument("depth_frame_cache_size", default_value="8"),
+            DeclareLaunchArgument("sparse_lidar_depth_dilation_px", default_value="1"),
             DeclareLaunchArgument("rendered_frame_cache_size", default_value="8"),
             DeclareLaunchArgument("observed_frame_cache_size", default_value="64"),
             DeclareLaunchArgument("visual_pending_factor_queue_size", default_value="64"),
@@ -304,6 +306,7 @@ def generate_launch_description():
                         "enable_visual_factor": enable_visual_factor,
                         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
                         "depth_frame_cache_size": depth_frame_cache_size,
+                        "sparse_lidar_depth_dilation_px": sparse_lidar_depth_dilation_px,
                         "rendered_frame_cache_size": rendered_frame_cache_size,
                         "observed_frame_cache_size": observed_frame_cache_size,
                         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
