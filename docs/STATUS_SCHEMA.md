@@ -192,6 +192,9 @@ observable rather than only present by count; the optimizer itself bounds LM
 rotation, translation, velocity, and bias increments before applying a candidate
 state update and reports accepted/rejected step counts, final step norm/scale,
 and damping for runtime diagnosis.
+The default native tracking smoke budget gates the last sliding-window optimize
+call at 1000 ms; local `RelWithDebInfo` synthetic runs are expected to remain
+well below that ceiling.
 It also reports and gates orphan factors whose referenced states are no longer
 inside the active window, preventing silently skipped residual blocks from
 looking like healthy optimization.
