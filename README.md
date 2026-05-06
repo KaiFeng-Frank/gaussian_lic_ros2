@@ -309,15 +309,17 @@ invalid_optimized_states=0, feedback_updates=271,
 normal_equation_rows=7679, condition=1.709e7, rank_ratio=1.0,
 numeric_jacobian_blocks=0
 
-results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_valid_depth_sampling_default_30s/native_tracking_report.json
-ok=true, poses=84, /points_for_gs=85, status_samples=84, imu_factors=83,
-visual_factors=45, se3_photometric_factors=11,
-se3_total_batches=45, se3_valid_batches=11, se3_total_samples=18092,
+results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_valid_depth_sampling_default_60s/native_tracking_report.json
+ok=true, poses=195, /points_for_gs=195, status_samples=195, imu_factors=194,
+visual_factors=99, se3_photometric_factors=12,
+se3_total_batches=99, se3_valid_batches=12, se3_total_samples=21627,
 visual_depth_dilation_px=5, visual_factor_max_dt_ns=300000000,
 visual_pending_queue_size=0, se3_pending_queue_size=0,
 visual_pending_stale_drops=0, se3_pending_stale_drops=0,
+trajectory_deskew_queries=4680000, trajectory_deskew_hits=4668986,
 imu_factor_skip_count=0, imu_time_gap_skip_count=0,
-normal_equation_rows=40817, condition=2.478e7,
+invalid_optimized_states=0, feedback_updates=194,
+normal_equation_rows=20489, condition=1.391e7, rank_ratio=1.0,
 numeric_jacobian_blocks=0
 ```
 
