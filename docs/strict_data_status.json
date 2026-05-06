@@ -1,0 +1,492 @@
+{
+  "cleanup_candidates": [
+    {
+      "bytes": 472087966,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch"
+    },
+    {
+      "bytes": 331320482,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch"
+    },
+    {
+      "bytes": 301750713,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_opt_probe"
+    },
+    {
+      "bytes": 301714059,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_probe"
+    },
+    {
+      "bytes": 265510834,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_torch_opt"
+    },
+    {
+      "bytes": 261509655,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch_intensity"
+    },
+    {
+      "bytes": 195807389,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic"
+    },
+    {
+      "bytes": 182999456,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_fullseq"
+    },
+    {
+      "bytes": 171975843,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current"
+    },
+    {
+      "bytes": 161364649,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_imu_pose"
+    },
+    {
+      "bytes": 239593,
+      "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/ros2_output_bag"
+    },
+    {
+      "bytes": 203408,
+      "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/ros2_output_bag"
+    }
+  ],
+  "data_root": "/home/frank/data",
+  "disk": {
+    "free_bytes": 63768215552,
+    "free_gb": 59.38877868652344,
+    "path": "/home/frank/data",
+    "total_bytes": 1005867986944,
+    "used_bytes": 890929000448
+  },
+  "disk_ok": false,
+  "generated_at": "2026-05-06T10:48:39+00:00",
+  "min_free_gb": 100.0,
+  "ok": false,
+  "profiles": {
+    "fastlivo": {
+      "dataset": "FAST-LIVO",
+      "missing": [
+        "frontend_raw_rosbag2",
+        "native_reference_trajectory",
+        "raw_ros1_bag",
+        "ros1_baseline_artifacts",
+        "ros2_current_artifacts"
+      ],
+      "ok": false,
+      "required_sequences": [
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/fast_livo",
+            "/home/frank/data/fastlivo"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "LiDAR_Degenerate"
+        },
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/fast_livo",
+            "/home/frank/data/fastlivo"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "Visual_Challenge"
+        },
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/fast_livo",
+            "/home/frank/data/fastlivo"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "hku1"
+        },
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/fast_livo",
+            "/home/frank/data/fastlivo"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "hku2"
+        }
+      ],
+      "source_urls": [
+        "https://github.com/hku-mars/FAST-LIVO",
+        "https://connecthkuhk-my.sharepoint.com/personal/zhengcr_connect_hku_hk/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fzhengcr%5Fconnect%5Fhku%5Fhk%2FDocuments%2FFAST%2DLIVO%2DDatasets&ga=1"
+      ]
+    },
+    "fastlivo2": {
+      "dataset": "FAST-LIVO2",
+      "missing": [
+        "native_reference_trajectory",
+        "ros1_baseline_artifacts"
+      ],
+      "ok": false,
+      "required_sequences": [
+        {
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/fast_livo/CBD_Building_01_frontend_raw"
+            }
+          ],
+          "missing": [
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [
+            {
+              "bytes": 5218555727,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo/CBD_Building_01.bag"
+            },
+            {
+              "bytes": 3274430081,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo/CBD_Building_01_mapper_contract_fastlivo2_color.bag"
+            }
+          ],
+          "roots": [
+            "/home/frank/data/fast_livo",
+            "/home/frank/data/fastlivo2"
+          ],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/CBD_Building_01"
+            }
+          ],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_opt_probe"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_probe"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_round_no_opacity_prune_probe"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_8s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_120s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_reference_tum_120s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_reference_tum_sync50ms_120s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_visual_ba_sync50ms_120s"
+            }
+          ],
+          "sequence": "CBD_Building_01"
+        },
+        {
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/fast_livo/Retail_Street_frontend_raw"
+            }
+          ],
+          "missing": [
+            "ros1_baseline_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [
+            {
+              "bytes": 1961140106,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo/Retail_Street.bag"
+            }
+          ],
+          "roots": [
+            "/home/frank/data/fast_livo",
+            "/home/frank/data/fastlivo2"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Retail_Street_native_tracking_scan_order_60s"
+            }
+          ],
+          "sequence": "Retail_Street"
+        }
+      ],
+      "source_urls": [
+        "https://github.com/hku-mars/FAST-LIVO2",
+        "https://drive.google.com/drive/folders/1bf5LQ8iSxw-fD8BObZmouw7lRxNacfrA?usp=drive_link"
+      ]
+    },
+    "m2dgr": {
+      "dataset": "M2DGR",
+      "missing": [
+        "frontend_raw_rosbag2",
+        "native_reference_trajectory",
+        "raw_ros1_bag",
+        "ros1_baseline_artifacts",
+        "ros2_current_artifacts"
+      ],
+      "ok": false,
+      "required_sequences": [
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/m2dgr",
+            "/home/frank/data/M2DGR"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "room_01"
+        },
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/m2dgr",
+            "/home/frank/data/M2DGR"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "room_02"
+        },
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/m2dgr",
+            "/home/frank/data/M2DGR"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "room_03"
+        }
+      ],
+      "source_urls": [
+        "https://github.com/SJTU-ViSYS/M2DGR"
+      ]
+    },
+    "mcd": {
+      "dataset": "MCD",
+      "missing": [
+        "frontend_raw_rosbag2",
+        "native_reference_trajectory",
+        "raw_ros1_bag",
+        "ros1_baseline_artifacts",
+        "ros2_current_artifacts"
+      ],
+      "ok": false,
+      "required_sequences": [
+        {
+          "frontend_raw_rosbag2": [],
+          "missing": [
+            "raw_ros1_bag",
+            "frontend_raw_rosbag2",
+            "ros1_baseline_artifacts",
+            "ros2_current_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [],
+          "roots": [
+            "/home/frank/data/mcd",
+            "/home/frank/data/MCD"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [],
+          "sequence": "ntu_day_01"
+        }
+      ],
+      "source_urls": [
+        "https://mcdviral.github.io/Download.html"
+      ]
+    },
+    "r3live": {
+      "dataset": "R3LIVE",
+      "missing": [
+        "native_reference_trajectory",
+        "ros1_baseline_artifacts"
+      ],
+      "ok": false,
+      "required_sequences": [
+        {
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/r3live/hku_park_00_frontend_raw"
+            }
+          ],
+          "missing": [
+            "ros1_baseline_artifacts",
+            "native_reference_trajectory"
+          ],
+          "native_reference_trajectory": [],
+          "ok": false,
+          "raw_ros1_bag": [
+            {
+              "bytes": 1786275226,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/r3live/hku_park_00.bag"
+            }
+          ],
+          "roots": [
+            "/home/frank/data/r3live",
+            "/home/frank/data/R3LIVE"
+          ],
+          "ros1_baseline_artifacts": [],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/r3live/hku_park_00_native_tracking_scan_order_60s"
+            }
+          ],
+          "sequence": "hku_park_00"
+        }
+      ],
+      "source_urls": [
+        "https://github.com/ziv-lin/r3live_dataset",
+        "https://github.com/hku-mars/r3live"
+      ]
+    }
+  },
+  "repo_root": "/home/frank/gaussian_lic_ros2",
+  "schema": "gaussian_lic_strict_data_inputs/v1",
+  "strict_parity_matrix": {
+    "exists": true,
+    "path": "/home/frank/gaussian_lic_ros2/docs/strict_parity_matrix.json",
+    "pending_required_count": 5,
+    "pending_required_ids": [
+      "fastlivo2/CBD_Building_01/native_tracking_reference_parity",
+      "fastlivo/full_sequence_strict",
+      "m2dgr/full_sequence_strict",
+      "mcd/full_sequence_strict",
+      "r3live/full_sequence_strict"
+    ],
+    "required_count": 7,
+    "required_non_pending_count": 2,
+    "required_non_pending_fraction": 0.2857142857142857
+  }
+}

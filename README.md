@@ -24,11 +24,13 @@ Available now:
 - Native tracking package with signed-nanosecond trajectory and IMU primitives, invalid ROS2 builtin-stamp nanosecond rejection at mapper/frontend boundaries, non-monotonic tracking stream stamp rejection with status counters, non-finite IMU measurement rejection before propagation/preintegration, LiDAR malformed-frame/invalid-point/invalid-point-time/out-of-range point-time status counters, CameraInfo/image/depth/rendered invalid-frame counters, mapper per-input QoS overrides, frontend-adapter per-stream input/output QoS controls, and native tracking per-stream raw-input/mapper-output QoS controls for image/point cloud/pose/CameraInfo/depth/IMU/odometry streams, finite CameraInfo intrinsic gating before mapper/tracker state updates, finite LiDAR-to-IMU/camera-to-IMU extrinsic, IMU gravity, LiDAR keyframe-threshold, tracking QoS depth, visual/SE3 photometric gate, LiDAR-factor, cache-size, and sliding-window BA-bound validation before tracker startup, signed-nanosecond image/LiDAR/IMU status gates, bounded best-effort tracking sensor QoS exposed through launch/status gates, executor callback serialization for ROS1-style estimator mutation order, ROS2-configurable LiDAR-to-IMU and camera-to-IMU extrinsics, signed-nanosecond visual-factor freshness gating with bounded nearest-stamp rendered/depth frame caches, IMU history interpolation, raw-sample IMU preintegration/reintegration with finite-input validation, SO(3) log-map rotation residuals, AutoDiff start-bias reintegration sensitivity, optional full 9x9 IMU residual sqrt-information whitening, per-block rotation/velocity/position residual weights, optimized pose/velocity/bias feedback into odometry, the continuous-time trajectory-control cache, safe IMU re-anchoring, and finite optimized-state/control-pose rejection before odometry/IMU/B-spline feedback, IMU bias continuity and marginalization-prior anchoring inside the optional sliding window, bias observability status/probes, reusable normal-equation linearization, factor-agnostic BA solve triggering when non-IMU LiDAR/visual factors are available, bounded LM state increments, Schur-complement retained-window dense priors with rank/singular-value health, timestamp-safe cubic B-spline position/velocity plus SO(3) cubic orientation trajectory queries for deskew fallback, default-enabled three-state continuous-time trajectory smoothness factors plus pose/state/dense/SE3 priors with SO(3) log-map residuals and closed-form left-Jacobian inverse rotation blocks, per-point LiDAR deskew with invalid-pose and scan-time-bound rejection, bounded 6-DoF LiDAR residual correction with finite-sample/pose validation and Huber-weighted Kabsch centroids/covariance, corrected-pose LiDAR/Gaussian correspondence construction before BA ingestion, spatial-indexed robust direct LiDAR/Gaussian-map point-to-point window factors with `(0, 1]` correspondence-weight validation, LiDAR point-to-plane window factors with residual and local-planarity confidence weighting, LiDAR correspondence confidence and spatial-index health status, sliding-window BA optimization timing and numeric-Jacobian fallback status, Huber-robust visual-alignment and SE3 photometric window factors, analytic geometric Jacobians for point-to-point, point-to-plane, visual-alignment, and full current IMU preintegration factors, visual residual/direct subpixel image-alignment comparison against mapper renders, runtime-gated 2-DoF photometric translation linearization, analytic SE3 camera photometric pixel Jacobians, multi-sample normal equations, sparse LiDAR-projected depth dilation plus valid-depth SE3 sampling for mapper-rendered feedback, optional visual-alignment window factors, chunk-complete GaussianMap snapshot caching, odometry/path/status/optional TF publication, and deterministic probes.
 - Dataset profile YAMLs derived from upstream Gaussian-LIC: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
 - `gaussian_lic_offline` CLI for rosbag2 artifact extraction without launching ROS nodes.
-- FAST-LIVO2 ROS1-to-ROS2 raw frontend conversion, ROS1 mapper-contract conversion, upstream ROS1 baseline runner, strict rosbag2 replay wrapper, baseline manifest/readiness gates, and combined reproduction reports.
+- Profile-aware ROS1-to-ROS2 raw frontend conversion for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE; ROS1 mapper-contract conversion, upstream ROS1 baseline runner, strict rosbag2 replay wrapper, baseline manifest/readiness gates, and combined reproduction reports.
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` artifact/readiness pipeline with trajectory, PSNR/SSIM/LPIPS, render-pair, and point-cloud gates passing for the mapper-contract/CUDA path.
 - `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It currently reports `required=2/7` because only FAST-LIVO2 mapper strict parity plus CBD native BA runtime health are proven; native reference trajectory parity and FAST-LIVO/M2DGR/MCD/R3LIVE full-sequence strict reports are still missing.
+- `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it shows only FAST-LIVO2 and R3LIVE raw bags are present locally, no trusted native reference trajectories are present, and the root filesystem has too little free space for full-dataset acquisition.
 - R3LIVE `hku_park_00` can be converted to ROS2 frontend-raw and passes the native sensor-only tracking health gate; this is runtime coverage, not strict baseline parity.
+- FAST-LIVO2 `Retail_Street` is now fetched from the official Google Drive index, converted to ROS2 frontend-raw, and passes a 60s native scan-order deskew tracking health gate; this is additional runtime coverage, not strict ROS1-vs-ROS2 parity.
 - SPNet TensorRT engine generation for the local `sm_120` GPU via TensorRT 10.9, with the generated FP16 engine kept outside git.
 - Native tracking probes are registered with CTest, so `colcon test --packages-select gaussian_lic_tracking` runs trajectory, IMU, LiDAR, sliding-window, bias observability, geometric Jacobian, Gaussian snapshot, trajectory smoothness, SE3 photometric Jacobian/factor, and visual checks automatically. `scripts/tracking_smoke_test.sh` also verifies the launch path through `/gaussian_lic/frontend/status`, including signed-nanosecond time status, tracking QoS, executor callback serialization, auto-start IMU preintegration re-integration semantics, cumulative IMU-factor/preintegration and visual/SE3 factor evidence that survives window marginalization, dense-prior health with stamp/reference validation, Schur/fallback marginalization health, same-stamp prior plus same-source IMU/LiDAR/visual/SE3/smoothness replacement counters, orphan-factor health, active-window state-cadence health, bias observability, accepted BA feedback stamp/delta/limit health, optimized IMU re-anchors, last-consumed IMU preintegration sample/dt/span health with time-gap skip gating, B-spline trajectory control poses, LiDAR correspondence confidence and spatial-index health, sliding-window optimization timing, zero global numeric-Jacobian fallback, nonzero trajectory smoothness factors, accepted/rejected/limited BA step health, linearization/linear-solve failure counters, factor skip counters, visual alignment, bounded photometric sample weights, photometric linearization status, rendered/depth cache diagnostics, and SE3 photometric sample quality/rejection counters.
 - CI semantic checks keep the GitHub Actions build matrix Jazzy-only; adding ROS2 Humble to `.github/workflows/ci.yaml` is treated as a contract violation.
@@ -574,15 +576,26 @@ ros2 run gaussian_lic_tools gaussian_lic_bag_check \
   --json
 ```
 
-Convert an official FAST-LIVO2 ROS1 bag into that ROS2 raw-sensor contract:
+Convert an official ROS1 dataset bag into that ROS2 raw-sensor contract. The
+profile selects source-topic fallbacks, camera intrinsics, and the LiDAR frame;
+`fastlivo2_ros1_to_frontend_raw.py` remains as a compatibility entrypoint, but
+new runs should use `ros1_to_frontend_raw.py`:
 
 ```bash
 PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages \
-  /usr/bin/python3 scripts/fastlivo2_ros1_to_frontend_raw.py \
+  /usr/bin/python3 scripts/ros1_to_frontend_raw.py \
+  --profile fastlivo2 \
   --input /home/frank/data/fast_livo/Bright_Screen_Wall.bag \
   --output /home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw \
   --overwrite
 ```
+
+Valid profiles are `fastlivo`, `fastlivo2`, `m2dgr`, `mcd`, and `r3live`.
+For rotating-LiDAR datasets that already publish `sensor_msgs/PointCloud2`, the
+converter preserves the original fields and only normalizes the ROS2 bag
+contract topics. For split datasets such as MCD, pass multiple ROS1 bags as a
+comma-separated `--input` list so the converter merges camera, LiDAR, and IMU
+streams into one timestamp-sorted ROS2 `frontend_raw` bag.
 
 Replay a minimal rosbag2 mapper bag with:
 
@@ -999,6 +1012,25 @@ Passing items are FAST-LIVO2 `CBD_Building_01` mapper-contract/CUDA strict parit
 and the 120s CBD native visual/SE3 BA health report. Missing required items are
 native reference trajectory parity for CBD plus full-sequence strict artifacts for
 FAST-LIVO, M2DGR, MCD, and R3LIVE.
+
+The matching data audit is:
+
+```bash
+./scripts/audit_strict_data_inputs.py \
+  --output docs/strict_data_status.json \
+  --markdown docs/strict_data_status.md \
+  --cleanup-candidates 12 \
+  --min-free-gb 100
+```
+
+As of 2026-05-06 it reports `59.39 GiB` free on `/home/frank/data` after
+pruning obsolete non-matrix `results/` artifacts and fetching FAST-LIVO2
+`Retail_Street`; local raw bags exist for FAST-LIVO2 `CBD_Building_01`,
+FAST-LIVO2 `Retail_Street`, and R3LIVE `hku_park_00`, with no local raw
+FAST-LIVO/M2DGR/MCD bags and no trusted native reference trajectory files. The
+script also lists the largest non-matrix `results/` directories that can be
+reviewed before reclaiming space for dataset acquisition; it deliberately does
+not list archived baseline directories as cleanup candidates.
 
 ## Release Roadmap
 

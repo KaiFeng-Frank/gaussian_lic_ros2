@@ -91,9 +91,20 @@ status until required native reference trajectory evidence and full-sequence
 FAST-LIVO/M2DGR/MCD/R3LIVE strict artifacts are archived. Current local matrix
 status is `required=2/7`, with FAST-LIVO2 mapper-contract/CUDA strict parity and
 the 120s CBD native visual/SE3 BA health report passing.
+The matching data-side gate is now executable via
+`scripts/audit_strict_data_inputs.py`; `docs/strict_data_status.md` records the
+current blocker explicitly: only FAST-LIVO2 and R3LIVE raw bags are present
+locally, no trusted native reference trajectories are present, and the root
+filesystem has too little free space for full-dataset acquisition until
+non-matrix generated `results/` artifacts are reclaimed or another dataset
+volume is mounted.
 R3LIVE `hku_park_00` now also has a frontend-raw conversion plus 60s native
 sensor-only tracking health report, but it remains optional runtime coverage
 until ROS1-vs-ROS2 strict parity artifacts are archived.
+FAST-LIVO2 `Retail_Street` is also fetched, converted to frontend-raw, and
+runtime-gated through a 60s native scan-order deskew tracking report; it remains
+optional coverage until a matching ROS1 baseline/reference trajectory and strict
+current artifact are archived.
 The native tracking launch now defaults the sliding-window BA, visual-alignment
 window factors, and SE3 photometric window factors to enabled so ordinary
 tracking launch paths exercise the joint optimizer when the corresponding

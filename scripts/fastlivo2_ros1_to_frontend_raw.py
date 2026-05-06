@@ -18,6 +18,76 @@ DEFAULT_INTRINSICS = {
     "height": 512,
 }
 
+PROFILE_DEFAULTS = {
+    "fastlivo": {
+        "image_topics": ("/left_camera/image/compressed", "/left_camera/image"),
+        "lidar_topics": ("/livox/lidar",),
+        "imu_topics": ("/livox/imu",),
+        "intrinsics": {
+            "fx": 431.795259219,
+            "fy": 431.550090267,
+            "cx": 310.833037316,
+            "cy": 266.985989326,
+            "width": 640,
+            "height": 512,
+        },
+        "lidar_frame": "livox_frame",
+    },
+    "fastlivo2": {
+        "image_topics": ("/left_camera/image/compressed", "/left_camera/image"),
+        "lidar_topics": ("/livox/lidar",),
+        "imu_topics": ("/livox/imu",),
+        "intrinsics": DEFAULT_INTRINSICS,
+        "lidar_frame": "livox_frame",
+    },
+    "m2dgr": {
+        "image_topics": ("/camera/color/image_raw", "/camera/color/image_raw/compressed"),
+        "lidar_topics": ("/velodyne_points",),
+        "imu_topics": ("/handsfree/imu",),
+        "intrinsics": {
+            "fx": 617.971050917033,
+            "fy": 616.445131524790,
+            "cx": 327.710279392468,
+            "cy": 253.976983707814,
+            "width": 640,
+            "height": 480,
+        },
+        "lidar_frame": "velodyne",
+    },
+    "mcd": {
+        "image_topics": (
+            "/d435i/infra1/image_rect_raw",
+            "/d435i/color/image_raw",
+            "/d435i/color/image_raw/compressed",
+        ),
+        "lidar_topics": ("/livox/lidar", "/os_cloud_node/points", "/os1_cloud_node/points"),
+        "imu_topics": ("/os_cloud_node/imu", "/os1_cloud_node/imu", "/livox/imu"),
+        "intrinsics": {
+            "fx": 385.538839108671,
+            "fy": 385.6733947077097,
+            "cx": 328.2882031921083,
+            "cy": 243.5295974916248,
+            "width": 640,
+            "height": 480,
+        },
+        "lidar_frame": "lidar",
+    },
+    "r3live": {
+        "image_topics": ("/camera/image_color/compressed", "/camera/image_color"),
+        "lidar_topics": ("/livox/lidar",),
+        "imu_topics": ("/livox/imu",),
+        "intrinsics": {
+            "fx": 431.71205,
+            "fy": 431.70855,
+            "cx": 320.3404,
+            "cy": 259.1696,
+            "width": 640,
+            "height": 512,
+        },
+        "lidar_frame": "livox_frame",
+    },
+}
+
 
 def load_runtime_modules():
     try:
@@ -28,14 +98,63 @@ def load_runtime_modules():
         from rosbags.typesys import Stores, get_typestore
     except ImportError as exc:
         raise RuntimeError(
-            "FAST-LIVO2 conversion requires Python packages rosbags, numpy, and cv2. "
+            "ROS1 frontend_raw conversion requires Python packages rosbags, numpy, and cv2. "
             "A local setup that works on this machine is:\n"
             "  /usr/bin/python3 -m venv /home/frank/.cache/gaussian_lic_ros2/rosbags-venv\n"
             "  /home/frank/.cache/gaussian_lic_ros2/rosbags-venv/bin/pip install 'numpy<2' rosbags\n"
             "  PYTHONPATH=/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages "
-            "/usr/bin/python3 scripts/fastlivo2_ros1_to_frontend_raw.py ..."
+            "/usr/bin/python3 scripts/ros1_to_frontend_raw.py ..."
         ) from exc
     return cv2, np, AnyReader, StoragePlugin, Writer, Stores, get_typestore
+
+
+def split_topics(value):
+    if not value:
+        return ()
+    return tuple(item.strip() for item in str(value).split(",") if item.strip())
+
+
+def split_paths(value):
+    items = split_topics(value)
+    if not items:
+        return ()
+    return tuple(Path(item).expanduser().resolve() for item in items)
+
+
+def candidate_topics(primary, fallbacks):
+    seen = set()
+    topics = []
+    for topic in split_topics(primary) + tuple(fallbacks):
+        if topic and topic not in seen:
+            topics.append(topic)
+            seen.add(topic)
+    return tuple(topics)
+
+
+def choose_available_topic(available_topics, candidates, label):
+    for topic in candidates:
+        if topic in available_topics:
+            return topic
+    available = ", ".join(sorted(available_topics))
+    expected = ", ".join(candidates)
+    raise RuntimeError(f"missing {label} topic. Expected one of [{expected}], available [{available}]")
+
+
+def apply_profile_defaults(args):
+    profile = PROFILE_DEFAULTS[args.profile]
+    intrinsics = profile["intrinsics"]
+    if args.image_width is None:
+        args.image_width = int(intrinsics["width"])
+    if args.image_height is None:
+        args.image_height = int(intrinsics["height"])
+    for key in ("fx", "fy", "cx", "cy"):
+        if getattr(args, key) is None:
+            setattr(args, key, float(intrinsics[key]))
+    if args.lidar_frame is None:
+        args.lidar_frame = profile["lidar_frame"]
+    args.profile_image_topics = tuple(profile["image_topics"])
+    args.profile_lidar_topics = tuple(profile["lidar_topics"])
+    args.profile_imu_topics = tuple(profile["imu_topics"])
 
 
 def stamp_to_nsec(stamp):
@@ -171,6 +290,29 @@ def make_pointcloud2(store, np, livox_msg, frame_id):
     )
 
 
+def make_pointcloud2_passthrough(store, np, source_msg, frame_id):
+    pointcloud_cls = store.types["sensor_msgs/msg/PointCloud2"]
+    return pointcloud_cls(
+        header=make_header(store, source_msg.header, frame_id),
+        height=int(source_msg.height),
+        width=int(source_msg.width),
+        fields=list(source_msg.fields),
+        is_bigendian=bool(source_msg.is_bigendian),
+        point_step=int(source_msg.point_step),
+        row_step=int(source_msg.row_step),
+        data=np.asarray(source_msg.data, dtype=np.uint8).reshape(-1),
+        is_dense=bool(source_msg.is_dense),
+    )
+
+
+def make_lidar_pointcloud2(store, np, source_msg, frame_id):
+    if hasattr(source_msg, "fields") and hasattr(source_msg, "point_step") and hasattr(source_msg, "row_step"):
+        return make_pointcloud2_passthrough(store, np, source_msg, frame_id)
+    if hasattr(source_msg, "points") and hasattr(source_msg, "point_num"):
+        return make_pointcloud2(store, np, source_msg, frame_id)
+    raise ValueError(f"unsupported LiDAR message type for frontend_raw conversion: {type(source_msg)!r}")
+
+
 def make_image_and_info(store, cv2, np, source_msg, args):
     header = make_header(store, source_msg.header, args.camera_frame)
     if hasattr(source_msg, "height") and hasattr(source_msg, "width") and hasattr(source_msg, "encoding"):
@@ -193,7 +335,12 @@ def make_storage_plugin(StoragePlugin, name):
 
 def convert(args):
     cv2, np, AnyReader, StoragePlugin, Writer, Stores, get_typestore = load_runtime_modules()
-    input_path = Path(args.input).expanduser().resolve()
+    input_paths = split_paths(args.input)
+    if not input_paths:
+        raise ValueError("at least one input ROS1 bag path is required")
+    for input_path in input_paths:
+        if not input_path.exists():
+            raise FileNotFoundError(f"input bag does not exist: {input_path}")
     output_path = Path(args.output).expanduser().resolve()
     if output_path.exists():
         if not args.overwrite:
@@ -229,7 +376,7 @@ def convert(args):
             timestamp, _, connection, payload = heapq.heappop(pending)
             writer.write(connection, timestamp, payload)
 
-    with AnyReader([input_path]) as reader, Writer(
+    with AnyReader(list(input_paths)) as reader, Writer(
         output_path,
         version=9,
         storage_plugin=storage_plugin,
@@ -242,9 +389,21 @@ def convert(args):
         imu_conn = writer.add_connection(args.output_imu_topic, "sensor_msgs/msg/Imu", typestore=store)
 
         available_topics = {connection.topic for connection in reader.connections}
-        input_image_topic = args.input_image_topic
-        if input_image_topic not in available_topics and "/left_camera/image" in available_topics:
-            input_image_topic = "/left_camera/image"
+        input_image_topic = choose_available_topic(
+            available_topics,
+            candidate_topics(args.input_image_topic, args.profile_image_topics),
+            "image",
+        )
+        input_lidar_topic = choose_available_topic(
+            available_topics,
+            candidate_topics(args.input_lidar_topic, args.profile_lidar_topics),
+            "LiDAR",
+        )
+        input_imu_topic = choose_available_topic(
+            available_topics,
+            candidate_topics(args.input_imu_topic, args.profile_imu_topics),
+            "IMU",
+        )
 
         for connection, bag_time, rawdata in reader.messages():
             if first_time is None:
@@ -255,7 +414,7 @@ def convert(args):
             if args.max_written_messages > 0 and written >= args.max_written_messages:
                 break
 
-            if connection.topic not in (input_image_topic, args.input_lidar_topic, args.input_imu_topic):
+            if connection.topic not in (input_image_topic, input_lidar_topic, input_imu_topic):
                 counts["skipped"] += 1
                 continue
 
@@ -271,12 +430,12 @@ def convert(args):
                 )
                 counts["images"] += 1
                 counts["camera_infos"] += 1
-            elif connection.topic == args.input_lidar_topic:
-                cloud = make_pointcloud2(store, np, msg, args.lidar_frame)
+            elif connection.topic == input_lidar_topic:
+                cloud = make_lidar_pointcloud2(store, np, msg, args.lidar_frame)
                 timestamp = stamp_to_nsec(cloud.header.stamp)
                 queue_write(lidar_conn, timestamp, store.serialize_cdr(cloud, "sensor_msgs/msg/PointCloud2"))
                 counts["lidar"] += 1
-            elif connection.topic == args.input_imu_topic:
+            elif connection.topic == input_imu_topic:
                 timestamp = stamp_to_nsec(msg.header.stamp)
                 queue_write(imu_conn, timestamp, store.serialize_cdr(msg, "sensor_msgs/msg/Imu"))
                 counts["imu"] += 1
@@ -285,36 +444,48 @@ def convert(args):
         flush_all()
 
     return {
-        "input": str(input_path),
+        "input": [str(path) for path in input_paths],
         "output": str(output_path),
+        "profile": args.profile,
         "storage": args.storage,
+        "topics": {
+            "image": input_image_topic,
+            "lidar": input_lidar_topic,
+            "imu": input_imu_topic,
+        },
         "counts": counts,
     }
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Convert a FAST-LIVO2 ROS1 bag into a ROS2 frontend_sensor_raw bag."
+        description="Convert a supported ROS1 LiDAR/IMU/camera bag into a ROS2 frontend_sensor_raw bag."
     )
-    parser.add_argument("--input", required=True, help="Input FAST-LIVO2 ROS1 .bag")
+    parser.add_argument("--input", required=True, help="Input ROS1 .bag, or comma-separated bags for split datasets.")
     parser.add_argument("--output", required=True, help="Output rosbag2 directory")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--storage", choices=("mcap", "sqlite3"), default="mcap")
-    parser.add_argument("--input-image-topic", default="/left_camera/image/compressed")
-    parser.add_argument("--input-lidar-topic", default="/livox/lidar")
-    parser.add_argument("--input-imu-topic", default="/livox/imu")
+    parser.add_argument(
+        "--profile",
+        choices=tuple(sorted(PROFILE_DEFAULTS)),
+        default="fastlivo2",
+        help="Dataset profile used for topics and intrinsics. Defaults to fastlivo2.",
+    )
+    parser.add_argument("--input-image-topic", help="Override image topic, or comma-separated fallback topics.")
+    parser.add_argument("--input-lidar-topic", help="Override LiDAR topic, or comma-separated fallback topics.")
+    parser.add_argument("--input-imu-topic", help="Override IMU topic, or comma-separated fallback topics.")
     parser.add_argument("--output-image-topic", default="/camera/image")
     parser.add_argument("--output-camera-info-topic", default="/camera/camera_info")
     parser.add_argument("--output-lidar-topic", default="/livox/lidar")
     parser.add_argument("--output-imu-topic", default="/imu")
     parser.add_argument("--camera-frame", default="camera")
-    parser.add_argument("--lidar-frame", default="livox_frame")
-    parser.add_argument("--image-width", type=int, default=DEFAULT_INTRINSICS["width"])
-    parser.add_argument("--image-height", type=int, default=DEFAULT_INTRINSICS["height"])
-    parser.add_argument("--fx", type=float, default=DEFAULT_INTRINSICS["fx"])
-    parser.add_argument("--fy", type=float, default=DEFAULT_INTRINSICS["fy"])
-    parser.add_argument("--cx", type=float, default=DEFAULT_INTRINSICS["cx"])
-    parser.add_argument("--cy", type=float, default=DEFAULT_INTRINSICS["cy"])
+    parser.add_argument("--lidar-frame")
+    parser.add_argument("--image-width", type=int)
+    parser.add_argument("--image-height", type=int)
+    parser.add_argument("--fx", type=float)
+    parser.add_argument("--fy", type=float)
+    parser.add_argument("--cx", type=float)
+    parser.add_argument("--cy", type=float)
     parser.add_argument("--max-duration-sec", type=float, default=0.0)
     parser.add_argument("--max-written-messages", type=int, default=0)
     parser.add_argument(
@@ -324,16 +495,21 @@ def main(argv=None):
         help="Stable-sort converted rosbag2 writes by header stamp within this bag-time horizon.",
     )
     args = parser.parse_args(argv)
+    apply_profile_defaults(args)
 
     try:
         report = convert(args)
     except Exception as exc:  # noqa: BLE001 - CLI should report conversion failures uniformly.
-        print(f"FAST-LIVO2 conversion failed: {exc}", file=sys.stderr)
+        print(f"frontend_raw conversion failed: {exc}", file=sys.stderr)
         return 2
 
     print(
-        "FAST-LIVO2 conversion OK: "
+        "frontend_raw conversion OK: "
+        f"profile={report['profile']} "
         f"output={report['output']} "
+        f"image_topic={report['topics']['image']} "
+        f"lidar_topic={report['topics']['lidar']} "
+        f"imu_topic={report['topics']['imu']} "
         f"images={report['counts']['images']} "
         f"lidar={report['counts']['lidar']} "
         f"imu={report['counts']['imu']}"

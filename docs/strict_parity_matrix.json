@@ -113,6 +113,50 @@
       ]
     },
     {
+      "id": "fastlivo2/Retail_Street/native_tracking_scan_order_60s",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "dataset": "FAST-LIVO2",
+      "sequence": "Retail_Street",
+      "required": false,
+      "report": "results/fastlivo2/Retail_Street_native_tracking_scan_order_60s/native_tracking_report.json",
+      "requires_reference_parity": false,
+      "thresholds": [
+        {
+          "path": "metrics.trajectory_poses",
+          "min": 100
+        },
+        {
+          "path": "metrics.topic_counts./points_for_gs",
+          "min": 100
+        },
+        {
+          "path": "metrics.tracking_status.last.sliding_window_total_imu_factors",
+          "min": 100
+        },
+        {
+          "path": "metrics.tracking_status.last.total_window_point_correspondences",
+          "min": 1
+        },
+        {
+          "path": "metrics.tracking_status.last.total_window_plane_correspondences",
+          "min": 1
+        },
+        {
+          "path": "metrics.tracking_status.last.trajectory_deskew_queries",
+          "min": 1
+        },
+        {
+          "path": "metrics.tracking_status.last.sliding_window_normal_equation_rank_ratio",
+          "min": 0.999
+        },
+        {
+          "path": "metrics.tracking_status.last.sliding_window_numeric_jacobian_blocks",
+          "max": 0
+        }
+      ]
+    },
+    {
       "id": "r3live/hku_park_00/native_tracking_scan_order_60s",
       "kind": "native_tracking_report",
       "profile": "r3live",
