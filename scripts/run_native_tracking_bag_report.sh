@@ -29,6 +29,7 @@ REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
+VISUAL_DEPTH_FRAME_CACHE_SIZE=64
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
@@ -356,6 +357,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
+  depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   rendered_frame_cache_size:=64 \
   observed_frame_cache_size:=128 \
   visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \

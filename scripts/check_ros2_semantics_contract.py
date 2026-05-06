@@ -309,6 +309,9 @@ def main() -> int:
         errors.append("tracking_node must attach delayed visual factors to active window states")
     if "observed_frame_cache_size:=128" not in native_tracking_report_text:
         errors.append("native tracking real-bag report must enlarge the observed-frame cache")
+    if "VISUAL_DEPTH_FRAME_CACHE_SIZE=64" not in native_tracking_report_text or \
+            'depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}"' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must enlarge the visual depth-frame cache")
     if "VISUAL_PENDING_FACTOR_QUEUE_SIZE=128" not in native_tracking_report_text or \
             'visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}"' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must enlarge the visual pending-factor queue")
