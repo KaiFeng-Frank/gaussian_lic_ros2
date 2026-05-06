@@ -238,15 +238,37 @@ visual_photometric_cost
 visual_photometric_step_dx
 visual_photometric_step_dy
 visual_se3_photometric_valid
+visual_se3_photometric_total_batches
+visual_se3_photometric_valid_batches
+visual_se3_photometric_insufficient_sample_batches
+visual_se3_photometric_degenerate_batches
+visual_se3_photometric_quality_rejected_batches
+visual_se3_photometric_total_candidates
+visual_se3_photometric_total_samples
 visual_se3_photometric_candidates
+visual_se3_photometric_sampled_depth
 visual_se3_photometric_samples
 visual_se3_photometric_rejected_depth
 visual_se3_photometric_rejected_gradient
 visual_se3_photometric_rejected_residual
 visual_se3_photometric_inlier_ratio
+visual_se3_photometric_sample_inlier_ratio
 visual_se3_photometric_mean_abs_residual
 visual_se3_photometric_cost
 visual_se3_photometric_step_norm
+visual_se3_photometric_hessian_rank
+visual_se3_photometric_hessian_min_singular_value
+visual_se3_photometric_hessian_max_singular_value
+visual_se3_photometric_hessian_condition_number
+visual_se3_photometric_last_accepted_hessian_rank
+visual_se3_photometric_last_accepted_hessian_min_singular_value
+visual_se3_photometric_last_accepted_hessian_max_singular_value
+visual_se3_photometric_last_accepted_hessian_condition_number
+visual_se3_photometric_last_accepted_sampled_depth
+visual_se3_photometric_last_accepted_samples
+visual_se3_photometric_last_accepted_sample_inlier_ratio
+visual_se3_photometric_last_accepted_mean_abs_residual
+visual_se3_photometric_last_accepted_step_norm
 ```
 
 `scripts/tracking_smoke_test.sh` asserts that the synthetic frontend bag reaches
@@ -297,10 +319,12 @@ then checks both subpixel alignment, Huber-robust visual-alignment factors, and
 photometric Gauss-Newton linearization status, plus nonzero Huber-robust SE3 photometric window factors extracted from
 nearest-fresh-render/current/depth images. The SE3 status fields expose candidate pixels,
 accepted robust samples, inlier ratio, mean absolute residual, cost,
-Gauss-Newton step norm, current and last-accepted Hessian rank, singular values,
-condition number, and degenerate-batch counters so bad depth, flat gradients,
-large photometric outliers, or rank-deficient SE3 normal equations are visible
-in CI logs. The synthetic bag intentionally lowers the
+Gauss-Newton step norm, current and last-accepted sparse-depth sample inlier
+ratio, last-accepted sample counts, current and last-accepted Hessian rank,
+singular values, condition number, degenerate-batch counters, and
+quality-rejected batch counters so bad depth, flat gradients, large photometric
+outliers, low sample coverage, or rank-deficient SE3 normal equations are
+visible in CI logs. The synthetic bag intentionally lowers the
 LiDAR point threshold to one point; dataset profiles keep production thresholds.
 
 ## Render Mode Policy

@@ -37,6 +37,8 @@ VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 SE3_PHOTOMETRIC_MIN_SAMPLES=8
 SE3_PHOTOMETRIC_MIN_HESSIAN_RANK=3
 SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION=1000000000000.0
+SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO=0.25
+SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR=0.0
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -101,6 +103,10 @@ Options:
                                Minimum 6x6 SE3 photometric Hessian rank before accepting a BA factor. Default: 3.
   --se3-photometric-max-hessian-condition C
                                Maximum SE3 photometric Hessian condition before rejecting a BA factor. Default: 1e12.
+  --se3-photometric-min-sample-inlier-ratio R
+                               Minimum accepted/sampled sparse-depth ratio before accepting an SE3 photometric BA factor. Default: 0.25.
+  --se3-photometric-max-mean-abs-residual R
+                               Optional max mean absolute residual for accepted SE3 photometric BA factors. Default: 0.0 disabled.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
   --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
@@ -251,6 +257,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --se3-photometric-max-hessian-condition)
       SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION="$2"
+      shift 2
+      ;;
+    --se3-photometric-min-sample-inlier-ratio)
+      SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO="$2"
+      shift 2
+      ;;
+    --se3-photometric-max-mean-abs-residual)
+      SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR="$2"
       shift 2
       ;;
     --enable-external-odometry-prior)
@@ -406,6 +420,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
   se3_photometric_min_hessian_rank:="${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" \
   se3_photometric_max_hessian_condition:="${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
+  se3_photometric_min_sample_inlier_ratio:="${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}" \
+  se3_photometric_max_mean_abs_residual_for_factor:="${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" \
   enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
   external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC}" \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
@@ -506,7 +522,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
   "${VISUAL_FACTOR_MAX_DT_NS}" "${VISUAL_DEPTH_MAX_DT_NS}" \
   "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
-  "${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" "${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" <<'PY'
+  "${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" "${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
+  "${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}" \
+  "${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -529,6 +547,8 @@ visual_depth_dilation_px = int(sys.argv[15])
 se3_photometric_min_samples = int(sys.argv[16])
 se3_photometric_min_hessian_rank = int(sys.argv[17])
 se3_photometric_max_hessian_condition = float(sys.argv[18])
+se3_photometric_min_sample_inlier_ratio = float(sys.argv[19])
+se3_photometric_max_mean_abs_residual_for_factor = float(sys.argv[20])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -605,11 +625,18 @@ if enable_visual_factors:
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
         "visual_se3_photometric_degenerate_batches",
+        "visual_se3_photometric_quality_rejected_batches",
         "visual_se3_photometric_total_samples",
+        "visual_se3_photometric_sampled_depth",
+        "visual_se3_photometric_sample_inlier_ratio",
         "visual_se3_photometric_hessian_rank",
         "visual_se3_photometric_hessian_condition_number",
         "visual_se3_photometric_last_accepted_hessian_rank",
         "visual_se3_photometric_last_accepted_hessian_condition_number",
+        "visual_se3_photometric_last_accepted_sampled_depth",
+        "visual_se3_photometric_last_accepted_samples",
+        "visual_se3_photometric_last_accepted_sample_inlier_ratio",
+        "visual_se3_photometric_last_accepted_mean_abs_residual",
     ):
         if key not in last:
             errors.append(f"{key} is missing")
@@ -641,6 +668,23 @@ if enable_visual_factors:
             "visual_se3_photometric_last_accepted_hessian_condition_number "
             f"{hessian_condition} > {se3_photometric_max_hessian_condition}"
         )
+    sample_inlier_ratio = float(
+        last.get("visual_se3_photometric_last_accepted_sample_inlier_ratio", 0.0))
+    if sample_inlier_ratio < se3_photometric_min_sample_inlier_ratio:
+        errors.append(
+            "visual_se3_photometric_last_accepted_sample_inlier_ratio "
+            f"{sample_inlier_ratio} < {se3_photometric_min_sample_inlier_ratio}"
+        )
+    mean_abs_residual = float(
+        last.get("visual_se3_photometric_last_accepted_mean_abs_residual", 0.0))
+    if (
+        se3_photometric_max_mean_abs_residual_for_factor > 0.0
+        and mean_abs_residual > se3_photometric_max_mean_abs_residual_for_factor
+    ):
+        errors.append(
+            "visual_se3_photometric_last_accepted_mean_abs_residual "
+            f"{mean_abs_residual} > {se3_photometric_max_mean_abs_residual_for_factor}"
+        )
 if (
     enable_visual_factors
     and int(last.get("sliding_window_total_visual_factors", 0)) <= 0
@@ -669,6 +713,10 @@ report = {
         "se3_photometric_min_samples": se3_photometric_min_samples,
         "se3_photometric_min_hessian_rank": se3_photometric_min_hessian_rank,
         "se3_photometric_max_hessian_condition": se3_photometric_max_hessian_condition,
+        "se3_photometric_min_sample_inlier_ratio": se3_photometric_min_sample_inlier_ratio,
+        "se3_photometric_max_mean_abs_residual_for_factor": (
+            se3_photometric_max_mean_abs_residual_for_factor
+        ),
     },
     "metrics": metrics,
 }

@@ -189,6 +189,12 @@ public:
     se3_photometric_max_hessian_condition_ = finite_nonnegative_parameter(
       "se3_photometric_max_hessian_condition",
       declare_parameter<double>("se3_photometric_max_hessian_condition", 1.0e12));
+    se3_photometric_min_sample_inlier_ratio_ = finite_unit_interval_parameter(
+      "se3_photometric_min_sample_inlier_ratio",
+      declare_parameter<double>("se3_photometric_min_sample_inlier_ratio", 0.25));
+    se3_photometric_max_mean_abs_residual_for_factor_ = finite_nonnegative_parameter(
+      "se3_photometric_max_mean_abs_residual_for_factor",
+      declare_parameter<double>("se3_photometric_max_mean_abs_residual_for_factor", 0.0));
     se3_photometric_min_depth_m_ = finite_positive_parameter(
       "se3_photometric_min_depth_m",
       declare_parameter<double>("se3_photometric_min_depth_m", 0.05));
@@ -512,6 +518,7 @@ private:
   {
     std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> samples;
     size_t candidate_pixels{0};
+    size_t sampled_depth_pixels{0};
     size_t accepted_pixels{0};
     size_t rejected_depth_pixels{0};
     size_t rejected_gradient_pixels{0};
@@ -967,6 +974,7 @@ private:
       visual_se3_photometric_total_accepted_pixels_ +=
         static_cast<uint64_t>(se3_samples.accepted_pixels);
       last_visual_se3_photometric_candidate_pixels_ = se3_samples.candidate_pixels;
+      last_visual_se3_photometric_sampled_depth_pixels_ = se3_samples.sampled_depth_pixels;
       last_visual_se3_photometric_accepted_pixels_ = se3_samples.accepted_pixels;
       last_visual_se3_photometric_rejected_depth_pixels_ = se3_samples.rejected_depth_pixels;
       last_visual_se3_photometric_rejected_gradient_pixels_ = se3_samples.rejected_gradient_pixels;
@@ -979,9 +987,20 @@ private:
         static_cast<size_t>(se3_photometric_min_samples_);
       const bool hessian_is_healthy =
         se3_photometric_hessian_is_healthy(last_visual_se3_photometric_linearization_);
-      if (has_enough_samples && hessian_is_healthy)
+      const bool sample_quality_is_healthy = se3_photometric_sample_quality_is_healthy(se3_samples);
+      if (has_enough_samples && hessian_is_healthy && sample_quality_is_healthy)
       {
         ++visual_se3_photometric_valid_batches_;
+        last_accepted_visual_se3_photometric_sampled_depth_pixels_ =
+          se3_samples.sampled_depth_pixels;
+        last_accepted_visual_se3_photometric_accepted_pixels_ =
+          se3_samples.accepted_pixels;
+        last_accepted_visual_se3_photometric_sample_inlier_ratio_ =
+          se3_photometric_sample_inlier_ratio(se3_samples);
+        last_accepted_visual_se3_photometric_mean_abs_residual_ =
+          se3_samples.mean_abs_residual;
+        last_accepted_visual_se3_photometric_step_norm_ =
+          last_visual_se3_photometric_linearization_.gauss_newton_step.norm();
         last_accepted_visual_se3_photometric_hessian_rank_ =
           last_visual_se3_photometric_linearization_.hessian_rank;
         last_accepted_visual_se3_photometric_hessian_min_singular_value_ =
@@ -997,7 +1016,9 @@ private:
         pending_visual_se3_photometric_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
       } else if (se3_samples.accepted_pixels > 0U) {
-        if (has_enough_samples) {
+        if (has_enough_samples && hessian_is_healthy) {
+          ++visual_se3_photometric_quality_rejected_batches_;
+        } else if (has_enough_samples) {
           ++visual_se3_photometric_degenerate_batches_;
         } else {
           ++visual_se3_photometric_insufficient_sample_batches_;
@@ -1858,6 +1879,29 @@ private:
     return true;
   }
 
+  static double se3_photometric_sample_inlier_ratio(const Se3PhotometricSampleBatch & batch)
+  {
+    return batch.sampled_depth_pixels > 0U
+      ? static_cast<double>(batch.accepted_pixels) / static_cast<double>(batch.sampled_depth_pixels)
+      : 0.0;
+  }
+
+  bool se3_photometric_sample_quality_is_healthy(
+    const Se3PhotometricSampleBatch & batch) const
+  {
+    const double ratio = se3_photometric_sample_inlier_ratio(batch);
+    if (ratio < se3_photometric_min_sample_inlier_ratio_) {
+      return false;
+    }
+    if (se3_photometric_max_mean_abs_residual_for_factor_ > 0.0 &&
+      (!std::isfinite(batch.mean_abs_residual) ||
+      batch.mean_abs_residual > se3_photometric_max_mean_abs_residual_for_factor_))
+    {
+      return false;
+    }
+    return true;
+  }
+
   static uint8_t visual_factor_source_id(
     const int64_t observed_stamp_ns,
     const int64_t rendered_stamp_ns)
@@ -2306,6 +2350,7 @@ private:
           return static_cast<double>(observed.gray[py * observed.width + px]);
         };
       gaussian_lic_tracking::VisualSe3PhotometricSample sample;
+      ++batch.sampled_depth_pixels;
       const double z = static_cast<double>(depth);
       sample.point_camera = Eigen::Vector3d{
         (static_cast<double>(x) - camera_intrinsics_.cx) * z / camera_intrinsics_.fx,
@@ -2984,11 +3029,20 @@ private:
     status.visual_photometric_step_dy = last_visual_photometric_linearization_.valid
       ? last_visual_photometric_linearization_.gauss_newton_step.y()
       : 0.0;
+    const bool se3_sample_quality_valid =
+      last_visual_se3_photometric_sampled_depth_pixels_ > 0U &&
+      (static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
+      static_cast<double>(last_visual_se3_photometric_sampled_depth_pixels_)) >=
+      se3_photometric_min_sample_inlier_ratio_ &&
+      (se3_photometric_max_mean_abs_residual_for_factor_ <= 0.0 ||
+      last_visual_se3_photometric_mean_abs_residual_ <=
+      se3_photometric_max_mean_abs_residual_for_factor_);
     const bool se3_photometric_valid =
       last_visual_se3_photometric_linearization_.valid &&
       last_visual_se3_photometric_linearization_.sample_count >=
       static_cast<size_t>(se3_photometric_min_samples_) &&
-      se3_photometric_hessian_is_healthy(last_visual_se3_photometric_linearization_);
+      se3_photometric_hessian_is_healthy(last_visual_se3_photometric_linearization_) &&
+      se3_sample_quality_valid;
     status.visual_se3_photometric_valid = se3_photometric_valid;
     status.visual_se3_photometric_total_batches = visual_se3_photometric_total_batches_;
     status.visual_se3_photometric_valid_batches = visual_se3_photometric_valid_batches_;
@@ -2996,12 +3050,16 @@ private:
       visual_se3_photometric_insufficient_sample_batches_;
     status.visual_se3_photometric_degenerate_batches =
       visual_se3_photometric_degenerate_batches_;
+    status.visual_se3_photometric_quality_rejected_batches =
+      visual_se3_photometric_quality_rejected_batches_;
     status.visual_se3_photometric_total_candidates =
       visual_se3_photometric_total_candidate_pixels_;
     status.visual_se3_photometric_total_samples =
       visual_se3_photometric_total_accepted_pixels_;
     status.visual_se3_photometric_candidates =
       static_cast<uint64_t>(last_visual_se3_photometric_candidate_pixels_);
+    status.visual_se3_photometric_sampled_depth =
+      static_cast<uint64_t>(last_visual_se3_photometric_sampled_depth_pixels_);
     status.visual_se3_photometric_samples =
       static_cast<uint64_t>(last_visual_se3_photometric_accepted_pixels_);
     status.visual_se3_photometric_rejected_depth =
@@ -3013,6 +3071,11 @@ private:
     status.visual_se3_photometric_inlier_ratio = last_visual_se3_photometric_candidate_pixels_ > 0U
       ? static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
       static_cast<double>(last_visual_se3_photometric_candidate_pixels_)
+      : 0.0;
+    status.visual_se3_photometric_sample_inlier_ratio =
+      last_visual_se3_photometric_sampled_depth_pixels_ > 0U
+      ? static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
+      static_cast<double>(last_visual_se3_photometric_sampled_depth_pixels_)
       : 0.0;
     status.visual_se3_photometric_mean_abs_residual =
       last_visual_se3_photometric_mean_abs_residual_;
@@ -3038,6 +3101,16 @@ private:
       last_accepted_visual_se3_photometric_hessian_max_singular_value_;
     status.visual_se3_photometric_last_accepted_hessian_condition_number =
       last_accepted_visual_se3_photometric_hessian_condition_number_;
+    status.visual_se3_photometric_last_accepted_sampled_depth =
+      static_cast<uint64_t>(last_accepted_visual_se3_photometric_sampled_depth_pixels_);
+    status.visual_se3_photometric_last_accepted_samples =
+      static_cast<uint64_t>(last_accepted_visual_se3_photometric_accepted_pixels_);
+    status.visual_se3_photometric_last_accepted_sample_inlier_ratio =
+      last_accepted_visual_se3_photometric_sample_inlier_ratio_;
+    status.visual_se3_photometric_last_accepted_mean_abs_residual =
+      last_accepted_visual_se3_photometric_mean_abs_residual_;
+    status.visual_se3_photometric_last_accepted_step_norm =
+      last_accepted_visual_se3_photometric_step_norm_;
     tracking_status_pub_->publish(status);
   }
 
@@ -3109,6 +3182,8 @@ private:
   double se3_photometric_huber_delta_{0.15};
   double se3_photometric_max_abs_residual_{1.0};
   double se3_photometric_max_hessian_condition_{1.0e12};
+  double se3_photometric_min_sample_inlier_ratio_{0.25};
+  double se3_photometric_max_mean_abs_residual_for_factor_{0.0};
   bool enable_lio_factor_{true};
   bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
@@ -3241,6 +3316,7 @@ private:
   std::deque<PendingVisualAlignmentFactor> pending_visual_alignment_factors_;
   std::deque<PendingSe3PhotometricFactor> pending_visual_se3_photometric_factors_;
   size_t last_visual_se3_photometric_candidate_pixels_{0};
+  size_t last_visual_se3_photometric_sampled_depth_pixels_{0};
   size_t last_visual_se3_photometric_accepted_pixels_{0};
   size_t last_visual_se3_photometric_rejected_depth_pixels_{0};
   size_t last_visual_se3_photometric_rejected_gradient_pixels_{0};
@@ -3250,6 +3326,11 @@ private:
   double last_accepted_visual_se3_photometric_hessian_min_singular_value_{0.0};
   double last_accepted_visual_se3_photometric_hessian_max_singular_value_{0.0};
   double last_accepted_visual_se3_photometric_hessian_condition_number_{0.0};
+  size_t last_accepted_visual_se3_photometric_sampled_depth_pixels_{0};
+  size_t last_accepted_visual_se3_photometric_accepted_pixels_{0};
+  double last_accepted_visual_se3_photometric_sample_inlier_ratio_{0.0};
+  double last_accepted_visual_se3_photometric_mean_abs_residual_{0.0};
+  double last_accepted_visual_se3_photometric_step_norm_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   std::deque<DepthFrame> depth_frame_cache_;
   std::deque<gaussian_lic_tracking::VisualFrame> observed_frame_cache_;
@@ -3269,6 +3350,7 @@ private:
   uint64_t visual_se3_photometric_valid_batches_{0};
   uint64_t visual_se3_photometric_insufficient_sample_batches_{0};
   uint64_t visual_se3_photometric_degenerate_batches_{0};
+  uint64_t visual_se3_photometric_quality_rejected_batches_{0};
   uint64_t visual_se3_photometric_total_candidate_pixels_{0};
   uint64_t visual_se3_photometric_total_accepted_pixels_{0};
   gaussian_lic_tracking::SlidingWindowSummary last_sliding_window_summary_;
