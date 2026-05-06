@@ -30,6 +30,7 @@ REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
 VISUAL_FACTOR_MAX_DT_NS=300000000
+VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
 VISUAL_DEPTH_DILATION_PX=5
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
@@ -89,7 +90,8 @@ Options:
   --require-nondegenerate-ba   Require the last reported BA normal equation and state cadence to be non-degenerate.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
-  --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed/depth visual BA pairing. Default: 300000000.
+  --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
+  --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
   --se3-photometric-min-samples N
                                Minimum valid sparse-depth samples needed before adding an SE3 photometric BA factor. Default: 8.
@@ -223,6 +225,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --visual-factor-max-dt-ns)
       VISUAL_FACTOR_MAX_DT_NS="$2"
+      shift 2
+      ;;
+    --visual-depth-max-dt-ns)
+      VISUAL_DEPTH_MAX_DT_NS="$2"
       shift 2
       ;;
     --visual-depth-dilation-px)
@@ -377,6 +383,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}" \
+  visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
   rendered_frame_cache_size:=64 \
@@ -481,7 +488,8 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
   "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
-  "${VISUAL_FACTOR_MAX_DT_NS}" "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" <<'PY'
+  "${VISUAL_FACTOR_MAX_DT_NS}" "${VISUAL_DEPTH_MAX_DT_NS}" \
+  "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -499,8 +507,9 @@ enable_visual_factors = sys.argv[10].lower() == "true"
 require_deskew = sys.argv[11].lower() == "true"
 visual_pending_factor_queue_size = int(sys.argv[12])
 visual_factor_max_dt_ns = int(sys.argv[13])
-visual_depth_dilation_px = int(sys.argv[14])
-se3_photometric_min_samples = int(sys.argv[15])
+visual_depth_max_dt_ns = int(sys.argv[14])
+visual_depth_dilation_px = int(sys.argv[15])
+se3_photometric_min_samples = int(sys.argv[16])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -614,6 +623,7 @@ report = {
     "errors": errors,
     "gate_config": {
         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
+        "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
         "visual_depth_dilation_px": visual_depth_dilation_px,
         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
         "se3_photometric_min_samples": se3_photometric_min_samples,

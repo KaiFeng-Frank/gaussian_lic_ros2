@@ -128,6 +128,9 @@ public:
     visual_factor_max_dt_ns_ = integer_parameter_at_least(
       "visual_factor_max_dt_ns",
       declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL), 0LL);
+    visual_depth_max_dt_ns_ = integer_parameter_at_least(
+      "visual_depth_max_dt_ns",
+      declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL), 0LL);
     depth_frame_cache_size_ = integer_parameter_at_least(
       "depth_frame_cache_size", declare_parameter<int>("depth_frame_cache_size", 8), 1);
     sparse_lidar_depth_dilation_px_ = integer_parameter_at_least(
@@ -1800,6 +1803,11 @@ private:
         static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond)));
   }
 
+  int64_t max_visual_depth_delta_ns() const
+  {
+    return visual_depth_max_dt_ns_ > 0LL ? visual_depth_max_dt_ns_ : visual_factor_max_dt_ns_;
+  }
+
   bool visual_factor_stamp_is_expired(
     const int64_t factor_stamp_ns,
     const int64_t current_stamp_ns) const
@@ -1988,7 +1996,7 @@ private:
       }
       had_size_match = true;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
-      if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
+      if (delta_ns <= std::max<int64_t>(max_visual_depth_delta_ns(), 0LL) &&
         delta_ns < best_delta_ns)
       {
         best = &frame;
@@ -3013,6 +3021,7 @@ private:
   bool enable_external_odometry_prior_{false};
   int visual_max_pixels_{200000};
   int64_t visual_factor_max_dt_ns_{150000000LL};
+  int64_t visual_depth_max_dt_ns_{0LL};
   int depth_frame_cache_size_{8};
   int sparse_lidar_depth_dilation_px_{1};
   int rendered_frame_cache_size_{8};

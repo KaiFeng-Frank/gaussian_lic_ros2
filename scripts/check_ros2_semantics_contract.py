@@ -169,6 +169,7 @@ def main() -> int:
         "camera_to_imu_translation_m",
         "camera_to_imu_rpy_rad",
         "visual_factor_max_dt_ns",
+        "visual_depth_max_dt_ns",
         "depth_frame_cache_size",
         "sparse_lidar_depth_dilation_px",
         "rendered_frame_cache_size",
@@ -286,6 +287,12 @@ def main() -> int:
         errors.append("tracking.launch.py must expose visual alignment Huber delta")
     if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default SE3 photometric window factors to true")
+    if 'declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL)' not in tracking_node_text:
+        errors.append("tracking_node must expose a depth-specific visual freshness window")
+    if 'DeclareLaunchArgument("visual_depth_max_dt_ns", default_value="0")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose the depth-specific visual freshness window")
+    if "max_visual_depth_delta_ns()" not in tracking_node_text:
+        errors.append("tracking_node must use the depth-specific visual freshness window for depth selection")
     if 'declare_parameter<double>("se3_photometric_factor_huber_delta", 1.0)' not in tracking_node_text:
         errors.append("tracking_node must default SE3 photometric factor Huber delta to 1.0")
     if 'DeclareLaunchArgument("se3_photometric_factor_huber_delta", default_value="1.0")' not in tracking_launch_text:
@@ -336,6 +343,10 @@ def main() -> int:
             'visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}"' not in native_tracking_report_text or \
             '"visual_factor_max_dt_ns": visual_factor_max_dt_ns' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must widen and record the visual BA pairing window")
+    if "VISUAL_DEPTH_MAX_DT_NS=0" not in native_tracking_report_text or \
+            'visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}"' not in native_tracking_report_text or \
+            '"visual_depth_max_dt_ns": visual_depth_max_dt_ns' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose and record the sparse-depth visual BA pairing window")
     if "VISUAL_DEPTH_DILATION_PX=5" not in native_tracking_report_text or \
             'sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}"' not in native_tracking_report_text or \
             '"visual_depth_dilation_px": visual_depth_dilation_px' not in native_tracking_report_text:
