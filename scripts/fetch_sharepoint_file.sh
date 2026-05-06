@@ -100,6 +100,7 @@ while (( attempt <= attempts )); do
   if curl --http1.1 \
     -L \
     --fail \
+    --no-progress-meter \
     --connect-timeout 30 \
     -C - \
     -A "Mozilla/5.0" \
