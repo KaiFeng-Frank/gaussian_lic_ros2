@@ -1,64 +1,64 @@
 {
   "cleanup_candidates": [
     {
-      "bytes": 472087966,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch"
-    },
-    {
-      "bytes": 331320482,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch"
-    },
-    {
-      "bytes": 301750713,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_opt_probe"
-    },
-    {
-      "bytes": 301714059,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_probe"
-    },
-    {
-      "bytes": 265510834,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_torch_opt"
-    },
-    {
-      "bytes": 261509655,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch_intensity"
-    },
-    {
-      "bytes": 195807389,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic"
-    },
-    {
-      "bytes": 182999456,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_fullseq"
-    },
-    {
-      "bytes": 171975843,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current"
-    },
-    {
-      "bytes": 161364649,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_imu_pose"
-    },
-    {
       "bytes": 239593,
       "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/ros2_output_bag"
     },
     {
       "bytes": 203408,
       "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/ros2_output_bag"
+    },
+    {
+      "bytes": 117516,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_120s"
+    },
+    {
+      "bytes": 110426,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_reference_tum_sync50ms_120s"
+    },
+    {
+      "bytes": 78256,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_windowed_visual_60s"
+    },
+    {
+      "bytes": 70922,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_scan_order_deskew_source_id_queue_gate_60s"
+    },
+    {
+      "bytes": 65469,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_depth_dt1s_valid_sampling_60s"
+    },
+    {
+      "bytes": 62484,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_valid_depth_sampling_default_60s"
+    },
+    {
+      "bytes": 61758,
+      "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/offline"
+    },
+    {
+      "bytes": 61735,
+      "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/offline"
+    },
+    {
+      "bytes": 50398,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_30s"
+    },
+    {
+      "bytes": 49673,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_limited_30s"
     }
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 110921482240,
-    "free_gb": 103.30368041992188,
+    "free_bytes": 107906576384,
+    "free_gb": 100.49583053588867,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 843775733760
+    "used_bytes": 846790639616
   },
   "disk_ok": true,
-  "generated_at": "2026-05-06T19:44:33+00:00",
+  "generated_at": "2026-05-06T20:33:57+00:00",
   "min_free_gb": 100.0,
   "ok": false,
   "profiles": {
@@ -200,12 +200,6 @@
               "is_dir": true,
               "is_file": false,
               "path": "/home/frank/data/fast_livo_mcap/hku2_frontend_raw"
-            },
-            {
-              "exists": true,
-              "is_dir": true,
-              "is_file": false,
-              "path": "/home/frank/data/fast_livo_mcap/hku2_frontend_raw_probe"
             }
           ],
           "missing": [
@@ -276,13 +270,6 @@
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/fast_livo/CBD_Building_01.bag"
-            },
-            {
-              "bytes": 3274430081,
-              "exists": true,
-              "is_dir": false,
-              "is_file": true,
-              "path": "/home/frank/data/fast_livo/CBD_Building_01_mapper_contract_fastlivo2_color.bag"
             }
           ],
           "roots": [
@@ -298,18 +285,6 @@
             }
           ],
           "ros2_current_artifacts": [
-            {
-              "exists": true,
-              "is_dir": true,
-              "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_opt_probe"
-            },
-            {
-              "exists": true,
-              "is_dir": true,
-              "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_probe"
-            },
             {
               "exists": true,
               "is_dir": true,
@@ -399,10 +374,7 @@
     "m2dgr": {
       "dataset": "M2DGR",
       "missing": [
-        "frontend_raw_rosbag2",
-        "raw_ros1_bag",
-        "ros1_baseline_artifacts",
-        "ros2_current_artifacts"
+        "ros1_baseline_artifacts"
       ],
       "ok": false,
       "required_sequences": [
@@ -461,12 +433,16 @@
           "split_raw_components": {}
         },
         {
-          "frontend_raw_rosbag2": [],
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/m2dgr/room_02_frontend_raw"
+            }
+          ],
           "missing": [
-            "raw_ros1_bag",
-            "frontend_raw_rosbag2",
-            "ros1_baseline_artifacts",
-            "ros2_current_artifacts"
+            "ros1_baseline_artifacts"
           ],
           "native_reference_trajectory": [
             {
@@ -485,23 +461,42 @@
             }
           ],
           "ok": false,
-          "raw_ros1_bag": [],
+          "raw_ros1_bag": [
+            {
+              "bytes": 15162620712,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/m2dgr/room_02/room_02.bag"
+            }
+          ],
           "roots": [
             "/home/frank/data/m2dgr",
             "/home/frank/data/M2DGR"
           ],
           "ros1_baseline_artifacts": [],
-          "ros2_current_artifacts": [],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_02_native_tracking_scan_order_60s"
+            }
+          ],
           "sequence": "room_02",
           "split_raw_components": {}
         },
         {
-          "frontend_raw_rosbag2": [],
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/m2dgr/room_03_frontend_raw"
+            }
+          ],
           "missing": [
-            "raw_ros1_bag",
-            "frontend_raw_rosbag2",
-            "ros1_baseline_artifacts",
-            "ros2_current_artifacts"
+            "ros1_baseline_artifacts"
           ],
           "native_reference_trajectory": [
             {
@@ -520,13 +515,28 @@
             }
           ],
           "ok": false,
-          "raw_ros1_bag": [],
+          "raw_ros1_bag": [
+            {
+              "bytes": 26120906181,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/m2dgr/room_03/room_03.bag"
+            }
+          ],
           "roots": [
             "/home/frank/data/m2dgr",
             "/home/frank/data/M2DGR"
           ],
           "ros1_baseline_artifacts": [],
-          "ros2_current_artifacts": [],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_03_native_tracking_scan_order_60s"
+            }
+          ],
           "sequence": "room_03",
           "split_raw_components": {}
         }

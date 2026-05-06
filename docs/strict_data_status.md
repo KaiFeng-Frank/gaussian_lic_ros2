@@ -1,15 +1,15 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-06T19:44:33+00:00`
+Generated: `2026-05-06T20:33:57+00:00`
 Data root: `/home/frank/data`
-Disk free: `103.30 GiB` (minimum requested `100.00 GiB`) - PASS
+Disk free: `100.50 GiB` (minimum requested `100.00 GiB`) - PASS
 Strict evidence currently materialized: `2/7`
 
 | Profile | Dataset | Status | Missing Inputs |
 | --- | --- | --- | --- |
 | `fastlivo` | FAST-LIVO | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 | `fastlivo2` | FAST-LIVO2 | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
-| `m2dgr` | M2DGR | MISSING | frontend_raw_rosbag2, raw_ros1_bag, ros1_baseline_artifacts, ros2_current_artifacts |
+| `m2dgr` | M2DGR | MISSING | ros1_baseline_artifacts |
 | `mcd` | MCD | MISSING | ros1_baseline_artifacts |
 | `r3live` | R3LIVE | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 
@@ -38,7 +38,7 @@ Strict evidence currently materialized: `2/7`
   - raw_ros1_bag: `/home/frank/data/fast_livo/CBD_Building_01.bag`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo/CBD_Building_01_frontend_raw`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo2/CBD_Building_01`
-  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_opt_probe`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_round_no_opacity_prune_probe`
 - `Retail_Street`: MISSING; missing: ros1_baseline_artifacts, native_reference_trajectory
   - raw_ros1_bag: `/home/frank/data/fast_livo/Retail_Street.bag`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo/Retail_Street_frontend_raw`
@@ -50,9 +50,15 @@ Strict evidence currently materialized: `2/7`
   - frontend_raw_rosbag2: `/home/frank/data/m2dgr/room_01_frontend_raw`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_scan_order_60s`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_01/room_01_gt.tum`
-- `room_02`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
+- `room_02`: MISSING; missing: ros1_baseline_artifacts
+  - raw_ros1_bag: `/home/frank/data/m2dgr/room_02/room_02.bag`
+  - frontend_raw_rosbag2: `/home/frank/data/m2dgr/room_02_frontend_raw`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_02_native_tracking_scan_order_60s`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_02/room_02_gt.tum`
-- `room_03`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
+- `room_03`: MISSING; missing: ros1_baseline_artifacts
+  - raw_ros1_bag: `/home/frank/data/m2dgr/room_03/room_03.bag`
+  - frontend_raw_rosbag2: `/home/frank/data/m2dgr/room_03_frontend_raw`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_03_native_tracking_scan_order_60s`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_03/room_03_gt.tum`
 
 ### mcd
@@ -73,18 +79,18 @@ Strict evidence currently materialized: `2/7`
 
 ## Largest Non-Matrix Artifact Candidates
 
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_color_torch` - 0.44 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch` - 0.31 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_opt_probe` - 0.28 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_rasterizer_probe` - 0.28 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_torch_opt` - 0.25 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_torch_intensity` - 0.24 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic` - 0.18 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_extrinsic_fullseq` - 0.17 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current` - 0.16 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_current_imu_pose` - 0.15 GiB
 - `/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/ros2_output_bag` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/ros2_output_bag` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_120s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_reference_tum_sync50ms_120s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_windowed_visual_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_scan_order_deskew_source_id_queue_gate_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_depth_dt1s_valid_sampling_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_valid_depth_sampling_default_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/offline` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/offline` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_30s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_limited_30s` - 0.00 GiB
 
 ## Source URLs
 
