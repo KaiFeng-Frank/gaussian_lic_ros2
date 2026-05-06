@@ -348,6 +348,8 @@ def main() -> int:
         errors.append("sliding-window rotation priors must use SO(3) left-Jacobian inverse blocks")
     if "quaternion_log_vector_autodiff(error)" not in sliding_window_text:
         errors.append("IMU bias Jacobian residual must use SO(3) log-map AutoDiff, not 2*quaternion-vector")
+    if "effective_imu_sqrt_information" not in sliding_window_text or "IMU factor sqrt-information must be finite" not in sliding_window_text:
+        errors.append("IMU preintegration factors must support finite full 9x9 sqrt-information whitening")
     if "return quaternion_log_vector(" not in imu_preintegrator_text:
         errors.append("IMU preintegration rotation residual must use SO(3) log-map residuals")
     if 'declare_parameter("imu_samples_per_frame", 3)' not in synthetic_pub_text:

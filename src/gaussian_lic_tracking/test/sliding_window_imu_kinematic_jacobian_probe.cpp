@@ -87,6 +87,14 @@ int main()
   factor.velocity_weight = 0.8;
   factor.position_weight = 2.1;
   factor.bias_weight = 2.25;
+  factor.sqrt_information = Eigen::Matrix<double, 9, 9>::Zero();
+  for (Eigen::Index index = 0; index < 9; ++index) {
+    factor.sqrt_information(index, index) = 0.35 + 0.05 * static_cast<double>(index);
+  }
+  factor.sqrt_information(0, 3) = 0.02;
+  factor.sqrt_information(1, 4) = -0.015;
+  factor.sqrt_information(2, 6) = 0.01;
+  factor.sqrt_information(5, 8) = -0.025;
 
   gaussian_lic_tracking::SlidingWindowOptimizer optimizer;
   optimizer.add_or_update_state(start);
