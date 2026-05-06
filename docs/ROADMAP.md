@@ -251,6 +251,7 @@ baseline_manifest.json
 - [x] Add robust runtime SE3 photometric sampling gates for depth range, image gradient, residual outliers, Huber weighting, and status-reported sample quality.
 - [x] Add optional visual-alignment factors to the tracking window with deterministic CTest coverage.
 - [x] Add default-enabled three-state continuous-time trajectory smoothness factors to the tracking window, with analytic linear Jacobian blocks, deterministic CTest, and native tracking smoke coverage.
+- [x] Publish and smoke-gate sliding-window numeric-Jacobian fallback block/column counts, and keep smoothness rotation rows off the global residual-rebuild path.
 - [x] Subscribe native tracking to mapper `GaussianArray` snapshot chunks and cache chunk-complete Gaussian-map snapshots for the reverse channel.
 - [x] Build optional Gaussian-map point-to-point tracking-window factors from cached `GaussianArray` snapshots.
 - [x] Register native tracking probes with CTest so `colcon test` runs trajectory, IMU, LiDAR, sliding-window, bias-observability, Gaussian snapshot, and visual checks.

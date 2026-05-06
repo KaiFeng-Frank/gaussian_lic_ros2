@@ -199,6 +199,10 @@ or synchronization stalls that would otherwise look like an ordinary BA solve.
 It also gates nonzero trajectory smoothness factors, which constrain adjacent
 three-state rotation-rate, position-rate, velocity-acceleration, and bias-rate
 continuity in the native joint BA window.
+The same gate requires zero global numeric-Jacobian fallback blocks/columns, so
+smoothness rotation rows and other active BA factors must stay on local analytic
+or bounded local-linearization paths instead of triggering full residual
+rebuilds during every linearization.
 The visual gate replays a 32x32 Gaussian-pattern image bag while a
 transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment, Huber-robust visual-alignment factors, and

@@ -2238,6 +2238,10 @@ private:
       static_cast<uint64_t>(summary.normal_equation_cols);
     status.sliding_window_normal_equation_rank =
       static_cast<uint64_t>(summary.normal_equation_rank);
+    status.sliding_window_numeric_jacobian_blocks =
+      static_cast<uint64_t>(summary.numeric_jacobian_block_count);
+    status.sliding_window_numeric_jacobian_columns =
+      static_cast<uint64_t>(summary.numeric_jacobian_column_count);
     status.sliding_window_normal_equation_rank_ratio =
       summary.normal_equation_cols > 0U ?
       static_cast<double>(summary.normal_equation_rank) /

@@ -70,6 +70,10 @@ int main()
     std::cerr << "smoothness factor normal equation has wrong dimensions\n";
     return 1;
   }
+  if (normal.numeric_jacobian_block_count != 0U || normal.numeric_jacobian_column_count != 0U) {
+    std::cerr << "smoothness factor unexpectedly used global numeric Jacobian fallback\n";
+    return 1;
+  }
   Eigen::MatrixXd expected_linear = Eigen::MatrixXd::Zero(12, 15);
   const double scale = -2.0 * std::sqrt(10.0);
   expected_linear.block<3, 3>(0, 6) = scale * Eigen::Matrix3d::Identity();
@@ -103,13 +107,17 @@ int main()
             << " orientation_error=" << orientation_error
             << " gyro_bias_error=" << gyro_bias_error
             << " accel_bias_error=" << accel_bias_error
-            << " max_linear_jacobian_error=" << max_linear_jacobian_error << "\n";
+            << " max_linear_jacobian_error=" << max_linear_jacobian_error
+            << " numeric_jacobian_blocks=" << summary.numeric_jacobian_block_count
+            << " numeric_jacobian_columns=" << summary.numeric_jacobian_column_count << "\n";
 
   if (!summary.converged || summary.smoothness_factor_count != 1U ||
     summary.final_cost >= summary.initial_cost ||
     position_error > 1.0e-8 || velocity_error > 1.0e-8 ||
     orientation_error > 1.0e-8 || gyro_bias_error > 1.0e-8 ||
-    accel_bias_error > 1.0e-8 || max_linear_jacobian_error > 1.0e-12)
+    accel_bias_error > 1.0e-8 || max_linear_jacobian_error > 1.0e-12 ||
+    summary.numeric_jacobian_block_count != 0U ||
+    summary.numeric_jacobian_column_count != 0U)
   {
     std::cerr << "trajectory smoothness factor failed to recover the constant-rate midpoint\n";
     return 1;

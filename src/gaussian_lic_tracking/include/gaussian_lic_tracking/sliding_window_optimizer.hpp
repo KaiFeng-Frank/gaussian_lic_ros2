@@ -188,6 +188,8 @@ struct SlidingWindowSummary
   size_t normal_equation_rows{0};
   size_t normal_equation_cols{0};
   size_t normal_equation_rank{0};
+  size_t numeric_jacobian_block_count{0};
+  size_t numeric_jacobian_column_count{0};
   size_t iterations{0};
   size_t accepted_steps{0};
   size_t rejected_steps{0};
@@ -240,6 +242,8 @@ struct SlidingWindowNormalEquation
   Eigen::MatrixXd jacobian;
   Eigen::MatrixXd hessian;
   Eigen::VectorXd rhs;
+  size_t numeric_jacobian_block_count{0};
+  size_t numeric_jacobian_column_count{0};
   double cost{0.0};
 };
 

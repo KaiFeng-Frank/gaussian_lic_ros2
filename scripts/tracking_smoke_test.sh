@@ -258,6 +258,8 @@ status_matches() {
     rg -q "sliding_window_normal_equation_rows: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_cols: [1-9]" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rank: [1-9]" "${status_file}" &&
+    rg -q "sliding_window_numeric_jacobian_blocks: 0" "${status_file}" &&
+    rg -q "sliding_window_numeric_jacobian_columns: 0" "${status_file}" &&
     rg -q "sliding_window_normal_equation_rank_ratio: .*[1-9]" "${status_file}" &&
     rg -q "sliding_window_min_normal_equation_rank_ratio: 0.8" "${status_file}" &&
     rg -q "sliding_window_max_normal_equation_condition: .*[1-9]" "${status_file}" &&

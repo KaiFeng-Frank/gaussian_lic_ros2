@@ -359,6 +359,71 @@ Eigen::Matrix<double, 15, 1> smoothness_residual(
     (next_accel_bias_rate - previous_accel_bias_rate);
   return residual;
 }
+
+void apply_left_rotation_delta(SlidingWindowState & state, const Eigen::Vector3d & dtheta)
+{
+  const double angle = dtheta.norm();
+  if (angle > 1.0e-12) {
+    state.q_w_i =
+      (Eigen::Quaterniond(Eigen::AngleAxisd(angle, dtheta / angle)) *
+      state.q_w_i).normalized();
+  }
+}
+
+Eigen::Matrix<double, 3, 9> smoothness_rotation_jacobian(
+  const SlidingWindowTrajectorySmoothnessFactor & factor,
+  const SlidingWindowState & previous,
+  const SlidingWindowState & current,
+  const SlidingWindowState & next,
+  const double epsilon)
+{
+  Eigen::Matrix<double, 3, 9> jacobian = Eigen::Matrix<double, 3, 9>::Zero();
+  if (factor.rotation_rate_weight <= 0.0 || epsilon <= 0.0 ||
+    !std::isfinite(epsilon))
+  {
+    return jacobian;
+  }
+
+  auto perturb_state = [epsilon](
+      const int state_index,
+      const Eigen::Index axis,
+      const double scale,
+      SlidingWindowState & perturbed_previous,
+      SlidingWindowState & perturbed_current,
+      SlidingWindowState & perturbed_next) {
+      Eigen::Vector3d dtheta = Eigen::Vector3d::Zero();
+      dtheta[axis] = scale * epsilon;
+      if (state_index == 0) {
+        apply_left_rotation_delta(perturbed_previous, dtheta);
+      } else if (state_index == 1) {
+        apply_left_rotation_delta(perturbed_current, dtheta);
+      } else {
+        apply_left_rotation_delta(perturbed_next, dtheta);
+      }
+    };
+
+  for (int state_index = 0; state_index < 3; ++state_index) {
+    for (Eigen::Index axis = 0; axis < 3; ++axis) {
+      auto plus_previous = previous;
+      auto plus_current = current;
+      auto plus_next = next;
+      auto minus_previous = previous;
+      auto minus_current = current;
+      auto minus_next = next;
+      perturb_state(state_index, axis, 1.0, plus_previous, plus_current, plus_next);
+      perturb_state(state_index, axis, -1.0, minus_previous, minus_current, minus_next);
+      const Eigen::Vector3d plus_residual =
+        smoothness_residual(factor, plus_previous, plus_current, plus_next)
+        .template segment<3>(0);
+      const Eigen::Vector3d minus_residual =
+        smoothness_residual(factor, minus_previous, minus_current, minus_next)
+        .template segment<3>(0);
+      jacobian.col(state_index * 3 + axis) =
+        (plus_residual - minus_residual) / (2.0 * epsilon);
+    }
+  }
+  return jacobian;
+}
 }  // namespace
 
 SchurComplementResult compute_schur_complement(
@@ -1554,18 +1619,26 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       row += 15;
       continue;
     }
+    const Eigen::Matrix<double, 3, 9> rotation_jacobian =
+      smoothness_rotation_jacobian(
+      factor,
+      states[static_cast<size_t>(previous)],
+      states[static_cast<size_t>(current)],
+      states[static_cast<size_t>(next)],
+      config_.numeric_epsilon);
     const struct SmoothnessBlock
     {
       int state_index;
+      Eigen::Index rotation_column;
       double position_scale;
       double velocity_scale;
       double bias_scale;
     } blocks[3] = {
-      {previous, 1.0 / previous_dt_s, 1.0 / previous_dt_s, 1.0 / previous_dt_s},
-      {current, -1.0 / next_dt_s - 1.0 / previous_dt_s,
+      {previous, 0, 1.0 / previous_dt_s, 1.0 / previous_dt_s, 1.0 / previous_dt_s},
+      {current, 3, -1.0 / next_dt_s - 1.0 / previous_dt_s,
         -1.0 / next_dt_s - 1.0 / previous_dt_s,
         -1.0 / next_dt_s - 1.0 / previous_dt_s},
-      {next, 1.0 / next_dt_s, 1.0 / next_dt_s, 1.0 / next_dt_s}
+      {next, 6, 1.0 / next_dt_s, 1.0 / next_dt_s, 1.0 / next_dt_s}
     };
     for (const auto & block : blocks) {
       const Eigen::Index offset = variable_offsets[static_cast<size_t>(block.state_index)];
@@ -1573,7 +1646,8 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         continue;
       }
       if (factor.rotation_rate_weight > 0.0) {
-        mark_numeric(row, 3, offset, 3);
+        jacobian.template block<3, 3>(row, offset) =
+          rotation_jacobian.template block<3, 3>(0, block.rotation_column);
       }
       jacobian.template block<3, 3>(row + 3, offset + 6) =
         std::sqrt(factor.position_rate_weight) * block.position_scale *
@@ -1769,15 +1843,23 @@ SlidingWindowNormalEquation SlidingWindowOptimizer::linearize(
   }
 
   const auto numeric_blocks = fill_analytic_jacobian(states, variables, output.jacobian);
+  output.numeric_jacobian_block_count = numeric_blocks.size();
+  std::vector<bool> numeric_columns(output.variable_count, false);
+  for (const auto & block : numeric_blocks) {
+    const auto column_begin = static_cast<size_t>(std::max<Eigen::Index>(0, block.column_start));
+    const auto column_end = static_cast<size_t>(
+      std::min<Eigen::Index>(
+        static_cast<Eigen::Index>(output.variable_count),
+        block.column_start + block.column_size));
+    for (size_t column = column_begin; column < column_end; ++column) {
+      numeric_columns[column] = true;
+    }
+  }
+  output.numeric_jacobian_column_count = static_cast<size_t>(
+    std::count(numeric_columns.begin(), numeric_columns.end(), true));
   for (size_t column = 0; column < output.variable_count && !numeric_blocks.empty(); ++column) {
     const auto column_index = static_cast<Eigen::Index>(column);
-    const bool column_needs_numeric = std::any_of(
-      numeric_blocks.begin(), numeric_blocks.end(),
-      [column_index](const NumericJacobianBlock & block) {
-        return column_index >= block.column_start &&
-               column_index < block.column_start + block.column_size;
-      });
-    if (!column_needs_numeric) {
+    if (!numeric_columns[column]) {
       continue;
     }
     Eigen::VectorXd delta = Eigen::VectorXd::Zero(variable_count);
@@ -1890,6 +1972,8 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
       summary.normal_equation_rows = 0U;
       summary.normal_equation_cols = 0U;
       summary.normal_equation_rank = 0U;
+      summary.numeric_jacobian_block_count = 0U;
+      summary.numeric_jacobian_column_count = 0U;
       summary.normal_equation_min_singular_value = 0.0;
       summary.normal_equation_max_singular_value = 0.0;
       summary.normal_equation_condition_number = 0.0;
@@ -1900,6 +1984,8 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
       }
       summary.normal_equation_rows = static_cast<size_t>(normal.residual.size());
       summary.normal_equation_cols = static_cast<size_t>(normal.variable_count);
+      summary.numeric_jacobian_block_count = normal.numeric_jacobian_block_count;
+      summary.numeric_jacobian_column_count = normal.numeric_jacobian_column_count;
       if (normal.hessian.rows() == 0 || normal.hessian.cols() == 0) {
         return;
       }

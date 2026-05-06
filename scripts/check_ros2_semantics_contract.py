@@ -390,6 +390,8 @@ def main() -> int:
         "sliding_window_normal_equation_rows",
         "sliding_window_normal_equation_cols",
         "sliding_window_normal_equation_rank",
+        "sliding_window_numeric_jacobian_blocks",
+        "sliding_window_numeric_jacobian_columns",
         "sliding_window_normal_equation_rank_ratio",
         "sliding_window_min_normal_equation_rank_ratio",
         "sliding_window_max_normal_equation_condition",
