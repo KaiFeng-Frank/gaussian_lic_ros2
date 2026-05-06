@@ -29,6 +29,7 @@ REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
+VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -357,7 +358,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   rendered_frame_cache_size:=64 \
   observed_frame_cache_size:=128 \
-  visual_pending_factor_queue_size:=128 \
+  visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
   enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
   external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC}" \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
@@ -455,7 +456,7 @@ unset launch_pid
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
-  "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" <<'PY'
+  "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -471,6 +472,7 @@ min_reference_poses = int(sys.argv[8])
 require_nondegenerate_ba = sys.argv[9].lower() == "true"
 enable_visual_factors = sys.argv[10].lower() == "true"
 require_deskew = sys.argv[11].lower() == "true"
+visual_pending_factor_queue_size = int(sys.argv[12])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -538,6 +540,21 @@ if enable_visual_factors and int(last.get("sliding_window_total_visual_factors",
     errors.append("sliding_window_total_visual_factors is zero")
 if enable_visual_factors and int(last.get("sliding_window_total_se3_photometric_factors", 0)) <= 0:
     errors.append("sliding_window_total_se3_photometric_factors is zero")
+if enable_visual_factors:
+    for key in (
+        "visual_alignment_pending_queue_size",
+        "visual_se3_photometric_pending_queue_size",
+        "visual_alignment_pending_stale_drops",
+        "visual_se3_photometric_pending_stale_drops",
+    ):
+        if key not in last:
+            errors.append(f"{key} is missing")
+    for key in ("visual_alignment_pending_queue_size", "visual_se3_photometric_pending_queue_size"):
+        if int(last.get(key, 0)) > visual_pending_factor_queue_size:
+            errors.append(f"{key} exceeds report queue budget: {last.get(key)}")
+    for key in ("visual_alignment_pending_stale_drops", "visual_se3_photometric_pending_stale_drops"):
+        if int(last.get(key, 0)) != 0:
+            errors.append(f"{key} is {last.get(key)}")
 if (
     enable_visual_factors
     and int(last.get("sliding_window_total_visual_factors", 0)) <= 0
