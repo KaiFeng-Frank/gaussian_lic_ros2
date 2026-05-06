@@ -251,6 +251,8 @@ visual_se3_photometric_samples
 visual_se3_photometric_rejected_depth
 visual_se3_photometric_rejected_gradient
 visual_se3_photometric_rejected_residual
+visual_se3_photometric_coverage_tiles
+visual_se3_photometric_coverage_total_tiles
 visual_se3_photometric_inlier_ratio
 visual_se3_photometric_sample_inlier_ratio
 visual_se3_photometric_mean_abs_residual
@@ -267,6 +269,8 @@ visual_se3_photometric_last_accepted_hessian_condition_number
 visual_se3_photometric_last_accepted_sampled_depth
 visual_se3_photometric_last_accepted_samples
 visual_se3_photometric_last_accepted_sample_inlier_ratio
+visual_se3_photometric_last_accepted_coverage_tiles
+visual_se3_photometric_last_accepted_coverage_total_tiles
 visual_se3_photometric_last_accepted_mean_abs_residual
 visual_se3_photometric_last_accepted_step_norm
 ```
@@ -320,10 +324,11 @@ photometric Gauss-Newton linearization status, plus nonzero Huber-robust SE3 pho
 nearest-fresh-render/current/depth images. The SE3 status fields expose candidate pixels,
 accepted robust samples, inlier ratio, mean absolute residual, cost,
 Gauss-Newton step norm, current and last-accepted sparse-depth sample inlier
-ratio, last-accepted sample counts, current and last-accepted Hessian rank,
+ratio, current and last-accepted occupied spatial-coverage tiles,
+last-accepted sample counts, current and last-accepted Hessian rank,
 singular values, condition number, degenerate-batch counters, and
 quality-rejected batch counters so bad depth, flat gradients, large photometric
-outliers, low sample coverage, or rank-deficient SE3 normal equations are
+outliers, spatially clustered samples, or rank-deficient SE3 normal equations are
 visible in CI logs. The synthetic bag intentionally lowers the
 LiDAR point threshold to one point; dataset profiles keep production thresholds.
 

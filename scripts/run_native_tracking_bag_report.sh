@@ -39,6 +39,9 @@ SE3_PHOTOMETRIC_MIN_HESSIAN_RANK=3
 SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION=1000000000000.0
 SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO=0.25
 SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR=0.0
+SE3_PHOTOMETRIC_COVERAGE_GRID_COLS=4
+SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS=4
+SE3_PHOTOMETRIC_MIN_COVERAGE_TILES=4
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -107,6 +110,12 @@ Options:
                                Minimum accepted/sampled sparse-depth ratio before accepting an SE3 photometric BA factor. Default: 0.25.
   --se3-photometric-max-mean-abs-residual R
                                Optional max mean absolute residual for accepted SE3 photometric BA factors. Default: 0.0 disabled.
+  --se3-photometric-coverage-grid-cols N
+                               SE3 photometric image coverage grid columns. Default: 4.
+  --se3-photometric-coverage-grid-rows N
+                               SE3 photometric image coverage grid rows. Default: 4.
+  --se3-photometric-min-coverage-tiles N
+                               Minimum occupied image tiles before accepting an SE3 photometric BA factor. Default: 4.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
   --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
@@ -267,6 +276,18 @@ while [[ $# -gt 0 ]]; do
       SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR="$2"
       shift 2
       ;;
+    --se3-photometric-coverage-grid-cols)
+      SE3_PHOTOMETRIC_COVERAGE_GRID_COLS="$2"
+      shift 2
+      ;;
+    --se3-photometric-coverage-grid-rows)
+      SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS="$2"
+      shift 2
+      ;;
+    --se3-photometric-min-coverage-tiles)
+      SE3_PHOTOMETRIC_MIN_COVERAGE_TILES="$2"
+      shift 2
+      ;;
     --enable-external-odometry-prior)
       ENABLE_EXTERNAL_ODOMETRY_PRIOR=true
       shift
@@ -422,6 +443,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   se3_photometric_max_hessian_condition:="${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
   se3_photometric_min_sample_inlier_ratio:="${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}" \
   se3_photometric_max_mean_abs_residual_for_factor:="${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" \
+  se3_photometric_coverage_grid_cols:="${SE3_PHOTOMETRIC_COVERAGE_GRID_COLS}" \
+  se3_photometric_coverage_grid_rows:="${SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS}" \
+  se3_photometric_min_coverage_tiles:="${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" \
   enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
   external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC}" \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
@@ -524,7 +548,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
   "${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" "${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
   "${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}" \
-  "${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" <<'PY'
+  "${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" \
+  "${SE3_PHOTOMETRIC_COVERAGE_GRID_COLS}" "${SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS}" \
+  "${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -549,6 +575,9 @@ se3_photometric_min_hessian_rank = int(sys.argv[17])
 se3_photometric_max_hessian_condition = float(sys.argv[18])
 se3_photometric_min_sample_inlier_ratio = float(sys.argv[19])
 se3_photometric_max_mean_abs_residual_for_factor = float(sys.argv[20])
+se3_photometric_coverage_grid_cols = int(sys.argv[21])
+se3_photometric_coverage_grid_rows = int(sys.argv[22])
+se3_photometric_min_coverage_tiles = int(sys.argv[23])
 
 metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
 topic_counts = metrics.get("topic_counts", {})
@@ -629,6 +658,8 @@ if enable_visual_factors:
         "visual_se3_photometric_total_samples",
         "visual_se3_photometric_sampled_depth",
         "visual_se3_photometric_sample_inlier_ratio",
+        "visual_se3_photometric_coverage_tiles",
+        "visual_se3_photometric_coverage_total_tiles",
         "visual_se3_photometric_hessian_rank",
         "visual_se3_photometric_hessian_condition_number",
         "visual_se3_photometric_last_accepted_hessian_rank",
@@ -636,6 +667,8 @@ if enable_visual_factors:
         "visual_se3_photometric_last_accepted_sampled_depth",
         "visual_se3_photometric_last_accepted_samples",
         "visual_se3_photometric_last_accepted_sample_inlier_ratio",
+        "visual_se3_photometric_last_accepted_coverage_tiles",
+        "visual_se3_photometric_last_accepted_coverage_total_tiles",
         "visual_se3_photometric_last_accepted_mean_abs_residual",
     ):
         if key not in last:
@@ -674,6 +707,12 @@ if enable_visual_factors:
         errors.append(
             "visual_se3_photometric_last_accepted_sample_inlier_ratio "
             f"{sample_inlier_ratio} < {se3_photometric_min_sample_inlier_ratio}"
+        )
+    coverage_tiles = int(last.get("visual_se3_photometric_last_accepted_coverage_tiles", 0))
+    if coverage_tiles < se3_photometric_min_coverage_tiles:
+        errors.append(
+            "visual_se3_photometric_last_accepted_coverage_tiles "
+            f"{coverage_tiles} < {se3_photometric_min_coverage_tiles}"
         )
     mean_abs_residual = float(
         last.get("visual_se3_photometric_last_accepted_mean_abs_residual", 0.0))
@@ -717,6 +756,9 @@ report = {
         "se3_photometric_max_mean_abs_residual_for_factor": (
             se3_photometric_max_mean_abs_residual_for_factor
         ),
+        "se3_photometric_coverage_grid_cols": se3_photometric_coverage_grid_cols,
+        "se3_photometric_coverage_grid_rows": se3_photometric_coverage_grid_rows,
+        "se3_photometric_min_coverage_tiles": se3_photometric_min_coverage_tiles,
     },
     "metrics": metrics,
 }

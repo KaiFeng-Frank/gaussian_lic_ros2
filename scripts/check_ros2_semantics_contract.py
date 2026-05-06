@@ -196,6 +196,9 @@ def main() -> int:
         "se3_photometric_max_hessian_condition",
         "se3_photometric_min_sample_inlier_ratio",
         "se3_photometric_max_mean_abs_residual_for_factor",
+        "se3_photometric_coverage_grid_cols",
+        "se3_photometric_coverage_grid_rows",
+        "se3_photometric_min_coverage_tiles",
         "sliding_window_smoothness_rotation_weight",
         "sliding_window_smoothness_position_weight",
         "sliding_window_smoothness_velocity_weight",
@@ -320,6 +323,16 @@ def main() -> int:
         errors.append("tracking.launch.py must expose the SE3 photometric sample inlier gate")
     if "se3_photometric_sample_quality_is_healthy" not in tracking_node_text:
         errors.append("tracking_node must reject low-quality SE3 photometric sample batches before BA")
+    if 'declare_parameter<int>("se3_photometric_coverage_grid_cols", 4)' not in tracking_node_text or \
+            'declare_parameter<int>("se3_photometric_coverage_grid_rows", 4)' not in tracking_node_text or \
+            'declare_parameter<int>("se3_photometric_min_coverage_tiles", 4)' not in tracking_node_text:
+        errors.append("tracking_node must default the SE3 photometric spatial coverage gate to 4x4/min 4 tiles")
+    if 'DeclareLaunchArgument("se3_photometric_coverage_grid_cols", default_value="4")' not in tracking_launch_text or \
+            'DeclareLaunchArgument("se3_photometric_coverage_grid_rows", default_value="4")' not in tracking_launch_text or \
+            'DeclareLaunchArgument("se3_photometric_min_coverage_tiles", default_value="4")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose the SE3 photometric spatial coverage gate")
+    if "coverage_tiles < static_cast<size_t>(se3_photometric_min_coverage_tiles_)" not in tracking_node_text:
+        errors.append("tracking_node must reject spatially clustered SE3 photometric samples before BA")
     if 'declare_parameter<int>("depth_frame_cache_size", 8)' not in tracking_node_text:
         errors.append("tracking_node must default the visual depth-frame cache size to 8")
     if 'DeclareLaunchArgument("depth_frame_cache_size", default_value="8")' not in tracking_launch_text:
@@ -341,6 +354,8 @@ def main() -> int:
         "visual_se3_photometric_total_samples",
         "visual_se3_photometric_sampled_depth",
         "visual_se3_photometric_sample_inlier_ratio",
+        "visual_se3_photometric_coverage_tiles",
+        "visual_se3_photometric_coverage_total_tiles",
         "visual_se3_photometric_hessian_rank",
         "visual_se3_photometric_hessian_condition_number",
         "visual_se3_photometric_last_accepted_hessian_rank",
@@ -348,6 +363,8 @@ def main() -> int:
         "visual_se3_photometric_last_accepted_sampled_depth",
         "visual_se3_photometric_last_accepted_samples",
         "visual_se3_photometric_last_accepted_sample_inlier_ratio",
+        "visual_se3_photometric_last_accepted_coverage_tiles",
+        "visual_se3_photometric_last_accepted_coverage_total_tiles",
         "visual_se3_photometric_last_accepted_mean_abs_residual",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
@@ -402,6 +419,12 @@ def main() -> int:
             'se3_photometric_min_sample_inlier_ratio:="${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}"' not in native_tracking_report_text or \
             '"se3_photometric_min_sample_inlier_ratio": se3_photometric_min_sample_inlier_ratio' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must enforce and record the SE3 sample inlier gate")
+    if "SE3_PHOTOMETRIC_COVERAGE_GRID_COLS=4" not in native_tracking_report_text or \
+            "SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS=4" not in native_tracking_report_text or \
+            "SE3_PHOTOMETRIC_MIN_COVERAGE_TILES=4" not in native_tracking_report_text or \
+            'se3_photometric_min_coverage_tiles:="${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}"' not in native_tracking_report_text or \
+            '"se3_photometric_min_coverage_tiles": se3_photometric_min_coverage_tiles' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must enforce and record the SE3 spatial coverage gate")
     if 'declare_parameter<bool>("enable_sliding_window_smoothness_factor", true)' not in tracking_node_text:
         errors.append("tracking_node must default trajectory smoothness BA factors to true")
     if 'DeclareLaunchArgument("enable_sliding_window_smoothness_factor", default_value="true")' not in tracking_launch_text:
@@ -621,6 +644,8 @@ def main() -> int:
         "visual_se3_photometric_quality_rejected_batches",
         "visual_se3_photometric_sampled_depth",
         "visual_se3_photometric_sample_inlier_ratio",
+        "visual_se3_photometric_coverage_tiles",
+        "visual_se3_photometric_coverage_total_tiles",
         "visual_se3_photometric_hessian_rank",
         "visual_se3_photometric_hessian_min_singular_value",
         "visual_se3_photometric_hessian_max_singular_value",
@@ -632,6 +657,8 @@ def main() -> int:
         "visual_se3_photometric_last_accepted_sampled_depth",
         "visual_se3_photometric_last_accepted_samples",
         "visual_se3_photometric_last_accepted_sample_inlier_ratio",
+        "visual_se3_photometric_last_accepted_coverage_tiles",
+        "visual_se3_photometric_last_accepted_coverage_total_tiles",
         "visual_se3_photometric_last_accepted_mean_abs_residual",
         "visual_se3_photometric_last_accepted_step_norm",
     ]:

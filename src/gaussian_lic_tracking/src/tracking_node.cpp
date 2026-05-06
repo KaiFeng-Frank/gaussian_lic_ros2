@@ -195,6 +195,22 @@ public:
     se3_photometric_max_mean_abs_residual_for_factor_ = finite_nonnegative_parameter(
       "se3_photometric_max_mean_abs_residual_for_factor",
       declare_parameter<double>("se3_photometric_max_mean_abs_residual_for_factor", 0.0));
+    se3_photometric_coverage_grid_cols_ = integer_parameter_at_least(
+      "se3_photometric_coverage_grid_cols",
+      declare_parameter<int>("se3_photometric_coverage_grid_cols", 4), 1);
+    se3_photometric_coverage_grid_rows_ = integer_parameter_at_least(
+      "se3_photometric_coverage_grid_rows",
+      declare_parameter<int>("se3_photometric_coverage_grid_rows", 4), 1);
+    se3_photometric_min_coverage_tiles_ = integer_parameter_at_least(
+      "se3_photometric_min_coverage_tiles",
+      declare_parameter<int>("se3_photometric_min_coverage_tiles", 4), 1);
+    const int se3_photometric_total_coverage_tiles =
+      se3_photometric_coverage_grid_cols_ * se3_photometric_coverage_grid_rows_;
+    if (se3_photometric_min_coverage_tiles_ > se3_photometric_total_coverage_tiles) {
+      throw std::runtime_error(
+              "se3_photometric_min_coverage_tiles must be <= "
+              "se3_photometric_coverage_grid_cols * se3_photometric_coverage_grid_rows");
+    }
     se3_photometric_min_depth_m_ = finite_positive_parameter(
       "se3_photometric_min_depth_m",
       declare_parameter<double>("se3_photometric_min_depth_m", 0.05));
@@ -523,6 +539,8 @@ private:
     size_t rejected_depth_pixels{0};
     size_t rejected_gradient_pixels{0};
     size_t rejected_residual_pixels{0};
+    size_t coverage_tiles{0};
+    size_t coverage_total_tiles{0};
     double mean_abs_residual{0.0};
   };
 
@@ -979,6 +997,8 @@ private:
       last_visual_se3_photometric_rejected_depth_pixels_ = se3_samples.rejected_depth_pixels;
       last_visual_se3_photometric_rejected_gradient_pixels_ = se3_samples.rejected_gradient_pixels;
       last_visual_se3_photometric_rejected_residual_pixels_ = se3_samples.rejected_residual_pixels;
+      last_visual_se3_photometric_coverage_tiles_ = se3_samples.coverage_tiles;
+      last_visual_se3_photometric_coverage_total_tiles_ = se3_samples.coverage_total_tiles;
       last_visual_se3_photometric_mean_abs_residual_ = se3_samples.mean_abs_residual;
       last_visual_se3_photometric_linearization_ =
         gaussian_lic_tracking::linearize_se3_photometric_samples(camera_intrinsics_, se3_samples.samples);
@@ -997,6 +1017,10 @@ private:
           se3_samples.accepted_pixels;
         last_accepted_visual_se3_photometric_sample_inlier_ratio_ =
           se3_photometric_sample_inlier_ratio(se3_samples);
+        last_accepted_visual_se3_photometric_coverage_tiles_ =
+          se3_samples.coverage_tiles;
+        last_accepted_visual_se3_photometric_coverage_total_tiles_ =
+          se3_samples.coverage_total_tiles;
         last_accepted_visual_se3_photometric_mean_abs_residual_ =
           se3_samples.mean_abs_residual;
         last_accepted_visual_se3_photometric_step_norm_ =
@@ -1899,6 +1923,9 @@ private:
     {
       return false;
     }
+    if (batch.coverage_tiles < static_cast<size_t>(se3_photometric_min_coverage_tiles_)) {
+      return false;
+    }
     return true;
   }
 
@@ -2311,6 +2338,10 @@ private:
       return batch;
     }
     const size_t max_samples = static_cast<size_t>(se3_photometric_max_samples_);
+    const size_t coverage_grid_cols = static_cast<size_t>(se3_photometric_coverage_grid_cols_);
+    const size_t coverage_grid_rows = static_cast<size_t>(se3_photometric_coverage_grid_rows_);
+    batch.coverage_total_tiles = coverage_grid_cols * coverage_grid_rows;
+    std::vector<bool> occupied_coverage_tiles(batch.coverage_total_tiles, false);
     std::vector<size_t> valid_depth_indices;
     valid_depth_indices.reserve(std::min(pixel_count, max_samples));
     size_t interior_pixels = 0U;
@@ -2377,10 +2408,15 @@ private:
       if (se3_photometric_huber_delta_ > 0.0 && abs_residual > se3_photometric_huber_delta_) {
         sample.weight = se3_photometric_huber_delta_ / abs_residual;
       }
+      const size_t tile_x = std::min(coverage_grid_cols - 1U, (x * coverage_grid_cols) / observed.width);
+      const size_t tile_y = std::min(coverage_grid_rows - 1U, (y * coverage_grid_rows) / observed.height);
+      occupied_coverage_tiles[tile_y * coverage_grid_cols + tile_x] = true;
       batch.samples.push_back(sample);
       ++batch.accepted_pixels;
       abs_residual_sum += abs_residual;
     }
+    batch.coverage_tiles = static_cast<size_t>(
+      std::count(occupied_coverage_tiles.begin(), occupied_coverage_tiles.end(), true));
     if (batch.accepted_pixels > 0U) {
       batch.mean_abs_residual = abs_residual_sum / static_cast<double>(batch.accepted_pixels);
     }
@@ -3036,7 +3072,9 @@ private:
       se3_photometric_min_sample_inlier_ratio_ &&
       (se3_photometric_max_mean_abs_residual_for_factor_ <= 0.0 ||
       last_visual_se3_photometric_mean_abs_residual_ <=
-      se3_photometric_max_mean_abs_residual_for_factor_);
+      se3_photometric_max_mean_abs_residual_for_factor_) &&
+      last_visual_se3_photometric_coverage_tiles_ >=
+      static_cast<size_t>(se3_photometric_min_coverage_tiles_);
     const bool se3_photometric_valid =
       last_visual_se3_photometric_linearization_.valid &&
       last_visual_se3_photometric_linearization_.sample_count >=
@@ -3068,6 +3106,10 @@ private:
       static_cast<uint64_t>(last_visual_se3_photometric_rejected_gradient_pixels_);
     status.visual_se3_photometric_rejected_residual =
       static_cast<uint64_t>(last_visual_se3_photometric_rejected_residual_pixels_);
+    status.visual_se3_photometric_coverage_tiles =
+      static_cast<uint64_t>(last_visual_se3_photometric_coverage_tiles_);
+    status.visual_se3_photometric_coverage_total_tiles =
+      static_cast<uint64_t>(last_visual_se3_photometric_coverage_total_tiles_);
     status.visual_se3_photometric_inlier_ratio = last_visual_se3_photometric_candidate_pixels_ > 0U
       ? static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
       static_cast<double>(last_visual_se3_photometric_candidate_pixels_)
@@ -3107,6 +3149,10 @@ private:
       static_cast<uint64_t>(last_accepted_visual_se3_photometric_accepted_pixels_);
     status.visual_se3_photometric_last_accepted_sample_inlier_ratio =
       last_accepted_visual_se3_photometric_sample_inlier_ratio_;
+    status.visual_se3_photometric_last_accepted_coverage_tiles =
+      static_cast<uint64_t>(last_accepted_visual_se3_photometric_coverage_tiles_);
+    status.visual_se3_photometric_last_accepted_coverage_total_tiles =
+      static_cast<uint64_t>(last_accepted_visual_se3_photometric_coverage_total_tiles_);
     status.visual_se3_photometric_last_accepted_mean_abs_residual =
       last_accepted_visual_se3_photometric_mean_abs_residual_;
     status.visual_se3_photometric_last_accepted_step_norm =
@@ -3184,6 +3230,9 @@ private:
   double se3_photometric_max_hessian_condition_{1.0e12};
   double se3_photometric_min_sample_inlier_ratio_{0.25};
   double se3_photometric_max_mean_abs_residual_for_factor_{0.0};
+  int se3_photometric_coverage_grid_cols_{4};
+  int se3_photometric_coverage_grid_rows_{4};
+  int se3_photometric_min_coverage_tiles_{4};
   bool enable_lio_factor_{true};
   bool enable_lidar_plane_factor_{true};
   bool enable_lidar_deskew_{true};
@@ -3321,6 +3370,8 @@ private:
   size_t last_visual_se3_photometric_rejected_depth_pixels_{0};
   size_t last_visual_se3_photometric_rejected_gradient_pixels_{0};
   size_t last_visual_se3_photometric_rejected_residual_pixels_{0};
+  size_t last_visual_se3_photometric_coverage_tiles_{0};
+  size_t last_visual_se3_photometric_coverage_total_tiles_{0};
   double last_visual_se3_photometric_mean_abs_residual_{0.0};
   size_t last_accepted_visual_se3_photometric_hessian_rank_{0};
   double last_accepted_visual_se3_photometric_hessian_min_singular_value_{0.0};
@@ -3329,6 +3380,8 @@ private:
   size_t last_accepted_visual_se3_photometric_sampled_depth_pixels_{0};
   size_t last_accepted_visual_se3_photometric_accepted_pixels_{0};
   double last_accepted_visual_se3_photometric_sample_inlier_ratio_{0.0};
+  size_t last_accepted_visual_se3_photometric_coverage_tiles_{0};
+  size_t last_accepted_visual_se3_photometric_coverage_total_tiles_{0};
   double last_accepted_visual_se3_photometric_mean_abs_residual_{0.0};
   double last_accepted_visual_se3_photometric_step_norm_{0.0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
