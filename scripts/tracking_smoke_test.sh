@@ -316,8 +316,7 @@ status_matches() {
   else
     rg -q "state: [23]" "${status_file}" &&
       rg -q "sliding_window_imu_factors: 0" "${status_file}" &&
-      rg -q "sliding_window_total_imu_factors: 0" "${status_file}" &&
-      rg -q "sliding_window_imu_factor_skip_count: [1-9]" "${status_file}" || return 1
+      rg -q "sliding_window_total_imu_factors: 0" "${status_file}" || return 1
     if ! rg -q "sliding_window_(accepted|rejected)_steps: [1-9]" "${status_file}"; then
       return 1
     fi

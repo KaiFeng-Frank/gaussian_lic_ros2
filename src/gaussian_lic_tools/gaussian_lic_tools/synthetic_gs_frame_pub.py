@@ -54,6 +54,7 @@ class SyntheticGsFramePublisher(Node):
         self.declare_parameter("publish_depth", True)
         self.declare_parameter("pose_output_mode", "pose_stamped")
         self.declare_parameter("child_frame_id", "base_link")
+        self.declare_parameter("imu_samples_per_frame", 3)
         self.declare_parameter("imu_stamp_lead_ns", 10000000)
 
         self.pointcloud_color_mode = str(
@@ -70,6 +71,9 @@ class SyntheticGsFramePublisher(Node):
             raise ValueError(
                 "pose_output_mode must be pose_stamped, odometry, both, or none")
         self.child_frame_id = str(self.get_parameter("child_frame_id").value)
+        self.imu_samples_per_frame = int(self.get_parameter("imu_samples_per_frame").value)
+        if self.imu_samples_per_frame < 1:
+            raise ValueError("imu_samples_per_frame must be at least 1")
         self.imu_stamp_lead_ns = int(self.get_parameter("imu_stamp_lead_ns").value)
         if self.imu_stamp_lead_ns < 0:
             raise ValueError("imu_stamp_lead_ns must be non-negative")
@@ -123,17 +127,10 @@ class SyntheticGsFramePublisher(Node):
             Imu, self.get_parameter("imu_topic").value, 10)
 
         rate = float(self.get_parameter("publish_rate_hz").value)
+        self.publish_period_ns = max(1, int(round(1000000000.0 / rate)))
         self.timer = self.create_timer(1.0 / rate, self.publish_frame)
         self.frame_id = 0
 
-    def make_imu_stamp(self, stamp):
-        if self.imu_stamp_lead_ns == 0:
-            return stamp
-        total_ns = stamp.sec * 1000000000 + stamp.nanosec
-        shifted_ns = max(0, total_ns - self.imu_stamp_lead_ns)
-        return Time(
-            sec=shifted_ns // 1000000000,
-            nanosec=shifted_ns % 1000000000)
         self.get_logger().info(
             "Publishing synthetic synchronized GS input frames "
             f"(pointcloud_color_mode={self.pointcloud_color_mode}, "
@@ -141,6 +138,25 @@ class SyntheticGsFramePublisher(Node):
             f"pose_output_mode={self.pose_output_mode}, "
             f"image={self.image_width}x{self.image_height}:{self.image_pattern}, "
             f"publish_rendered_image={self.publish_rendered_image})")
+
+    def make_imu_stamp(self, stamp, lead_ns):
+        if lead_ns == 0:
+            return stamp
+        total_ns = stamp.sec * 1000000000 + stamp.nanosec
+        shifted_ns = max(0, total_ns - lead_ns)
+        return Time(
+            sec=shifted_ns // 1000000000,
+            nanosec=shifted_ns % 1000000000)
+
+    def imu_lead_ns_for_sample(self, sample_index):
+        if self.imu_samples_per_frame == 1:
+            return self.imu_stamp_lead_ns
+        max_lead_ns = max(
+            self.imu_stamp_lead_ns,
+            min(self.publish_period_ns - 1, int(0.9 * self.publish_period_ns)))
+        alpha = float(self.imu_samples_per_frame - 1 - sample_index) / float(
+            self.imu_samples_per_frame - 1)
+        return int(round(self.imu_stamp_lead_ns + alpha * (max_lead_ns - self.imu_stamp_lead_ns)))
 
     @staticmethod
     def clamp_byte(value):
@@ -233,15 +249,17 @@ class SyntheticGsFramePublisher(Node):
     def publish_frame(self):
         stamp = self.get_clock().now().to_msg()
 
-        imu = Imu()
-        imu.header.stamp = self.make_imu_stamp(stamp)
-        imu.header.frame_id = "imu"
-        imu.orientation.w = 1.0
-        imu.orientation_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
-        imu.angular_velocity_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
-        imu.linear_acceleration.z = 9.80665
-        imu.linear_acceleration_covariance = [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
-        self.imu_pub.publish(imu)
+        for sample_index in range(self.imu_samples_per_frame):
+            imu = Imu()
+            imu.header.stamp = self.make_imu_stamp(
+                stamp, self.imu_lead_ns_for_sample(sample_index))
+            imu.header.frame_id = "imu"
+            imu.orientation.w = 1.0
+            imu.orientation_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+            imu.angular_velocity_covariance = [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+            imu.linear_acceleration.z = 9.80665
+            imu.linear_acceleration_covariance = [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1]
+            self.imu_pub.publish(imu)
 
         point_fields, point_step, point_data = self.make_pointcloud_data()
         points = PointCloud2()
