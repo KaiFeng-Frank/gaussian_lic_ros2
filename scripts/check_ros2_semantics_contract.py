@@ -370,6 +370,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose the sliding-window max state gap")
     if 'DeclareLaunchArgument("sliding_window_imu_max_extrapolation_s", default_value="0.02")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose bounded IMU preintegration extrapolation")
+    if 'DeclareLaunchArgument("enable_pointcloud_imu_wait", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose default-enabled pointcloud/IMU wait queue")
     for field in [
         "signed_nanosecond_time_math_enabled",
         "last_image_stamp_ns",
@@ -392,6 +394,10 @@ def main() -> int:
         "lidar_invalid_point_times",
         "lidar_out_of_range_point_times",
         "last_lidar_max_abs_point_time_offset_s",
+        "pointcloud_imu_wait_queue_size",
+        "pointcloud_imu_wait_deferred",
+        "pointcloud_imu_wait_released",
+        "pointcloud_imu_wait_dropped",
         "sliding_window_imu_reanchors",
         "sliding_window_total_imu_factors",
         "sliding_window_total_imu_preintegration_samples",

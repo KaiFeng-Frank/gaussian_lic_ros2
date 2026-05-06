@@ -14,6 +14,9 @@ def generate_launch_description():
     raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
     raw_imu_topic = LaunchConfiguration("raw_imu_topic")
     external_odometry_prior_topic = LaunchConfiguration("external_odometry_prior_topic")
+    enable_pointcloud_imu_wait = LaunchConfiguration("enable_pointcloud_imu_wait")
+    pointcloud_imu_wait_tolerance_ns = LaunchConfiguration("pointcloud_imu_wait_tolerance_ns")
+    pointcloud_imu_wait_queue_size = LaunchConfiguration("pointcloud_imu_wait_queue_size")
     tracking_status_topic = LaunchConfiguration("tracking_status_topic")
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
@@ -148,6 +151,9 @@ def generate_launch_description():
                 "external_odometry_prior_topic",
                 default_value="/gaussian_lic/frontend/input_odometry",
             ),
+            DeclareLaunchArgument("enable_pointcloud_imu_wait", default_value="true"),
+            DeclareLaunchArgument("pointcloud_imu_wait_tolerance_ns", default_value="0"),
+            DeclareLaunchArgument("pointcloud_imu_wait_queue_size", default_value="4"),
             DeclareLaunchArgument("tracking_status_topic", default_value="/gaussian_lic/frontend/status"),
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
@@ -248,6 +254,9 @@ def generate_launch_description():
                         "raw_pointcloud_topic": raw_pointcloud_topic,
                         "raw_imu_topic": raw_imu_topic,
                         "external_odometry_prior_topic": external_odometry_prior_topic,
+                        "enable_pointcloud_imu_wait": enable_pointcloud_imu_wait,
+                        "pointcloud_imu_wait_tolerance_ns": pointcloud_imu_wait_tolerance_ns,
+                        "pointcloud_imu_wait_queue_size": pointcloud_imu_wait_queue_size,
                         "tracking_status_topic": tracking_status_topic,
                         "rendered_image_topic": rendered_image_topic,
                         "gaussian_map_topic": gaussian_map_topic,

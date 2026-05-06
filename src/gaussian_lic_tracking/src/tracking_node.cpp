@@ -82,6 +82,13 @@ public:
     raw_imu_topic_ = declare_parameter<std::string>("raw_imu_topic", "/imu");
     external_odometry_prior_topic_ = declare_parameter<std::string>(
       "external_odometry_prior_topic", "/gaussian_lic/frontend/input_odometry");
+    enable_pointcloud_imu_wait_ = declare_parameter<bool>("enable_pointcloud_imu_wait", true);
+    pointcloud_imu_wait_tolerance_ns_ = integer_parameter_at_least(
+      "pointcloud_imu_wait_tolerance_ns",
+      declare_parameter<int64_t>("pointcloud_imu_wait_tolerance_ns", 0LL), 0LL);
+    pointcloud_imu_wait_queue_size_ = integer_parameter_at_least(
+      "pointcloud_imu_wait_queue_size",
+      declare_parameter<int>("pointcloud_imu_wait_queue_size", 4), 1);
     image_topic_ = declare_parameter<std::string>("image_topic", "/image_for_gs");
     camera_info_topic_ = declare_parameter<std::string>("camera_info_topic", "/camera_info_for_gs");
     depth_topic_ = declare_parameter<std::string>("depth_topic", "/depth_for_gs");
@@ -484,6 +491,12 @@ private:
     double mean_abs_residual{0.0};
   };
 
+  struct PendingPointCloud
+  {
+    int64_t stamp_ns{0};
+    sensor_msgs::msg::PointCloud2 message;
+  };
+
   struct QosProfileParams
   {
     std::string reliability{"best_effort"};
@@ -571,6 +584,7 @@ private:
       }
       last_imu_stamp_ns_ = stamp_ns;
       ++num_raw_imus_;
+      process_ready_pointcloud_queue();
       imu_propagator_.add_measurement(stamp_ns, angular_velocity, linear_acceleration);
       if (enable_sliding_window_optimizer_) {
         sliding_window_preintegrator_.add_measurement(
@@ -937,6 +951,67 @@ private:
   }
 
   void handle_pointcloud(const sensor_msgs::msg::PointCloud2 & msg)
+  {
+    const int64_t stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+    process_ready_pointcloud_queue();
+    if (!pending_pointclouds_waiting_for_imu_.empty() || should_wait_for_imu(stamp_ns)) {
+      enqueue_pointcloud_for_imu(msg, stamp_ns);
+      return;
+    }
+    process_pointcloud(msg);
+  }
+
+  bool should_wait_for_imu(const int64_t pointcloud_stamp_ns) const
+  {
+    if (!enable_pointcloud_imu_wait_ || !enable_sliding_window_optimizer_ ||
+      !imu_propagator_.initialized() || last_imu_stamp_ns_ == 0)
+    {
+      return false;
+    }
+    return last_imu_stamp_ns_ + pointcloud_imu_wait_tolerance_ns_ < pointcloud_stamp_ns;
+  }
+
+  void enqueue_pointcloud_for_imu(
+    const sensor_msgs::msg::PointCloud2 & msg,
+    const int64_t stamp_ns)
+  {
+    if (!pending_pointclouds_waiting_for_imu_.empty() &&
+      stamp_ns <= pending_pointclouds_waiting_for_imu_.back().stamp_ns)
+    {
+      ++pointcloud_imu_wait_dropped_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping queued point cloud with non-monotonic stamp while waiting for IMU");
+      return;
+    }
+    while (pending_pointclouds_waiting_for_imu_.size() >=
+      static_cast<size_t>(pointcloud_imu_wait_queue_size_))
+    {
+      pending_pointclouds_waiting_for_imu_.pop_front();
+      ++pointcloud_imu_wait_dropped_;
+    }
+    PendingPointCloud pending;
+    pending.stamp_ns = stamp_ns;
+    pending.message = msg;
+    pending_pointclouds_waiting_for_imu_.push_back(std::move(pending));
+    ++pointcloud_imu_wait_deferred_;
+  }
+
+  void process_ready_pointcloud_queue()
+  {
+    while (!pending_pointclouds_waiting_for_imu_.empty()) {
+      const auto & pending = pending_pointclouds_waiting_for_imu_.front();
+      if (should_wait_for_imu(pending.stamp_ns)) {
+        return;
+      }
+      const auto message = pending.message;
+      pending_pointclouds_waiting_for_imu_.pop_front();
+      ++pointcloud_imu_wait_released_;
+      process_pointcloud(message);
+    }
+  }
+
+  void process_pointcloud(const sensor_msgs::msg::PointCloud2 & msg)
   {
     gaussian_lic_tracking::TrajectoryPose tracking_pose;
     tracking_pose.stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
@@ -2288,6 +2363,11 @@ private:
     status.num_raw_pointclouds = num_raw_pointclouds_;
     status.num_raw_imus = num_raw_imus_;
     status.num_published_poses = num_published_poses_;
+    status.pointcloud_imu_wait_queue_size =
+      static_cast<uint64_t>(pending_pointclouds_waiting_for_imu_.size());
+    status.pointcloud_imu_wait_deferred = pointcloud_imu_wait_deferred_;
+    status.pointcloud_imu_wait_released = pointcloud_imu_wait_released_;
+    status.pointcloud_imu_wait_dropped = pointcloud_imu_wait_dropped_;
     status.external_odometry_priors_received = external_odometry_priors_received_;
     status.external_odometry_prior_matches = external_odometry_prior_matches_;
     status.external_odometry_prior_misses = external_odometry_prior_misses_;
@@ -2537,6 +2617,9 @@ private:
   std::string raw_pointcloud_topic_;
   std::string raw_imu_topic_;
   std::string external_odometry_prior_topic_;
+  bool enable_pointcloud_imu_wait_{true};
+  int64_t pointcloud_imu_wait_tolerance_ns_{0};
+  int pointcloud_imu_wait_queue_size_{4};
   std::string image_topic_;
   std::string camera_info_topic_;
   std::string depth_topic_;
@@ -2667,6 +2750,7 @@ private:
   gaussian_lic_tracking::TrajectoryManager trajectory_manager_;
   gaussian_lic_tracking::SlidingWindowOptimizer sliding_window_optimizer_;
   std::deque<ExternalPosePrior> external_odometry_priors_;
+  std::deque<PendingPointCloud> pending_pointclouds_waiting_for_imu_;
   gaussian_lic_tracking::ImuPreintegrator sliding_window_preintegrator_;
   gaussian_lic_tracking::ImuBias sliding_window_bias_;
   bool sliding_window_preintegrator_initialized_{false};
@@ -2746,6 +2830,9 @@ private:
   uint64_t num_raw_pointclouds_{0};
   uint64_t num_raw_imus_{0};
   uint64_t num_published_poses_{0};
+  uint64_t pointcloud_imu_wait_deferred_{0};
+  uint64_t pointcloud_imu_wait_released_{0};
+  uint64_t pointcloud_imu_wait_dropped_{0};
   uint64_t external_odometry_priors_received_{0};
   uint64_t external_odometry_prior_matches_{0};
   uint64_t external_odometry_prior_misses_{0};

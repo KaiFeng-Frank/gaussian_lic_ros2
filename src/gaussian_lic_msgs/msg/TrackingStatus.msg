@@ -35,6 +35,10 @@ uint64 num_raw_images
 uint64 num_raw_pointclouds
 uint64 num_raw_imus
 uint64 num_published_poses
+uint64 pointcloud_imu_wait_queue_size
+uint64 pointcloud_imu_wait_deferred
+uint64 pointcloud_imu_wait_released
+uint64 pointcloud_imu_wait_dropped
 uint64 external_odometry_priors_received
 uint64 external_odometry_prior_matches
 uint64 external_odometry_prior_misses

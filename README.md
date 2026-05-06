@@ -187,7 +187,7 @@ non-degenerate and tune the LiDAR factor budget explicitly:
   --output results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s \
   --playback-duration 12 \
   --timeout 45 \
-  --min-poses 35 \
+  --min-poses 30 \
   --min-point-frames 20 \
   --lidar-max-frame-points 1200 \
   --lidar-max-map-points 16000 \
@@ -212,10 +212,12 @@ ok=true, poses=32, reference_poses=32, external_prior_matches=25,
 trajectory_rmse=0.101496 m, coverage=100.00%
 
 results/fastlivo2/Bright_Screen_Wall_native_tracking_nondegenerate_12s/native_tracking_report.json
-ok=true, poses=37, /points_for_gs=37, status_samples=37, imu_factors=6,
+ok=true, poses=39, /points_for_gs=39, status_samples=39, imu_factors=6,
 state=tracking_with_sliding_window, normal_equation_degenerate=false,
-state_gap_degenerate=false, accepted_steps=2, feedback_updates=36,
-normal_equation_rows=32445, condition=1.995e9, numeric_jacobian_blocks=0
+state_gap_degenerate=false, accepted_steps=1, feedback_updates=37,
+pointcloud_imu_wait_deferred=7, pointcloud_imu_wait_released=7,
+pointcloud_imu_wait_dropped=0, normal_equation_rows=29565,
+condition=2.116e9, numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:

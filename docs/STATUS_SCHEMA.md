@@ -81,6 +81,10 @@ num_raw_images
 num_raw_pointclouds
 num_raw_imus
 num_published_poses
+pointcloud_imu_wait_queue_size
+pointcloud_imu_wait_deferred
+pointcloud_imu_wait_released
+pointcloud_imu_wait_dropped
 external_odometry_priors_received
 external_odometry_prior_matches
 external_odometry_prior_misses
@@ -269,6 +273,9 @@ or synchronization stalls that would otherwise look like an ordinary BA solve.
 It also gates nonzero trajectory smoothness factors, which constrain adjacent
 three-state rotation-rate, position-rate, velocity-acceleration, and bias-rate
 continuity in the native joint BA window.
+The pointcloud/IMU wait counters expose the bounded queue that holds LiDAR
+frames until IMU propagation has reached the frame stamp, preserving ROS1-style
+sequential estimator math under rosbag2 multi-topic playback.
 When `enable_external_odometry_prior` is explicitly enabled, the frontend also
 reports received, matched, missed, invalid, and stamp-regression counts for the
 reference odometry pose-prior stream. This keeps reference-assisted trajectory
