@@ -91,6 +91,9 @@ status until required native reference trajectory evidence and full-sequence
 FAST-LIVO/M2DGR/MCD/R3LIVE strict artifacts are archived. Current local matrix
 status is `required=2/7`, with FAST-LIVO2 mapper-contract/CUDA strict parity and
 the 120s CBD native visual/SE3 BA health report passing.
+R3LIVE `hku_park_00` now also has a frontend-raw conversion plus 60s native
+sensor-only tracking health report, but it remains optional runtime coverage
+until ROS1-vs-ROS2 strict parity artifacts are archived.
 The native tracking launch now defaults the sliding-window BA, visual-alignment
 window factors, and SE3 photometric window factors to enabled so ordinary
 tracking launch paths exercise the joint optimizer when the corresponding

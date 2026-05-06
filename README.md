@@ -28,6 +28,7 @@ Available now:
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` artifact/readiness pipeline with trajectory, PSNR/SSIM/LPIPS, render-pair, and point-cloud gates passing for the mapper-contract/CUDA path.
 - `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It currently reports `required=2/7` because only FAST-LIVO2 mapper strict parity plus CBD native BA runtime health are proven; native reference trajectory parity and FAST-LIVO/M2DGR/MCD/R3LIVE full-sequence strict reports are still missing.
+- R3LIVE `hku_park_00` can be converted to ROS2 frontend-raw and passes the native sensor-only tracking health gate; this is runtime coverage, not strict baseline parity.
 - SPNet TensorRT engine generation for the local `sm_120` GPU via TensorRT 10.9, with the generated FP16 engine kept outside git.
 - Native tracking probes are registered with CTest, so `colcon test --packages-select gaussian_lic_tracking` runs trajectory, IMU, LiDAR, sliding-window, bias observability, geometric Jacobian, Gaussian snapshot, trajectory smoothness, SE3 photometric Jacobian/factor, and visual checks automatically. `scripts/tracking_smoke_test.sh` also verifies the launch path through `/gaussian_lic/frontend/status`, including signed-nanosecond time status, tracking QoS, executor callback serialization, auto-start IMU preintegration re-integration semantics, cumulative IMU-factor/preintegration and visual/SE3 factor evidence that survives window marginalization, dense-prior health with stamp/reference validation, Schur/fallback marginalization health, same-stamp prior plus same-source IMU/LiDAR/visual/SE3/smoothness replacement counters, orphan-factor health, active-window state-cadence health, bias observability, accepted BA feedback stamp/delta/limit health, optimized IMU re-anchors, last-consumed IMU preintegration sample/dt/span health with time-gap skip gating, B-spline trajectory control poses, LiDAR correspondence confidence and spatial-index health, sliding-window optimization timing, zero global numeric-Jacobian fallback, nonzero trajectory smoothness factors, accepted/rejected/limited BA step health, linearization/linear-solve failure counters, factor skip counters, visual alignment, bounded photometric sample weights, photometric linearization status, rendered/depth cache diagnostics, and SE3 photometric sample quality/rejection counters.
 - CI semantic checks keep the GitHub Actions build matrix Jazzy-only; adding ROS2 Humble to `.github/workflows/ci.yaml` is treated as a contract violation.
@@ -47,6 +48,7 @@ Still pending:
 | Strict `CBD_Building_01` paper-data gate | Official bag is local; ROS1 baseline is archived; latest ROS2 mapper-contract/CUDA strict report passes `reproduction_report.py --strict` |
 | Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend, executable strict mapper-contract chain, and local SPNet TensorRT engine generation are in place; full native Coco-LIC2 tracking BA remains |
 | Full-dataset strict parity matrix | Executable gate is in place; current status is incomplete at `2/7` required evidence items, with only FAST-LIVO2 covered |
+| R3LIVE native runtime coverage | `hku_park_00` frontend-raw conversion and 60s sensor-only native tracking health gate pass; strict ROS1-vs-ROS2 parity artifacts are still pending |
 
 The Bright substitute report is a regression/evidence chain for current ROS2 plumbing and Torch Gaussian tensor boundaries. It is not a claim that the full paper algorithm has been ported.
 
@@ -420,6 +422,17 @@ last_accepted_se3_hessian_rank=6, last_accepted_se3_hessian_condition=6.187e3,
 trajectory_deskew_queries=11472000, trajectory_deskew_hits=11430279,
 imu_factor_skip_count=0, imu_time_gap_skip_count=0, feedback_updates=477,
 normal_equation_rows=6258, condition=5.818e6, rank_ratio=1.0,
+numeric_jacobian_blocks=0
+
+results/r3live/hku_park_00_native_tracking_scan_order_60s/native_tracking_report.json
+ok=true, poses=554, /points_for_gs=554, status_samples=554, imu_factors=553,
+total_window_point_correspondences=18004,
+total_window_plane_correspondences=7474, smoothness_factors=10,
+trajectory_deskew_queries=13296000, trajectory_deskew_hits=8542971,
+lidar_map_points=16000, pointcloud_imu_wait_deferred=395,
+pointcloud_imu_wait_released=395, pointcloud_imu_wait_dropped=0,
+imu_factor_skip_count=0, imu_time_gap_skip_count=0, feedback_updates=553,
+normal_equation_rows=567, condition=3.317e4, rank_ratio=1.0,
 numeric_jacobian_blocks=0
 ```
 

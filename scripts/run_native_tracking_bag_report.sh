@@ -644,8 +644,13 @@ if int(last.get("sliding_window_normal_equation_rows", 0)) <= 0:
     errors.append("sliding_window_normal_equation_rows is zero")
 if int(last.get("sliding_window_total_imu_factors", 0)) <= 0:
     errors.append("sliding_window_total_imu_factors is zero")
-if int(last.get("sliding_window_point_factors", 0)) <= 0:
-    errors.append("sliding_window_point_factors is zero")
+if (
+    int(last.get("sliding_window_point_factors", 0)) <= 0
+    and int(last.get("sliding_window_plane_factors", 0)) <= 0
+    and int(last.get("total_window_point_correspondences", 0)) <= 0
+    and int(last.get("total_window_plane_correspondences", 0)) <= 0
+):
+    errors.append("LiDAR window factors and cumulative LiDAR correspondences are zero")
 if int(last.get("sliding_window_smoothness_factors", 0)) <= 0:
     errors.append("sliding_window_smoothness_factors is zero")
 if require_ba_feedback and int(last.get("sliding_window_feedback_updates", 0)) <= 0:
