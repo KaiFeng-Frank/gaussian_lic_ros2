@@ -18,6 +18,9 @@ Options:
                         Default: 5.
   --cookie FILE         Cookie jar. Default: /tmp/sharepoint_fetch_cookies.txt.
   --attempts N          Number of outer resume attempts. Default: 200.
+  --speed-limit N       Abort an attempt below this many bytes/sec for
+                        --speed-time seconds. Default: 1024.
+  --speed-time N        Low-speed window in seconds. Default: 120.
   --help                Show this help.
 EOF
 }
@@ -28,6 +31,8 @@ expected_bytes=""
 min_free_gb=5
 cookie="/tmp/sharepoint_fetch_cookies.txt"
 attempts=200
+speed_limit=1024
+speed_time=120
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,6 +58,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --attempts)
       attempts="$2"
+      shift 2
+      ;;
+    --speed-limit)
+      speed_limit="$2"
+      shift 2
+      ;;
+    --speed-time)
+      speed_time="$2"
       shift 2
       ;;
     --help|-h)
@@ -116,6 +129,8 @@ while (( attempt <= attempts )); do
     --fail \
     --no-progress-meter \
     --connect-timeout 30 \
+    --speed-limit "$speed_limit" \
+    --speed-time "$speed_time" \
     -C - \
     -A "Mozilla/5.0" \
     -c "$cookie" \
