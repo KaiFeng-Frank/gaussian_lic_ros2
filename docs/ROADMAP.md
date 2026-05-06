@@ -323,6 +323,7 @@ baseline_manifest.json
   - `docs/assets/strict_cbd_render_demo.gif` is a compact current-vs-GT render demo from the strict run.
 - [x] Add a real frontend-raw native tracking report script that records odometry/status/mapper-contract outputs and gates signed-time, IMU, LiDAR, sliding-window, and numeric-Jacobian health.
   - 2026-05-06 local Bright 8s run at `results/fastlivo2/Bright_Screen_Wall_native_tracking_8s/native_tracking_report.json` passes with 20 odometry poses, 21 mapper point frames, 20 status samples, 3 IMU factors, 87,779 normal-equation rows, and zero numeric-Jacobian fallback.
+  - 2026-05-06 local CBD 8s run at `results/fastlivo2/CBD_Building_01_native_tracking_8s/native_tracking_report.json` passes with 22 odometry poses, 23 mapper point frames, 22 status samples, 3 IMU factors, 65,611 normal-equation rows, and zero numeric-Jacobian fallback.
 - [x] Local SPNet TensorRT engine benchmark passes the runtime target.
   - TensorRT 10.9 CUDA 12.8 builds `/home/frank/Software/TensorRT-engines/spnet_512_640_fp16.engine` for the RTX 5070 Ti `sm_120` GPU.
   - Mean `trtexec` latency is 26.4492 ms at `512x640`, below the 30 ms/frame target.

@@ -164,6 +164,10 @@ Latest local real-bag check:
 results/fastlivo2/Bright_Screen_Wall_native_tracking_8s/native_tracking_report.json
 ok=true, poses=20, /points_for_gs=21, status_samples=20, imu_factors=3,
 normal_equation_rows=87779, numeric_jacobian_blocks=0
+
+results/fastlivo2/CBD_Building_01_native_tracking_8s/native_tracking_report.json
+ok=true, poses=22, /points_for_gs=23, status_samples=22, imu_factors=3,
+normal_equation_rows=65611, numeric_jacobian_blocks=0
 ```
 
 Run the full local verification wrapper:
