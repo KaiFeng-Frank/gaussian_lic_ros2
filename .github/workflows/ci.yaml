@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ros_distro: [jazzy, humble]
+        ros_distro: [jazzy]
     steps:
       - uses: actions/checkout@v6
 
