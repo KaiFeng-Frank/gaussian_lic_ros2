@@ -17,6 +17,7 @@ Options:
   --min-free-gb N       Require this much free space at FILE's directory.
                         Default: 5.
   --cookie FILE         Cookie jar. Default: /tmp/sharepoint_fetch_cookies.txt.
+  --attempts N          Number of outer resume attempts. Default: 200.
   --help                Show this help.
 EOF
 }
@@ -26,6 +27,7 @@ output=""
 expected_bytes=""
 min_free_gb=5
 cookie="/tmp/sharepoint_fetch_cookies.txt"
+attempts=200
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +49,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --cookie)
       cookie="$2"
+      shift 2
+      ;;
+    --attempts)
+      attempts="$2"
       shift 2
       ;;
     --help|-h)
@@ -86,19 +92,34 @@ case "$download_url" in
   *) download_url="${download_url}?download=1" ;;
 esac
 
-curl --http1.1 \
-  -L \
-  --fail \
-  --retry 50 \
-  --retry-delay 15 \
-  --retry-all-errors \
-  --connect-timeout 30 \
-  -C - \
-  -A "Mozilla/5.0" \
-  -c "$cookie" \
-  -b "$cookie" \
-  "$download_url" \
-  -o "$tmp"
+attempt=1
+while (( attempt <= attempts )); do
+  before_bytes=0
+  [[ -f "$tmp" ]] && before_bytes="$(stat -c '%s' "$tmp")"
+  echo "sharepoint fetch attempt ${attempt}/${attempts}: resume_from=${before_bytes} output=${tmp}" >&2
+  if curl --http1.1 \
+    -L \
+    --fail \
+    --connect-timeout 30 \
+    -C - \
+    -A "Mozilla/5.0" \
+    -c "$cookie" \
+    -b "$cookie" \
+    "$download_url" \
+    -o "$tmp"; then
+    break
+  fi
+  after_bytes=0
+  [[ -f "$tmp" ]] && after_bytes="$(stat -c '%s' "$tmp")"
+  echo "sharepoint fetch attempt ${attempt} failed: bytes ${before_bytes} -> ${after_bytes}" >&2
+  attempt=$((attempt + 1))
+  sleep 15
+done
+
+if (( attempt > attempts )); then
+  echo "sharepoint fetch failed after ${attempts} attempts: $output" >&2
+  exit 5
+fi
 
 mv "$tmp" "$output"
 

@@ -51,14 +51,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 211923902464,
-    "free_gb": 197.36951446533203,
+    "free_bytes": 204287139840,
+    "free_gb": 190.2572250366211,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 742773313536
+    "used_bytes": 750410076160
   },
   "disk_ok": true,
-  "generated_at": "2026-05-06T11:52:55+00:00",
+  "generated_at": "2026-05-06T12:27:24+00:00",
   "min_free_gb": 100.0,
   "ok": false,
   "profiles": {
@@ -118,24 +118,43 @@
           "split_raw_components": {}
         },
         {
-          "frontend_raw_rosbag2": [],
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/fast_livo_mcap/hku1_frontend_raw"
+            }
+          ],
           "missing": [
-            "raw_ros1_bag",
-            "frontend_raw_rosbag2",
             "ros1_baseline_artifacts",
-            "ros2_current_artifacts",
             "native_reference_trajectory"
           ],
           "native_reference_trajectory": [],
           "ok": false,
-          "raw_ros1_bag": [],
+          "raw_ros1_bag": [
+            {
+              "bytes": 1190284494,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/FAST-LIVO/hku1/hku1_0.mcap"
+            }
+          ],
           "roots": [
             "/home/frank/data/fast_livo",
             "/home/frank/data/fastlivo",
             "/home/frank/data/fast_livo_mcap"
           ],
           "ros1_baseline_artifacts": [],
-          "ros2_current_artifacts": [],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_native_tracking_scan_order_60s"
+            }
+          ],
           "sequence": "hku1",
           "split_raw_components": {}
         },
