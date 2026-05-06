@@ -1,8 +1,8 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-06T19:15:22+00:00`
+Generated: `2026-05-06T19:44:33+00:00`
 Data root: `/home/frank/data`
-Disk free: `112.28 GiB` (minimum requested `100.00 GiB`) - PASS
+Disk free: `103.30 GiB` (minimum requested `100.00 GiB`) - PASS
 Strict evidence currently materialized: `2/7`
 
 | Profile | Dataset | Status | Missing Inputs |
@@ -45,7 +45,10 @@ Strict evidence currently materialized: `2/7`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo2/Retail_Street_native_tracking_scan_order_60s`
 
 ### m2dgr
-- `room_01`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
+- `room_01`: MISSING; missing: ros1_baseline_artifacts
+  - raw_ros1_bag: `/home/frank/data/m2dgr/room_01/room_01.bag`
+  - frontend_raw_rosbag2: `/home/frank/data/m2dgr/room_01_frontend_raw`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_scan_order_60s`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_01/room_01_gt.tum`
 - `room_02`: MISSING; missing: raw_ros1_bag, frontend_raw_rosbag2, ros1_baseline_artifacts, ros2_current_artifacts
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_02/room_02_gt.tum`

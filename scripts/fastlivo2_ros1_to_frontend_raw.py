@@ -3,6 +3,7 @@
 
 import argparse
 import heapq
+from io import BytesIO
 from pathlib import Path
 import shutil
 import struct
@@ -106,6 +107,144 @@ def load_runtime_modules():
             "/usr/bin/python3 scripts/ros1_to_frontend_raw.py ..."
         ) from exc
     return cv2, np, AnyReader, StoragePlugin, Writer, Stores, get_typestore
+
+
+class SequentialRosbag1Connection:
+    def __init__(self, conn_id, topic, msgtype):
+        self.id = int(conn_id)
+        self.topic = topic
+        self.msgtype = msgtype
+
+
+class SequentialRosbag1Reader:
+    """Read ROS1 bag chunks without trusting the terminal index records."""
+
+    def __init__(self, path, typestore):
+        self.path = Path(path)
+        self.typestore = typestore
+        self.connections = []
+        self._connection_by_id = {}
+        self._index_pos = 0
+        self._conn_count = 0
+
+    @staticmethod
+    def _normalise_topic(topic):
+        return f'{"/" * topic.startswith("/")}{"/".join(item for item in topic.split("/") if item)}'
+
+    @staticmethod
+    def _normalise_msgtype(msgtype):
+        if "/msg/" in msgtype:
+            return msgtype
+        parts = msgtype.split("/")
+        if len(parts) == 2:
+            return f"{parts[0]}/msg/{parts[1]}"
+        return msgtype
+
+    @staticmethod
+    def _parse_record_fields(data):
+        fields = {}
+        pos = 0
+        while pos < len(data):
+            if pos + 4 > len(data):
+                raise ValueError("truncated ROS1 record field length")
+            size = struct.unpack_from("<I", data, pos)[0]
+            pos += 4
+            if pos + size > len(data):
+                raise ValueError("truncated ROS1 record field payload")
+            name, sep, value = data[pos : pos + size].partition(b"=")
+            pos += size
+            if sep:
+                fields[name.decode()] = value
+        return fields
+
+    def __enter__(self):
+        self._scan_connections()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    def _open_after_bag_header(self):
+        from rosbags.rosbag1.reader import Header, RecordType, read_uint32
+
+        handle = self.path.open("rb")
+        magic = handle.readline()
+        if not magic.startswith(b"#ROSBAG V2.0"):
+            handle.close()
+            raise RuntimeError(f"not a ROS1 v2 bag: {self.path}")
+        header = Header.read(handle, RecordType.BAGHEADER)
+        self._index_pos = int(header.get_uint64("index_pos"))
+        self._conn_count = int(header.get_uint32("conn_count"))
+        padding = read_uint32(handle)
+        handle.seek(padding, 1)
+        return handle
+
+    def _iter_chunk_records(self):
+        from rosbags.rosbag1.reader import Header, RecordType, decompressors, read_bytes, read_uint32
+
+        with self._open_after_bag_header() as handle:
+            file_size = self.path.stat().st_size
+            scan_limit = min(self._index_pos, file_size) if self._index_pos else file_size
+            while handle.tell() < scan_limit:
+                try:
+                    header = Header.read(handle)
+                    op = header.get_uint8("op")
+                    size = read_uint32(handle)
+                    payload = read_bytes(handle, size)
+                except Exception:
+                    break
+                if op != RecordType.CHUNK:
+                    continue
+                raw = decompressors[header.get_string("compression")](payload)
+                chunk = BytesIO(raw)
+                while chunk.tell() < len(raw):
+                    try:
+                        chunk_header = Header.read(chunk)
+                        chunk_op = chunk_header.get_uint8("op")
+                        chunk_size = read_uint32(chunk)
+                        chunk_payload = read_bytes(chunk, chunk_size)
+                    except Exception:
+                        break
+                    yield chunk_header, chunk_op, chunk_payload
+
+    def _scan_connections(self):
+        from rosbags.rosbag1.reader import RecordType
+
+        for header, op, payload in self._iter_chunk_records():
+            if op != RecordType.CONNECTION:
+                continue
+            metadata = self._parse_record_fields(payload)
+            conn_id = header.get_uint32("conn")
+            topic = self._normalise_topic(header.get_string("topic"))
+            msgtype = self._normalise_msgtype(metadata["type"].decode())
+            self._connection_by_id[conn_id] = SequentialRosbag1Connection(conn_id, topic, msgtype)
+            if self._conn_count and len(self._connection_by_id) >= self._conn_count:
+                break
+        self.connections = [self._connection_by_id[key] for key in sorted(self._connection_by_id)]
+        if not self.connections:
+            raise RuntimeError(f"could not recover ROS1 bag connections from unindexed bag: {self.path}")
+
+    def messages(self, connections=(), start=None, stop=None):
+        from rosbags.rosbag1.reader import RecordType
+
+        selected = {connection.id for connection in connections} if connections else None
+        for header, op, payload in self._iter_chunk_records():
+            if op != RecordType.MSGDATA:
+                continue
+            conn_id = header.get_uint32("conn")
+            if selected is not None and conn_id not in selected:
+                continue
+            if conn_id not in self._connection_by_id:
+                continue
+            timestamp = int(header.get_time("time"))
+            if start is not None and timestamp < start:
+                continue
+            if stop is not None and timestamp >= stop:
+                return
+            yield self._connection_by_id[conn_id], timestamp, payload
+
+    def deserialize(self, rawdata, msgtype):
+        return self.typestore.deserialize_ros1(rawdata, msgtype)
 
 
 def split_topics(value):
@@ -366,21 +505,34 @@ def convert(args):
         heapq.heappush(pending, (int(timestamp), sequence, connection, payload))
         sequence += 1
 
-    def flush_until(watermark_nsec):
+    def flush_until(writer, watermark_nsec):
         while pending and pending[0][0] <= watermark_nsec:
             timestamp, _, connection, payload = heapq.heappop(pending)
             writer.write(connection, timestamp, payload)
 
-    def flush_all():
+    def flush_all(writer):
         while pending:
             timestamp, _, connection, payload = heapq.heappop(pending)
             writer.write(connection, timestamp, payload)
 
-    with AnyReader(list(input_paths)) as reader, Writer(
-        output_path,
-        version=9,
-        storage_plugin=storage_plugin,
-    ) as writer:
+    def convert_with_reader(reader_factory):
+        nonlocal first_time, sequence
+        first_time = None
+        sequence = 0
+        pending.clear()
+        for key in counts:
+            counts[key] = 0
+
+        with reader_factory() as reader, Writer(
+            output_path,
+            version=9,
+            storage_plugin=storage_plugin,
+        ) as writer:
+            return convert_open_reader(reader, writer)
+
+    def convert_open_reader(reader, writer):
+        nonlocal first_time
+
         image_conn = writer.add_connection(args.output_image_topic, "sensor_msgs/msg/Image", typestore=store)
         camera_info_conn = writer.add_connection(
             args.output_camera_info_topic, "sensor_msgs/msg/CameraInfo", typestore=store
@@ -439,22 +591,36 @@ def convert(args):
                 timestamp = stamp_to_nsec(msg.header.stamp)
                 queue_write(imu_conn, timestamp, store.serialize_cdr(msg, "sensor_msgs/msg/Imu"))
                 counts["imu"] += 1
-            flush_until(int(bag_time) - sort_buffer_nsec)
+            flush_until(writer, int(bag_time) - sort_buffer_nsec)
 
-        flush_all()
+        flush_all(writer)
 
-    return {
-        "input": [str(path) for path in input_paths],
-        "output": str(output_path),
-        "profile": args.profile,
-        "storage": args.storage,
-        "topics": {
-            "image": input_image_topic,
-            "lidar": input_lidar_topic,
-            "imu": input_imu_topic,
-        },
-        "counts": counts,
-    }
+        return {
+            "input": [str(path) for path in input_paths],
+            "output": str(output_path),
+            "profile": args.profile,
+            "storage": args.storage,
+            "topics": {
+                "image": input_image_topic,
+                "lidar": input_lidar_topic,
+                "imu": input_imu_topic,
+            },
+            "counts": counts,
+        }
+
+    try:
+        return convert_with_reader(lambda: AnyReader(list(input_paths)))
+    except Exception as exc:
+        if len(input_paths) != 1 or "Bag index looks damaged" not in str(exc):
+            raise
+        if output_path.exists():
+            shutil.rmtree(output_path)
+        ros1_store = get_typestore(Stores.ROS1_NOETIC)
+        print(
+            f"frontend_raw conversion warning: falling back to sequential ROS1 chunk scan for {input_paths[0]}",
+            file=sys.stderr,
+        )
+        return convert_with_reader(lambda: SequentialRosbag1Reader(input_paths[0], ros1_store))
 
 
 def main(argv=None):

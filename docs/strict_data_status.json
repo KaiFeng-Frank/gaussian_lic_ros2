@@ -51,14 +51,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 120560975872,
-    "free_gb": 112.28115844726562,
+    "free_bytes": 110921482240,
+    "free_gb": 103.30368041992188,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 834136240128
+    "used_bytes": 843775733760
   },
   "disk_ok": true,
-  "generated_at": "2026-05-06T19:15:22+00:00",
+  "generated_at": "2026-05-06T19:44:33+00:00",
   "min_free_gb": 100.0,
   "ok": false,
   "profiles": {
@@ -407,12 +407,16 @@
       "ok": false,
       "required_sequences": [
         {
-          "frontend_raw_rosbag2": [],
+          "frontend_raw_rosbag2": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/data/m2dgr/room_01_frontend_raw"
+            }
+          ],
           "missing": [
-            "raw_ros1_bag",
-            "frontend_raw_rosbag2",
-            "ros1_baseline_artifacts",
-            "ros2_current_artifacts"
+            "ros1_baseline_artifacts"
           ],
           "native_reference_trajectory": [
             {
@@ -431,13 +435,28 @@
             }
           ],
           "ok": false,
-          "raw_ros1_bag": [],
+          "raw_ros1_bag": [
+            {
+              "bytes": 14035743743,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/m2dgr/room_01/room_01.bag"
+            }
+          ],
           "roots": [
             "/home/frank/data/m2dgr",
             "/home/frank/data/M2DGR"
           ],
           "ros1_baseline_artifacts": [],
-          "ros2_current_artifacts": [],
+          "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_scan_order_60s"
+            }
+          ],
           "sequence": "room_01",
           "split_raw_components": {}
         },
