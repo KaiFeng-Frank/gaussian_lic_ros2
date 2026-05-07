@@ -1032,6 +1032,9 @@ FAST-LIVO, M2DGR, MCD, and R3LIVE.
 The full-profile strict queue uses a slower default `0.15x` replay rate than the
 focused CBD script so CUDA final-render runs do not silently drop synchronized
 point/pose frames on longer FAST-LIVO sequences.
+For offline strict replay it also overrides every mapper and adapter stream QoS
+to reliable with keep-last depth `50`; live profiles keep the YAML defaults
+(`best_effort`, depth `5`) unless the launch caller overrides them.
 
 The matching data audit is:
 

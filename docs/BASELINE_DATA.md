@@ -234,7 +234,8 @@ The queue covers FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE targets. For each
 target it reuses or creates `frontend_raw`, creates a ROS1 mapper-contract bag,
 runs `scripts/run_upstream_baseline.sh` with the matching upstream config such as
 `m2dgr.yaml`, collects ROS2 CUDA/rasterizer current artifacts at a conservative
-default `0.15x` replay rate, and emits strict readiness/reproduction reports.
+default `0.15x` replay rate with reliable per-stream offline QoS depth `50`, and
+emits strict readiness/reproduction reports.
 Passing this queue is still evidence generation;
 the final release gate remains `scripts/check_strict_parity_matrix.py` without
 `--allow-incomplete`. Queue quality extraction defaults LPIPS to `cuda`; pass

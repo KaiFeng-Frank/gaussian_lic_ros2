@@ -55,6 +55,41 @@ def generate_launch_description():
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
     sensor_qos_history = LaunchConfiguration("sensor_qos_history")
     sensor_qos_depth = LaunchConfiguration("sensor_qos_depth")
+    mapping_qos_streams = ("pointcloud", "pose", "image", "camera_info", "depth", "imu")
+    adapter_qos_streams = (
+        "raw_image",
+        "raw_camera_info",
+        "raw_depth",
+        "raw_pointcloud",
+        "raw_imu",
+        "pose_stamped",
+        "raw_odometry",
+        "image",
+        "camera_info",
+        "depth",
+        "pointcloud",
+        "pose",
+        "imu",
+        "frontend_odometry",
+    )
+    qos_launch_configs = {
+        f"{stream}_qos_{suffix}": LaunchConfiguration(f"{stream}_qos_{suffix}")
+        for stream in sorted(set(mapping_qos_streams + adapter_qos_streams))
+        for suffix in ("reliability", "history", "depth")
+    }
+    qos_launch_arguments = [
+        DeclareLaunchArgument(
+            f"{stream}_qos_{suffix}",
+            default_value={
+                "reliability": "best_effort",
+                "history": "keep_last",
+                "depth": "5",
+            }[suffix],
+            description=f"{stream} QoS {suffix}",
+        )
+        for stream in sorted(set(mapping_qos_streams + adapter_qos_streams))
+        for suffix in ("reliability", "history", "depth")
+    ]
     require_depth_topic = LaunchConfiguration("require_depth_topic")
     render_mode = LaunchConfiguration("render_mode")
     rendered_image_mode = LaunchConfiguration("rendered_image_mode")
@@ -101,6 +136,11 @@ def generate_launch_description():
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
             "sensor_qos_depth": sensor_qos_depth,
+            **{
+                f"{stream}_qos_{suffix}": qos_launch_configs[f"{stream}_qos_{suffix}"]
+                for stream in mapping_qos_streams
+                for suffix in ("reliability", "history", "depth")
+            },
             "require_depth_topic": require_depth_topic,
             "render_mode": render_mode,
             "rendered_image_mode": rendered_image_mode,
@@ -143,6 +183,11 @@ def generate_launch_description():
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
             "sensor_qos_depth": sensor_qos_depth,
+            **{
+                f"{stream}_qos_{suffix}": qos_launch_configs[f"{stream}_qos_{suffix}"]
+                for stream in adapter_qos_streams
+                for suffix in ("reliability", "history", "depth")
+            },
             "raw_pointcloud_topic": adapter_raw_pointcloud_topic,
             "identity_pose_fallback": adapter_identity_pose_fallback,
             "imu_pose_fallback": adapter_imu_pose_fallback,
@@ -369,6 +414,7 @@ def generate_launch_description():
             default_value="5",
             description="Input sensor QoS keep-last depth",
         ),
+        *qos_launch_arguments,
         DeclareLaunchArgument(
             "require_depth_topic",
             default_value="true",

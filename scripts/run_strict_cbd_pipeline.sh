@@ -343,6 +343,7 @@ if [[ "${SKIP_CURRENT}" != "true" ]]; then
     --fastlivo2-camera-lidar-transform \
     --optional-depth \
     --sensor-qos reliable \
+    --sensor-qos-depth 50 \
     --play-rate "${CURRENT_PLAY_RATE}" \
     --post-play-settle "${CURRENT_POST_PLAY_SETTLE}" \
     --render-mode "${RENDER_MODE}" \

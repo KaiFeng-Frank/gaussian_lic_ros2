@@ -427,6 +427,7 @@ run_target() {
       --sync-image-to-pointcloud
       --optional-depth
       --sensor-qos reliable
+      --sensor-qos-depth 50
       --play-rate "${PLAY_RATE}"
       --post-play-settle "${CURRENT_POST_PLAY_SETTLE}"
       --render-mode rasterizer

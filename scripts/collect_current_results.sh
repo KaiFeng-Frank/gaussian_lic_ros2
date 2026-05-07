@@ -38,6 +38,8 @@ RECORD_SEC=12
 TIMEOUT_SEC=20
 SAVE_TIMEOUT_SEC=600
 SENSOR_QOS_RELIABILITY=""
+SENSOR_QOS_HISTORY=""
+SENSOR_QOS_DEPTH=""
 PLAY_RATE="1"
 LOOP_PLAYBACK=false
 POST_PLAY_SETTLE_SEC=8
@@ -93,6 +95,8 @@ Options:
   --tf                         Enable TF publication.
   --render-mode MODE           debug_cpu, debug_input, rasterizer, or off. Default: debug_cpu.
   --sensor-qos RELIABILITY     Override input sensor QoS reliability: best_effort or reliable.
+  --sensor-qos-history HISTORY Override input sensor QoS history: keep_last or keep_all.
+  --sensor-qos-depth DEPTH     Override input sensor QoS keep-last depth.
   --play-rate RATE             rosbag2 playback rate when --bag is used. Default: 1.
   --loop-playback              Loop rosbag2 playback during recording.
   --post-play-settle SEC       Seconds to keep mapper alive after finite playback. Default: 8.
@@ -229,6 +233,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sensor-qos)
       SENSOR_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --sensor-qos-history)
+      SENSOR_QOS_HISTORY="$2"
+      shift 2
+      ;;
+    --sensor-qos-depth)
+      SENSOR_QOS_DEPTH="$2"
       shift 2
       ;;
     --play-rate)
@@ -386,6 +398,30 @@ fi
 
 if [[ -n "${SENSOR_QOS_RELIABILITY}" ]]; then
   launch_args+=(sensor_qos_reliability:="${SENSOR_QOS_RELIABILITY}")
+  for qos_stream in \
+    pointcloud pose image camera_info depth imu \
+    raw_image raw_camera_info raw_depth raw_pointcloud raw_imu \
+    pose_stamped raw_odometry frontend_odometry; do
+    launch_args+=("${qos_stream}_qos_reliability:=${SENSOR_QOS_RELIABILITY}")
+  done
+fi
+if [[ -n "${SENSOR_QOS_HISTORY}" ]]; then
+  launch_args+=(sensor_qos_history:="${SENSOR_QOS_HISTORY}")
+  for qos_stream in \
+    pointcloud pose image camera_info depth imu \
+    raw_image raw_camera_info raw_depth raw_pointcloud raw_imu \
+    pose_stamped raw_odometry frontend_odometry; do
+    launch_args+=("${qos_stream}_qos_history:=${SENSOR_QOS_HISTORY}")
+  done
+fi
+if [[ -n "${SENSOR_QOS_DEPTH}" ]]; then
+  launch_args+=(sensor_qos_depth:="${SENSOR_QOS_DEPTH}")
+  for qos_stream in \
+    pointcloud pose image camera_info depth imu \
+    raw_image raw_camera_info raw_depth raw_pointcloud raw_imu \
+    pose_stamped raw_odometry frontend_odometry; do
+    launch_args+=("${qos_stream}_qos_depth:=${SENSOR_QOS_DEPTH}")
+  done
 fi
 
 setsid ros2 launch gaussian_lic_bringup run_bag.launch.py "${launch_args[@]}" \
