@@ -20,6 +20,8 @@ LIDAR_TIME_MODE=auto
 LIDAR_SCAN_ORDER_DURATION_S=0.1
 RAW_IMU_QOS_RELIABILITY=reliable
 RAW_IMU_QOS_DEPTH=2000
+RAW_POINTCLOUD_QOS_RELIABILITY=reliable
+RAW_POINTCLOUD_QOS_DEPTH=256
 POINTCLOUD_IMU_WAIT_QUEUE_SIZE=512
 IMU_HISTORY_SIZE=12000
 LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
@@ -92,6 +94,9 @@ Options:
                                Scan duration for --enable-scan-order-deskew. Default: 0.1.
   --raw-imu-qos-reliability R  IMU subscription reliability. Default: reliable.
   --raw-imu-qos-depth N        IMU subscription keep_last depth. Default: 2000.
+  --raw-pointcloud-qos-reliability R
+                               Point-cloud subscription reliability. Default: reliable.
+  --raw-pointcloud-qos-depth N Point-cloud subscription keep_last depth. Default: 256.
   --pointcloud-imu-wait-queue-size N
                                Point-cloud queue while waiting for IMU catch-up. Default: 512.
   --imu-history-size N         IMU propagation history for delayed point-cloud timestamp queries. Default: 12000.
@@ -221,6 +226,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --raw-imu-qos-depth)
       RAW_IMU_QOS_DEPTH="$2"
+      shift 2
+      ;;
+    --raw-pointcloud-qos-reliability)
+      RAW_POINTCLOUD_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --raw-pointcloud-qos-depth)
+      RAW_POINTCLOUD_QOS_DEPTH="$2"
       shift 2
       ;;
     --pointcloud-imu-wait-queue-size)
@@ -497,6 +510,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   external_odometry_prior_rotation_weight:="${EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT}" \
   raw_imu_qos_reliability:="${RAW_IMU_QOS_RELIABILITY}" \
   raw_imu_qos_depth:="${RAW_IMU_QOS_DEPTH}" \
+  raw_pointcloud_qos_reliability:="${RAW_POINTCLOUD_QOS_RELIABILITY}" \
+  raw_pointcloud_qos_depth:="${RAW_POINTCLOUD_QOS_DEPTH}" \
   pointcloud_imu_wait_queue_size:="${POINTCLOUD_IMU_WAIT_QUEUE_SIZE}" \
   imu_history_size:="${IMU_HISTORY_SIZE}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
