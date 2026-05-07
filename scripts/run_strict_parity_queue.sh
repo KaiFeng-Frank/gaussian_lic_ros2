@@ -15,7 +15,7 @@ SAVE_TIMEOUT_SEC="600"
 UPSTREAM_RUNTIME_SEC="0"
 TORCH_DEVICE="cuda"
 TORCH_OPTIMIZATION_STEPS="100"
-TORCH_MAX_FOREGROUND="1500000"
+TORCH_MAX_FOREGROUND="100000"
 TORCH_SEED="20260505"
 TORCH_SAMPLING="upstream_random"
 QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cuda}"
@@ -396,6 +396,8 @@ run_target() {
         --input "${frontend}" \
         --output "${mapper_contract}" \
         --pointcloud-transform-profile "${transform}" \
+        --max-z 20.0 \
+        --min-points-per-cloud 1000 \
         --imu-pose-fallback \
         --colorize-pointcloud \
         "${overwrite_arg[@]}"
@@ -416,6 +418,10 @@ run_target() {
     else
       echo "[strict-queue] reuse ROS1 baseline: ${baseline_dir}"
     fi
+    if [[ ! -f "${baseline_dir}/baseline_manifest.json" ]]; then
+      echo "[strict-queue] ROS1 baseline did not produce baseline_manifest.json: ${baseline_dir}" >&2
+      return 1
+    fi
   fi
 
   if [[ "${SKIP_CURRENT}" != "true" ]]; then
@@ -427,6 +433,10 @@ run_target() {
       --frontend-adapter
       --imu-pose-fallback
       --sync-image-to-pointcloud
+      --adapter-imu-orientation-history-size 200000
+      --adapter-pointcloud-filter-min-z 0.001
+      --adapter-pointcloud-filter-max-z 20.0
+      --adapter-pointcloud-filter-min-points 1000
       --optional-depth
       --sensor-qos reliable
       --sensor-qos-depth 50
@@ -444,6 +454,7 @@ run_target() {
       --torch-max-foreground "${TORCH_MAX_FOREGROUND}"
       --torch-prune-min-opacity 0.0
       --torch-prune-count-policy uniform
+      --torch-densification
       --final-render-eval
       --no-publish-gaussian-map
     )

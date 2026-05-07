@@ -7,11 +7,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <limits>
 #include <mutex>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
@@ -212,7 +215,28 @@ public:
     imu_pose_fallback_ = declare_parameter<bool>("imu_pose_fallback", false);
     rotate_pointcloud_with_imu_pose_ =
       declare_parameter<bool>("rotate_pointcloud_with_imu_pose", true);
+    pointcloud_use_stamp_imu_orientation_ =
+      declare_parameter<bool>("pointcloud_use_stamp_imu_orientation", true);
+    imu_orientation_history_size_ =
+      declare_parameter<int>("imu_orientation_history_size", 50000);
+    if (imu_orientation_history_size_ < 1) {
+      RCLCPP_WARN(get_logger(), "imu_orientation_history_size must be positive; using 1");
+      imu_orientation_history_size_ = 1;
+    }
     sync_image_to_pointcloud_ = declare_parameter<bool>("sync_image_to_pointcloud", false);
+    sync_image_pointcloud_tolerance_sec_ =
+      declare_parameter<double>("sync_image_pointcloud_tolerance_sec", 0.01);
+    if (sync_image_pointcloud_tolerance_sec_ < 0.0) {
+      RCLCPP_WARN(get_logger(), "sync_image_pointcloud_tolerance_sec must be non-negative; using 0");
+      sync_image_pointcloud_tolerance_sec_ = 0.0;
+    }
+    sync_image_pointcloud_tolerance_nsec_ =
+      static_cast<int64_t>(std::llround(sync_image_pointcloud_tolerance_sec_ * 1.0e9));
+    sync_pointcloud_queue_size_ = declare_parameter<int>("sync_pointcloud_queue_size", 32);
+    if (sync_pointcloud_queue_size_ < 1) {
+      RCLCPP_WARN(get_logger(), "sync_pointcloud_queue_size must be positive; using 1");
+      sync_pointcloud_queue_size_ = 1;
+    }
     imu_integration_max_dt_sec_ = declare_parameter<double>("imu_integration_max_dt_sec", 0.05);
     pointcloud_transform_profile_ =
       lowercase(declare_parameter<std::string>("pointcloud_transform_profile", "identity"));
@@ -220,6 +244,14 @@ public:
       declare_parameter<bool>("transform_pointcloud_to_camera_frame", false);
     pointcloud_transform_target_frame_ =
       declare_parameter<std::string>("pointcloud_transform_target_frame", "camera");
+    pointcloud_filter_min_z_ =
+      declare_parameter<double>("pointcloud_filter_min_z", -std::numeric_limits<double>::max());
+    pointcloud_filter_max_z_ = declare_parameter<double>("pointcloud_filter_max_z", 0.0);
+    pointcloud_filter_min_points_ = declare_parameter<int>("pointcloud_filter_min_points", 0);
+    if (pointcloud_filter_min_points_ < 0) {
+      RCLCPP_WARN(get_logger(), "pointcloud_filter_min_points must be non-negative; disabling");
+      pointcloud_filter_min_points_ = 0;
+    }
     configure_pointcloud_transform();
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
     frontend_child_frame_ = declare_parameter<std::string>("frontend_child_frame", "base_link");
@@ -284,8 +316,11 @@ public:
       raw_image_topic_, raw_image_qos,
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
         if (sync_image_to_pointcloud_) {
-          std::lock_guard<std::mutex> lock(latest_visual_mutex_);
-          latest_image_ = std::make_shared<sensor_msgs::msg::Image>(*msg);
+          {
+            std::lock_guard<std::mutex> lock(latest_visual_mutex_);
+            latest_image_ = std::make_shared<sensor_msgs::msg::Image>(*msg);
+          }
+          process_pending_pointclouds();
         } else {
           image_pub_->publish(*msg);
           ++image_count_;
@@ -295,8 +330,11 @@ public:
       raw_camera_info_topic_, raw_camera_info_qos,
       [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) {
         if (sync_image_to_pointcloud_) {
-          std::lock_guard<std::mutex> lock(latest_visual_mutex_);
-          latest_camera_info_ = std::make_shared<sensor_msgs::msg::CameraInfo>(*msg);
+          {
+            std::lock_guard<std::mutex> lock(latest_visual_mutex_);
+            latest_camera_info_ = std::make_shared<sensor_msgs::msg::CameraInfo>(*msg);
+          }
+          process_pending_pointclouds();
         } else {
           camera_info_pub_->publish(*msg);
           ++camera_info_count_;
@@ -305,29 +343,20 @@ public:
     pointcloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       raw_pointcloud_topic_, raw_pointcloud_qos,
       [this](sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
-        sensor_msgs::msg::PointCloud2 cloud;
-        if (needs_pointcloud_transform()) {
-          try {
-            cloud = transform_pointcloud(*msg);
-            ++transformed_pointcloud_count_;
-          } catch (const std::exception & ex) {
-            ++pointcloud_transform_error_count_;
+        if (sync_image_to_pointcloud_) {
+          const auto visual_state = pointcloud_visual_sync_state(msg->header.stamp);
+          if (visual_state == VisualSyncState::kWaiting) {
+            defer_pointcloud(msg);
+            return;
+          }
+          if (visual_state == VisualSyncState::kMissed) {
+            ++visual_sync_missed_pointcloud_count_;
             RCLCPP_WARN_THROTTLE(
               get_logger(), *get_clock(), 2000,
-              "failed to transform pointcloud; forwarding original cloud: %s", ex.what());
-            cloud = *msg;
+              "using nearest future image/camera_info for pointcloud after exact visual sync was missed");
           }
-        } else {
-          cloud = *msg;
         }
-        publish_synced_visuals(msg->header.stamp);
-        pointcloud_pub_->publish(cloud);
-        ++pointcloud_count_;
-        if (imu_pose_fallback_) {
-          publish_imu_pose_fallback(msg->header.stamp);
-        } else if (identity_pose_fallback_) {
-          publish_identity_pose(msg->header.stamp);
-        }
+        handle_pointcloud(msg);
       });
     pose_stamped_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       pose_stamped_topic_, pose_stamped_qos,
@@ -375,21 +404,147 @@ public:
       get_logger(),
       "LIC2 contract adapter: raw image=%s pointcloud=%s pose=%s raw_odom=%s -> mapper "
       "image=%s pointcloud=%s pose=%s frontend_odom=%s frontend_path=%s "
-      "fallback(identity=%s imu=%s) image_sync=%s pointcloud_transform=%s profile=%s",
+      "fallback(identity=%s imu=%s) image_sync=%s pointcloud_transform=%s profile=%s "
+      "pointcloud_filter(min_z=%.6f max_z=%.6f min_points=%d) "
+      "imu_stamp_lookup=%s imu_history_size=%d visual_sync_tol=%.6f sync_queue=%d",
       raw_image_topic_.c_str(), raw_pointcloud_topic_.c_str(), pose_stamped_topic_.c_str(),
       raw_odometry_topic_.c_str(), image_topic_.c_str(), pointcloud_topic_.c_str(),
       pose_topic_.c_str(), frontend_odometry_topic_.c_str(), frontend_path_topic_.c_str(),
       identity_pose_fallback_ ? "true" : "false", imu_pose_fallback_ ? "true" : "false",
       sync_image_to_pointcloud_ ? "true" : "false",
       needs_pointcloud_transform() ? "true" : "false",
-      pointcloud_transform_profile_.c_str());
+      pointcloud_transform_profile_.c_str(), pointcloud_filter_min_z_, pointcloud_filter_max_z_,
+      pointcloud_filter_min_points_, pointcloud_use_stamp_imu_orientation_ ? "true" : "false",
+      imu_orientation_history_size_, sync_image_pointcloud_tolerance_sec_,
+      sync_pointcloud_queue_size_);
   }
 
 private:
+  enum class VisualSyncState
+  {
+    kWaiting,
+    kReady,
+    kMissed
+  };
+
   bool needs_pointcloud_transform() const
   {
     return transform_pointcloud_to_camera_frame_ ||
       (imu_pose_fallback_ && rotate_pointcloud_with_imu_pose_);
+  }
+
+  bool pointcloud_filter_enabled() const
+  {
+    return pointcloud_filter_max_z_ > 0.0 ||
+      pointcloud_filter_min_z_ > -std::numeric_limits<double>::max() / 2.0 ||
+      pointcloud_filter_min_points_ > 0;
+  }
+
+  VisualSyncState pointcloud_visual_sync_state(
+    const builtin_interfaces::msg::Time & stamp)
+  {
+    const int64_t point_nsec = stamp_to_nsec(stamp);
+    std::lock_guard<std::mutex> lock(latest_visual_mutex_);
+    if (!latest_image_ || !latest_camera_info_) {
+      return VisualSyncState::kWaiting;
+    }
+
+    const int64_t image_nsec = stamp_to_nsec(latest_image_->header.stamp);
+    const int64_t camera_info_nsec = stamp_to_nsec(latest_camera_info_->header.stamp);
+    const int64_t min_visual_nsec = std::min(image_nsec, camera_info_nsec);
+    const int64_t max_visual_nsec = std::max(image_nsec, camera_info_nsec);
+    if (max_visual_nsec < point_nsec - sync_image_pointcloud_tolerance_nsec_) {
+      return VisualSyncState::kWaiting;
+    }
+    if (min_visual_nsec > point_nsec + sync_image_pointcloud_tolerance_nsec_) {
+      return VisualSyncState::kMissed;
+    }
+    return VisualSyncState::kReady;
+  }
+
+  void defer_pointcloud(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
+  {
+    std::lock_guard<std::mutex> lock(pending_pointcloud_mutex_);
+    pending_pointclouds_.push_back(std::move(msg));
+    ++visual_sync_deferred_pointcloud_count_;
+    while (pending_pointclouds_.size() > static_cast<size_t>(sync_pointcloud_queue_size_)) {
+      pending_pointclouds_.pop_front();
+      ++visual_sync_dropped_pointcloud_count_;
+      ++dropped_pointcloud_count_;
+    }
+  }
+
+  void process_pending_pointclouds()
+  {
+    while (true) {
+      sensor_msgs::msg::PointCloud2::ConstSharedPtr msg;
+      {
+        std::lock_guard<std::mutex> lock(pending_pointcloud_mutex_);
+        if (pending_pointclouds_.empty()) {
+          return;
+        }
+        msg = pending_pointclouds_.front();
+      }
+
+      const auto state = pointcloud_visual_sync_state(msg->header.stamp);
+      if (state == VisualSyncState::kWaiting) {
+        return;
+      }
+
+      {
+        std::lock_guard<std::mutex> lock(pending_pointcloud_mutex_);
+        if (pending_pointclouds_.empty() || pending_pointclouds_.front() != msg) {
+          continue;
+        }
+        pending_pointclouds_.pop_front();
+      }
+
+      if (state == VisualSyncState::kMissed) {
+        ++visual_sync_missed_pointcloud_count_;
+      }
+      ++visual_sync_released_pointcloud_count_;
+      handle_pointcloud(msg);
+    }
+  }
+
+  void handle_pointcloud(sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
+  {
+    std::optional<sensor_msgs::msg::PointCloud2> cloud;
+    if (needs_pointcloud_transform() || pointcloud_filter_enabled()) {
+      try {
+        cloud = transform_pointcloud(*msg);
+        if (needs_pointcloud_transform()) {
+          ++transformed_pointcloud_count_;
+        }
+      } catch (const std::exception & ex) {
+        ++pointcloud_transform_error_count_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "failed to transform/filter pointcloud%s: %s",
+          pointcloud_filter_enabled() ? "; dropping cloud because filtering is required" :
+          "; forwarding original cloud",
+          ex.what());
+        if (pointcloud_filter_enabled()) {
+          ++dropped_pointcloud_count_;
+          return;
+        }
+        cloud = *msg;
+      }
+    } else {
+      cloud = *msg;
+    }
+    if (!cloud) {
+      ++dropped_pointcloud_count_;
+      return;
+    }
+    publish_synced_visuals(msg->header.stamp);
+    pointcloud_pub_->publish(*cloud);
+    ++pointcloud_count_;
+    if (imu_pose_fallback_) {
+      publish_imu_pose_fallback(msg->header.stamp);
+    } else if (identity_pose_fallback_) {
+      publish_identity_pose(msg->header.stamp);
+    }
   }
 
   void publish_synced_visuals(const builtin_interfaces::msg::Time & stamp)
@@ -489,11 +644,14 @@ private:
     return qos;
   }
 
-  sensor_msgs::msg::PointCloud2 transform_pointcloud(const sensor_msgs::msg::PointCloud2 & cloud)
+  std::optional<sensor_msgs::msg::PointCloud2> transform_pointcloud(
+    const sensor_msgs::msg::PointCloud2 & cloud)
   {
     sensor_msgs::msg::PointCloud2 out = cloud;
     const bool rotate_with_imu = imu_pose_fallback_ && rotate_pointcloud_with_imu_pose_;
-    const UnitQuaternion imu_orientation = current_imu_orientation();
+    const UnitQuaternion imu_orientation = pointcloud_use_stamp_imu_orientation_ ?
+      imu_orientation_at_or_before(cloud.header.stamp) :
+      current_imu_orientation();
     const auto imu_rotation = rotation_matrix(imu_orientation);
     if (rotate_with_imu) {
       out.header.frame_id = world_frame_;
@@ -509,11 +667,17 @@ private:
     }
 
     const size_t point_count = static_cast<size_t>(out.width) * static_cast<size_t>(out.height);
+    const bool filter_points = pointcloud_filter_enabled();
+    std::vector<uint8_t> filtered;
+    if (filter_points) {
+      filtered.resize(point_count * static_cast<size_t>(out.point_step));
+    }
+    size_t kept_points = 0;
     for (size_t i = 0; i < point_count; ++i) {
-      uint8_t * base = out.data.data() + i * out.point_step;
-      const double x = read_float_field(base, *x_field);
-      const double y = read_float_field(base, *y_field);
-      const double z = read_float_field(base, *z_field);
+      const uint8_t * source = cloud.data.data() + i * cloud.point_step;
+      const double x = read_float_field(source, *x_field);
+      const double y = read_float_field(source, *y_field);
+      const double z = read_float_field(source, *z_field);
       const auto & r = pointcloud_transform_rotation_;
       const auto & t = pointcloud_transform_translation_;
       double tx = x;
@@ -524,6 +688,17 @@ private:
         ty = r[3] * x + r[4] * y + r[5] * z + t[1];
         tz = r[6] * x + r[7] * y + r[8] * z + t[2];
       }
+      if (filter_points) {
+        if (!std::isfinite(tx) || !std::isfinite(ty) || !std::isfinite(tz)) {
+          continue;
+        }
+        if (tz <= pointcloud_filter_min_z_) {
+          continue;
+        }
+        if (pointcloud_filter_max_z_ > 0.0 && tz > pointcloud_filter_max_z_) {
+          continue;
+        }
+      }
       if (rotate_with_imu) {
         const double wx = imu_rotation[0] * tx + imu_rotation[1] * ty + imu_rotation[2] * tz;
         const double wy = imu_rotation[3] * tx + imu_rotation[4] * ty + imu_rotation[5] * tz;
@@ -532,9 +707,32 @@ private:
         ty = wy;
         tz = wz;
       }
-      write_float_field(base, *x_field, tx);
-      write_float_field(base, *y_field, ty);
-      write_float_field(base, *z_field, tz);
+      uint8_t * target = filter_points ?
+        (filtered.data() + kept_points * static_cast<size_t>(out.point_step)) :
+        (out.data.data() + i * out.point_step);
+      if (filter_points) {
+        std::memcpy(target, source, out.point_step);
+      }
+      write_float_field(target, *x_field, tx);
+      write_float_field(target, *y_field, ty);
+      write_float_field(target, *z_field, tz);
+      ++kept_points;
+    }
+    if (filter_points) {
+      if (pointcloud_filter_min_points_ > 0 &&
+        kept_points < static_cast<size_t>(pointcloud_filter_min_points_))
+      {
+        ++filtered_pointcloud_drop_count_;
+        return std::nullopt;
+      }
+      filtered.resize(kept_points * static_cast<size_t>(out.point_step));
+      out.data = std::move(filtered);
+      out.height = 1;
+      out.width = static_cast<uint32_t>(kept_points);
+      out.row_step = static_cast<uint32_t>(kept_points * static_cast<size_t>(out.point_step));
+      out.is_dense = false;
+      filtered_pointcloud_input_points_ += point_count;
+      filtered_pointcloud_output_points_ += kept_points;
     }
     return out;
   }
@@ -551,7 +749,9 @@ private:
 
   void publish_imu_pose_fallback(const builtin_interfaces::msg::Time & stamp)
   {
-    const UnitQuaternion imu_orientation = current_imu_orientation();
+    const UnitQuaternion imu_orientation = pointcloud_use_stamp_imu_orientation_ ?
+      imu_orientation_at_or_before(stamp) :
+      current_imu_orientation();
     geometry_msgs::msg::PoseStamped pose;
     pose.header.stamp = stamp;
     pose.header.frame_id = world_frame_;
@@ -570,6 +770,7 @@ private:
     if (!have_last_imu_stamp_) {
       last_imu_stamp_nsec_ = stamp_nsec;
       have_last_imu_stamp_ = true;
+      record_imu_orientation_locked(stamp_nsec);
       return;
     }
 
@@ -577,6 +778,7 @@ private:
     last_imu_stamp_nsec_ = stamp_nsec;
     const double dt = static_cast<double>(dt_nsec) / static_cast<double>(kNanosecondsPerSecond);
     if (dt <= 0.0 || dt > imu_integration_max_dt_sec_) {
+      record_imu_orientation_locked(stamp_nsec);
       return;
     }
 
@@ -584,18 +786,40 @@ private:
     const double wy = imu.angular_velocity.y;
     const double wz = imu.angular_velocity.z;
     if (!std::isfinite(wx) || !std::isfinite(wy) || !std::isfinite(wz)) {
+      record_imu_orientation_locked(stamp_nsec);
       return;
     }
 
     imu_orientation_ = multiply(imu_orientation_, delta_quaternion(wx, wy, wz, dt));
     normalize(imu_orientation_);
+    record_imu_orientation_locked(stamp_nsec);
     ++imu_integration_count_;
+  }
+
+  void record_imu_orientation_locked(const int64_t stamp_nsec)
+  {
+    imu_orientation_history_.push_back({stamp_nsec, imu_orientation_});
+    while (imu_orientation_history_.size() > static_cast<size_t>(imu_orientation_history_size_)) {
+      imu_orientation_history_.pop_front();
+    }
   }
 
   UnitQuaternion current_imu_orientation() const
   {
     std::lock_guard<std::mutex> lock(imu_mutex_);
     return imu_orientation_;
+  }
+
+  UnitQuaternion imu_orientation_at_or_before(const builtin_interfaces::msg::Time & stamp) const
+  {
+    const int64_t stamp_nsec = stamp_to_nsec(stamp);
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    for (auto it = imu_orientation_history_.rbegin(); it != imu_orientation_history_.rend(); ++it) {
+      if (it->first <= stamp_nsec) {
+        return it->second;
+      }
+    }
+    return UnitQuaternion{};
   }
 
   void publish_frontend_pose(
@@ -639,11 +863,15 @@ private:
       get_logger(),
       "forwarded image=%zu camera_info=%zu depth=%zu points=%zu pose=%zu pose_input=%zu odom=%zu "
       "identity_pose=%zu imu_pose=%zu imu=%zu imu_integrations=%zu transformed_points=%zu "
-      "transform_errors=%zu",
+      "transform_errors=%zu dropped_points=%zu filter_drops=%zu filter_points=%zu/%zu "
+      "visual_sync(deferred=%zu released=%zu missed=%zu queue_drops=%zu)",
       image_count_, camera_info_count_, depth_count_, pointcloud_count_, pose_count_,
       pose_stamped_count_, odometry_count_, identity_pose_count_, imu_pose_fallback_count_,
       imu_count_, imu_integration_count_, transformed_pointcloud_count_,
-      pointcloud_transform_error_count_);
+      pointcloud_transform_error_count_, dropped_pointcloud_count_, filtered_pointcloud_drop_count_,
+      filtered_pointcloud_output_points_, filtered_pointcloud_input_points_,
+      visual_sync_deferred_pointcloud_count_, visual_sync_released_pointcloud_count_,
+      visual_sync_missed_pointcloud_count_, visual_sync_dropped_pointcloud_count_);
   }
 
   std::string raw_image_topic_;
@@ -668,8 +896,16 @@ private:
   bool identity_pose_fallback_{false};
   bool imu_pose_fallback_{false};
   bool rotate_pointcloud_with_imu_pose_{true};
+  bool pointcloud_use_stamp_imu_orientation_{true};
+  int imu_orientation_history_size_{50000};
   bool sync_image_to_pointcloud_{false};
+  double sync_image_pointcloud_tolerance_sec_{0.01};
+  int64_t sync_image_pointcloud_tolerance_nsec_{10000000LL};
+  int sync_pointcloud_queue_size_{32};
   bool transform_pointcloud_to_camera_frame_{false};
+  double pointcloud_filter_min_z_{-std::numeric_limits<double>::max()};
+  double pointcloud_filter_max_z_{0.0};
+  int pointcloud_filter_min_points_{0};
   bool publish_tf_{false};
   int max_path_length_{5000};
   double report_period_sec_{2.0};
@@ -698,10 +934,13 @@ private:
   bool have_last_imu_stamp_{false};
   int64_t last_imu_stamp_nsec_{0};
   UnitQuaternion imu_orientation_;
+  std::deque<std::pair<int64_t, UnitQuaternion>> imu_orientation_history_;
   mutable std::mutex imu_mutex_;
   std::mutex latest_visual_mutex_;
+  std::mutex pending_pointcloud_mutex_;
   std::shared_ptr<sensor_msgs::msg::Image> latest_image_;
   std::shared_ptr<sensor_msgs::msg::CameraInfo> latest_camera_info_;
+  std::deque<sensor_msgs::msg::PointCloud2::ConstSharedPtr> pending_pointclouds_;
 
   size_t image_count_{0};
   size_t camera_info_count_{0};
@@ -715,6 +954,14 @@ private:
   size_t imu_integration_count_{0};
   size_t transformed_pointcloud_count_{0};
   size_t pointcloud_transform_error_count_{0};
+  size_t dropped_pointcloud_count_{0};
+  size_t filtered_pointcloud_drop_count_{0};
+  size_t filtered_pointcloud_input_points_{0};
+  size_t filtered_pointcloud_output_points_{0};
+  size_t visual_sync_deferred_pointcloud_count_{0};
+  size_t visual_sync_released_pointcloud_count_{0};
+  size_t visual_sync_missed_pointcloud_count_{0};
+  size_t visual_sync_dropped_pointcloud_count_{0};
   size_t imu_count_{0};
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;

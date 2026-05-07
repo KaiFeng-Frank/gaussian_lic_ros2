@@ -21,8 +21,13 @@ def generate_launch_description():
     adapter_identity_pose_fallback = LaunchConfiguration("adapter_identity_pose_fallback")
     adapter_imu_pose_fallback = LaunchConfiguration("adapter_imu_pose_fallback")
     adapter_rotate_pointcloud_with_imu_pose = LaunchConfiguration("adapter_rotate_pointcloud_with_imu_pose")
+    adapter_pointcloud_use_stamp_imu_orientation = LaunchConfiguration("adapter_pointcloud_use_stamp_imu_orientation")
+    adapter_imu_orientation_history_size = LaunchConfiguration("adapter_imu_orientation_history_size")
     adapter_sync_image_to_pointcloud = LaunchConfiguration("adapter_sync_image_to_pointcloud")
     adapter_pointcloud_transform_profile = LaunchConfiguration("adapter_pointcloud_transform_profile")
+    adapter_pointcloud_filter_min_z = LaunchConfiguration("adapter_pointcloud_filter_min_z")
+    adapter_pointcloud_filter_max_z = LaunchConfiguration("adapter_pointcloud_filter_max_z")
+    adapter_pointcloud_filter_min_points = LaunchConfiguration("adapter_pointcloud_filter_min_points")
     adapter_raw_pointcloud_topic = LaunchConfiguration("adapter_raw_pointcloud_topic")
     livox_custom_bridge = LaunchConfiguration("livox_custom_bridge")
     livox_custom_topic = LaunchConfiguration("livox_custom_topic")
@@ -192,8 +197,13 @@ def generate_launch_description():
             "identity_pose_fallback": adapter_identity_pose_fallback,
             "imu_pose_fallback": adapter_imu_pose_fallback,
             "rotate_pointcloud_with_imu_pose": adapter_rotate_pointcloud_with_imu_pose,
+            "pointcloud_use_stamp_imu_orientation": adapter_pointcloud_use_stamp_imu_orientation,
+            "imu_orientation_history_size": adapter_imu_orientation_history_size,
             "sync_image_to_pointcloud": adapter_sync_image_to_pointcloud,
             "pointcloud_transform_profile": adapter_pointcloud_transform_profile,
+            "pointcloud_filter_min_z": adapter_pointcloud_filter_min_z,
+            "pointcloud_filter_max_z": adapter_pointcloud_filter_max_z,
+            "pointcloud_filter_min_points": adapter_pointcloud_filter_min_points,
             "publish_tf": publish_tf,
         },
     ]
@@ -245,6 +255,16 @@ def generate_launch_description():
             description="Rotate adapter point clouds into the IMU fallback world frame, matching the ROS1 mapper-contract converter",
         ),
         DeclareLaunchArgument(
+            "adapter_pointcloud_use_stamp_imu_orientation",
+            default_value="true",
+            description="Use the latest integrated IMU orientation at or before each point-cloud stamp instead of callback-time latest orientation",
+        ),
+        DeclareLaunchArgument(
+            "adapter_imu_orientation_history_size",
+            default_value="50000",
+            description="Maximum integrated IMU orientation samples retained for point-cloud stamp lookup",
+        ),
+        DeclareLaunchArgument(
             "adapter_sync_image_to_pointcloud",
             default_value="false",
             description="Re-stamp the latest raw image/camera_info to each point-cloud stamp before mapper output",
@@ -253,6 +273,21 @@ def generate_launch_description():
             "adapter_pointcloud_transform_profile",
             default_value="identity",
             description="Static adapter pointcloud transform profile: identity or fastlivo2",
+        ),
+        DeclareLaunchArgument(
+            "adapter_pointcloud_filter_min_z",
+            default_value="-1.7976931348623157e+308",
+            description="Drop adapter point-cloud samples with transformed z <= this value; huge negative disables.",
+        ),
+        DeclareLaunchArgument(
+            "adapter_pointcloud_filter_max_z",
+            default_value="0.0",
+            description="Drop adapter point-cloud samples with transformed z above this value; 0 disables.",
+        ),
+        DeclareLaunchArgument(
+            "adapter_pointcloud_filter_min_points",
+            default_value="0",
+            description="Drop the whole adapter point cloud if fewer samples survive filtering; 0 disables.",
         ),
         DeclareLaunchArgument(
             "adapter_raw_pointcloud_topic",

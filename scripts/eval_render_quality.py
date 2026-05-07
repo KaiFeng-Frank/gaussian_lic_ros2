@@ -296,8 +296,13 @@ def main():
     report = {
         "ok": quality["matched_pairs"] > 0 and not quality["failed_pairs"],
         "metrics": str(metrics_path),
-        "quality": quality,
+        "quality": {
+            key: value
+            for key, value in quality.items()
+            if key != "pairs"
+        },
     }
+    report["quality"]["pair_detail_count"] = len(quality.get("pairs", []))
     print(json.dumps(report, indent=2, sort_keys=True))
     raise SystemExit(0 if report["ok"] else 1)
 

@@ -26,8 +26,13 @@ FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
 ROTATE_POINTCLOUD_WITH_IMU_POSE=true
+ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION=true
+ADAPTER_IMU_ORIENTATION_HISTORY_SIZE=50000
 SYNC_IMAGE_TO_POINTCLOUD=false
 POINTCLOUD_TRANSFORM_PROFILE="identity"
+ADAPTER_POINTCLOUD_FILTER_MIN_Z="-1.7976931348623157e+308"
+ADAPTER_POINTCLOUD_FILTER_MAX_Z="0.0"
+ADAPTER_POINTCLOUD_FILTER_MIN_POINTS="0"
 LIVOX_CUSTOM_BRIDGE=false
 LIVOX_CUSTOM_TOPIC="/livox/lidar"
 LIVOX_POINTCLOUD_TOPIC="/livox/lidar/points"
@@ -87,9 +92,19 @@ Options:
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
   --no-rotate-pointcloud-with-imu-pose
                                Keep adapter point clouds in the camera frame when IMU pose fallback is enabled.
+  --no-adapter-pointcloud-stamp-imu-orientation
+                               Use callback-time latest IMU orientation instead of point-cloud stamp lookup.
+  --adapter-imu-orientation-history-size N
+                               Integrated IMU orientation samples retained for point-cloud stamp lookup. Default: 50000.
   --sync-image-to-pointcloud   Re-stamp latest raw image/camera_info to each point-cloud stamp in the adapter.
   --fastlivo2-camera-lidar-transform
                                Transform raw FAST-LIVO2 LiDAR points into camera frame in the adapter.
+  --adapter-pointcloud-filter-min-z Z
+                               Drop adapter samples with transformed z <= Z. Default: disabled.
+  --adapter-pointcloud-filter-max-z Z
+                               Drop adapter samples with transformed z > Z. Default: disabled.
+  --adapter-pointcloud-filter-min-points N
+                               Drop whole adapter clouds with fewer than N filtered samples. Default: disabled.
   --livox-custom-bridge        Bridge Livox CustomMsg input to PointCloud2 before the adapter.
   --optional-depth             Allow mapper replay without a depth image topic.
   --tf                         Enable TF publication.
@@ -209,6 +224,14 @@ while [[ $# -gt 0 ]]; do
       ROTATE_POINTCLOUD_WITH_IMU_POSE=false
       shift
       ;;
+    --no-adapter-pointcloud-stamp-imu-orientation)
+      ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION=false
+      shift
+      ;;
+    --adapter-imu-orientation-history-size)
+      ADAPTER_IMU_ORIENTATION_HISTORY_SIZE="$2"
+      shift 2
+      ;;
     --sync-image-to-pointcloud)
       SYNC_IMAGE_TO_POINTCLOUD=true
       shift
@@ -216,6 +239,18 @@ while [[ $# -gt 0 ]]; do
     --fastlivo2-camera-lidar-transform)
       POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
       shift
+      ;;
+    --adapter-pointcloud-filter-min-z)
+      ADAPTER_POINTCLOUD_FILTER_MIN_Z="$2"
+      shift 2
+      ;;
+    --adapter-pointcloud-filter-max-z)
+      ADAPTER_POINTCLOUD_FILTER_MAX_Z="$2"
+      shift 2
+      ;;
+    --adapter-pointcloud-filter-min-points)
+      ADAPTER_POINTCLOUD_FILTER_MIN_POINTS="$2"
+      shift 2
       ;;
     --livox-custom-bridge)
       LIVOX_CUSTOM_BRIDGE=true
@@ -321,8 +356,13 @@ launch_args=(
   adapter_identity_pose_fallback:="${IDENTITY_POSE_FALLBACK}"
   adapter_imu_pose_fallback:="${IMU_POSE_FALLBACK}"
   adapter_rotate_pointcloud_with_imu_pose:="${ROTATE_POINTCLOUD_WITH_IMU_POSE}"
+  adapter_pointcloud_use_stamp_imu_orientation:="${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}"
+  adapter_imu_orientation_history_size:="${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}"
   adapter_sync_image_to_pointcloud:="${SYNC_IMAGE_TO_POINTCLOUD}"
   adapter_pointcloud_transform_profile:="${POINTCLOUD_TRANSFORM_PROFILE}"
+  adapter_pointcloud_filter_min_z:="${ADAPTER_POINTCLOUD_FILTER_MIN_Z}"
+  adapter_pointcloud_filter_max_z:="${ADAPTER_POINTCLOUD_FILTER_MAX_Z}"
+  adapter_pointcloud_filter_min_points:="${ADAPTER_POINTCLOUD_FILTER_MIN_POINTS}"
   livox_custom_bridge:="${LIVOX_CUSTOM_BRIDGE}"
   livox_custom_topic:="${LIVOX_CUSTOM_TOPIC}"
   livox_pointcloud_topic:="${LIVOX_POINTCLOUD_TOPIC}"
@@ -482,6 +522,22 @@ wait_for_node() {
   return 1
 }
 
+wait_for_topic_subscribers() {
+  local topic="$1"
+  local min_count="$2"
+  local deadline=$((SECONDS + TIMEOUT_SEC))
+  local count
+  while (( SECONDS < deadline )); do
+    count="$(ros2 topic info "${topic}" 2>/dev/null | awk -F': ' '/Subscription count:/ {print $2; exit}')"
+    if [[ -n "${count}" && "${count}" -ge "${min_count}" ]]; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "Timed out waiting for ${min_count} subscriber(s) on ${topic}" >&2
+  return 1
+}
+
 start_recording() {
   echo "[current] recording ROS2 mapper outputs: ${RECORDED_BAG}"
   if [[ "${RECORD_SEC}" == "0" || "${RECORD_SEC}" == "0.0" ]]; then
@@ -547,9 +603,21 @@ if [[ -n "${BAG_PATH}" ]]; then
   wait_for_node "/mapping_node"
   if [[ "${FRONTEND_ADAPTER}" == "true" ]]; then
     wait_for_node "/lic2_contract_adapter"
+    adapter_pointcloud_wait_topic="/livox/lidar"
+    if [[ "${LIVOX_CUSTOM_BRIDGE}" == "true" ]]; then
+      adapter_pointcloud_wait_topic="${LIVOX_POINTCLOUD_TOPIC}"
+    fi
+    wait_for_topic_subscribers "/camera/image" 1
+    wait_for_topic_subscribers "/camera/camera_info" 1
+    wait_for_topic_subscribers "${adapter_pointcloud_wait_topic}" 1
+    wait_for_topic_subscribers "/imu" 1
+    wait_for_topic_subscribers "/image_for_gs" 1
+    wait_for_topic_subscribers "/camera_info_for_gs" 1
+    wait_for_topic_subscribers "/points_for_gs" 1
+    wait_for_topic_subscribers "/pose_for_gs" 1
   fi
   start_recording
-  sleep 0.5
+  sleep 1.0
   echo "[current] replaying input bag: ${BAG_PATH}"
   play_args=(--rate "${PLAY_RATE}")
   if [[ "${LOOP_PLAYBACK}" == "true" ]]; then
@@ -633,7 +701,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" "${ADAPTER_POINTCLOUD_FILTER_MIN_Z}" "${ADAPTER_POINTCLOUD_FILTER_MAX_Z}" "${ADAPTER_POINTCLOUD_FILTER_MIN_POINTS}" "${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}" "${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -676,6 +744,11 @@ metrics.update(
         "torch_prune_max_world_scale": float(sys.argv[26]),
         "torch_optimization_sampling": sys.argv[27],
         "torch_optimization_seed": int(sys.argv[28]),
+        "adapter_pointcloud_filter_min_z": float(sys.argv[29]),
+        "adapter_pointcloud_filter_max_z": float(sys.argv[30]),
+        "adapter_pointcloud_filter_min_points": int(sys.argv[31]),
+        "adapter_pointcloud_use_stamp_imu_orientation": sys.argv[32] == "true",
+        "adapter_imu_orientation_history_size": int(sys.argv[33]),
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {
