@@ -297,7 +297,7 @@ public:
       "lidar_max_abs_point_time_offset_s",
       declare_parameter<double>("lidar_max_abs_point_time_offset_s", 0.25));
     imu_history_size_ = integer_parameter_at_least(
-      "imu_history_size", declare_parameter<int>("imu_history_size", 4000), 2);
+      "imu_history_size", declare_parameter<int>("imu_history_size", 12000), 2);
     trajectory_control_interval_ns_ = integer_parameter_at_least(
       "trajectory_control_interval_ns",
       declare_parameter<int64_t>("trajectory_control_interval_ns", 50000000LL), 1LL);
@@ -381,9 +381,34 @@ public:
     sliding_window_smoothness_bias_weight_ = finite_nonnegative_parameter(
       "sliding_window_smoothness_bias_weight",
       declare_parameter<double>("sliding_window_smoothness_bias_weight", 0.1));
+    enable_imu_gravity_autocalibration_ =
+      declare_parameter<bool>("enable_imu_gravity_autocalibration", true);
+    imu_gravity_autocalibration_samples_ = integer_parameter_at_least(
+      "imu_gravity_autocalibration_samples",
+      declare_parameter<int>("imu_gravity_autocalibration_samples", 50), 2);
+    imu_gravity_magnitude_m_s2_ = finite_positive_parameter(
+      "imu_gravity_magnitude_m_s2",
+      declare_parameter<double>("imu_gravity_magnitude_m_s2", 9.80665));
+    imu_gravity_autocalibration_min_norm_m_s2_ = finite_positive_parameter(
+      "imu_gravity_autocalibration_min_norm_m_s2",
+      declare_parameter<double>("imu_gravity_autocalibration_min_norm_m_s2", 6.0));
+    imu_gravity_autocalibration_max_norm_m_s2_ = finite_positive_parameter(
+      "imu_gravity_autocalibration_max_norm_m_s2",
+      declare_parameter<double>("imu_gravity_autocalibration_max_norm_m_s2", 14.0));
+    if (imu_gravity_autocalibration_max_norm_m_s2_ <= imu_gravity_autocalibration_min_norm_m_s2_) {
+      throw std::runtime_error(
+              "imu_gravity_autocalibration_max_norm_m_s2 must be greater than "
+              "imu_gravity_autocalibration_min_norm_m_s2");
+    }
     const auto gravity =
-      declare_parameter<std::vector<double>>("imu_gravity_w", std::vector<double>{0.0, 0.0, 0.0});
-    imu_propagator_.set_gravity_w(vector3_from_parameter("imu_gravity_w", gravity));
+      declare_parameter<std::vector<double>>(
+      "imu_gravity_w",
+      std::vector<double>{0.0, 0.0, -9.80665});
+    configured_imu_gravity_w_ = vector3_from_parameter("imu_gravity_w", gravity);
+    if (configured_imu_gravity_w_.norm() <= 1.0e-9) {
+      configured_imu_gravity_w_ = Eigen::Vector3d{0.0, 0.0, -imu_gravity_magnitude_m_s2_};
+    }
+    imu_propagator_.set_gravity_w(configured_imu_gravity_w_);
     imu_propagator_.set_max_history_size(static_cast<size_t>(imu_history_size_));
     trajectory_manager_.set_control_interval_ns(trajectory_control_interval_ns_);
     gaussian_lic_tracking::SlidingWindowConfig window_config;
@@ -550,6 +575,13 @@ private:
     sensor_msgs::msg::PointCloud2 message;
   };
 
+  struct PendingImuMeasurement
+  {
+    int64_t stamp_ns{0};
+    Eigen::Vector3d angular_velocity_rad_s{Eigen::Vector3d::Zero()};
+    Eigen::Vector3d linear_acceleration_m_s2{Eigen::Vector3d::Zero()};
+  };
+
   struct PendingVisualAlignmentFactor
   {
     int64_t stamp_ns{0};
@@ -651,18 +683,125 @@ private:
       }
       last_imu_stamp_ns_ = stamp_ns;
       ++num_raw_imus_;
-      imu_propagator_.add_measurement(stamp_ns, angular_velocity, linear_acceleration);
-      if (enable_sliding_window_optimizer_) {
-        sliding_window_preintegrator_.add_measurement(
-          stamp_ns, angular_velocity, linear_acceleration);
-        sliding_window_preintegrator_initialized_ = true;
+      if (maybe_buffer_imu_for_gravity_autocalibration(
+          stamp_ns, angular_velocity, linear_acceleration))
+      {
+        process_ready_pointcloud_queue();
+        return;
       }
+      propagate_imu_measurement(stamp_ns, angular_velocity, linear_acceleration);
       process_ready_pointcloud_queue();
     } catch (const std::exception & ex) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "failed to propagate IMU tracking state: %s", ex.what());
     }
+  }
+
+  void propagate_imu_measurement(
+    const int64_t stamp_ns,
+    const Eigen::Vector3d & angular_velocity,
+    const Eigen::Vector3d & linear_acceleration)
+  {
+    imu_propagator_.add_measurement(stamp_ns, angular_velocity, linear_acceleration);
+    if (enable_sliding_window_optimizer_) {
+      sliding_window_preintegrator_.add_measurement(
+        stamp_ns, angular_velocity, linear_acceleration);
+      sliding_window_preintegrator_initialized_ = true;
+    }
+  }
+
+  bool maybe_buffer_imu_for_gravity_autocalibration(
+    const int64_t stamp_ns,
+    const Eigen::Vector3d & angular_velocity,
+    const Eigen::Vector3d & linear_acceleration)
+  {
+    if (!enable_imu_gravity_autocalibration_ || imu_gravity_autocalibrated_ ||
+      imu_propagator_.initialized())
+    {
+      return false;
+    }
+
+    pending_imu_gravity_samples_.push_back(
+      PendingImuMeasurement{stamp_ns, angular_velocity, linear_acceleration});
+    imu_gravity_autocalibration_samples_collected_ =
+      static_cast<uint64_t>(pending_imu_gravity_samples_.size());
+    if (pending_imu_gravity_samples_.size() <
+      static_cast<size_t>(imu_gravity_autocalibration_samples_))
+    {
+      return true;
+    }
+
+    Eigen::Vector3d mean_accel = Eigen::Vector3d::Zero();
+    for (const auto & sample : pending_imu_gravity_samples_) {
+      mean_accel += sample.linear_acceleration_m_s2;
+    }
+    mean_accel /= static_cast<double>(pending_imu_gravity_samples_.size());
+    imu_gravity_autocalibration_mean_accel_ = mean_accel;
+
+    Eigen::Quaterniond initial_q_w_i = Eigen::Quaterniond::Identity();
+    const double accel_norm = mean_accel.norm();
+    const double gravity_norm = configured_imu_gravity_w_.norm();
+    if (accel_norm >= imu_gravity_autocalibration_min_norm_m_s2_ &&
+      accel_norm <= imu_gravity_autocalibration_max_norm_m_s2_ &&
+      gravity_norm > 1.0e-9)
+    {
+      initial_q_w_i = Eigen::Quaterniond::FromTwoVectors(
+        mean_accel.normalized(),
+        (-configured_imu_gravity_w_).normalized()).normalized();
+      imu_gravity_autocalibration_failed_ = false;
+    } else {
+      imu_gravity_autocalibration_failed_ = true;
+      RCLCPP_WARN(
+        get_logger(),
+        "IMU gravity autocalibration fell back to identity orientation: mean accel norm %.6f "
+        "outside [%.6f, %.6f] or invalid gravity norm %.6f",
+        accel_norm,
+        imu_gravity_autocalibration_min_norm_m_s2_,
+        imu_gravity_autocalibration_max_norm_m_s2_,
+        gravity_norm);
+    }
+
+    gaussian_lic_tracking::ImuState initial;
+    initial.stamp_ns = pending_imu_gravity_samples_.front().stamp_ns;
+    initial.q_w_i = initial_q_w_i;
+    imu_propagator_.set_gravity_w(configured_imu_gravity_w_);
+    imu_propagator_.reset_with_measurement(
+      initial,
+      pending_imu_gravity_samples_.front().angular_velocity_rad_s,
+      pending_imu_gravity_samples_.front().linear_acceleration_m_s2);
+    if (enable_sliding_window_optimizer_) {
+      sliding_window_preintegrator_ = gaussian_lic_tracking::ImuPreintegrator{};
+      sliding_window_preintegrator_.add_measurement(
+        initial.stamp_ns,
+        pending_imu_gravity_samples_.front().angular_velocity_rad_s,
+        pending_imu_gravity_samples_.front().linear_acceleration_m_s2);
+      sliding_window_preintegrator_initialized_ = true;
+    }
+    for (size_t i = 1U; i < pending_imu_gravity_samples_.size(); ++i) {
+      propagate_imu_measurement(
+        pending_imu_gravity_samples_[i].stamp_ns,
+        pending_imu_gravity_samples_[i].angular_velocity_rad_s,
+        pending_imu_gravity_samples_[i].linear_acceleration_m_s2);
+    }
+    imu_gravity_autocalibrated_ = true;
+    RCLCPP_INFO(
+      get_logger(),
+      "IMU gravity autocalibration initialized q_w_i=(%.6f, %.6f, %.6f, %.6f), "
+      "gravity_w=(%.6f, %.6f, %.6f), mean_accel=(%.6f, %.6f, %.6f), samples=%zu",
+      initial_q_w_i.w(),
+      initial_q_w_i.x(),
+      initial_q_w_i.y(),
+      initial_q_w_i.z(),
+      configured_imu_gravity_w_.x(),
+      configured_imu_gravity_w_.y(),
+      configured_imu_gravity_w_.z(),
+      mean_accel.x(),
+      mean_accel.y(),
+      mean_accel.z(),
+      pending_imu_gravity_samples_.size());
+    pending_imu_gravity_samples_.clear();
+    return true;
   }
 
   void handle_external_odometry_prior(const nav_msgs::msg::Odometry & msg)
@@ -1125,8 +1264,15 @@ private:
 
   bool should_wait_for_imu(const int64_t pointcloud_stamp_ns) const
   {
-    if (!enable_pointcloud_imu_wait_ || !enable_sliding_window_optimizer_ ||
-      !imu_propagator_.initialized() || last_imu_stamp_ns_ == 0)
+    if (!enable_pointcloud_imu_wait_ || !enable_sliding_window_optimizer_) {
+      return false;
+    }
+    if (enable_imu_gravity_autocalibration_ && !imu_gravity_autocalibrated_ &&
+      !imu_propagator_.initialized())
+    {
+      return true;
+    }
+    if (!imu_propagator_.initialized() || last_imu_stamp_ns_ == 0)
     {
       return false;
     }
@@ -1187,7 +1333,21 @@ private:
     last_pointcloud_stamp_ns_ = tracking_pose.stamp_ns;
     tracking_pose.q_w_i = Eigen::Quaterniond::Identity();
     if (imu_propagator_.initialized()) {
-      const auto & state = imu_propagator_.state();
+      gaussian_lic_tracking::ImuState state;
+      if (!imu_propagator_.query_state(tracking_pose.stamp_ns, state)) {
+        const auto & latest_state = imu_propagator_.state();
+        if (latest_state.stamp_ns > tracking_pose.stamp_ns) {
+          ++lidar_invalid_frames_;
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "dropping point cloud at %" PRId64
+            " because the matching IMU state has fallen out of history; latest IMU is %" PRId64,
+            tracking_pose.stamp_ns,
+            latest_state.stamp_ns);
+          return;
+        }
+        state = latest_state;
+      }
       tracking_pose.p_w_i = state.p_w_i;
       tracking_pose.q_w_i = state.q_w_i;
       tracking_pose.v_w_i = state.v_w_i;
@@ -3288,7 +3448,13 @@ private:
   std::string lidar_time_mode_{"auto"};
   double lidar_scan_order_duration_s_{0.1};
   double lidar_max_abs_point_time_offset_s_{0.25};
-  int imu_history_size_{4000};
+  int imu_history_size_{12000};
+  bool enable_imu_gravity_autocalibration_{true};
+  int imu_gravity_autocalibration_samples_{50};
+  double imu_gravity_magnitude_m_s2_{9.80665};
+  double imu_gravity_autocalibration_min_norm_m_s2_{6.0};
+  double imu_gravity_autocalibration_max_norm_m_s2_{14.0};
+  Eigen::Vector3d configured_imu_gravity_w_{0.0, 0.0, -9.80665};
   int64_t trajectory_control_interval_ns_{50000000LL};
   int64_t external_odometry_prior_max_dt_ns_{100000000LL};
   int external_odometry_prior_cache_size_{128};
@@ -3357,6 +3523,7 @@ private:
   gaussian_lic_tracking::SlidingWindowOptimizer sliding_window_optimizer_;
   std::deque<ExternalPosePrior> external_odometry_priors_;
   std::deque<PendingPointCloud> pending_pointclouds_waiting_for_imu_;
+  std::vector<PendingImuMeasurement> pending_imu_gravity_samples_;
   gaussian_lic_tracking::ImuPreintegrator sliding_window_preintegrator_;
   gaussian_lic_tracking::ImuBias sliding_window_bias_;
   bool sliding_window_preintegrator_initialized_{false};
@@ -3461,6 +3628,10 @@ private:
   uint64_t pointcloud_imu_wait_deferred_{0};
   uint64_t pointcloud_imu_wait_released_{0};
   uint64_t pointcloud_imu_wait_dropped_{0};
+  uint64_t imu_gravity_autocalibration_samples_collected_{0};
+  bool imu_gravity_autocalibrated_{false};
+  bool imu_gravity_autocalibration_failed_{false};
+  Eigen::Vector3d imu_gravity_autocalibration_mean_accel_{Eigen::Vector3d::Zero()};
   uint64_t external_odometry_priors_received_{0};
   uint64_t external_odometry_prior_matches_{0};
   uint64_t external_odometry_prior_misses_{0};

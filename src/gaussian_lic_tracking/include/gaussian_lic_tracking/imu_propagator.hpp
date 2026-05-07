@@ -25,6 +25,10 @@ class ImuPropagator
 {
 public:
   void reset(const ImuState & state);
+  void reset_with_measurement(
+    const ImuState & state,
+    const Eigen::Vector3d & angular_velocity_rad_s,
+    const Eigen::Vector3d & linear_acceleration_m_s2);
   const ImuState & state() const { return state_; }
   bool initialized() const { return initialized_; }
   size_t history_size() const { return history_.size(); }

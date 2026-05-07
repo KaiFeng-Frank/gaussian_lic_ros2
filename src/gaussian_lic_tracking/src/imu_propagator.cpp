@@ -20,6 +20,20 @@ void ImuPropagator::reset(const ImuState & state)
   has_last_measurement_ = false;
 }
 
+void ImuPropagator::reset_with_measurement(
+  const ImuState & state,
+  const Eigen::Vector3d & angular_velocity_rad_s,
+  const Eigen::Vector3d & linear_acceleration_m_s2)
+{
+  if (!angular_velocity_rad_s.allFinite() || !linear_acceleration_m_s2.allFinite()) {
+    throw std::runtime_error("IMU seed measurements must be finite");
+  }
+  reset(state);
+  last_angular_velocity_rad_s_ = angular_velocity_rad_s;
+  last_linear_acceleration_m_s2_ = linear_acceleration_m_s2;
+  has_last_measurement_ = true;
+}
+
 void ImuPropagator::set_gravity_w(const Eigen::Vector3d & gravity_w)
 {
   if (!std::isfinite(gravity_w.x()) || !std::isfinite(gravity_w.y()) || !std::isfinite(gravity_w.z())) {

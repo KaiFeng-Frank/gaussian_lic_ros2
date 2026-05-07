@@ -9,6 +9,7 @@ OUTPUT_DIR="${ROOT_DIR}/results/fastlivo2/Bright_Screen_Wall_native_tracking_12s
 PLAYBACK_DURATION=12
 PLAYBACK_RATE=1.0
 TIMEOUT_SEC=30
+POST_PLAY_SETTLE_SEC=8
 MIN_POSES=20
 MIN_STATUS_SAMPLES=1
 MIN_POINT_FRAMES=10
@@ -17,6 +18,10 @@ LIDAR_MAX_FRAME_POINTS=4000
 LIDAR_MAX_MAP_POINTS=40000
 LIDAR_TIME_MODE=auto
 LIDAR_SCAN_ORDER_DURATION_S=0.1
+RAW_IMU_QOS_RELIABILITY=reliable
+RAW_IMU_QOS_DEPTH=2000
+POINTCLOUD_IMU_WAIT_QUEUE_SIZE=512
+IMU_HISTORY_SIZE=12000
 LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
 LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
 CAMERA_TO_IMU_TRANSLATION_M="[0.0673699, 0.0412418, 0.0764217]"
@@ -75,6 +80,7 @@ Options:
   --playback-duration SEC      rosbag2 playback duration. Default: 12.
   --rate RATE                  rosbag2 playback rate. Default: 1.0.
   --timeout SEC                Topic/report timeout. Default: 30.
+  --post-play-settle SEC       Time to drain tracking callbacks after rosbag play exits. Default: 8.
   --min-poses N                Minimum recorded frontend odometry poses. Default: 20.
   --min-status-samples N       Minimum TrackingStatus samples. Default: 1.
   --min-point-frames N         Minimum recorded /points_for_gs frames. Default: 10.
@@ -84,6 +90,11 @@ Options:
   --enable-scan-order-deskew   Use explicit scan-order point timestamps when the bag has no per-point time field.
   --lidar-scan-order-duration-s SEC
                                Scan duration for --enable-scan-order-deskew. Default: 0.1.
+  --raw-imu-qos-reliability R  IMU subscription reliability. Default: reliable.
+  --raw-imu-qos-depth N        IMU subscription keep_last depth. Default: 2000.
+  --pointcloud-imu-wait-queue-size N
+                               Point-cloud queue while waiting for IMU catch-up. Default: 512.
+  --imu-history-size N         IMU propagation history for delayed point-cloud timestamp queries. Default: 12000.
   --require-deskew             Require nonzero trajectory deskew queries and hits in the report.
   --lidar-to-imu-translation V  YAML vector for LiDAR->IMU translation. Default: FAST-LIVO2.
   --lidar-to-imu-rpy V          YAML vector for LiDAR->IMU RPY radians. Default: FAST-LIVO2 identity.
@@ -168,6 +179,10 @@ while [[ $# -gt 0 ]]; do
       TIMEOUT_SEC="$2"
       shift 2
       ;;
+    --post-play-settle)
+      POST_PLAY_SETTLE_SEC="$2"
+      shift 2
+      ;;
     --min-poses)
       MIN_POSES="$2"
       shift 2
@@ -198,6 +213,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --lidar-scan-order-duration-s)
       LIDAR_SCAN_ORDER_DURATION_S="$2"
+      shift 2
+      ;;
+    --raw-imu-qos-reliability)
+      RAW_IMU_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --raw-imu-qos-depth)
+      RAW_IMU_QOS_DEPTH="$2"
+      shift 2
+      ;;
+    --pointcloud-imu-wait-queue-size)
+      POINTCLOUD_IMU_WAIT_QUEUE_SIZE="$2"
+      shift 2
+      ;;
+    --imu-history-size)
+      IMU_HISTORY_SIZE="$2"
       shift 2
       ;;
     --require-deskew)
@@ -464,6 +495,10 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
   external_odometry_prior_translation_weight:="${EXTERNAL_ODOMETRY_PRIOR_TRANSLATION_WEIGHT}" \
   external_odometry_prior_rotation_weight:="${EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT}" \
+  raw_imu_qos_reliability:="${RAW_IMU_QOS_RELIABILITY}" \
+  raw_imu_qos_depth:="${RAW_IMU_QOS_DEPTH}" \
+  pointcloud_imu_wait_queue_size:="${POINTCLOUD_IMU_WAIT_QUEUE_SIZE}" \
+  imu_history_size:="${IMU_HISTORY_SIZE}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:=0.0 \
   lidar_to_imu_translation_m:="${LIDAR_TO_IMU_TRANSLATION_M}" \
@@ -547,7 +582,7 @@ fi
 wait "${play_pid}"
 unset play_pid
 
-sleep 2
+sleep "${POST_PLAY_SETTLE_SEC}"
 stop_process_group "${record_pid}" TERM
 unset record_pid
 

@@ -64,6 +64,27 @@ int main()
     return 1;
   }
 
+  propagator.set_gravity_w(Eigen::Vector3d{0.0, 0.0, -9.80665});
+  gaussian_lic_tracking::ImuState gravity_initial;
+  gravity_initial.stamp_ns = 0;
+  propagator.reset_with_measurement(
+    gravity_initial,
+    zero_omega,
+    Eigen::Vector3d{0.0, 0.0, 9.80665});
+  for (int i = 1; i <= steps; ++i) {
+    propagator.add_measurement(
+      static_cast<int64_t>(i) * dt_ns,
+      zero_omega,
+      Eigen::Vector3d{0.0, 0.0, 9.80665});
+  }
+  const auto gravity_state = propagator.state();
+  const double gravity_position_error = gravity_state.p_w_i.norm();
+  const double gravity_velocity_error = gravity_state.v_w_i.norm();
+  if (gravity_position_error > 1.0e-10 || gravity_velocity_error > 1.0e-10) {
+    std::cerr << "IMU gravity compensation failed to keep a stationary sample fixed\n";
+    return 1;
+  }
+
   std::cout << "imu_propagator_probe OK\n";
   return 0;
 }

@@ -155,6 +155,7 @@ def generate_launch_description():
     sliding_window_smoothness_position_weight = LaunchConfiguration("sliding_window_smoothness_position_weight")
     sliding_window_smoothness_velocity_weight = LaunchConfiguration("sliding_window_smoothness_velocity_weight")
     sliding_window_smoothness_bias_weight = LaunchConfiguration("sliding_window_smoothness_bias_weight")
+    imu_history_size = LaunchConfiguration("imu_history_size")
     enable_gaussian_snapshot_lidar_factor = LaunchConfiguration("enable_gaussian_snapshot_lidar_factor")
     gaussian_snapshot_lidar_min_opacity = LaunchConfiguration("gaussian_snapshot_lidar_min_opacity")
     lidar_time_field = LaunchConfiguration("lidar_time_field")
@@ -272,6 +273,7 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_smoothness_position_weight", default_value="0.1"),
             DeclareLaunchArgument("sliding_window_smoothness_velocity_weight", default_value="0.1"),
             DeclareLaunchArgument("sliding_window_smoothness_bias_weight", default_value="0.1"),
+            DeclareLaunchArgument("imu_history_size", default_value="12000"),
             DeclareLaunchArgument("enable_gaussian_snapshot_lidar_factor", default_value="true"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_min_opacity", default_value="0.01"),
             Node(
@@ -391,6 +393,7 @@ def generate_launch_description():
                         "sliding_window_smoothness_position_weight": sliding_window_smoothness_position_weight,
                         "sliding_window_smoothness_velocity_weight": sliding_window_smoothness_velocity_weight,
                         "sliding_window_smoothness_bias_weight": sliding_window_smoothness_bias_weight,
+                        "imu_history_size": imu_history_size,
                         "enable_gaussian_snapshot_lidar_factor": enable_gaussian_snapshot_lidar_factor,
                         "gaussian_snapshot_lidar_min_opacity": gaussian_snapshot_lidar_min_opacity,
                     }
