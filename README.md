@@ -28,7 +28,7 @@ Available now:
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` artifact/readiness pipeline with trajectory, PSNR/SSIM/LPIPS, render-pair, and point-cloud gates passing for the mapper-contract/CUDA path.
 - `scripts/run_strict_parity_queue.sh` turns the remaining data/evidence backlog into a resumable full-profile queue: it reuses or creates frontend-raw bags, emits ROS1 mapper-contract bags, runs the upstream baseline with the matching profile config, collects ROS2 CUDA current artifacts, and writes strict readiness/reproduction reports for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE targets.
-- `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It currently reports `required=2/7` because only FAST-LIVO2 mapper strict parity plus CBD native BA runtime health are proven; native reference trajectory parity and FAST-LIVO/M2DGR/MCD/R3LIVE full-sequence strict reports are still missing.
+- `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It currently reports `required=4/9`: FAST-LIVO2 mapper strict parity, FAST-LIVO hku1/hku2 mapper strict parity, and CBD native BA runtime health are proven; native reference trajectory parity plus the remaining FAST-LIVO/M2DGR/MCD/R3LIVE full-sequence strict reports are still missing.
 - `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it now separates raw/frontend data, ROS1 baseline artifacts, ROS2 current artifacts, and native reference trajectories. Raw and converted frontend inputs are local for every required profile, while ROS1 baseline artifacts and FAST-LIVO/FAST-LIVO2/R3LIVE native reference trajectories remain the release blockers.
 - R3LIVE `hku_park_00` can be converted to ROS2 frontend-raw and passes the native sensor-only tracking health gate; this is runtime coverage, not strict baseline parity.
 - FAST-LIVO2 `Retail_Street` is now fetched from the official Google Drive index, converted to ROS2 frontend-raw, and passes a 60s native scan-order deskew tracking health gate; this is additional runtime coverage, not strict ROS1-vs-ROS2 parity.
@@ -51,7 +51,7 @@ Still pending:
 | FAST-LIVO2 Bright substitute evidence chain | Complete and executable with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` passing |
 | Strict `CBD_Building_01` paper-data gate | Official bag is local; ROS1 baseline is archived; latest ROS2 mapper-contract/CUDA strict report passes `reproduction_report.py --strict` |
 | Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend, executable strict mapper-contract chain, and local SPNet TensorRT engine generation are in place; full native Coco-LIC2 tracking BA remains |
-| Full-dataset strict parity matrix | Executable gate is in place; current status is incomplete at `2/7` required evidence items, with only FAST-LIVO2 covered |
+| Full-dataset strict parity matrix | Executable gate is in place; current status is incomplete at `4/9` required evidence items, with FAST-LIVO and FAST-LIVO2 covered by required mapper/native evidence |
 | Full raw/frontend data inputs | Local audit passes raw and frontend coverage for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE; missing items are now baseline/reference evidence, not raw downloads |
 | R3LIVE native runtime coverage | `hku_park_00` frontend-raw conversion and 60s sensor-only native tracking health gate pass; strict ROS1-vs-ROS2 parity artifacts are still pending |
 
@@ -681,7 +681,7 @@ Rebuild the local engine with:
 
 ```bash
 ./scripts/install_local_tensorrt_10_9.sh
-SPNET_PYTHON=/home/frank/.cache/gaussian_lic_ros2/quality-venv/bin/python \
+SPNET_PYTHON=/home/frank/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python \
 TENSORRT_ROOT=/home/frank/Software/TensorRT-10.9.0.34-cuda12.8 \
   ./scripts/build_spnet_engine.sh --output-dir /home/frank/Software/TensorRT-engines
 ```
@@ -925,8 +925,9 @@ The strict script defaults to CUDA rasterizer mode, `torch_gaussian_device=cuda`
 `--current-torch-optimization-steps 100`,
 `--current-torch-optimization-sampling upstream_random`, a fixed
 `--current-torch-optimization-seed 20260505` for reproducible strict reports, a
-slowed current playback rate of `0.25`, a 60 second post-playback settle window,
-a 1.5M foreground Gaussian cap, uniform foreground count-cap policy with
+slowed current playback rate of `0.25`, `--current-record-sec 0` so collection
+runs until rosbag2 playback plus the 60 second post-playback settle window
+finish, a 1.5M foreground Gaussian cap, uniform foreground count-cap policy with
 `torch_gaussian_prune_min_opacity=0.0`,
 upstream-style alpha-hole filtering before Gaussian extension, disabled ROS2
 gradient split/clone densification, disabled opacity resets, and disabled
@@ -954,7 +955,11 @@ set it, which reduces late-run allocator fragmentation around million Gaussian
 maps.
 Strict quality extraction defaults LPIPS to `cuda` on the target workstation; set
 `--quality-lpips-device cpu` or `QUALITY_LPIPS_DEVICE=cpu` only for CPU-only
-report refreshes.
+report refreshes. On this workstation the CUDA report environment is
+`${HOME}/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python` with
+Torch `2.7.0+cu128`; if a requested CUDA LPIPS device is unavailable, the
+evaluator records the requested device and falls back to CPU instead of leaving
+LPIPS null.
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
 `frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
@@ -963,10 +968,13 @@ emits strict readiness and reproduction reports. During report generation it als
 fills `metrics.json::quality`: the baseline uses upstream GT, while the current
 run uses its saved `gt/` frames so dropped/reordered replay frames do not get
 scored against the wrong source image. Render-pair comparison uses decoded GT
-hashes to associate ROS1 and ROS2 frame identities before sampling pairs. If
-`${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python` exists, it is used for
-LPIPS evaluation; otherwise set `QUALITY_PYTHON` to a Python environment with
-`torch`, `torchvision`, `numpy`, and `Pillow`.
+hashes to associate ROS1 and ROS2 frame identities before sampling pairs. The
+strict report keeps every per-pair outlier in JSON, but gates the supplemental
+baseline-vs-current render-pair check by bounded outlier ratio plus mean
+PSNR/SSIM; the primary paper-quality gate remains the full matched-frame
+PSNR/SSIM/LPIPS regression against GT. Set `QUALITY_PYTHON` to a Python
+environment with `torch`, `torchvision`, `numpy`, and `Pillow` when refreshing
+those metrics outside the default CUDA venv.
 
 Latest archived local strict run, 2026-05-05:
 
@@ -1023,15 +1031,17 @@ To write a current gap report without treating the incomplete matrix as success:
   --markdown results/strict_parity_matrix.md
 ```
 
-Current local matrix status: `required=2/7`, `covered_profiles=fastlivo2`.
-Passing items are FAST-LIVO2 `CBD_Building_01` mapper-contract/CUDA strict parity
-and the 120s CBD native visual/SE3 BA health report. Missing required items are
-native reference trajectory parity for CBD plus full-sequence strict artifacts for
-FAST-LIVO, M2DGR, MCD, and R3LIVE.
+Current local matrix status: `required=4/9`, `covered_profiles=fastlivo,fastlivo2`.
+Passing required items are FAST-LIVO2 `CBD_Building_01` mapper-contract/CUDA
+strict parity, FAST-LIVO hku1/hku2 mapper-contract/CUDA strict parity, and the
+120s CBD native visual/SE3 BA health report. Missing required items are native
+reference trajectory parity for CBD, the remaining FAST-LIVO strict sequences,
+and full-sequence strict artifacts for M2DGR, MCD, and R3LIVE.
 
-The full-profile strict queue uses a slower default `0.15x` replay rate than the
-focused CBD script so CUDA final-render runs do not silently drop synchronized
-point/pose frames on longer FAST-LIVO sequences.
+The full-profile strict queue uses `--current-record-sec 0` and a slower default
+`0.15x` replay rate than the focused CBD script so CUDA final-render runs do not
+silently truncate or drop synchronized point/pose frames on longer FAST-LIVO
+sequences.
 For offline strict replay it also overrides every mapper and adapter stream QoS
 to reliable with keep-last depth `50`; live profiles keep the YAML defaults
 (`best_effort`, depth `5`) unless the launch caller overrides them.
@@ -1046,13 +1056,13 @@ The matching data audit is:
   --min-free-gb 100
 ```
 
-As of 2026-05-07 it reports `100.65 GiB` free on `/home/frank/data`.
+As of 2026-05-07 it reports `100.93 GiB` free on `/home/frank/data`.
 Raw bags and converted frontend-raw bags are local for every required profile:
 FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE. M2DGR and MCD also have local
 native reference TUM files. The remaining data/evidence blockers are archived
-ROS1 baseline artifacts for FAST-LIVO, FAST-LIVO2 `Retail_Street`, M2DGR, MCD,
-and R3LIVE, plus trusted native reference trajectories for FAST-LIVO,
-FAST-LIVO2, and R3LIVE. The script also lists the largest non-matrix
+ROS1 baseline artifacts for the remaining FAST-LIVO sequences, FAST-LIVO2
+`Retail_Street`, M2DGR, MCD, and R3LIVE, plus trusted native reference
+trajectories for FAST-LIVO, FAST-LIVO2, and R3LIVE. The script also lists the largest non-matrix
 `results/` directories that can be reviewed before reclaiming space; it
 deliberately does not list archived baseline directories as cleanup candidates.
 

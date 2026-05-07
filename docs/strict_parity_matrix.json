@@ -157,6 +157,92 @@
       ]
     },
     {
+      "id": "fastlivo/hku1/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "fastlivo",
+      "dataset": "FAST-LIVO",
+      "sequence": "hku1",
+      "required": true,
+      "report": "results/fastlivo/hku1_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 64,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 1000
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.1
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_psnr_db",
+          "min": 20.0
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.75
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
+      "id": "fastlivo/hku2/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "fastlivo",
+      "dataset": "FAST-LIVO",
+      "sequence": "hku2",
+      "required": true,
+      "report": "results/fastlivo/hku2_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 64,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 800
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.1
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_psnr_db",
+          "min": 20.0
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.75
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
       "id": "fastlivo/hku1/native_tracking_scan_order_60s",
       "kind": "native_tracking_report",
       "profile": "fastlivo",
@@ -616,7 +702,7 @@
       "dataset": "FAST-LIVO",
       "sequence": "all_required_sequences",
       "required": true,
-      "reason": "no full-sequence ROS1 baseline and ROS2 strict current artifact is archived for FAST-LIVO."
+      "reason": "FAST-LIVO hku1/hku2 mapper-contract strict artifacts now pass; Visual_Challenge and LiDAR_Degenerate still need archived ROS1 baselines plus ROS2 strict current reports before the profile is complete."
     },
     {
       "id": "m2dgr/full_sequence_strict",

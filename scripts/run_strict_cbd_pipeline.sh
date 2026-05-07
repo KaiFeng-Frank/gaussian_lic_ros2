@@ -13,7 +13,7 @@ CURRENT_DIR=""
 CURRENT_CONFIG=""
 RENDER_MODE="rasterizer"
 UPSTREAM_RUNTIME_SEC=0
-CURRENT_RECORD_SEC=600
+CURRENT_RECORD_SEC=0
 CURRENT_PLAY_RATE=0.25
 CURRENT_POST_PLAY_SETTLE=60
 CURRENT_TORCH_DEVICE=cuda
@@ -56,7 +56,8 @@ Options:
   --current-config FILE    Current ROS2 parameter YAML. Default: bringup fastlivo2.yaml
   --render-mode MODE       debug_cpu, debug_input, rasterizer, or off. Default: rasterizer
   --upstream-runtime-sec N Pass to run_upstream_baseline.sh. Default: 0
-  --current-record-sec N   Pass to collect_current_results.sh. Default: 600
+  --current-record-sec N   Pass to collect_current_results.sh. Default: 0,
+                            recording until playback and post-play settle end.
   --current-play-rate R    Pass to collect_current_results.sh. Default: 0.25
   --current-post-play-settle SEC
                             Pass to collect_current_results.sh. Default: 60
@@ -363,9 +364,13 @@ if [[ "${SKIP_REPORT}" != "true" ]]; then
   QUALITY_LPIPS_ROOT="${ROOT_DIR}/external/Gaussian-LIC/src/lpips"
   QUALITY_PYTHON="${QUALITY_PYTHON:-}"
   if [[ -z "${QUALITY_PYTHON}" ]]; then
-    quality_venv="${GAUSSIAN_LIC_QUALITY_VENV:-${HOME}/.cache/gaussian_lic_ros2/quality-venv}"
-    if [[ -x "${quality_venv}/bin/python" ]]; then
+    quality_venv="${GAUSSIAN_LIC_QUALITY_VENV:-}"
+    if [[ -n "${quality_venv}" && -x "${quality_venv}/bin/python" ]]; then
       QUALITY_PYTHON="${quality_venv}/bin/python"
+    elif [[ -x "${HOME}/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python" ]]; then
+      QUALITY_PYTHON="${HOME}/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python"
+    elif [[ -x "${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python" ]]; then
+      QUALITY_PYTHON="${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python"
     else
       QUALITY_PYTHON="/usr/bin/python3"
     fi

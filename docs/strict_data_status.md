@@ -1,9 +1,9 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-07T06:21:32+00:00`
+Generated: `2026-05-07T18:46:34+00:00`
 Data root: `/home/frank/data`
-Disk free: `100.65 GiB` (minimum requested `100.00 GiB`) - PASS
-Strict evidence currently materialized: `2/7`
+Disk free: `100.93 GiB` (minimum requested `100.00 GiB`) - PASS
+Strict evidence currently materialized: `4/9`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`
 Native reference trajectories local: `INCOMPLETE`
@@ -27,13 +27,15 @@ Native reference trajectories local: `INCOMPLETE`
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/Visual_Challenge/Visual_Challenge_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/Visual_Challenge_frontend_raw`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/Visual_Challenge_native_tracking_scan_order_60s`
-- `hku1`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=MISS); missing: ros1_baseline_artifacts, native_reference_trajectory
-  - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/hku1/hku1_0.mcap`
+- `hku1`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+  - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/hku1_mapper_contract_fastlivo_color.bag`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/hku1_frontend_raw`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku1`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_native_tracking_scan_order_60s`
-- `hku2`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=MISS); missing: ros1_baseline_artifacts, native_reference_trajectory
-  - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/hku2/hku2_0.mcap`
+- `hku2`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+  - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/hku2_mapper_contract_fastlivo_color.bag`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/hku2_frontend_raw`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku2`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_native_tracking_scan_order_60s`
 
 ### fastlivo2
@@ -87,13 +89,13 @@ Native reference trajectories local: `INCOMPLETE`
 - `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_20s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_120s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_reference_tum_sync50ms_120s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_windowed_visual_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_gated_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_scan_order_deskew_source_id_queue_gate_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_depth_dt1s_valid_sampling_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_valid_depth_sampling_default_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/offline` - 0.00 GiB
-- `/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/offline` - 0.00 GiB
-- `/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_30s` - 0.00 GiB
 
 ## Source URLs
 

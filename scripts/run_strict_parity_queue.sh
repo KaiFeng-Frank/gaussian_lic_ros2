@@ -8,7 +8,7 @@ ROSBAGS_SITE="${ROSBAGS_SITE:-/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/
 PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
 
 PLAY_RATE="0.15"
-CURRENT_RECORD_SEC="600"
+CURRENT_RECORD_SEC="0"
 CURRENT_POST_PLAY_SETTLE="60"
 TIMEOUT_SEC="30"
 SAVE_TIMEOUT_SEC="600"
@@ -67,7 +67,9 @@ Options:
   --skip-current                  Reuse existing ROS2 current artifacts only.
   --skip-report                   Stop before strict readiness/report.
   --play-rate R                   ROS2 replay rate. Default: 0.15.
-  --current-record-sec SEC        ROS2 recording window. Default: 600.
+  --current-record-sec SEC        ROS2 recording window. Default: 0, meaning
+                                  record until bag playback and post-play
+                                  settle complete.
   --current-post-play-settle SEC  ROS2 settle time. Default: 60.
   --timeout SEC                   Current-result wait timeout. Default: 30.
   --save-timeout SEC              SaveMap/final-render timeout. Default: 600.
@@ -458,9 +460,13 @@ run_target() {
   if [[ "${SKIP_REPORT}" != "true" ]]; then
     local quality_python="${QUALITY_PYTHON:-}"
     if [[ -z "${quality_python}" ]]; then
-      local quality_venv="${GAUSSIAN_LIC_QUALITY_VENV:-${HOME}/.cache/gaussian_lic_ros2/quality-venv}"
-      if [[ -x "${quality_venv}/bin/python" ]]; then
+      local quality_venv="${GAUSSIAN_LIC_QUALITY_VENV:-}"
+      if [[ -n "${quality_venv}" && -x "${quality_venv}/bin/python" ]]; then
         quality_python="${quality_venv}/bin/python"
+      elif [[ -x "${HOME}/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python" ]]; then
+        quality_python="${HOME}/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python"
+      elif [[ -x "${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python" ]]; then
+        quality_python="${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python"
       else
         quality_python="/usr/bin/python3"
       fi

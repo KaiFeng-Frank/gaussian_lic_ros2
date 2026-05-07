@@ -96,17 +96,24 @@ def ssim_windowed(reference, candidate):
     return float(np.mean(values))
 
 
-def load_lpips_model(model_path, device, lpips_pytorch_root):
+def load_lpips_model(model_path, requested_device, lpips_pytorch_root):
     try:
         import torch  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001
-        return None, None, f"python torch unavailable: {exc}"
+        return None, None, "", f"python torch unavailable: {exc}"
     errors = []
+    device = requested_device
+    if requested_device != "cpu" and not torch.cuda.is_available():
+        errors.append(
+            f"requested LPIPS device {requested_device} unavailable for torch "
+            f"{getattr(torch, '__version__', 'unknown')}; falling back to cpu"
+        )
+        device = "cpu"
     if model_path and device != "cpu":
         try:
             model = torch.jit.load(str(model_path), map_location=device)
             model.eval()
-            return torch, model, None
+            return torch, model, device, None
         except Exception as exc:  # noqa: BLE001
             errors.append(f"TorchScript LPIPS load failed: {exc}")
     elif model_path:
@@ -119,11 +126,11 @@ def load_lpips_model(model_path, device, lpips_pytorch_root):
 
             model = LPIPS(net_type="alex").to(device)
             model.eval()
-            return torch, model, "; ".join(errors) if errors else None
+            return torch, model, device, "; ".join(errors) if errors else None
         except Exception as exc:  # noqa: BLE001
             errors.append(f"lpipsPyTorch fallback failed: {exc}")
 
-    return torch, None, "; ".join(errors) if errors else "LPIPS model unavailable"
+    return torch, None, device, "; ".join(errors) if errors else "LPIPS model unavailable"
 
 
 def lpips_value(torch, model, reference, candidate, device):
@@ -182,11 +189,16 @@ def compute_quality(args):
     lpips_error = None
     torch = None
     lpips = None
+    lpips_device = args.lpips_device
     if lpips_model and lpips_model.is_file():
-        torch, lpips, lpips_error = load_lpips_model(lpips_model, args.lpips_device, lpips_pytorch_root)
+        torch, lpips, lpips_device, lpips_error = load_lpips_model(
+            lpips_model, args.lpips_device, lpips_pytorch_root
+        )
     elif lpips_model:
         lpips_error = f"LPIPS model is missing: {lpips_model}"
-        torch, lpips, fallback_error = load_lpips_model(None, args.lpips_device, lpips_pytorch_root)
+        torch, lpips, lpips_device, fallback_error = load_lpips_model(
+            None, args.lpips_device, lpips_pytorch_root
+        )
         if fallback_error:
             lpips_error += "; " + fallback_error
 
@@ -210,7 +222,7 @@ def compute_quality(args):
             }
             if torch is not None and lpips is not None:
                 try:
-                    item["lpips"] = lpips_value(torch, lpips, reference, candidate, args.lpips_device)
+                    item["lpips"] = lpips_value(torch, lpips, reference, candidate, lpips_device)
                 except Exception as exc:  # noqa: BLE001
                     lpips_errors.append(f"{render_path.name}: {exc}")
                     lpips = None
@@ -240,7 +252,8 @@ def compute_quality(args):
         "novel_lpips": novel["lpips"],
         "ssim_method": "gaussian_lic_windowed_11x11_sigma1.5_zero_pad",
         "lpips_model": str(lpips_model) if lpips_model else "",
-        "lpips_device": args.lpips_device if torch is not None and lpips is not None else "",
+        "lpips_requested_device": args.lpips_device,
+        "lpips_device": lpips_device if torch is not None and lpips is not None else "",
         "lpips_error": "; ".join([part for part in [lpips_error, *lpips_errors] if part]),
         "pairs": items,
     }

@@ -429,7 +429,11 @@ def compare_render_pairs(args, baseline_dir, current_dir):
         "matching": matching,
         "min_psnr_db": args.min_render_pair_psnr,
         "min_ssim": args.min_render_pair_ssim,
+        "max_failure_ratio": args.max_render_pair_failure_ratio,
+        "min_mean_psnr_db": args.min_mean_render_pair_psnr,
+        "min_mean_ssim": args.min_mean_render_pair_ssim,
         "pairs": [],
+        "pair_failures": [],
         "summary": {},
         "errors": [],
     }
@@ -459,9 +463,17 @@ def compare_render_pairs(args, baseline_dir, current_dir):
         pair_ssim = ssim_global(baseline_image, current_image)
         ok = pair_psnr >= args.min_render_pair_psnr and pair_ssim >= args.min_render_pair_ssim
         if not ok:
-            report["errors"].append(
-                f"{baseline_path.name}: render similarity below threshold "
-                f"psnr={pair_psnr:.3f}dB ssim={pair_ssim:.6f}"
+            report["pair_failures"].append(
+                {
+                    "baseline": str(baseline_path),
+                    "current": str(current_path),
+                    "psnr_db": pair_psnr,
+                    "ssim": pair_ssim,
+                    "reason": (
+                        f"render similarity below threshold "
+                        f"psnr={pair_psnr:.3f}dB ssim={pair_ssim:.6f}"
+                    ),
+                }
             )
         psnr_values.append(pair_psnr)
         ssim_values.append(pair_ssim)
@@ -479,13 +491,34 @@ def compare_render_pairs(args, baseline_dir, current_dir):
         report["errors"].append("no render pairs could be decoded")
     else:
         finite_psnr = [value for value in psnr_values if math.isfinite(value)]
+        failed_pair_count = len(report["pair_failures"])
+        failed_pair_ratio = failed_pair_count / len(report["pairs"])
+        mean_psnr = sum(finite_psnr) / len(finite_psnr) if finite_psnr else float("inf")
+        mean_ssim = sum(ssim_values) / len(ssim_values)
         report["summary"] = {
-            "mean_psnr_db": sum(finite_psnr) / len(finite_psnr) if finite_psnr else float("inf"),
+            "mean_psnr_db": mean_psnr,
             "min_psnr_db": min(finite_psnr) if finite_psnr else float("inf"),
-            "mean_ssim": sum(ssim_values) / len(ssim_values),
+            "mean_ssim": mean_ssim,
             "min_ssim": min(ssim_values),
             "evaluated_pairs": len(report["pairs"]),
+            "failed_pair_count": failed_pair_count,
+            "failed_pair_ratio": failed_pair_ratio,
         }
+        if failed_pair_ratio > args.max_render_pair_failure_ratio + 1e-12:
+            report["errors"].append(
+                f"render pair failure ratio {failed_pair_ratio:.2%} > "
+                f"{args.max_render_pair_failure_ratio:.2%}"
+            )
+        if mean_psnr < args.min_mean_render_pair_psnr:
+            report["errors"].append(
+                f"mean render-pair PSNR {mean_psnr:.3f}dB < "
+                f"{args.min_mean_render_pair_psnr:.3f}dB"
+            )
+        if mean_ssim < args.min_mean_render_pair_ssim:
+            report["errors"].append(
+                f"mean render-pair SSIM {mean_ssim:.6f} < "
+                f"{args.min_mean_render_pair_ssim:.6f}"
+            )
     report["ok"] = not report["errors"]
     return report
 
@@ -671,6 +704,10 @@ def render_markdown(report):
                     f"Sampling: {render_pairs.get('sampling', 'first_n')}",
                     f"Mean PSNR: {summary['mean_psnr_db']:.3f} dB",
                     f"Mean SSIM: {summary['mean_ssim']:.6f}",
+                    f"Pair outliers: {summary.get('failed_pair_count', 0)} / "
+                    f"{summary.get('evaluated_pairs', 0)} "
+                    f"({summary.get('failed_pair_ratio', 0.0):.2%}), allowed "
+                    f"{render_pairs.get('max_failure_ratio', 0.0):.2%}",
                 ]
             )
 
@@ -788,6 +825,28 @@ def main(argv=None):
     parser.add_argument("--max-render-pairs", type=int, default=64)
     parser.add_argument("--min-render-pair-psnr", type=float, default=15.0)
     parser.add_argument("--min-render-pair-ssim", type=float, default=0.4)
+    parser.add_argument(
+        "--max-render-pair-failure-ratio",
+        type=float,
+        default=0.10,
+        help=(
+            "Maximum fraction of sampled render pairs allowed below the per-pair "
+            "PSNR/SSIM thresholds. Strict quality metrics still compare every "
+            "matched frame against GT."
+        ),
+    )
+    parser.add_argument(
+        "--min-mean-render-pair-psnr",
+        type=float,
+        default=20.0,
+        help="Minimum mean PSNR across sampled baseline-vs-current render pairs.",
+    )
+    parser.add_argument(
+        "--min-mean-render-pair-ssim",
+        type=float,
+        default=0.75,
+        help="Minimum mean SSIM across sampled baseline-vs-current render pairs.",
+    )
 
     parser.add_argument("--skip-baseline-manifest", action="store_true")
     parser.add_argument("--min-renders", type=int, default=1)

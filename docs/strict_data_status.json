@@ -22,8 +22,16 @@
       "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_reference_tum_sync50ms_120s"
     },
     {
+      "bytes": 98566,
+      "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_60s"
+    },
+    {
       "bytes": 78256,
       "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_windowed_visual_60s"
+    },
+    {
+      "bytes": 72758,
+      "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_gated_60s"
     },
     {
       "bytes": 70922,
@@ -40,26 +48,18 @@
     {
       "bytes": 61758,
       "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/offline"
-    },
-    {
-      "bytes": 61735,
-      "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/offline"
-    },
-    {
-      "bytes": 50398,
-      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_30s"
     }
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 108070735872,
-    "free_gb": 100.64871597290039,
+    "free_bytes": 108371955712,
+    "free_gb": 100.92924880981445,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 846626480128
+    "used_bytes": 846325260288
   },
   "disk_ok": true,
-  "generated_at": "2026-05-07T06:21:32+00:00",
+  "generated_at": "2026-05-07T18:46:34+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
@@ -170,7 +170,7 @@
           "split_raw_components": {}
         },
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -182,13 +182,19 @@
             }
           ],
           "missing": [
-            "ros1_baseline_artifacts",
             "native_reference_trajectory"
           ],
           "native_reference_trajectory": [],
           "ok": false,
           "raw_ok": true,
           "raw_ros1_bag": [
+            {
+              "bytes": 3223403137,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/hku1_mapper_contract_fastlivo_color.bag"
+            },
             {
               "bytes": 1190284494,
               "exists": true,
@@ -203,20 +209,33 @@
             "/home/frank/data/fastlivo",
             "/home/frank/data/fast_livo_mcap"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku1"
+            }
+          ],
           "ros2_current_artifacts": [
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
               "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_native_tracking_scan_order_60s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_strict_current"
             }
           ],
           "sequence": "hku1",
           "split_raw_components": {}
         },
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -228,13 +247,19 @@
             }
           ],
           "missing": [
-            "ros1_baseline_artifacts",
             "native_reference_trajectory"
           ],
           "native_reference_trajectory": [],
           "ok": false,
           "raw_ok": true,
           "raw_ros1_bag": [
+            {
+              "bytes": 2644968801,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/hku2_mapper_contract_fastlivo_color.bag"
+            },
             {
               "bytes": 885629016,
               "exists": true,
@@ -249,13 +274,26 @@
             "/home/frank/data/fastlivo",
             "/home/frank/data/fast_livo_mcap"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku2"
+            }
+          ],
           "ros2_current_artifacts": [
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
               "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_native_tracking_scan_order_60s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_strict_current"
             }
           ],
           "sequence": "hku2",
@@ -496,6 +534,12 @@
               "exists": true,
               "is_dir": true,
               "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_guarded008_60s"
+            },
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
               "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_scan_order_60s"
             },
             {
@@ -515,12 +559,6 @@
               "is_dir": true,
               "is_file": false,
               "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_time_query_reliable_imu_pc_rate02_60s"
-            },
-            {
-              "exists": true,
-              "is_dir": true,
-              "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_time_query_reliable_imu_rate02_20s"
             }
           ],
           "sequence": "room_01",
@@ -895,8 +933,8 @@
       "mcd/full_sequence_strict",
       "r3live/full_sequence_strict"
     ],
-    "required_count": 7,
-    "required_non_pending_count": 2,
-    "required_non_pending_fraction": 0.2857142857142857
+    "required_count": 9,
+    "required_non_pending_count": 4,
+    "required_non_pending_fraction": 0.4444444444444444
   }
 }

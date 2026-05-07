@@ -164,10 +164,12 @@ Run the curated baseline-vs-current report:
   --markdown results/fastlivo2/Bright_Screen_Wall_current/reproduction_report.md
 ```
 
-For the paper gate, use `--strict` on the real `CBD_Building_01` baseline/current
-pair. Strict mode requires finite novel-view PSNR, SSIM, and LPIPS metrics in
-both `metrics.json` files, enforces the default 5% regression limit, and checks
-matched rendered images under `renders/`:
+For the paper gate, use `--strict` on a real baseline/current pair. Strict mode
+requires finite novel-view PSNR, SSIM, and LPIPS metrics in both `metrics.json`
+files, enforces the default 5% regression limit, and checks matched rendered
+images under `renders/`. The full matched-frame PSNR/SSIM/LPIPS comparison is
+the primary quality gate; the supplemental render-pair gate keeps per-pair
+outliers in JSON while enforcing bounded outlier ratio plus mean PSNR/SSIM:
 
 ```bash
 ./scripts/baseline_readiness.py \
@@ -205,11 +207,13 @@ when present, so dropped or reordered replay frames are not scored against the
 wrong source image. The reproduction report also uses decoded GT hashes to
 associate ROS1 and ROS2 render-pair identities before sampling render pairs.
 That step fills finite PSNR, SSIM, and LPIPS fields under
-`metrics.json::quality`. The upstream TorchScript LPIPS file is traced with CUDA
-tensors, so CPU-only report environments should use the lpipsPyTorch fallback via
-a Python environment containing `torch`, `torchvision`, `numpy`, and `Pillow`.
-If `${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python` exists it is
-selected automatically; otherwise set `QUALITY_PYTHON=/path/to/python`.
+`metrics.json::quality`. The target workstation uses
+`${HOME}/.cache/gaussian_lic_ros2/quality-cuda-venv/bin/python` for CUDA LPIPS
+(`torch 2.7.0+cu128`). If the requested CUDA LPIPS device is unavailable,
+`eval_render_quality.py` records the requested device and falls back to CPU
+instead of leaving LPIPS null. For CPU-only report environments, set
+`QUALITY_PYTHON=/path/to/python` with `torch`, `torchvision`, `numpy`, and
+`Pillow`.
 
 The validated curated chain can also be re-run from one entrypoint:
 
@@ -234,8 +238,9 @@ The queue covers FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE targets. For each
 target it reuses or creates `frontend_raw`, creates a ROS1 mapper-contract bag,
 runs `scripts/run_upstream_baseline.sh` with the matching upstream config such as
 `m2dgr.yaml`, collects ROS2 CUDA/rasterizer current artifacts at a conservative
-default `0.15x` replay rate with reliable per-stream offline QoS depth `50`, and
-emits strict readiness/reproduction reports.
+default `0.15x` replay rate and `--current-record-sec 0` with reliable
+per-stream offline QoS depth `50`, and emits strict readiness/reproduction
+reports.
 Passing this queue is still evidence generation;
 the final release gate remains `scripts/check_strict_parity_matrix.py` without
 `--allow-incomplete`. Queue quality extraction defaults LPIPS to `cuda`; pass

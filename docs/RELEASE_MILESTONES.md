@@ -89,15 +89,15 @@ The release gate for full-dataset parity is now executable via
 `scripts/check_strict_parity_matrix.py` and intentionally reports incomplete
 status until required native reference trajectory evidence and full-sequence
 FAST-LIVO/M2DGR/MCD/R3LIVE strict artifacts are archived. Current local matrix
-status is `required=2/7`, with FAST-LIVO2 mapper-contract/CUDA strict parity and
-the 120s CBD native visual/SE3 BA health report passing.
+status is `required=4/9`, with FAST-LIVO2 mapper-contract/CUDA strict parity,
+FAST-LIVO hku1/hku2 mapper-contract/CUDA strict parity, and the 120s CBD native
+visual/SE3 BA health report passing.
 The matching data-side gate is now executable via
 `scripts/audit_strict_data_inputs.py`; `docs/strict_data_status.md` records the
-current blocker explicitly: only FAST-LIVO2 and R3LIVE raw bags are present
-locally, no trusted native reference trajectories are present, and the root
-filesystem has too little free space for full-dataset acquisition until
-non-matrix generated `results/` artifacts are reclaimed or another dataset
-volume is mounted.
+current blocker explicitly: raw/frontend inputs are local for every required
+profile, disk headroom is back above the 100 GiB audit threshold, and the
+remaining blockers are archived ROS1 baseline artifacts plus trusted native
+reference trajectories for the profiles still marked pending in the matrix.
 R3LIVE `hku_park_00` now also has a frontend-raw conversion plus 60s native
 sensor-only tracking health report, but it remains optional runtime coverage
 until ROS1-vs-ROS2 strict parity artifacts are archived.

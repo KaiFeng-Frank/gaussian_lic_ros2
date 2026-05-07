@@ -211,6 +211,9 @@ def reproduction_args(args, baseline_dir, current_results):
         max_render_pairs=args.max_render_pairs,
         min_render_pair_psnr=args.min_render_pair_psnr,
         min_render_pair_ssim=args.min_render_pair_ssim,
+        max_render_pair_failure_ratio=args.max_render_pair_failure_ratio,
+        min_mean_render_pair_psnr=args.min_mean_render_pair_psnr,
+        min_mean_render_pair_ssim=args.min_mean_render_pair_ssim,
         skip_baseline_manifest=False,
         min_renders=args.min_renders,
         skip_metrics=False,
@@ -531,6 +534,9 @@ def main(argv=None):
     parser.add_argument("--max-render-pairs", type=int, default=64)
     parser.add_argument("--min-render-pair-psnr", type=float, default=15.0)
     parser.add_argument("--min-render-pair-ssim", type=float, default=0.4)
+    parser.add_argument("--max-render-pair-failure-ratio", type=float, default=0.10)
+    parser.add_argument("--min-mean-render-pair-psnr", type=float, default=20.0)
+    parser.add_argument("--min-mean-render-pair-ssim", type=float, default=0.75)
     parser.add_argument("--probe-sources", action="store_true", help="Probe official source URLs with HEAD requests.")
     parser.add_argument("--probe-timeout", type=float, default=10.0)
     parser.add_argument("--output", help="Optional JSON report path.")

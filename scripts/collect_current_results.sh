@@ -101,6 +101,8 @@ Options:
   --loop-playback              Loop rosbag2 playback during recording.
   --post-play-settle SEC       Seconds to keep mapper alive after finite playback. Default: 8.
   --record-sec SEC             Output recording duration. Default: 12.
+                               Use 0 for bag-driven runs that should record
+                               until playback plus post-play settle completes.
   --timeout SEC                Topic/service wait timeout. Default: 20.
   --save-timeout SEC           SaveMap/final-render timeout. Default: 600.
 EOF
@@ -482,17 +484,31 @@ wait_for_node() {
 
 start_recording() {
   echo "[current] recording ROS2 mapper outputs: ${RECORDED_BAG}"
-  timeout --signal=INT --kill-after=5 "${RECORD_SEC}" \
+  if [[ "${RECORD_SEC}" == "0" || "${RECORD_SEC}" == "0.0" ]]; then
     ros2 bag record \
       -o "${RECORDED_BAG}" \
       "${record_topics[@]}" \
       >"${OUTPUT_DIR}/record.log" 2>&1 &
+  else
+    timeout --signal=INT --kill-after=5 "${RECORD_SEC}" \
+      ros2 bag record \
+        -o "${RECORDED_BAG}" \
+        "${record_topics[@]}" \
+        >"${OUTPUT_DIR}/record.log" 2>&1 &
+  fi
   RECORD_PID=$!
 }
 
 stop_recording() {
   if [[ -n "${RECORD_PID}" ]]; then
     kill -INT "${RECORD_PID}" >/dev/null 2>&1 || true
+    for _ in $(seq 1 20); do
+      if ! kill -0 "${RECORD_PID}" >/dev/null 2>&1; then
+        return
+      fi
+      sleep 1
+    done
+    kill -TERM "${RECORD_PID}" >/dev/null 2>&1 || true
   fi
 }
 
@@ -503,7 +519,7 @@ wait_for_recording() {
   record_status=$?
   set -e
   RECORD_PID=""
-  if [[ ${record_status} -ne 0 && ${record_status} -ne 124 && ${record_status} -ne 130 ]]; then
+  if [[ ${record_status} -ne 0 && ${record_status} -ne 124 && ${record_status} -ne 130 && ${record_status} -ne 143 ]]; then
     echo "ros2 bag record failed with status ${record_status}; see ${OUTPUT_DIR}/record.log" >&2
     exit "${record_status}"
   fi
@@ -577,6 +593,10 @@ cleanup
 trap - EXIT
 
 echo "[current] extracting trajectory and debug cloud metrics"
+if [[ ! -f "${RECORDED_BAG}/metadata.yaml" ]]; then
+  echo "[current] reindexing recorded bag metadata"
+  ros2 bag reindex "${RECORDED_BAG}" >"${OUTPUT_DIR}/record_reindex.log"
+fi
 ros2 run gaussian_lic_tools gaussian_lic_offline \
   --bag "${RECORDED_BAG}" \
   --output "${OUTPUT_DIR}/offline" \
