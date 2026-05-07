@@ -7,7 +7,7 @@ DATA_ROOT="${DATA_ROOT:-/home/frank/data}"
 ROSBAGS_SITE="${ROSBAGS_SITE:-/home/frank/.cache/gaussian_lic_ros2/rosbags-venv/lib/python3.12/site-packages}"
 PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
 
-PLAY_RATE="0.25"
+PLAY_RATE="0.15"
 CURRENT_RECORD_SEC="600"
 CURRENT_POST_PLAY_SETTLE="60"
 TIMEOUT_SEC="30"
@@ -18,6 +18,7 @@ TORCH_OPTIMIZATION_STEPS="100"
 TORCH_MAX_FOREGROUND="1500000"
 TORCH_SEED="20260505"
 TORCH_SAMPLING="upstream_random"
+QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cuda}"
 OVERWRITE=false
 DRY_RUN=false
 FETCH_MISSING=false
@@ -65,7 +66,7 @@ Options:
   --skip-baseline                 Reuse existing ROS1 baseline artifacts only.
   --skip-current                  Reuse existing ROS2 current artifacts only.
   --skip-report                   Stop before strict readiness/report.
-  --play-rate R                   ROS2 replay rate. Default: 0.25.
+  --play-rate R                   ROS2 replay rate. Default: 0.15.
   --current-record-sec SEC        ROS2 recording window. Default: 600.
   --current-post-play-settle SEC  ROS2 settle time. Default: 60.
   --timeout SEC                   Current-result wait timeout. Default: 30.
@@ -73,6 +74,8 @@ Options:
   --upstream-runtime-sec SEC      Upstream baseline runtime cap. Default: 0.
   --torch-device DEVICE           Default: cuda.
   --torch-optimization-steps N    Default: 100, matching upstream optimize().
+  --quality-lpips-device DEVICE   LPIPS evaluation device. Default: cuda, or
+                                  QUALITY_LPIPS_DEVICE when set.
   --help                          Show this help.
 EOF
 }
@@ -149,6 +152,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --torch-optimization-steps)
       TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --quality-lpips-device)
+      QUALITY_LPIPS_DEVICE="$2"
       shift 2
       ;;
     --help|-h)
@@ -459,7 +466,7 @@ run_target() {
     fi
     local lpips_model="${ROOT_DIR}/external/Gaussian-LIC/src/lpips/lpips_alex.pt"
     local lpips_root="${ROOT_DIR}/external/Gaussian-LIC/src/lpips"
-    local lpips_device="${QUALITY_LPIPS_DEVICE:-cpu}"
+    local lpips_device="${QUALITY_LPIPS_DEVICE}"
     local baseline_gt="${baseline_dir}/upstream_result/gt"
     local current_gt="${current_dir}/gt"
     if [[ ! -d "${current_gt}" ]]; then

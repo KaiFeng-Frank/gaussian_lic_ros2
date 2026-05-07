@@ -28,6 +28,7 @@ CURRENT_TORCH_EXTEND_VISIBILITY_FILTER=true
 CURRENT_TORCH_EXTEND_ALPHA_THRESHOLD=0.99
 CURRENT_TORCH_OPACITY_RESET_INTERVAL=0
 CURRENT_TORCH_DENSIFICATION=false
+QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cuda}"
 TIMEOUT_SEC=30
 SAVE_TIMEOUT_SEC=600
 OVERWRITE=false
@@ -86,6 +87,8 @@ Options:
   --current-torch-densification
                             Enable ROS2 gradient split/clone densification in rasterizer mode.
                             Default: off, matching released Gaussian-LIC2 append-only extend().
+  --quality-lpips-device DEVICE
+                            LPIPS evaluation device. Default: cuda, or QUALITY_LPIPS_DEVICE when set.
   --timeout N              Current-result wait timeout. Default: 30
   --save-timeout N         SaveMap/final-render timeout. Default: 600
   --overwrite              Recreate converted frontend/mapper-contract outputs.
@@ -197,6 +200,10 @@ while [[ $# -gt 0 ]]; do
     --current-torch-densification)
       CURRENT_TORCH_DENSIFICATION=true
       shift
+      ;;
+    --quality-lpips-device)
+      QUALITY_LPIPS_DEVICE="$2"
+      shift 2
       ;;
     --timeout)
       TIMEOUT_SEC="$2"
@@ -353,7 +360,6 @@ if [[ "${SKIP_REPORT}" != "true" ]]; then
   fi
   QUALITY_LPIPS_MODEL="${ROOT_DIR}/external/Gaussian-LIC/src/lpips/lpips_alex.pt"
   QUALITY_LPIPS_ROOT="${ROOT_DIR}/external/Gaussian-LIC/src/lpips"
-  QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cpu}"
   QUALITY_PYTHON="${QUALITY_PYTHON:-}"
   if [[ -z "${QUALITY_PYTHON}" ]]; then
     quality_venv="${GAUSSIAN_LIC_QUALITY_VENV:-${HOME}/.cache/gaussian_lic_ros2/quality-venv}"

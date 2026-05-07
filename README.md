@@ -952,6 +952,9 @@ CUDA current collection also defaults
 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` unless the caller has already
 set it, which reduces late-run allocator fragmentation around million Gaussian
 maps.
+Strict quality extraction defaults LPIPS to `cuda` on the target workstation; set
+`--quality-lpips-device cpu` or `QUALITY_LPIPS_DEVICE=cpu` only for CPU-only
+report refreshes.
 
 That command converts the official ROS1 bag to a sqlite-backed ROS2
 `frontend_raw` bag, audits replay timing, writes the ROS1 mapper-contract bag,
@@ -962,7 +965,7 @@ run uses its saved `gt/` frames so dropped/reordered replay frames do not get
 scored against the wrong source image. Render-pair comparison uses decoded GT
 hashes to associate ROS1 and ROS2 frame identities before sampling pairs. If
 `${HOME}/.cache/gaussian_lic_ros2/quality-venv/bin/python` exists, it is used for
-CPU LPIPS evaluation; otherwise set `QUALITY_PYTHON` to a Python environment with
+LPIPS evaluation; otherwise set `QUALITY_PYTHON` to a Python environment with
 `torch`, `torchvision`, `numpy`, and `Pillow`.
 
 Latest archived local strict run, 2026-05-05:
@@ -1025,6 +1028,10 @@ Passing items are FAST-LIVO2 `CBD_Building_01` mapper-contract/CUDA strict parit
 and the 120s CBD native visual/SE3 BA health report. Missing required items are
 native reference trajectory parity for CBD plus full-sequence strict artifacts for
 FAST-LIVO, M2DGR, MCD, and R3LIVE.
+
+The full-profile strict queue uses a slower default `0.15x` replay rate than the
+focused CBD script so CUDA final-render runs do not silently drop synchronized
+point/pose frames on longer FAST-LIVO sequences.
 
 The matching data audit is:
 
