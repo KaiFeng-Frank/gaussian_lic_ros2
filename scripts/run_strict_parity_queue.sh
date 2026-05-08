@@ -15,9 +15,11 @@ SAVE_TIMEOUT_SEC="600"
 UPSTREAM_RUNTIME_SEC="0"
 TORCH_DEVICE="cuda"
 TORCH_OPTIMIZATION_STEPS="100"
-TORCH_MAX_FOREGROUND="100000"
+TORCH_MAX_FOREGROUND="80000"
 TORCH_SEED="20260505"
 TORCH_SAMPLING="upstream_random"
+TORCH_DENSIFICATION=false
+ADAPTER_VISUAL_SYNC_POLICY="latest_before"
 QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cuda}"
 OVERWRITE=false
 DRY_RUN=false
@@ -76,6 +78,18 @@ Options:
   --upstream-runtime-sec SEC      Upstream baseline runtime cap. Default: 0.
   --torch-device DEVICE           Default: cuda.
   --torch-optimization-steps N    Default: 100, matching upstream optimize().
+  --torch-max-foreground N        Default: 80000. Keep this below the raw YAML
+                                  cap during strict queue runs so full-sequence
+                                  CUDA rasterizer evaluation does not silently
+                                  cross the 12GB GPU memory ceiling.
+  --torch-densification           Enable ROS2 densification during strict current
+                                  runs. Default is off to match upstream
+                                  Gaussian-LIC FAST-LIVO configs unless a
+                                  profile explicitly asks for this experiment.
+  --adapter-visual-sync-policy P  Adapter image/camera_info sync policy:
+                                  latest_before, nearest, or latest. Default:
+                                  latest_before to match the ROS1 mapper-contract
+                                  converter's sequential rosbag semantics.
   --quality-lpips-device DEVICE   LPIPS evaluation device. Default: cuda, or
                                   QUALITY_LPIPS_DEVICE when set.
   --help                          Show this help.
@@ -154,6 +168,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --torch-optimization-steps)
       TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --torch-max-foreground)
+      TORCH_MAX_FOREGROUND="$2"
+      shift 2
+      ;;
+    --torch-densification)
+      TORCH_DENSIFICATION=true
+      shift
+      ;;
+    --adapter-visual-sync-policy)
+      ADAPTER_VISUAL_SYNC_POLICY="$2"
       shift 2
       ;;
     --quality-lpips-device)
@@ -433,7 +459,11 @@ run_target() {
       --frontend-adapter
       --imu-pose-fallback
       --sync-image-to-pointcloud
+      --adapter-visual-sync-policy "${ADAPTER_VISUAL_SYNC_POLICY}"
       --adapter-imu-orientation-history-size 200000
+      --adapter-pointcloud-filter-min-z 0.001
+      --adapter-pointcloud-filter-max-z 20.0
+      --adapter-pointcloud-filter-min-points 1000
       --optional-depth
       --sensor-qos reliable
       --sensor-qos-depth 50
@@ -451,10 +481,12 @@ run_target() {
       --torch-max-foreground "${TORCH_MAX_FOREGROUND}"
       --torch-prune-min-opacity 0.0
       --torch-prune-count-policy uniform
-      --torch-densification
       --final-render-eval
       --no-publish-gaussian-map
     )
+    if [[ "${TORCH_DENSIFICATION}" == "true" ]]; then
+      current_args+=(--torch-densification)
+    fi
     if [[ "$profile" == "fastlivo2" ]]; then
       current_args+=(--fastlivo2-camera-lidar-transform)
     fi

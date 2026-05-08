@@ -26,6 +26,10 @@
       "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_60s"
     },
     {
+      "bytes": 90614,
+      "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/Visual_Challenge_upstream_baseline_failure"
+    },
+    {
       "bytes": 78256,
       "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_sparse_depth_extrinsic_windowed_visual_60s"
     },
@@ -44,22 +48,18 @@
     {
       "bytes": 62484,
       "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Bright_Screen_Wall_native_tracking_visual_valid_depth_sampling_default_60s"
-    },
-    {
-      "bytes": 61758,
-      "path": "/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/offline"
     }
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 108371955712,
-    "free_gb": 100.92924880981445,
+    "free_bytes": 126570659840,
+    "free_gb": 117.87811279296875,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 846325260288
+    "used_bytes": 828126556160
   },
   "disk_ok": true,
-  "generated_at": "2026-05-07T18:46:34+00:00",
+  "generated_at": "2026-05-08T00:33:38+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
@@ -124,7 +124,7 @@
           "split_raw_components": {}
         },
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -136,7 +136,6 @@
             }
           ],
           "missing": [
-            "ros1_baseline_artifacts",
             "native_reference_trajectory"
           ],
           "native_reference_trajectory": [],
@@ -149,6 +148,13 @@
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/fast_livo_mcap/FAST-LIVO/Visual_Challenge/Visual_Challenge_0.mcap"
+            },
+            {
+              "bytes": 4026656617,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/Visual_Challenge_mapper_contract_fastlivo_color.bag"
             }
           ],
           "reference_ok": false,
@@ -157,8 +163,21 @@
             "/home/frank/data/fastlivo",
             "/home/frank/data/fast_livo_mcap"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo/Visual_Challenge"
+            }
+          ],
           "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/Visual_Challenge_strict_current"
+            },
             {
               "exists": true,
               "is_dir": true,
@@ -189,18 +208,18 @@
           "raw_ok": true,
           "raw_ros1_bag": [
             {
-              "bytes": 3223403137,
-              "exists": true,
-              "is_dir": false,
-              "is_file": true,
-              "path": "/home/frank/data/fast_livo_mcap/hku1_mapper_contract_fastlivo_color.bag"
-            },
-            {
               "bytes": 1190284494,
               "exists": true,
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/fast_livo_mcap/FAST-LIVO/hku1/hku1_0.mcap"
+            },
+            {
+              "bytes": 3223403137,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/hku1_mapper_contract_fastlivo_color.bag"
             }
           ],
           "reference_ok": false,
@@ -222,13 +241,13 @@
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_native_tracking_scan_order_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_strict_current"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_strict_current"
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_native_tracking_scan_order_60s"
             }
           ],
           "sequence": "hku1",
@@ -254,18 +273,18 @@
           "raw_ok": true,
           "raw_ros1_bag": [
             {
-              "bytes": 2644968801,
-              "exists": true,
-              "is_dir": false,
-              "is_file": true,
-              "path": "/home/frank/data/fast_livo_mcap/hku2_mapper_contract_fastlivo_color.bag"
-            },
-            {
               "bytes": 885629016,
               "exists": true,
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/fast_livo_mcap/FAST-LIVO/hku2/hku2_0.mcap"
+            },
+            {
+              "bytes": 2644968801,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/hku2_mapper_contract_fastlivo_color.bag"
             }
           ],
           "reference_ok": false,
@@ -287,13 +306,13 @@
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_native_tracking_scan_order_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_strict_current"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_strict_current"
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_native_tracking_scan_order_60s"
             }
           ],
           "sequence": "hku2",
@@ -382,7 +401,7 @@
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_reference_tum_120s"
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_visual_ba_sync50ms_120s"
             },
             {
               "exists": true,
@@ -394,7 +413,7 @@
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_visual_ba_sync50ms_120s"
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_reference_tum_120s"
             }
           ],
           "sequence": "CBD_Building_01",
@@ -516,49 +535,49 @@
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_gravity_autocal_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_20s"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_gravity_autocal_reliable_imu_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_30s"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_gravity_autocal_reliable_imu_queue_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_smoke"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_guarded008_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_20s"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_scan_order_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_30s"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_time_query_reliable_imu_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_60s"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_time_query_reliable_imu_pc_rate02_20s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_gated_20s"
             },
             {
               "exists": true,
               "is_dir": true,
               "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_native_tracking_time_query_reliable_imu_pc_rate02_60s"
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_gated_30s"
             }
           ],
           "sequence": "room_01",
@@ -933,8 +952,8 @@
       "mcd/full_sequence_strict",
       "r3live/full_sequence_strict"
     ],
-    "required_count": 9,
-    "required_non_pending_count": 4,
-    "required_non_pending_fraction": 0.4444444444444444
+    "required_count": 10,
+    "required_non_pending_count": 5,
+    "required_non_pending_fraction": 0.5
   }
 }

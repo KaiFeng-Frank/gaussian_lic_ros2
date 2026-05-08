@@ -85,6 +85,19 @@ def sequence_matches(path: Path, sequence: str) -> bool:
     return normalize(sequence) in normalize(str(path))
 
 
+def artifact_match_priority(path: Path) -> tuple[int, int, str]:
+    text = normalize(str(path))
+    if "strictcurrent" in text or "reproductionreportstrict" in text:
+        tier = 0
+    elif "currentround" in text or "strict" in text:
+        tier = 1
+    elif "nativetracking" in text:
+        tier = 3
+    else:
+        tier = 2
+    return (tier, len(str(path)), str(path))
+
+
 def path_entry(path: Path) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "path": str(path),
@@ -170,7 +183,8 @@ def candidate_roots(data_root: Path, profile: str) -> list[Path]:
 
 
 def find_matches(paths: list[Path], sequence: str, limit: int) -> list[dict[str, Any]]:
-    return [path_entry(path) for path in paths if sequence_matches(path, sequence)][:limit]
+    matches = [path for path in paths if sequence_matches(path, sequence)]
+    return [path_entry(path) for path in sorted(matches, key=artifact_match_priority)[:limit]]
 
 
 def split_raw_component_matches(

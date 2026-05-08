@@ -224,6 +224,17 @@ public:
       imu_orientation_history_size_ = 1;
     }
     sync_image_to_pointcloud_ = declare_parameter<bool>("sync_image_to_pointcloud", false);
+    visual_sync_policy_ = lowercase(declare_parameter<std::string>(
+      "visual_sync_policy", "latest_before"));
+    if (
+      visual_sync_policy_ != "latest_before" && visual_sync_policy_ != "nearest" &&
+      visual_sync_policy_ != "latest")
+    {
+      RCLCPP_WARN(
+        get_logger(), "unknown visual_sync_policy '%s'; using latest_before",
+        visual_sync_policy_.c_str());
+      visual_sync_policy_ = "latest_before";
+    }
     sync_image_pointcloud_tolerance_sec_ =
       declare_parameter<double>("sync_image_pointcloud_tolerance_sec", 0.01);
     if (sync_image_pointcloud_tolerance_sec_ < 0.0) {
@@ -412,7 +423,7 @@ public:
       "fallback(identity=%s imu=%s) image_sync=%s pointcloud_transform=%s profile=%s "
       "pointcloud_filter(min_z=%.6f max_z=%.6f min_points=%d) "
       "imu_stamp_lookup=%s imu_history_size=%d visual_sync_tol=%.6f sync_queue=%d "
-      "visual_history=%d",
+      "visual_history=%d visual_sync_policy=%s",
       raw_image_topic_.c_str(), raw_pointcloud_topic_.c_str(), pose_stamped_topic_.c_str(),
       raw_odometry_topic_.c_str(), image_topic_.c_str(), pointcloud_topic_.c_str(),
       pose_topic_.c_str(), frontend_odometry_topic_.c_str(), frontend_path_topic_.c_str(),
@@ -422,7 +433,7 @@ public:
       pointcloud_transform_profile_.c_str(), pointcloud_filter_min_z_, pointcloud_filter_max_z_,
       pointcloud_filter_min_points_, pointcloud_use_stamp_imu_orientation_ ? "true" : "false",
       imu_orientation_history_size_, sync_image_pointcloud_tolerance_sec_,
-      sync_pointcloud_queue_size_, visual_history_size_);
+      sync_pointcloud_queue_size_, visual_history_size_, visual_sync_policy_.c_str());
   }
 
 private:
@@ -489,6 +500,40 @@ private:
   }
 
   template<typename MsgT>
+  std::shared_ptr<MsgT> select_latest_before_visual_locked(
+    const std::deque<std::shared_ptr<MsgT>> & history,
+    const int64_t target_nsec,
+    int64_t & best_delta_nsec) const
+  {
+    std::shared_ptr<MsgT> best;
+    best_delta_nsec = std::numeric_limits<int64_t>::max();
+    for (auto it = history.rbegin(); it != history.rend(); ++it) {
+      const int64_t candidate_nsec = message_stamp_nsec(*it);
+      if (candidate_nsec <= target_nsec) {
+        best = *it;
+        best_delta_nsec = target_nsec - candidate_nsec;
+        break;
+      }
+    }
+    return best;
+  }
+
+  template<typename MsgT>
+  std::shared_ptr<MsgT> select_latest_visual_locked(
+    const std::deque<std::shared_ptr<MsgT>> & history,
+    const int64_t target_nsec,
+    int64_t & best_delta_nsec) const
+  {
+    if (history.empty()) {
+      best_delta_nsec = std::numeric_limits<int64_t>::max();
+      return {};
+    }
+    const auto & best = history.back();
+    best_delta_nsec = abs_delta_nsec(message_stamp_nsec(best), target_nsec);
+    return best;
+  }
+
+  template<typename MsgT>
   std::shared_ptr<MsgT> select_nearest_visual_locked(
     const std::deque<std::shared_ptr<MsgT>> & history,
     const int64_t target_nsec,
@@ -512,14 +557,29 @@ private:
     return best;
   }
 
+  template<typename MsgT>
+  std::shared_ptr<MsgT> select_visual_from_history_locked(
+    const std::deque<std::shared_ptr<MsgT>> & history,
+    const int64_t target_nsec,
+    int64_t & best_delta_nsec) const
+  {
+    if (visual_sync_policy_ == "nearest") {
+      return select_nearest_visual_locked(history, target_nsec, best_delta_nsec);
+    }
+    if (visual_sync_policy_ == "latest") {
+      return select_latest_visual_locked(history, target_nsec, best_delta_nsec);
+    }
+    return select_latest_before_visual_locked(history, target_nsec, best_delta_nsec);
+  }
+
   VisualSelection select_visual_locked(const builtin_interfaces::msg::Time & stamp) const
   {
     const int64_t point_nsec = stamp_to_nsec(stamp);
     VisualSelection selection;
     selection.image =
-      select_nearest_visual_locked(image_history_, point_nsec, selection.image_delta_nsec);
+      select_visual_from_history_locked(image_history_, point_nsec, selection.image_delta_nsec);
     selection.camera_info =
-      select_nearest_visual_locked(
+      select_visual_from_history_locked(
       camera_info_history_, point_nsec, selection.camera_info_delta_nsec);
     return selection;
   }
@@ -534,15 +594,24 @@ private:
     }
 
     const auto selection = select_visual_locked(stamp);
-    if (selection.image && selection.camera_info &&
-      selection.image_delta_nsec <= sync_image_pointcloud_tolerance_nsec_ &&
-      selection.camera_info_delta_nsec <= sync_image_pointcloud_tolerance_nsec_)
-    {
-      return VisualSyncState::kReady;
+    if (selection.image && selection.camera_info) {
+      if (visual_sync_policy_ == "latest_before" || visual_sync_policy_ == "latest") {
+        return VisualSyncState::kReady;
+      }
+      if (selection.image_delta_nsec <= sync_image_pointcloud_tolerance_nsec_ &&
+        selection.camera_info_delta_nsec <= sync_image_pointcloud_tolerance_nsec_)
+      {
+        return VisualSyncState::kReady;
+      }
     }
 
     const int64_t latest_image_nsec = message_stamp_nsec(image_history_.back());
     const int64_t latest_camera_info_nsec = message_stamp_nsec(camera_info_history_.back());
+    if (visual_sync_policy_ == "latest_before" &&
+      latest_image_nsec > point_nsec && latest_camera_info_nsec > point_nsec)
+    {
+      return VisualSyncState::kMissed;
+    }
     if (latest_image_nsec < point_nsec - sync_image_pointcloud_tolerance_nsec_ ||
       latest_camera_info_nsec < point_nsec - sync_image_pointcloud_tolerance_nsec_)
     {
@@ -989,6 +1058,7 @@ private:
   bool pointcloud_use_stamp_imu_orientation_{true};
   int imu_orientation_history_size_{50000};
   bool sync_image_to_pointcloud_{false};
+  std::string visual_sync_policy_{"latest_before"};
   double sync_image_pointcloud_tolerance_sec_{0.01};
   int64_t sync_image_pointcloud_tolerance_nsec_{10000000LL};
   int sync_pointcloud_queue_size_{32};

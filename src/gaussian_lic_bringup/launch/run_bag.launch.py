@@ -24,6 +24,7 @@ def generate_launch_description():
     adapter_pointcloud_use_stamp_imu_orientation = LaunchConfiguration("adapter_pointcloud_use_stamp_imu_orientation")
     adapter_imu_orientation_history_size = LaunchConfiguration("adapter_imu_orientation_history_size")
     adapter_sync_image_to_pointcloud = LaunchConfiguration("adapter_sync_image_to_pointcloud")
+    adapter_visual_sync_policy = LaunchConfiguration("adapter_visual_sync_policy")
     adapter_pointcloud_transform_profile = LaunchConfiguration("adapter_pointcloud_transform_profile")
     adapter_pointcloud_filter_min_z = LaunchConfiguration("adapter_pointcloud_filter_min_z")
     adapter_pointcloud_filter_max_z = LaunchConfiguration("adapter_pointcloud_filter_max_z")
@@ -200,6 +201,7 @@ def generate_launch_description():
             "pointcloud_use_stamp_imu_orientation": adapter_pointcloud_use_stamp_imu_orientation,
             "imu_orientation_history_size": adapter_imu_orientation_history_size,
             "sync_image_to_pointcloud": adapter_sync_image_to_pointcloud,
+            "visual_sync_policy": adapter_visual_sync_policy,
             "pointcloud_transform_profile": adapter_pointcloud_transform_profile,
             "pointcloud_filter_min_z": adapter_pointcloud_filter_min_z,
             "pointcloud_filter_max_z": adapter_pointcloud_filter_max_z,
@@ -268,6 +270,11 @@ def generate_launch_description():
             "adapter_sync_image_to_pointcloud",
             default_value="false",
             description="Re-stamp the latest raw image/camera_info to each point-cloud stamp before mapper output",
+        ),
+        DeclareLaunchArgument(
+            "adapter_visual_sync_policy",
+            default_value="latest_before",
+            description="Visual sync policy when adapter_sync_image_to_pointcloud is true: latest_before, nearest, or latest",
         ),
         DeclareLaunchArgument(
             "adapter_pointcloud_transform_profile",

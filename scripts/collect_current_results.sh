@@ -29,6 +29,7 @@ ROTATE_POINTCLOUD_WITH_IMU_POSE=true
 ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION=true
 ADAPTER_IMU_ORIENTATION_HISTORY_SIZE=50000
 SYNC_IMAGE_TO_POINTCLOUD=false
+ADAPTER_VISUAL_SYNC_POLICY="latest_before"
 POINTCLOUD_TRANSFORM_PROFILE="identity"
 ADAPTER_POINTCLOUD_FILTER_MIN_Z="-1.7976931348623157e+308"
 ADAPTER_POINTCLOUD_FILTER_MAX_Z="0.0"
@@ -97,6 +98,8 @@ Options:
   --adapter-imu-orientation-history-size N
                                Integrated IMU orientation samples retained for point-cloud stamp lookup. Default: 50000.
   --sync-image-to-pointcloud   Re-stamp latest raw image/camera_info to each point-cloud stamp in the adapter.
+  --adapter-visual-sync-policy POLICY
+                               Visual sync policy for adapter image-to-pointcloud sync: latest_before, nearest, or latest.
   --fastlivo2-camera-lidar-transform
                                Transform raw FAST-LIVO2 LiDAR points into camera frame in the adapter.
   --adapter-pointcloud-filter-min-z Z
@@ -236,6 +239,10 @@ while [[ $# -gt 0 ]]; do
       SYNC_IMAGE_TO_POINTCLOUD=true
       shift
       ;;
+    --adapter-visual-sync-policy)
+      ADAPTER_VISUAL_SYNC_POLICY="$2"
+      shift 2
+      ;;
     --fastlivo2-camera-lidar-transform)
       POINTCLOUD_TRANSFORM_PROFILE="fastlivo2"
       shift
@@ -359,6 +366,7 @@ launch_args=(
   adapter_pointcloud_use_stamp_imu_orientation:="${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}"
   adapter_imu_orientation_history_size:="${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}"
   adapter_sync_image_to_pointcloud:="${SYNC_IMAGE_TO_POINTCLOUD}"
+  adapter_visual_sync_policy:="${ADAPTER_VISUAL_SYNC_POLICY}"
   adapter_pointcloud_transform_profile:="${POINTCLOUD_TRANSFORM_PROFILE}"
   adapter_pointcloud_filter_min_z:="${ADAPTER_POINTCLOUD_FILTER_MIN_Z}"
   adapter_pointcloud_filter_max_z:="${ADAPTER_POINTCLOUD_FILTER_MAX_Z}"
@@ -660,6 +668,11 @@ test -f "${SAVED_MAP_DIR}/point_cloud.ply"
 cleanup
 trap - EXIT
 
+if rg -q "CUDA out of memory|failed to optimize Torch Gaussian map" "${RUN_LOG}"; then
+  echo "[current] Torch Gaussian optimization reported a CUDA/OOM failure; strict current artifacts are invalid: ${RUN_LOG}" >&2
+  exit 1
+fi
+
 echo "[current] extracting trajectory and debug cloud metrics"
 if [[ ! -f "${RECORDED_BAG}/metadata.yaml" ]]; then
   echo "[current] reindexing recorded bag metadata"
@@ -701,7 +714,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" "${ADAPTER_POINTCLOUD_FILTER_MIN_Z}" "${ADAPTER_POINTCLOUD_FILTER_MAX_Z}" "${ADAPTER_POINTCLOUD_FILTER_MIN_POINTS}" "${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}" "${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" "${ADAPTER_POINTCLOUD_FILTER_MIN_Z}" "${ADAPTER_POINTCLOUD_FILTER_MAX_Z}" "${ADAPTER_POINTCLOUD_FILTER_MIN_POINTS}" "${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}" "${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}" "${ADAPTER_VISUAL_SYNC_POLICY}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -749,6 +762,7 @@ metrics.update(
         "adapter_pointcloud_filter_min_points": int(sys.argv[31]),
         "adapter_pointcloud_use_stamp_imu_orientation": sys.argv[32] == "true",
         "adapter_imu_orientation_history_size": int(sys.argv[33]),
+        "adapter_visual_sync_policy": sys.argv[34],
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {
