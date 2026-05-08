@@ -28,7 +28,7 @@ Available now:
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` artifact/readiness pipeline with trajectory, PSNR/SSIM/LPIPS, render-pair, and point-cloud gates passing for the mapper-contract/CUDA path.
 - `scripts/run_strict_parity_queue.sh` turns the remaining data/evidence backlog into a resumable full-profile queue: it reuses or creates frontend-raw bags, emits ROS1 mapper-contract bags, runs the upstream baseline with the matching profile config, collects ROS2 CUDA current artifacts, and writes strict readiness/reproduction reports for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE targets.
-- `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It currently reports `required=5/10`: FAST-LIVO2 mapper strict parity, FAST-LIVO hku1/hku2/Visual_Challenge mapper strict parity, and CBD native BA runtime health are proven; native reference trajectory parity plus FAST-LIVO LiDAR_Degenerate and the remaining M2DGR/MCD/R3LIVE full-sequence strict reports are still missing.
+- `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It currently reports `required=6/10`: FAST-LIVO2 mapper strict parity, FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper strict parity, and CBD native BA runtime health are proven; native reference trajectory parity plus the remaining M2DGR/MCD/R3LIVE full-sequence strict reports are still missing.
 - `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it now separates raw/frontend data, ROS1 baseline artifacts, ROS2 current artifacts, and native reference trajectories. Raw and converted frontend inputs are local for every required profile, while ROS1 baseline artifacts and FAST-LIVO/FAST-LIVO2/R3LIVE native reference trajectories remain the release blockers.
 - R3LIVE `hku_park_00` can be converted to ROS2 frontend-raw and passes the native sensor-only tracking health gate; this is runtime coverage, not strict baseline parity.
 - FAST-LIVO2 `Retail_Street` is now fetched from the official Google Drive index, converted to ROS2 frontend-raw, and passes a 60s native scan-order deskew tracking health gate; this is additional runtime coverage, not strict ROS1-vs-ROS2 parity.
@@ -51,7 +51,7 @@ Still pending:
 | FAST-LIVO2 Bright substitute evidence chain | Complete and executable with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` passing |
 | Strict `CBD_Building_01` paper-data gate | Official bag is local; ROS1 baseline is archived; latest ROS2 mapper-contract/CUDA strict report passes `reproduction_report.py --strict` |
 | Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend, executable strict mapper-contract chain, and local SPNet TensorRT engine generation are in place; full native Coco-LIC2 tracking BA remains |
-| Full-dataset strict parity matrix | Executable gate is in place; current status is incomplete at `5/10` required evidence items, with FAST-LIVO and FAST-LIVO2 covered by required mapper/native evidence |
+| Full-dataset strict parity matrix | Executable gate is in place; current status is incomplete at `6/10` required evidence items, with FAST-LIVO and FAST-LIVO2 covered by required mapper/native evidence |
 | Full raw/frontend data inputs | Local audit passes raw and frontend coverage for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE; missing items are now baseline/reference evidence, not raw downloads |
 | R3LIVE native runtime coverage | `hku_park_00` frontend-raw conversion and 60s sensor-only native tracking health gate pass; strict ROS1-vs-ROS2 parity artifacts are still pending |
 
@@ -1031,13 +1031,12 @@ To write a current gap report without treating the incomplete matrix as success:
   --markdown results/strict_parity_matrix.md
 ```
 
-Current local matrix status: `required=5/10`, `covered_profiles=fastlivo,fastlivo2`.
+Current local matrix status: `required=6/10`, `covered_profiles=fastlivo,fastlivo2`.
 Passing required items are FAST-LIVO2 `CBD_Building_01` mapper-contract/CUDA
-strict parity, FAST-LIVO hku1/hku2/Visual_Challenge mapper-contract/CUDA strict
-parity, and the 120s CBD native visual/SE3 BA health report. Missing required
-items are native reference trajectory parity for CBD, FAST-LIVO
-`LiDAR_Degenerate` strict parity, and full-sequence strict artifacts for M2DGR,
-MCD, and R3LIVE.
+strict parity, FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate
+mapper-contract/CUDA strict parity, and the 120s CBD native visual/SE3 BA health
+report. Missing required items are native reference trajectory parity for CBD
+and full-sequence strict artifacts for M2DGR, MCD, and R3LIVE.
 
 The full-profile strict queue uses `--current-record-sec 0` and a slower default
 `0.15x` replay rate than the focused CBD script so CUDA final-render runs do not

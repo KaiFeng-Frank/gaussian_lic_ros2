@@ -286,6 +286,45 @@
     ]
   },
   {
+    "id": "fastlivo/LiDAR_Degenerate/mapper_contract_cuda_strict",
+    "kind": "reproduction_report",
+    "profile": "fastlivo",
+    "dataset": "FAST-LIVO",
+    "sequence": "LiDAR_Degenerate",
+    "required": true,
+    "report": "results/fastlivo/LiDAR_Degenerate_strict_current/reproduction_report_strict.json",
+    "strict": true,
+    "min_render_pairs": 64,
+    "gates": [
+      "baseline_manifest",
+      "metrics",
+      "trajectory",
+      "point_cloud"
+    ],
+    "thresholds": [
+      {
+        "path": "trajectory.matched_poses",
+        "min": 700
+      },
+      {
+        "path": "trajectory.coverage",
+        "min": 0.8
+      },
+      {
+        "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+        "max": 0.1
+      },
+      {
+        "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+        "min": 0.75
+      },
+      {
+        "path": "point_cloud.nearest.bidirectional.mean_m",
+        "max": 0.05
+      }
+    ]
+  },
+  {
     "id": "fastlivo/hku1/native_tracking_scan_order_60s",
       "kind": "native_tracking_report",
       "profile": "fastlivo",
@@ -744,8 +783,8 @@
     "profile": "fastlivo",
     "dataset": "FAST-LIVO",
     "sequence": "all_required_sequences",
-    "required": true,
-    "reason": "FAST-LIVO hku1/hku2/Visual_Challenge mapper-contract strict artifacts now pass; LiDAR_Degenerate still needs archived ROS1 baseline plus ROS2 strict current report before the profile is complete."
+    "required": false,
+    "reason": "FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper-contract strict artifacts now pass."
   },
     {
       "id": "m2dgr/full_sequence_strict",

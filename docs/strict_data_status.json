@@ -52,33 +52,32 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 126570659840,
-    "free_gb": 117.87811279296875,
+    "free_bytes": 118999580672,
+    "free_gb": 110.82699584960938,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 828126556160
+    "used_bytes": 835697635328
   },
   "disk_ok": true,
-  "generated_at": "2026-05-08T00:33:38+00:00",
+  "generated_at": "2026-05-08T00:55:34+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
   "profiles": {
     "fastlivo": {
-      "baseline_ok": false,
+      "baseline_ok": true,
       "current_ok": true,
       "dataset": "FAST-LIVO",
       "frontend_ok": true,
       "missing": [
-        "native_reference_trajectory",
-        "ros1_baseline_artifacts"
+        "native_reference_trajectory"
       ],
       "ok": false,
       "raw_ok": true,
       "reference_ok": false,
       "required_sequences": [
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -90,7 +89,6 @@
             }
           ],
           "missing": [
-            "ros1_baseline_artifacts",
             "native_reference_trajectory"
           ],
           "native_reference_trajectory": [],
@@ -103,6 +101,13 @@
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/fast_livo_mcap/FAST-LIVO/LiDAR_Degenerate/LiDAR_Degenerate_0.mcap"
+            },
+            {
+              "bytes": 1974420369,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/fast_livo_mcap/LiDAR_Degenerate_mapper_contract_fastlivo_color.bag"
             }
           ],
           "reference_ok": false,
@@ -111,8 +116,21 @@
             "/home/frank/data/fastlivo",
             "/home/frank/data/fast_livo_mcap"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/fastlivo/LiDAR_Degenerate"
+            }
+          ],
           "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/fastlivo/LiDAR_Degenerate_strict_current"
+            },
             {
               "exists": true,
               "is_dir": true,
@@ -944,16 +962,15 @@
   "strict_parity_matrix": {
     "exists": true,
     "path": "/home/frank/gaussian_lic_ros2/docs/strict_parity_matrix.json",
-    "pending_required_count": 5,
+    "pending_required_count": 4,
     "pending_required_ids": [
       "fastlivo2/CBD_Building_01/native_tracking_reference_parity",
-      "fastlivo/full_sequence_strict",
       "m2dgr/full_sequence_strict",
       "mcd/full_sequence_strict",
       "r3live/full_sequence_strict"
     ],
     "required_count": 10,
-    "required_non_pending_count": 5,
-    "required_non_pending_fraction": 0.5
+    "required_non_pending_count": 6,
+    "required_non_pending_fraction": 0.6
   }
 }

@@ -1,16 +1,16 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T00:33:38+00:00`
+Generated: `2026-05-08T00:55:34+00:00`
 Data root: `/home/frank/data`
-Disk free: `117.88 GiB` (minimum requested `100.00 GiB`) - PASS
-Strict evidence currently materialized: `5/10`
+Disk free: `110.83 GiB` (minimum requested `100.00 GiB`) - PASS
+Strict evidence currently materialized: `6/10`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`
 Native reference trajectories local: `INCOMPLETE`
 
 | Profile | Dataset | Raw | Frontend | Baseline | Current | Reference | Status | Missing Inputs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `fastlivo` | FAST-LIVO | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
+| `fastlivo` | FAST-LIVO | PASS | PASS | PASS | PASS | MISS | MISSING | native_reference_trajectory |
 | `fastlivo2` | FAST-LIVO2 | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 | `m2dgr` | M2DGR | PASS | PASS | MISS | PASS | PASS | MISSING | ros1_baseline_artifacts |
 | `mcd` | MCD | PASS | PASS | MISS | PASS | PASS | MISSING | ros1_baseline_artifacts |
@@ -19,10 +19,11 @@ Native reference trajectories local: `INCOMPLETE`
 ## Sequence Detail
 
 ### fastlivo
-- `LiDAR_Degenerate`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=MISS); missing: ros1_baseline_artifacts, native_reference_trajectory
+- `LiDAR_Degenerate`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/LiDAR_Degenerate/LiDAR_Degenerate_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/LiDAR_Degenerate_frontend_raw`
-  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/LiDAR_Degenerate_native_tracking_scan_order_60s`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/LiDAR_Degenerate`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/LiDAR_Degenerate_strict_current`
 - `Visual_Challenge`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/Visual_Challenge/Visual_Challenge_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/Visual_Challenge_frontend_raw`
