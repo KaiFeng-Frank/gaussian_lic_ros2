@@ -540,6 +540,45 @@
       ]
     },
     {
+      "id": "m2dgr/room_02/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "m2dgr",
+      "dataset": "M2DGR",
+      "sequence": "room_02",
+      "required": true,
+      "report": "results/m2dgr/room_02_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 64,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 700
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.1
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.75
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
       "id": "mcd/ntu_day_01/native_tracking_scan_order_60s",
       "kind": "native_tracking_report",
       "profile": "mcd",
@@ -832,7 +871,7 @@
       "dataset": "M2DGR",
       "sequence": "all_required_sequences",
       "required": true,
-      "reason": "M2DGR room_01 mapper-contract strict artifacts now pass; room_02 and room_03 still need archived ROS1 baselines plus ROS2 strict current reports before the profile is complete."
+      "reason": "M2DGR room_01 and room_02 mapper-contract strict artifacts now pass; room_03 still needs archived ROS1 baseline plus ROS2 strict current report before the profile is complete."
     },
     {
       "id": "mcd/full_sequence_strict",

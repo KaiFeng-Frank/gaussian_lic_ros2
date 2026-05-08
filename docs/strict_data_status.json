@@ -52,14 +52,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 112315523072,
-    "free_gb": 104.60198211669922,
+    "free_bytes": 105148735488,
+    "free_gb": 97.9273910522461,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 842381692928
+    "used_bytes": 849548480512
   },
-  "disk_ok": true,
-  "generated_at": "2026-05-08T01:13:07+00:00",
+  "disk_ok": false,
+  "generated_at": "2026-05-08T01:32:57+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
@@ -614,7 +614,7 @@
           "split_raw_components": {}
         },
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -625,9 +625,7 @@
               "path": "/home/frank/data/m2dgr/room_02_frontend_raw"
             }
           ],
-          "missing": [
-            "ros1_baseline_artifacts"
-          ],
+          "missing": [],
           "native_reference_trajectory": [
             {
               "bytes": 504403,
@@ -644,7 +642,7 @@
               "path": "/home/frank/data/m2dgr/room_02/room_02_gt.txt"
             }
           ],
-          "ok": false,
+          "ok": true,
           "raw_ok": true,
           "raw_ros1_bag": [
             {
@@ -653,6 +651,13 @@
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/m2dgr/room_02/room_02.bag"
+            },
+            {
+              "bytes": 1885278937,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/m2dgr/room_02_mapper_contract_m2dgr_color.bag"
             }
           ],
           "reference_ok": true,
@@ -660,8 +665,21 @@
             "/home/frank/data/m2dgr",
             "/home/frank/data/M2DGR"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_02"
+            }
+          ],
           "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_02_strict_current"
+            },
             {
               "exists": true,
               "is_dir": true,
@@ -981,8 +999,8 @@
       "mcd/full_sequence_strict",
       "r3live/full_sequence_strict"
     ],
-    "required_count": 11,
-    "required_non_pending_count": 7,
-    "required_non_pending_fraction": 0.6363636363636364
+    "required_count": 12,
+    "required_non_pending_count": 8,
+    "required_non_pending_fraction": 0.6666666666666666
   }
 }
