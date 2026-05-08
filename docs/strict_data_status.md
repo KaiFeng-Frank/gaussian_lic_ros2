@@ -1,9 +1,9 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T01:32:57+00:00`
+Generated: `2026-05-08T02:03:10+00:00`
 Data root: `/home/frank/data`
-Disk free: `97.93 GiB` (minimum requested `100.00 GiB`) - FAIL
-Strict evidence currently materialized: `8/12`
+Disk free: `86.63 GiB` (minimum requested `100.00 GiB`) - FAIL
+Strict evidence currently materialized: `9/12`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`
 Native reference trajectories local: `INCOMPLETE`
@@ -12,7 +12,7 @@ Native reference trajectories local: `INCOMPLETE`
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `fastlivo` | FAST-LIVO | PASS | PASS | PASS | PASS | MISS | MISSING | native_reference_trajectory |
 | `fastlivo2` | FAST-LIVO2 | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
-| `m2dgr` | M2DGR | PASS | PASS | MISS | PASS | PASS | MISSING | ros1_baseline_artifacts |
+| `m2dgr` | M2DGR | PASS | PASS | PASS | PASS | PASS | PASS | none |
 | `mcd` | MCD | PASS | PASS | MISS | PASS | PASS | MISSING | ros1_baseline_artifacts |
 | `r3live` | R3LIVE | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 
@@ -64,10 +64,11 @@ Native reference trajectories local: `INCOMPLETE`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_02`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_02_strict_current`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_02/room_02_gt.tum`
-- `room_03`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=PASS); missing: ros1_baseline_artifacts
+- `room_03`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/m2dgr/room_03/room_03.bag`
   - frontend_raw_rosbag2: `/home/frank/data/m2dgr/room_03_frontend_raw`
-  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_03_native_tracking_scan_order_60s`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_03`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_03_strict_current`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_03/room_03_gt.tum`
 
 ### mcd
