@@ -52,14 +52,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 114762555392,
-    "free_gb": 106.8809585571289,
+    "free_bytes": 113122295808,
+    "free_gb": 105.35334777832031,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 839934660608
+    "used_bytes": 841574920192
   },
   "disk_ok": true,
-  "generated_at": "2026-05-08T04:07:47+00:00",
+  "generated_at": "2026-05-08T05:03:57+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
@@ -947,20 +947,19 @@
       ]
     },
     "r3live": {
-      "baseline_ok": false,
+      "baseline_ok": true,
       "current_ok": true,
       "dataset": "R3LIVE",
       "frontend_ok": true,
       "missing": [
-        "native_reference_trajectory",
-        "ros1_baseline_artifacts"
+        "native_reference_trajectory"
       ],
       "ok": false,
       "raw_ok": true,
       "reference_ok": false,
       "required_sequences": [
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -972,7 +971,6 @@
             }
           ],
           "missing": [
-            "ros1_baseline_artifacts",
             "native_reference_trajectory"
           ],
           "native_reference_trajectory": [],
@@ -992,8 +990,21 @@
             "/home/frank/data/r3live",
             "/home/frank/data/R3LIVE"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/r3live/hku_park_00"
+            }
+          ],
           "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/r3live/hku_park_00_strict_current"
+            },
             {
               "exists": true,
               "is_dir": true,
@@ -1017,13 +1028,12 @@
   "strict_parity_matrix": {
     "exists": true,
     "path": "/home/frank/gaussian_lic_ros2/docs/strict_parity_matrix.json",
-    "pending_required_count": 2,
+    "pending_required_count": 1,
     "pending_required_ids": [
-      "fastlivo2/CBD_Building_01/native_tracking_reference_parity",
-      "r3live/full_sequence_strict"
+      "fastlivo2/CBD_Building_01/native_tracking_reference_parity"
     ],
     "required_count": 12,
-    "required_non_pending_count": 10,
-    "required_non_pending_fraction": 0.8333333333333334
+    "required_non_pending_count": 11,
+    "required_non_pending_fraction": 0.9166666666666666
   }
 }

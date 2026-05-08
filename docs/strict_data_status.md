@@ -1,9 +1,9 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T04:07:47+00:00`
+Generated: `2026-05-08T05:03:57+00:00`
 Data root: `/home/frank/data`
-Disk free: `106.88 GiB` (minimum requested `100.00 GiB`) - PASS
-Strict evidence currently materialized: `10/12`
+Disk free: `105.35 GiB` (minimum requested `100.00 GiB`) - PASS
+Strict evidence currently materialized: `11/12`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`
 Native reference trajectories local: `INCOMPLETE`
@@ -14,7 +14,7 @@ Native reference trajectories local: `INCOMPLETE`
 | `fastlivo2` | FAST-LIVO2 | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 | `m2dgr` | M2DGR | PASS | PASS | PASS | PASS | PASS | PASS | none |
 | `mcd` | MCD | PASS | PASS | PASS | PASS | PASS | PASS | none |
-| `r3live` | R3LIVE | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
+| `r3live` | R3LIVE | PASS | PASS | PASS | PASS | MISS | MISSING | native_reference_trajectory |
 
 ## Sequence Detail
 
@@ -83,10 +83,11 @@ Native reference trajectories local: `INCOMPLETE`
   - raw_component_imu_vn100_or_vn200: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_vn100.bag`
 
 ### r3live
-- `hku_park_00`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=MISS); missing: ros1_baseline_artifacts, native_reference_trajectory
+- `hku_park_00`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
   - raw_ros1_bag: `/home/frank/data/r3live/hku_park_00.bag`
   - frontend_raw_rosbag2: `/home/frank/data/r3live/hku_park_00_frontend_raw`
-  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/r3live/hku_park_00_native_tracking_scan_order_60s`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/r3live/hku_park_00`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/r3live/hku_park_00_strict_current`
 
 ## Largest Non-Matrix Artifact Candidates
 

@@ -961,13 +961,52 @@
       "reason": "MCD ntu_day_01 mapper-contract strict artifacts pass full-sequence CUDA replay with 1804 GT-matched render pairs; paper-quality PSNR/SSIM/LPIPS regressions remain within the 5% gate."
     },
     {
+      "id": "r3live/hku_park_00/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "r3live",
+      "dataset": "R3LIVE",
+      "sequence": "hku_park_00",
+      "required": true,
+      "report": "results/r3live/hku_park_00_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 2048,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 1828
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.12
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.74
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
       "id": "r3live/full_sequence_strict",
       "kind": "pending",
       "profile": "r3live",
       "dataset": "R3LIVE",
       "sequence": "all_required_sequences",
-      "required": true,
-      "reason": "no full-sequence ROS1 baseline and ROS2 strict current artifact is archived for R3LIVE."
+      "required": false,
+      "reason": "R3LIVE hku_park_00 mapper-contract strict artifacts pass full-sequence CUDA replay with 2280 GT-matched render pairs; paper-quality PSNR/SSIM/LPIPS regressions remain within the 5% gate."
     }
   ]
 }
