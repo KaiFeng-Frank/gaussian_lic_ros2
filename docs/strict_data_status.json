@@ -52,14 +52,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 118999580672,
-    "free_gb": 110.82699584960938,
+    "free_bytes": 112315523072,
+    "free_gb": 104.60198211669922,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 835697635328
+    "used_bytes": 842381692928
   },
   "disk_ok": true,
-  "generated_at": "2026-05-08T00:55:34+00:00",
+  "generated_at": "2026-05-08T01:13:07+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
@@ -501,7 +501,7 @@
       "reference_ok": true,
       "required_sequences": [
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -512,9 +512,7 @@
               "path": "/home/frank/data/m2dgr/room_01_frontend_raw"
             }
           ],
-          "missing": [
-            "ros1_baseline_artifacts"
-          ],
+          "missing": [],
           "native_reference_trajectory": [
             {
               "bytes": 487151,
@@ -531,7 +529,7 @@
               "path": "/home/frank/data/m2dgr/room_01/room_01_gt.txt"
             }
           ],
-          "ok": false,
+          "ok": true,
           "raw_ok": true,
           "raw_ros1_bag": [
             {
@@ -540,6 +538,13 @@
               "is_dir": false,
               "is_file": true,
               "path": "/home/frank/data/m2dgr/room_01/room_01.bag"
+            },
+            {
+              "bytes": 1757498421,
+              "exists": true,
+              "is_dir": false,
+              "is_file": true,
+              "path": "/home/frank/data/m2dgr/room_01_mapper_contract_m2dgr_color.bag"
             }
           ],
           "reference_ok": true,
@@ -547,8 +552,21 @@
             "/home/frank/data/m2dgr",
             "/home/frank/data/M2DGR"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01"
+            }
+          ],
           "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current"
+            },
             {
               "exists": true,
               "is_dir": true,
@@ -590,12 +608,6 @@
               "is_dir": true,
               "is_file": false,
               "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_gated_20s"
-            },
-            {
-              "exists": true,
-              "is_dir": true,
-              "is_file": false,
-              "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_gated_30s"
             }
           ],
           "sequence": "room_01",
@@ -969,8 +981,8 @@
       "mcd/full_sequence_strict",
       "r3live/full_sequence_strict"
     ],
-    "required_count": 10,
-    "required_non_pending_count": 6,
-    "required_non_pending_fraction": 0.6
+    "required_count": 11,
+    "required_non_pending_count": 7,
+    "required_non_pending_fraction": 0.6363636363636364
   }
 }

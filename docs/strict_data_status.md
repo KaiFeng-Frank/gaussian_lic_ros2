@@ -1,9 +1,9 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T00:55:34+00:00`
+Generated: `2026-05-08T01:13:07+00:00`
 Data root: `/home/frank/data`
-Disk free: `110.83 GiB` (minimum requested `100.00 GiB`) - PASS
-Strict evidence currently materialized: `6/10`
+Disk free: `104.60 GiB` (minimum requested `100.00 GiB`) - PASS
+Strict evidence currently materialized: `7/11`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`
 Native reference trajectories local: `INCOMPLETE`
@@ -52,10 +52,11 @@ Native reference trajectories local: `INCOMPLETE`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo2/Retail_Street_native_tracking_scan_order_60s`
 
 ### m2dgr
-- `room_01`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=PASS); missing: ros1_baseline_artifacts
+- `room_01`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/m2dgr/room_01/room_01.bag`
   - frontend_raw_rosbag2: `/home/frank/data/m2dgr/room_01_frontend_raw`
-  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_20s`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_01/room_01_gt.tum`
 - `room_02`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=PASS); missing: ros1_baseline_artifacts
   - raw_ros1_bag: `/home/frank/data/m2dgr/room_02/room_02.bag`
