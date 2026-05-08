@@ -1,9 +1,9 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T02:04:39+00:00`
+Generated: `2026-05-08T04:07:47+00:00`
 Data root: `/home/frank/data`
-Disk free: `107.68 GiB` (minimum requested `100.00 GiB`) - PASS
-Strict evidence currently materialized: `9/12`
+Disk free: `106.88 GiB` (minimum requested `100.00 GiB`) - PASS
+Strict evidence currently materialized: `10/12`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`
 Native reference trajectories local: `INCOMPLETE`
@@ -13,7 +13,7 @@ Native reference trajectories local: `INCOMPLETE`
 | `fastlivo` | FAST-LIVO | PASS | PASS | PASS | PASS | MISS | MISSING | native_reference_trajectory |
 | `fastlivo2` | FAST-LIVO2 | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 | `m2dgr` | M2DGR | PASS | PASS | PASS | PASS | PASS | PASS | none |
-| `mcd` | MCD | PASS | PASS | MISS | PASS | PASS | MISSING | ros1_baseline_artifacts |
+| `mcd` | MCD | PASS | PASS | PASS | PASS | PASS | PASS | none |
 | `r3live` | R3LIVE | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
 
 ## Sequence Detail
@@ -72,10 +72,11 @@ Native reference trajectories local: `INCOMPLETE`
   - native_reference_trajectory: `/home/frank/data/m2dgr/room_03/room_03_gt.tum`
 
 ### mcd
-- `ntu_day_01`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=PASS); missing: ros1_baseline_artifacts
+- `ntu_day_01`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_d435i.bag`
   - frontend_raw_rosbag2: `/home/frank/data/mcd/ntu_day_01_frontend_raw`
-  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/mcd/ntu_day_01_native_tracking_scan_order_60s`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/mcd/ntu_day_01`
+  - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/mcd/ntu_day_01_strict_current`
   - native_reference_trajectory: `/home/frank/data/mcd/ntu_day_01/groundtruth/pose_inW.tum`
   - raw_component_camera_d435i: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_d435i.bag`
   - raw_component_lidar_mid70: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_mid70.bag`

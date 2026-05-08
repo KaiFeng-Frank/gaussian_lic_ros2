@@ -1,0 +1,4282 @@
+{
+  "baseline_dir": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01",
+  "baseline_manifest": {
+    "artifacts": {
+      "metrics.json": {
+        "bytes": 302811,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/metrics.json",
+        "sha256": "2c17952253b2cacaace99fbf128b0addb5565e7d8c921374d561a687561fee3c"
+      },
+      "point_cloud.ply": {
+        "bytes": 20702688,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/point_cloud.ply",
+        "sha256": "01925b6f48db6b8239792442c146c67aa37f21946aa0a536a466d8045bf84346"
+      },
+      "run.log": {
+        "bytes": 16908,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/run.log",
+        "sha256": "9606c933bd7c916107ef1548c7db9b9ebbc7b5b295f988d8005d9e411fe78732"
+      },
+      "trajectory.tum": {
+        "bytes": 75064,
+        "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/trajectory.tum",
+        "sha256": "801a28e685d86f537ae9a60b665dd0f79baa02af884fa36bb6629b735d13c882"
+      }
+    },
+    "baseline_dir": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01",
+    "dataset": "m2dgr",
+    "errors": [],
+    "ok": true,
+    "renders": {
+      "bytes": 3804327,
+      "file_count": 701,
+      "files": [
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0000.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0001.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0002.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0003.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0005.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0006.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0007.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0008.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0010.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0011.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0012.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0013.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0015.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0016.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0017.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0018.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0020.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0021.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0022.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0023.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0025.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0026.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0027.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0028.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0030.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0031.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0032.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0033.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0035.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0036.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0037.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0038.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0040.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0041.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0042.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0043.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0045.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0046.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0047.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0048.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0050.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0051.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0052.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0053.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0055.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0056.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0057.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0058.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0060.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0061.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0062.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0063.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0065.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0066.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0067.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0068.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0070.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0071.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0072.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0073.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0075.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0076.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0077.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0078.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0080.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0081.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0082.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0083.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0085.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0086.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0087.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0088.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0090.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0091.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0092.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0093.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0095.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0096.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0097.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0098.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0100.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0101.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0102.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0103.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0105.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0106.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0107.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0108.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0110.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0111.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0112.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0113.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0115.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0116.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0117.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0118.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0120.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0121.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0122.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0123.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0125.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0126.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0127.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0128.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0130.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0131.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0132.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0133.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0135.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0136.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0137.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0138.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0140.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0141.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0142.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0143.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0145.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0146.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0147.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0148.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0150.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0151.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0152.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0153.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0155.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0156.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0157.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0158.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0160.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0161.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0162.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0163.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0165.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0166.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0167.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0168.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0170.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0171.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0172.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0173.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0175.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0176.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0177.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0178.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0180.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0181.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0182.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0183.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0185.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0186.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0187.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0188.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0190.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0191.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0192.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0193.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0195.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0196.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0197.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0198.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0200.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0201.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0202.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0203.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0205.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0206.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0207.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0208.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0210.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0211.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0212.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0213.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0215.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0216.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0217.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0218.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0220.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0221.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0222.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0223.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0225.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0226.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0227.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0228.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0230.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0231.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0232.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0233.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0235.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0236.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0237.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0238.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0240.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0241.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0242.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0243.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0245.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0246.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0247.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0248.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0250.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0251.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0252.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0253.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0255.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0256.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0257.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0258.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0260.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0261.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0262.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0263.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0265.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0266.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0267.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0268.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0270.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0271.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0272.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0273.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0275.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0276.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0277.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0278.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0280.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0281.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0282.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0283.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0285.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0286.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0287.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0288.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0290.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0291.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0292.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0293.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0295.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0296.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0297.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0298.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0300.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0301.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0302.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0303.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0305.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0306.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0307.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0308.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0310.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0311.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0312.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0313.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0315.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0316.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0317.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0318.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0320.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0321.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0322.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0323.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0325.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0326.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0327.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0328.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0330.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0331.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0332.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0333.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0335.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0336.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0337.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0338.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0340.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0341.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0342.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0343.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0345.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0346.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0347.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0348.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0350.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0351.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0352.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0353.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0355.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0356.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0357.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0358.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0360.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0361.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0362.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0363.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0365.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0366.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0367.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0368.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0370.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0371.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0372.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0373.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0375.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0376.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0377.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0378.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0380.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0381.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0382.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0383.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0385.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0386.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0387.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0388.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0390.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0391.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0392.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0393.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0395.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0396.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0397.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0398.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0400.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0401.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0402.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0403.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0405.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0406.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0407.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0408.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0410.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0411.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0412.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0413.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0415.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0416.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0417.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0418.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0420.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0421.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0422.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0423.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0425.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0426.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0427.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0428.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0430.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0431.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0432.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0433.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0435.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0436.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0437.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0438.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0440.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0441.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0442.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0443.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0445.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0446.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0447.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0448.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0450.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0451.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0452.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0453.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0455.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0456.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0457.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0458.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0460.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0461.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0462.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0463.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0465.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0466.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0467.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0468.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0470.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0471.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0472.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0473.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0475.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0476.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0477.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0478.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0480.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0481.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0482.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0483.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0485.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0486.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0487.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0488.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0490.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0491.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0492.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0493.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0495.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0496.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0497.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0498.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0500.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0501.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0502.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0503.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0505.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0506.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0507.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0508.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0510.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0511.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0512.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0513.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0515.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0516.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0517.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0518.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0520.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0521.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0522.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0523.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0525.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0526.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0527.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0528.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0530.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0531.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0532.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0533.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0535.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0536.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0537.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0538.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0540.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0541.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0542.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0543.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0545.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0546.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0547.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0548.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0550.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0551.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0552.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0553.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0555.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0556.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0557.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0558.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0560.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0561.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0562.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0563.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0565.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0566.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0567.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0568.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0570.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0571.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0572.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0573.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0575.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0576.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0577.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0578.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0580.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0581.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0582.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0583.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0585.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0586.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0587.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0588.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0590.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0591.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0592.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0593.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0595.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0596.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0597.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0598.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0600.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0601.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0602.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0603.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0605.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0606.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0607.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0608.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0610.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0611.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0612.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0613.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0615.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0616.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0617.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0618.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0620.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0621.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0622.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0623.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0625.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0626.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0627.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0628.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0630.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0631.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0632.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0633.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0635.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0636.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0637.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0638.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0640.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0641.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0642.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0643.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0645.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0646.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0647.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0648.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0650.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0651.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0652.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0653.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0655.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0656.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0657.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0658.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0660.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0661.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0662.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0663.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0665.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0666.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0667.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0668.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0670.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0671.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0672.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0673.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0675.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0676.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0677.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0678.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0680.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0681.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0682.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0683.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0685.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0686.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0687.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0688.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0690.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0691.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0692.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0693.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0695.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0696.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0697.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0698.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0700.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0004.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0009.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0014.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0019.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0024.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0029.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0034.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0039.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0044.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0049.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0054.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0059.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0064.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0069.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0074.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0079.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0084.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0089.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0094.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0099.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0104.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0109.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0114.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0119.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0124.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0129.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0134.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0139.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0144.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0149.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0154.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0159.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0164.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0169.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0174.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0179.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0184.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0189.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0194.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0199.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0204.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0209.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0214.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0219.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0224.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0229.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0234.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0239.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0244.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0249.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0254.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0259.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0264.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0269.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0274.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0279.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0284.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0289.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0294.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0299.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0304.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0309.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0314.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0319.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0324.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0329.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0334.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0339.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0344.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0349.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0354.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0359.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0364.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0369.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0374.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0379.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0384.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0389.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0394.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0399.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0404.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0409.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0414.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0419.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0424.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0429.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0434.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0439.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0444.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0449.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0454.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0459.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0464.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0469.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0474.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0479.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0484.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0489.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0494.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0499.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0504.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0509.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0514.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0519.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0524.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0529.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0534.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0539.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0544.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0549.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0554.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0559.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0564.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0569.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0574.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0579.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0584.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0589.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0594.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0599.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0604.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0609.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0614.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0619.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0624.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0629.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0634.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0639.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0644.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0649.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0654.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0659.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0664.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0669.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0674.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0679.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0684.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0689.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0694.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        },
+        {
+          "bytes": 5427,
+          "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0699.jpg",
+          "sha256": "804d5dcd9e5f52eff21899cd4359cb9a2b06fa14df9b8719319f171d23c3c195"
+        }
+      ],
+      "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders"
+    },
+    "required_files": [
+      "trajectory.tum",
+      "point_cloud.ply",
+      "metrics.json",
+      "run.log"
+    ],
+    "schema": "gaussian_lic_baseline_manifest/v1",
+    "sequence": "room_01",
+    "summary": {
+      "metrics_keys": [
+        "bag",
+        "bag_format",
+        "debug_cloud",
+        "debug_points",
+        "duration_sec",
+        "message_count",
+        "outputs",
+        "pointcloud_topic",
+        "pose_topic",
+        "quality",
+        "run_log",
+        "runtime",
+        "schema",
+        "sequence",
+        "storage_identifier",
+        "topic_counts",
+        "topic_hz",
+        "tracking_status",
+        "tracking_status_topic",
+        "trajectory",
+        "trajectory_poses"
+      ],
+      "point_cloud_vertices": 87717,
+      "trajectory_poses": 701
+    }
+  },
+  "current_dir": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current",
+  "dataset": "m2dgr",
+  "gaussian_color": {
+    "errors": [],
+    "ok": true,
+    "skipped": true
+  },
+  "metrics": {
+    "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/metrics.json",
+    "comparisons": [],
+    "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/metrics.json",
+    "errors": [],
+    "ok": true,
+    "skipped": [
+      {
+        "key": "tracking_hz",
+        "reason": "'tracking_hz'"
+      },
+      {
+        "key": "mapping_hz",
+        "reason": "'mapping_hz'"
+      },
+      {
+        "key": "mean_iteration_ms",
+        "reason": "'mean_iteration_ms'"
+      }
+    ]
+  },
+  "novel_view_quality": {
+    "errors": [],
+    "max_regression": 0.05,
+    "metrics": {
+      "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/metrics.json",
+      "comparisons": [
+        {
+          "baseline": 5.296169964609738,
+          "baseline_key": "quality.novel_psnr",
+          "current": 5.296537906502538,
+          "current_key": "quality.novel_psnr",
+          "direction": "higher_is_better",
+          "key": "novel_psnr",
+          "max_regression": 0.05,
+          "ok": true,
+          "regression": -6.947320332592388e-05
+        },
+        {
+          "baseline": 0.001792445377361272,
+          "baseline_key": "quality.novel_ssim",
+          "current": 0.0017949280935240087,
+          "current_key": "quality.novel_ssim",
+          "direction": "higher_is_better",
+          "key": "novel_ssim",
+          "max_regression": 0.05,
+          "ok": true,
+          "regression": -0.0013851000393617034
+        },
+        {
+          "baseline": 0.7338056317837693,
+          "baseline_key": "quality.novel_lpips",
+          "current": 0.7341296355639185,
+          "current_key": "quality.novel_lpips",
+          "direction": "lower_is_better",
+          "key": "novel_lpips",
+          "max_regression": 0.05,
+          "ok": true,
+          "regression": 0.000441538966335787
+        }
+      ],
+      "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/metrics.json",
+      "errors": [],
+      "ok": true,
+      "skipped": []
+    },
+    "ok": true,
+    "render_pairs": {
+      "baseline_dir": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders",
+      "baseline_image_count": 701,
+      "current_dir": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders",
+      "current_image_count": 700,
+      "errors": [],
+      "matched_pair_count": 700,
+      "matching": {
+        "baseline_gt_dir": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/upstream_result/gt",
+        "current_gt_dir": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/gt",
+        "matched_gt_count": 700,
+        "mode": "decoded_gt_hash",
+        "unmatched_current_gt_count": 0
+      },
+      "max_failure_ratio": 0.1,
+      "max_pairs": 64,
+      "min_mean_psnr_db": 20.0,
+      "min_mean_ssim": 0.75,
+      "min_pairs": 1,
+      "min_psnr_db": 15.0,
+      "min_ssim": 0.4,
+      "ok": true,
+      "pair_failures": [],
+      "pairs": [
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0001.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0000.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0012.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0011.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0023.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0022.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0034.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0033.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0045.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0044.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0056.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0055.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0068.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0067.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0079.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0078.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0090.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0089.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0101.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0100.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0112.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0111.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0123.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0122.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0134.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0133.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0145.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0144.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0156.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0155.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0167.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0166.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0179.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0178.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0190.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0189.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0201.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0200.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0212.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0211.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0223.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0222.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0234.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0233.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0245.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0244.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0256.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0255.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0267.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0266.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0278.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0277.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0289.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0288.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0301.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0300.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0312.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0311.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0323.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0322.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0334.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0333.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0345.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0344.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0356.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0355.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0367.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0366.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0378.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0377.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0389.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0388.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0400.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0399.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0412.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0411.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0423.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0422.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0434.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0433.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0445.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0444.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0456.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0455.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0467.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0466.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0478.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0477.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0489.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0488.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0500.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0499.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0511.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0510.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0522.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0521.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0534.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0533.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0545.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0544.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0556.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0555.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0567.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0566.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0578.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0577.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0589.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0588.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0600.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0599.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0611.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0610.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0622.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0621.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0633.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0632.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0645.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0644.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0656.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0655.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0667.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0666.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0678.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0677.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/train_0689.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/test_0688.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        },
+        {
+          "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/renders/test_0700.jpg",
+          "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/renders/train_0699.jpg",
+          "ok": true,
+          "psnr_db": Infinity,
+          "ssim": 1.0
+        }
+      ],
+      "sampled_pair_count": 64,
+      "sampling": "evenly_spaced_full_sequence",
+      "summary": {
+        "evaluated_pairs": 64,
+        "failed_pair_count": 0,
+        "failed_pair_ratio": 0.0,
+        "mean_psnr_db": Infinity,
+        "mean_ssim": 1.0,
+        "min_psnr_db": Infinity,
+        "min_ssim": 1.0
+      }
+    },
+    "strict": true
+  },
+  "ok": true,
+  "point_cloud": {
+    "alignment": {
+      "current_offset_removed": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mode": "none"
+    },
+    "baseline": {
+      "bounds": {
+        "max": [
+          10.633903503417969,
+          13.361603736877441,
+          2.594660997390747
+        ],
+        "min": [
+          -11.962860107421875,
+          -2.9746298789978027,
+          0.006673986092209816
+        ]
+      },
+      "centroid": [
+        -0.34748293852306067,
+        0.37801570616458186,
+        0.3424172678320255
+      ],
+      "declared_vertices": 87717,
+      "downsampled_points": 11968,
+      "has_rgb": false,
+      "loaded_points": 87717,
+      "path": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/point_cloud.ply"
+    },
+    "centroid_drift_m": 0.003493577634242295,
+    "color": {
+      "baseline_mean_rgb": [],
+      "compared": false,
+      "current_mean_rgb": [],
+      "mean_rgb_distance": 0.0
+    },
+    "count_ratio": 0.9120238950260496,
+    "current": {
+      "bounds": {
+        "max": [
+          10.6336069,
+          13.3214779,
+          2.594877
+        ],
+        "min": [
+          -11.9627714,
+          -2.97495103,
+          0.00665810797
+        ]
+      },
+      "centroid": [
+        -0.34464488987811964,
+        0.37599396583930933,
+        0.34266852593158315
+      ],
+      "declared_vertices": 80000,
+      "downsampled_points": 11622,
+      "has_rgb": false,
+      "loaded_points": 80000,
+      "path": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/point_cloud.ply"
+    },
+    "declared_count_ratio": 0.9120238950260496,
+    "errors": [],
+    "loaded_count_ratio": 0.9120238950260496,
+    "nearest": {
+      "bidirectional": {
+        "max_m": 0.3820564583903555,
+        "mean_m": 0.004091651469020614,
+        "median_m": 0.0019035367635179604,
+        "rmse_m": 0.010317393753072258,
+        "unmatched": 0,
+        "unmatched_ratio": 0.0
+      },
+      "forward": {
+        "max_m": 0.3820564583903555,
+        "mean_m": 0.004620056043967401,
+        "median_m": 0.0019529263411017343,
+        "rmse_m": 0.012186729287961266,
+        "unmatched": 0
+      },
+      "reverse": {
+        "max_m": 0.2511870875055591,
+        "mean_m": 0.003547515696093137,
+        "median_m": 0.0018465887512434903,
+        "rmse_m": 0.0079453415646276,
+        "unmatched": 0
+      }
+    },
+    "ok": true,
+    "thresholds": {
+      "max_centroid_drift_m": 0.2,
+      "max_chamfer_max_m": 0.5,
+      "max_chamfer_mean_m": 0.1,
+      "max_chamfer_rmse_m": 0.15,
+      "max_count_ratio": 2.0,
+      "max_mean_rgb_drift": 40.0,
+      "max_nearest_m": 0.5,
+      "max_unmatched_ratio": 0.05,
+      "min_count_ratio": 0.5
+    },
+    "voxel_size_m": 0.05
+  },
+  "schema": "gaussian_lic_reproduction_report/v1",
+  "sequence": "room_01",
+  "strict": true,
+  "trajectory": {
+    "alignment": "none",
+    "alignment_details": {},
+    "baseline": "/home/frank/gaussian_lic_ros2/baseline/m2dgr/room_01/trajectory.tum",
+    "baseline_poses": 701,
+    "coverage": 0.9985734664764622,
+    "current": "/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_strict_current/trajectory.tum",
+    "current_poses": 700,
+    "errors": [],
+    "matched_poses": 700,
+    "max_association_dt_sec": 0.02,
+    "ok": true,
+    "path_length": {
+      "absolute_drift_m": 0.0,
+      "baseline_m": 0.0,
+      "current_m": 0.0,
+      "relative_drift": 0.0
+    },
+    "thresholds": {
+      "max_error_m": 0.15,
+      "max_mean_m": 0.03,
+      "max_path_drift": 0.05,
+      "max_rmse_m": 0.05,
+      "min_coverage": 0.8,
+      "min_matches": 2
+    },
+    "translation": {
+      "max_m": 0.0,
+      "mean_m": 0.0,
+      "median_m": 0.0,
+      "rmse_m": 0.0
+    }
+  }
+}

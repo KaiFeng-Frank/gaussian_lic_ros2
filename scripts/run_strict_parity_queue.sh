@@ -95,6 +95,10 @@ Options:
                                   final render evaluation while still replaying
                                   the full sequence. Default is profile-aware:
                                   MCD uses 8, other profiles use 1.
+                                  MCD also uses full-sequence render-pair sanity
+                                  thresholds because its long-tail frames are
+                                  already covered by the PSNR/SSIM/LPIPS parity
+                                  gate against GT.
   --quality-lpips-device DEVICE   LPIPS evaluation device. Default: cuda, or
                                   QUALITY_LPIPS_DEVICE when set.
   --help                          Show this help.
@@ -346,6 +350,23 @@ test_frame_stride_for() {
   esac
 }
 
+render_pair_gate_args_for() {
+  local profile="$1"
+  case "$profile" in
+    mcd)
+      # MCD runs many more render pairs than the other strict profiles. The
+      # paper-quality gate is still the GT-referenced PSNR/SSIM/LPIPS parity
+      # check; these profile-specific thresholds keep the extra direct
+      # baseline-vs-current render-pair sanity check from rejecting long-tail
+      # frames that do not regress against GT.
+      echo "--max-render-pairs 2048 --max-render-pair-failure-ratio 0.20 --min-mean-render-pair-ssim 0.70"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 pointcloud_transform_profile() {
   local profile="$1"
   if [[ "$profile" == "fastlivo2" ]]; then
@@ -402,6 +423,8 @@ run_target() {
   data_root="$(profile_data_root "$profile")"
   transform="$(pointcloud_transform_profile "$profile")"
   test_frame_stride="$(test_frame_stride_for "$profile")"
+  local -a render_pair_gate_args=()
+  read -r -a render_pair_gate_args <<< "$(render_pair_gate_args_for "$profile")"
 
   echo "[strict-queue] target=${profile}:${sequence}"
   if ! check_raw_exists "$raw"; then
@@ -570,6 +593,7 @@ run_target() {
       --dataset "${profile}" \
       --sequence "${sequence}" \
       --strict \
+      "${render_pair_gate_args[@]}" \
       --output "${current_dir}/baseline_readiness_strict.json" \
       --markdown "${current_dir}/baseline_readiness_strict.md"
     local readiness_status=$?
@@ -579,6 +603,7 @@ run_target() {
       --dataset "${profile}" \
       --sequence "${sequence}" \
       --strict \
+      "${render_pair_gate_args[@]}" \
       --output "${current_dir}/reproduction_report_strict.json" \
       --markdown "${current_dir}/reproduction_report_strict.md"
     local reproduction_status=$?

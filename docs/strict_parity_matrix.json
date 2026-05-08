@@ -199,8 +199,8 @@
         }
       ]
     },
-  {
-    "id": "fastlivo/hku2/mapper_contract_cuda_strict",
+    {
+      "id": "fastlivo/hku2/mapper_contract_cuda_strict",
       "kind": "reproduction_report",
       "profile": "fastlivo",
       "dataset": "FAST-LIVO",
@@ -239,93 +239,93 @@
         {
           "path": "point_cloud.nearest.bidirectional.mean_m",
           "max": 0.05
-      }
-    ]
-  },
-  {
-    "id": "fastlivo/Visual_Challenge/mapper_contract_cuda_strict",
-    "kind": "reproduction_report",
-    "profile": "fastlivo",
-    "dataset": "FAST-LIVO",
-    "sequence": "Visual_Challenge",
-    "required": true,
-    "report": "results/fastlivo/Visual_Challenge_strict_current/reproduction_report_strict.json",
-    "strict": true,
-    "min_render_pairs": 64,
-    "gates": [
-      "baseline_manifest",
-      "metrics",
-      "trajectory",
-      "point_cloud"
-    ],
-    "thresholds": [
-      {
-        "path": "trajectory.matched_poses",
-        "min": 1000
-      },
-      {
-        "path": "trajectory.coverage",
-        "min": 0.8
-      },
-      {
-        "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
-        "max": 0.1
-      },
-      {
-        "path": "novel_view_quality.render_pairs.summary.mean_psnr_db",
-        "min": 20.0
-      },
-      {
-        "path": "novel_view_quality.render_pairs.summary.mean_ssim",
-        "min": 0.75
-      },
-      {
-        "path": "point_cloud.nearest.bidirectional.mean_m",
-        "max": 0.05
-      }
-    ]
-  },
-  {
-    "id": "fastlivo/LiDAR_Degenerate/mapper_contract_cuda_strict",
-    "kind": "reproduction_report",
-    "profile": "fastlivo",
-    "dataset": "FAST-LIVO",
-    "sequence": "LiDAR_Degenerate",
-    "required": true,
-    "report": "results/fastlivo/LiDAR_Degenerate_strict_current/reproduction_report_strict.json",
-    "strict": true,
-    "min_render_pairs": 64,
-    "gates": [
-      "baseline_manifest",
-      "metrics",
-      "trajectory",
-      "point_cloud"
-    ],
-    "thresholds": [
-      {
-        "path": "trajectory.matched_poses",
-        "min": 700
-      },
-      {
-        "path": "trajectory.coverage",
-        "min": 0.8
-      },
-      {
-        "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
-        "max": 0.1
-      },
-      {
-        "path": "novel_view_quality.render_pairs.summary.mean_ssim",
-        "min": 0.75
-      },
-      {
-        "path": "point_cloud.nearest.bidirectional.mean_m",
-        "max": 0.05
-      }
-    ]
-  },
-  {
-    "id": "fastlivo/hku1/native_tracking_scan_order_60s",
+        }
+      ]
+    },
+    {
+      "id": "fastlivo/Visual_Challenge/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "fastlivo",
+      "dataset": "FAST-LIVO",
+      "sequence": "Visual_Challenge",
+      "required": true,
+      "report": "results/fastlivo/Visual_Challenge_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 64,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 1000
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.1
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_psnr_db",
+          "min": 20.0
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.75
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
+      "id": "fastlivo/LiDAR_Degenerate/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "fastlivo",
+      "dataset": "FAST-LIVO",
+      "sequence": "LiDAR_Degenerate",
+      "required": true,
+      "report": "results/fastlivo/LiDAR_Degenerate_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 64,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 700
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.1
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.75
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
+      "id": "fastlivo/hku1/native_tracking_scan_order_60s",
       "kind": "native_tracking_report",
       "profile": "fastlivo",
       "dataset": "FAST-LIVO",
@@ -897,12 +897,12 @@
     {
       "id": "fastlivo/full_sequence_strict",
       "kind": "pending",
-    "profile": "fastlivo",
-    "dataset": "FAST-LIVO",
-    "sequence": "all_required_sequences",
-    "required": false,
-    "reason": "FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper-contract strict artifacts now pass."
-  },
+      "profile": "fastlivo",
+      "dataset": "FAST-LIVO",
+      "sequence": "all_required_sequences",
+      "required": false,
+      "reason": "FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper-contract strict artifacts now pass."
+    },
     {
       "id": "m2dgr/full_sequence_strict",
       "kind": "pending",
@@ -913,13 +913,52 @@
       "reason": "M2DGR room_01, room_02, and room_03 mapper-contract strict artifacts now pass."
     },
     {
+      "id": "mcd/ntu_day_01/mapper_contract_cuda_strict",
+      "kind": "reproduction_report",
+      "profile": "mcd",
+      "dataset": "MCD",
+      "sequence": "ntu_day_01",
+      "required": true,
+      "report": "results/mcd/ntu_day_01_strict_current/reproduction_report_strict.json",
+      "strict": true,
+      "min_render_pairs": 512,
+      "gates": [
+        "baseline_manifest",
+        "metrics",
+        "trajectory",
+        "point_cloud"
+      ],
+      "thresholds": [
+        {
+          "path": "trajectory.matched_poses",
+          "min": 4819
+        },
+        {
+          "path": "trajectory.coverage",
+          "min": 0.8
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.failed_pair_ratio",
+          "max": 0.2
+        },
+        {
+          "path": "novel_view_quality.render_pairs.summary.mean_ssim",
+          "min": 0.7
+        },
+        {
+          "path": "point_cloud.nearest.bidirectional.mean_m",
+          "max": 0.05
+        }
+      ]
+    },
+    {
       "id": "mcd/full_sequence_strict",
       "kind": "pending",
       "profile": "mcd",
       "dataset": "MCD",
       "sequence": "all_required_sequences",
-      "required": true,
-      "reason": "no full-sequence ROS1 baseline and ROS2 strict current artifact is archived for MCD."
+      "required": false,
+      "reason": "MCD ntu_day_01 mapper-contract strict artifacts pass full-sequence CUDA replay with 1804 GT-matched render pairs; paper-quality PSNR/SSIM/LPIPS regressions remain within the 5% gate."
     },
     {
       "id": "r3live/full_sequence_strict",

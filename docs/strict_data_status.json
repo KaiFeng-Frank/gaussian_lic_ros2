@@ -52,14 +52,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 115624857600,
-    "free_gb": 107.68404006958008,
+    "free_bytes": 114762555392,
+    "free_gb": 106.8809585571289,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 839072358400
+    "used_bytes": 839934660608
   },
   "disk_ok": true,
-  "generated_at": "2026-05-08T02:04:39+00:00",
+  "generated_at": "2026-05-08T04:07:47+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,
@@ -771,19 +771,17 @@
       ]
     },
     "mcd": {
-      "baseline_ok": false,
+      "baseline_ok": true,
       "current_ok": true,
       "dataset": "MCD",
       "frontend_ok": true,
-      "missing": [
-        "ros1_baseline_artifacts"
-      ],
-      "ok": false,
+      "missing": [],
+      "ok": true,
       "raw_ok": true,
       "reference_ok": true,
       "required_sequences": [
         {
-          "baseline_ok": false,
+          "baseline_ok": true,
           "current_ok": true,
           "frontend_ok": true,
           "frontend_raw_rosbag2": [
@@ -794,9 +792,7 @@
               "path": "/home/frank/data/mcd/ntu_day_01_frontend_raw"
             }
           ],
-          "missing": [
-            "ros1_baseline_artifacts"
-          ],
+          "missing": [],
           "native_reference_trajectory": [
             {
               "bytes": 772418,
@@ -820,7 +816,7 @@
               "path": "/home/frank/data/mcd/ntu_day_01/groundtruth/spline.csv"
             }
           ],
-          "ok": false,
+          "ok": true,
           "raw_ok": true,
           "raw_ros1_bag": [
             {
@@ -871,8 +867,21 @@
             "/home/frank/data/mcd",
             "/home/frank/data/MCD"
           ],
-          "ros1_baseline_artifacts": [],
+          "ros1_baseline_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/baseline/mcd/ntu_day_01"
+            }
+          ],
           "ros2_current_artifacts": [
+            {
+              "exists": true,
+              "is_dir": true,
+              "is_file": false,
+              "path": "/home/frank/gaussian_lic_ros2/results/mcd/ntu_day_01_strict_current"
+            },
             {
               "exists": true,
               "is_dir": true,
@@ -1008,14 +1017,13 @@
   "strict_parity_matrix": {
     "exists": true,
     "path": "/home/frank/gaussian_lic_ros2/docs/strict_parity_matrix.json",
-    "pending_required_count": 3,
+    "pending_required_count": 2,
     "pending_required_ids": [
       "fastlivo2/CBD_Building_01/native_tracking_reference_parity",
-      "mcd/full_sequence_strict",
       "r3live/full_sequence_strict"
     ],
     "required_count": 12,
-    "required_non_pending_count": 9,
-    "required_non_pending_fraction": 0.75
+    "required_non_pending_count": 10,
+    "required_non_pending_fraction": 0.8333333333333334
   }
 }
