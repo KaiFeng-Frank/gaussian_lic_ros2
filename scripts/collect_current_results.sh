@@ -22,6 +22,7 @@ TORCH_DEVICE="cpu"
 ENABLE_TORCH_DENSIFICATION=false
 FINAL_RENDER_EVAL=false
 PUBLISH_GAUSSIAN_MAP=true
+TEST_FRAME_STRIDE=1
 FRONTEND_ADAPTER=false
 IDENTITY_POSE_FALLBACK=false
 IMU_POSE_FALLBACK=false
@@ -88,6 +89,8 @@ Options:
   --torch-densification        Enable gradient-aware Gaussian densification in the Torch backend.
   --final-render-eval          Save final-map train/test renders during SaveMap instead of using live preview frames.
   --no-publish-gaussian-map    Disable high-rate GaussianArray visualization publication/recording.
+  --test-frame-stride N        Store every Nth non-keyframe test camera for final render evaluation.
+                               Keyframes and point clouds are still processed. Default: 1.
   --frontend-adapter           Route raw frontend topics through lic2_contract_adapter.
   --identity-pose-fallback     Let the frontend adapter publish identity poses from point-cloud stamps.
   --imu-pose-fallback          Let the frontend adapter integrate IMU gyro orientation for pose fallback.
@@ -210,6 +213,10 @@ while [[ $# -gt 0 ]]; do
     --no-publish-gaussian-map)
       PUBLISH_GAUSSIAN_MAP=false
       shift
+      ;;
+    --test-frame-stride)
+      TEST_FRAME_STRIDE="$2"
+      shift 2
       ;;
     --frontend-adapter)
       FRONTEND_ADAPTER=true
@@ -377,6 +384,7 @@ launch_args=(
   publish_tf:="${PUBLISH_TF}"
   require_depth_topic:="${REQUIRE_DEPTH_TOPIC}"
   render_mode:="${RENDER_MODE}"
+  test_frame_stride:="${TEST_FRAME_STRIDE}"
 )
 if [[ "${LIVOX_CUSTOM_BRIDGE}" == "true" ]]; then
   launch_args+=(adapter_raw_pointcloud_topic:="${LIVOX_POINTCLOUD_TOPIC}")
@@ -714,7 +722,7 @@ fi
 cp "${OUTPUT_DIR}/offline/trajectory.tum" "${OUTPUT_DIR}/trajectory.tum"
 cp "${SAVED_MAP_DIR}/point_cloud.ply" "${OUTPUT_DIR}/point_cloud.ply"
 
-python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" "${ADAPTER_POINTCLOUD_FILTER_MIN_Z}" "${ADAPTER_POINTCLOUD_FILTER_MAX_Z}" "${ADAPTER_POINTCLOUD_FILTER_MIN_POINTS}" "${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}" "${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}" "${ADAPTER_VISUAL_SYNC_POLICY}" <<'PY'
+python3 - "${OUTPUT_DIR}" "${BAG_PATH}" "${RENDER_MODE}" "${ENABLE_TORCH}" "${FRONTEND_ADAPTER}" "${RECORD_SEC}" "${TORCH_OPTIMIZATION_STEPS}" "${IMU_POSE_FALLBACK}" "${TORCH_MAX_FOREGROUND}" "${TORCH_PRUNE_MIN_OPACITY}" "${POINTCLOUD_TRANSFORM_PROFILE}" "${SYNC_IMAGE_TO_POINTCLOUD}" "${PLAY_RATE}" "${LOOP_PLAYBACK}" "${POST_PLAY_SETTLE_SEC}" "${TORCH_DEVICE}" "${FINAL_RENDER_EVAL}" "${ENABLE_TORCH_DENSIFICATION}" "${ROTATE_POINTCLOUD_WITH_IMU_POSE}" "${PUBLISH_GAUSSIAN_MAP}" "${TORCH_PRUNE_COUNT_POLICY}" "${TORCH_EXTEND_VISIBILITY_FILTER}" "${TORCH_EXTEND_ALPHA_THRESHOLD}" "${PYTORCH_CUDA_ALLOC_CONF:-}" "${TORCH_OPACITY_RESET_INTERVAL}" "${TORCH_PRUNE_MAX_WORLD_SCALE}" "${TORCH_OPTIMIZATION_SAMPLING}" "${TORCH_OPTIMIZATION_SEED}" "${ADAPTER_POINTCLOUD_FILTER_MIN_Z}" "${ADAPTER_POINTCLOUD_FILTER_MAX_Z}" "${ADAPTER_POINTCLOUD_FILTER_MIN_POINTS}" "${ADAPTER_POINTCLOUD_USE_STAMP_IMU_ORIENTATION}" "${ADAPTER_IMU_ORIENTATION_HISTORY_SIZE}" "${ADAPTER_VISUAL_SYNC_POLICY}" "${TEST_FRAME_STRIDE}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -763,6 +771,7 @@ metrics.update(
         "adapter_pointcloud_use_stamp_imu_orientation": sys.argv[32] == "true",
         "adapter_imu_orientation_history_size": int(sys.argv[33]),
         "adapter_visual_sync_policy": sys.argv[34],
+        "test_frame_stride": int(sys.argv[35]),
         "render_extract": render_extract,
         "saved_map": str((output / "saved_map" / "point_cloud.ply").resolve()),
         "outputs": {

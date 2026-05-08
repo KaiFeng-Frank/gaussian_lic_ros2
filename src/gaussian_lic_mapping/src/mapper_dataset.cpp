@@ -2,13 +2,15 @@
 
 #include <gaussian_lic_mapping/mapper_dataset.hpp>
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 
 namespace gaussian_lic_mapping
 {
 
-const CameraFrameRecord & MapperDataset::add_frame(MapperFrameData && frame)
+const CameraFrameRecord & MapperDataset::add_frame(
+  MapperFrameData && frame, const size_t test_frame_stride)
 {
   CameraFrameRecord record;
   record.stamp = frame.stamp;
@@ -40,13 +42,22 @@ const CameraFrameRecord & MapperDataset::add_frame(MapperFrameData && frame)
   total_point_count_ += frame.points.size();
   skipped_nonpositive_depth_count_ += frame.skipped_points_nonpositive_depth;
 
+  const size_t stride = std::max<size_t>(test_frame_stride, 1U);
   if (is_keyframe) {
     train_frames_.push_back(std::move(record));
+  } else if (stride > 1U && (record.frame_index % stride) != 0U) {
+    skipped_test_frame_ = std::move(record);
   } else {
     test_frames_.push_back(std::move(record));
   }
   ++all_frame_count_;
-  return is_keyframe ? train_frames_.back() : test_frames_.back();
+  if (is_keyframe) {
+    return train_frames_.back();
+  }
+  if (stride > 1U && (skipped_test_frame_.frame_index % stride) != 0U) {
+    return skipped_test_frame_;
+  }
+  return test_frames_.back();
 }
 
 void MapperDataset::clear_pending_points()

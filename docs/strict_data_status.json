@@ -52,14 +52,14 @@
   ],
   "data_root": "/home/frank/data",
   "disk": {
-    "free_bytes": 93013639168,
-    "free_gb": 86.62570190429688,
+    "free_bytes": 115624857600,
+    "free_gb": 107.68404006958008,
     "path": "/home/frank/data",
     "total_bytes": 1005867986944,
-    "used_bytes": 861683576832
+    "used_bytes": 839072358400
   },
-  "disk_ok": false,
-  "generated_at": "2026-05-08T02:03:10+00:00",
+  "disk_ok": true,
+  "generated_at": "2026-05-08T02:04:39+00:00",
   "min_free_gb": 100.0,
   "native_references_ok": false,
   "ok": false,

@@ -19,6 +19,7 @@ RUN_TIMEOUT_SEC=0
 PLAY_DELAY_SEC=3
 POST_PLAY_SETTLE_SEC="${GAUSSIAN_LIC_BASELINE_POST_PLAY_SETTLE_SEC:-8}"
 MAPPER_EXIT_TIMEOUT_SEC="${GAUSSIAN_LIC_BASELINE_MAPPER_EXIT_TIMEOUT_SEC:-900}"
+TEST_FRAME_STRIDE="${GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE:-1}"
 REBUILD=false
 SKIP_BUILD=false
 CHECK_ONLY=false
@@ -53,6 +54,9 @@ Options:
                           Seconds to wait for upstream evaluation/save after
                           graceful mapper shutdown. Default:
                           ${GAUSSIAN_LIC_BASELINE_MAPPER_EXIT_TIMEOUT_SEC:-900}.
+  --test-frame-stride N   Store every Nth non-keyframe test camera for visual
+                          evaluation. Keyframes and point clouds are still
+                          processed. Default: ${GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE:-1}.
   --rebuild               Recreate the persistent upstream workspace before running.
   --skip-build            Require an existing built workspace.
   --check-only            Validate local prerequisites and exit.
@@ -100,6 +104,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mapper-exit-timeout)
       MAPPER_EXIT_TIMEOUT_SEC="$2"
+      shift 2
+      ;;
+    --test-frame-stride)
+      TEST_FRAME_STRIDE="$2"
       shift 2
       ;;
     --rebuild)
@@ -290,7 +298,8 @@ if [[ ! -x /baseline_ws/devel/lib/gaussian_lic/gs_mapping ]]; then
     -DCUDA_TOOLKIT_ROOT_DIR=${CONTAINER_CUDA} \
     -DCMAKE_CUDA_ARCHITECTURES=86
 elif [[ '${skip_build_flag}' != '1' && -d /baseline_ws/src/Gaussian-LIC ]]; then
-  if ! grep -q 'lpips forward failed; continuing visual dump:' /baseline_ws/src/Gaussian-LIC/src/gaussian.cpp; then
+  if ! grep -q 'GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE' /baseline_ws/src/Gaussian-LIC/src/gaussian.cpp ||
+     ! grep -q 'lpips forward failed; continuing visual dump:' /baseline_ws/src/Gaussian-LIC/src/gaussian.cpp; then
     python3 /work/scripts/patch_upstream_baseline.py /baseline_ws/src/Gaussian-LIC
     cd /baseline_ws
     catkin_make \
@@ -301,6 +310,7 @@ elif [[ '${skip_build_flag}' != '1' && -d /baseline_ws/src/Gaussian-LIC ]]; then
 fi
 
 source /baseline_ws/devel/setup.bash
+export GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE='${TEST_FRAME_STRIDE}'
 rm -rf '${OUTPUT_IN_CONTAINER}'
 mkdir -p '${OUTPUT_IN_CONTAINER}'
 mkdir -p '${OUTPUT_IN_CONTAINER}/upstream_result'

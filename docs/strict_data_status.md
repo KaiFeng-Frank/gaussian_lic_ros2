@@ -1,8 +1,8 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T02:03:10+00:00`
+Generated: `2026-05-08T02:04:39+00:00`
 Data root: `/home/frank/data`
-Disk free: `86.63 GiB` (minimum requested `100.00 GiB`) - FAIL
+Disk free: `107.68 GiB` (minimum requested `100.00 GiB`) - PASS
 Strict evidence currently materialized: `9/12`
 Raw/frontend inputs local: `PASS`
 ROS1 baseline artifacts local: `INCOMPLETE`

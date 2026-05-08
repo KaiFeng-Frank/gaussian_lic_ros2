@@ -33,7 +33,7 @@ struct CameraFrameRecord
 class MapperDataset
 {
 public:
-  const CameraFrameRecord & add_frame(MapperFrameData && frame);
+  const CameraFrameRecord & add_frame(MapperFrameData && frame, size_t test_frame_stride = 1);
   void clear_pending_points();
   void trim_map_points(size_t max_points);
 
@@ -61,6 +61,7 @@ private:
   size_t skipped_nonpositive_depth_count_{0};
   std::vector<CameraFrameRecord> train_frames_;
   std::vector<CameraFrameRecord> test_frames_;
+  CameraFrameRecord skipped_test_frame_;
   std::vector<Eigen::Vector3f> pending_points_world_;
   std::vector<Eigen::Vector3f> pending_colors_rgb_;
   std::vector<float> pending_depths_m_;

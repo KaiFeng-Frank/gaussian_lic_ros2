@@ -58,6 +58,7 @@ def generate_launch_description():
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
     publish_gaussian_map = LaunchConfiguration("publish_gaussian_map")
     save_map_render_evaluation = LaunchConfiguration("save_map_render_evaluation")
+    test_frame_stride = LaunchConfiguration("test_frame_stride")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
     sensor_qos_history = LaunchConfiguration("sensor_qos_history")
     sensor_qos_depth = LaunchConfiguration("sensor_qos_depth")
@@ -139,6 +140,7 @@ def generate_launch_description():
             "torch_gaussian_device": torch_gaussian_device,
             "publish_gaussian_map": publish_gaussian_map,
             "save_map_render_evaluation": save_map_render_evaluation,
+            "test_frame_stride": test_frame_stride,
             "sensor_qos_reliability": sensor_qos_reliability,
             "sensor_qos_history": sensor_qos_history,
             "sensor_qos_depth": sensor_qos_depth,
@@ -440,6 +442,11 @@ def generate_launch_description():
             "save_map_render_evaluation",
             default_value="false",
             description="When SaveMap is called, render final train/test camera records to renders/, gt/, and render_depth/.",
+        ),
+        DeclareLaunchArgument(
+            "test_frame_stride",
+            default_value="1",
+            description="Store every Nth non-keyframe test camera for final render evaluation; all keyframes and point clouds are still processed.",
         ),
         DeclareLaunchArgument(
             "sensor_qos_reliability",

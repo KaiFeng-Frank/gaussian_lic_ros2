@@ -102,6 +102,8 @@ public:
     imu_qos_ = declare_topic_qos("imu");
     process_period_ms_ = declare_parameter<int>("process_period_ms", 5);
     select_every_k_frame_ = declare_parameter<int>("select_every_k_frame", 8);
+    test_frame_stride_ =
+      std::max(1, static_cast<int>(declare_parameter<int>("test_frame_stride", 1)));
     require_depth_topic_ = declare_parameter<bool>("require_depth_topic", true);
     fx_ = declare_parameter<double>("fx", 1.0);
     fy_ = declare_parameter<double>("fy", 1.0);
@@ -735,7 +737,7 @@ private:
     last_t_wc_ = frame_data.t_wc;
     const auto frame_stamp = frame_data.stamp;
     publish_tracking_outputs(frame_data);
-    const auto & record = dataset_.add_frame(std::move(frame_data));
+    const auto & record = dataset_.add_frame(std::move(frame_data), static_cast<size_t>(test_frame_stride_));
     dataset_.trim_map_points(max_map_points_ > 0 ? static_cast<size_t>(max_map_points_) : 0U);
     map_points_pub_->publish(make_map_points_message(frame_stamp));
     (void)record;
@@ -2155,6 +2157,7 @@ private:
   QosProfileParams imu_qos_;
   int process_period_ms_{5};
   int select_every_k_frame_{8};
+  int test_frame_stride_{1};
   bool require_depth_topic_{true};
   double fx_{1.0};
   double fy_{1.0};

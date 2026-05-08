@@ -24,6 +24,53 @@ def patch_depth_completion(root: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_test_frame_stride(root: Path) -> None:
+    path = root / "src" / "gaussian.cpp"
+    text = path.read_text(encoding="utf-8")
+    if "#include <cstdlib>" not in text:
+        text = text.replace("#include <memory>\n", "#include <memory>\n#include <cstdlib>\n")
+    if "GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE" in text:
+        path.write_text(text, encoding="utf-8")
+        return
+
+    old = """    else
+    {
+        is_keyframe_current_ = false;
+        std::shared_ptr<Camera> cam = std::make_shared<Camera>();
+
+        cam->original_image_ = tensor_utils::cvMat2TorchTensor_Float32(image_rgb, torch::kCPU);
+        cam->original_depth_ = tensor_utils::cvMat2TorchTensor_Float32(depth_map, torch::kCPU);
+"""
+    new = """    else
+    {
+        is_keyframe_current_ = false;
+        int baseline_test_frame_stride = 1;
+        if (const char* stride_env = std::getenv("GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE"))
+        {
+            try
+            {
+                baseline_test_frame_stride = std::max(1, std::stoi(stride_env));
+            }
+            catch (...)
+            {
+                baseline_test_frame_stride = 1;
+            }
+        }
+        if (baseline_test_frame_stride > 1 && (all_frame_num_ % baseline_test_frame_stride) != 0)
+        {
+            all_frame_num_ += 1;
+            return;
+        }
+        std::shared_ptr<Camera> cam = std::make_shared<Camera>();
+
+        cam->original_image_ = tensor_utils::cvMat2TorchTensor_Float32(image_rgb, torch::kCPU);
+        cam->original_depth_ = tensor_utils::cvMat2TorchTensor_Float32(depth_map, torch::kCPU);
+"""
+    if old not in text:
+        raise RuntimeError(f"test-frame branch not found in {path}")
+    path.write_text(text.replace(old, new), encoding="utf-8")
+
+
 def patch_save_map_fallback(root: Path) -> None:
     path = root / "src" / "gaussian.cpp"
     text = path.read_text(encoding="utf-8")
@@ -148,6 +195,7 @@ def main() -> int:
     args = parser.parse_args()
     root = Path(args.upstream_root).resolve()
     patch_depth_completion(root)
+    patch_test_frame_stride(root)
     patch_save_map_fallback(root)
     patch_visual_quality_lpips_guard(root)
     patch_mapping_eval_guard(root)

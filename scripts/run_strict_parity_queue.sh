@@ -20,6 +20,7 @@ TORCH_SEED="20260505"
 TORCH_SAMPLING="upstream_random"
 TORCH_DENSIFICATION=false
 ADAPTER_VISUAL_SYNC_POLICY="latest_before"
+MAPPER_TEST_FRAME_STRIDE=""
 QUALITY_LPIPS_DEVICE="${QUALITY_LPIPS_DEVICE:-cuda}"
 OVERWRITE=false
 DRY_RUN=false
@@ -90,6 +91,10 @@ Options:
                                   latest_before, nearest, or latest. Default:
                                   latest_before to match the ROS1 mapper-contract
                                   converter's sequential rosbag semantics.
+  --test-frame-stride N           Store every Nth non-keyframe test camera for
+                                  final render evaluation while still replaying
+                                  the full sequence. Default is profile-aware:
+                                  MCD uses 8, other profiles use 1.
   --quality-lpips-device DEVICE   LPIPS evaluation device. Default: cuda, or
                                   QUALITY_LPIPS_DEVICE when set.
   --help                          Show this help.
@@ -180,6 +185,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --adapter-visual-sync-policy)
       ADAPTER_VISUAL_SYNC_POLICY="$2"
+      shift 2
+      ;;
+    --test-frame-stride)
+      MAPPER_TEST_FRAME_STRIDE="$2"
       shift 2
       ;;
     --quality-lpips-device)
@@ -325,6 +334,18 @@ profile_data_root() {
   esac
 }
 
+test_frame_stride_for() {
+  local profile="$1"
+  if [[ -n "${MAPPER_TEST_FRAME_STRIDE}" ]]; then
+    echo "${MAPPER_TEST_FRAME_STRIDE}"
+    return
+  fi
+  case "$profile" in
+    mcd) echo "8" ;;
+    *) echo "1" ;;
+  esac
+}
+
 pointcloud_transform_profile() {
   local profile="$1"
   if [[ "$profile" == "fastlivo2" ]]; then
@@ -371,7 +392,7 @@ run_target() {
     echo "[strict-queue] invalid target: $target" >&2
     return 2
   fi
-  local raw frontend mapper_contract baseline_dir current_dir config data_root transform
+  local raw frontend mapper_contract baseline_dir current_dir config data_root transform test_frame_stride
   raw="$(raw_input_for "$profile" "$sequence")"
   frontend="$(frontend_raw_for "$profile" "$sequence")"
   mapper_contract="$(mapper_contract_for "$profile" "$sequence")"
@@ -380,6 +401,7 @@ run_target() {
   config="${ROOT_DIR}/src/gaussian_lic_bringup/config/${profile}.yaml"
   data_root="$(profile_data_root "$profile")"
   transform="$(pointcloud_transform_profile "$profile")"
+  test_frame_stride="$(test_frame_stride_for "$profile")"
 
   echo "[strict-queue] target=${profile}:${sequence}"
   if ! check_raw_exists "$raw"; then
@@ -434,7 +456,8 @@ run_target() {
 
   if [[ "${SKIP_BASELINE}" != "true" ]]; then
     if [[ "${OVERWRITE}" == "true" || ! -f "${baseline_dir}/baseline_manifest.json" ]]; then
-      run_cmd ./scripts/run_upstream_baseline.sh \
+      run_cmd env GAUSSIAN_LIC_BASELINE_TEST_FRAME_STRIDE="${test_frame_stride}" \
+        ./scripts/run_upstream_baseline.sh \
         --bag "${mapper_contract}" \
         --sequence "${sequence}" \
         --output "${baseline_dir}" \
@@ -483,6 +506,7 @@ run_target() {
       --torch-prune-count-policy uniform
       --final-render-eval
       --no-publish-gaussian-map
+      --test-frame-stride "${test_frame_stride}"
     )
     if [[ "${TORCH_DENSIFICATION}" == "true" ]]; then
       current_args+=(--torch-densification)
