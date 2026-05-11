@@ -133,6 +133,32 @@ Current ROS2 implementation status:
   the frontend a native Gaussian-map reverse channel. Cached Gaussian centers
   can now generate optional point-to-point tracking-window factors while the
   full photometric Gaussian residual is ported.
-- Production sliding-window BA, production-scale marginalization policy, and
-  Coco-LIC2-grade IMU/LiDAR/camera joint optimization still need to be ported
-  from the audited Coco-LIC modules.
+- `gaussian_lic_tracking::spline` now ports the upstream Basalt-style cumulative
+  B-spline foundation: `compute_blending_matrix<N>` / `compute_base_coefficients<N>`
+  (mirror of `spline_common.h`), `CeresSplineHelper<N>` (mirror of
+  `ceres_spline_helper.h`), and `SplitSplineView<N>` (mirror of `split_spline_view.h`).
+  The cubic cumulative SO(3) evaluator returns body-frame angular velocity /
+  angular acceleration matching Coco-LIC conventions, and
+  `ceres_spline_helper_probe` asserts the canonical uniform-cubic blending
+  matrix plus finite-difference time derivatives.
+- The continuous-time IMU residual (`AddIMUMeasurementAnalytic` / `IMUFactorNURBS`)
+  is ported as `gaussian_lic_tracking::spline::ContinuousTimeImuFactor`.
+  Closed-form gyro-bias, accel-bias, and gravity Jacobians are verified
+  analytically; rotation/position knot Jacobians are exposed through
+  finite-difference helpers and will be replaced with the upstream
+  `So3SplineView::JacobianStruct` analytic forms in a follow-up.
+- The continuous-time LiDAR residual (`AddLoamMeasurementAnalyticNURBS`) is
+  ported as `gaussian_lic_tracking::spline::ContinuousTimeLidarFactor` with both
+  plane and edge geometry paths plus an analytic body-pose Jacobian that
+  matches finite differences.
+- The continuous-time photometric residual (`PhotometricFactorNURBS`) is ported
+  as `gaussian_lic_tracking::spline::ContinuousTimePhotometricFactor`. The
+  image-library dependency is replaced by an `IntensitySampler` callback so the
+  factor compiles inside `gaussian_lic_tracking` without an OpenCV link.
+- `continuous_time_integration_probe` proves the three factors compose on a
+  shared synthetic spline: zero residual on truth, monotonic growth under knot
+  perturbation, and a 1D cost-bowl with its minimum at zero shift.
+- Production sliding-window BA driver (Coco-LIC `TrajectoryEstimator`),
+  marginalization on spline control points, and the analytic knot-Jacobian-aware
+  Ceres harness still need to be ported. The new factor surface above provides
+  the residual model those drivers will consume.
