@@ -196,10 +196,17 @@ Current ROS2 implementation status:
   80 synthetic IMU samples, and asserts the node emits at least one
   optimized `nav_msgs/Odometry`. The local run records 26 odometry
   messages on the smoke burst.
-- Remaining work: replace `NumericDiffCostFunction` in the continuous-time
-  estimator with analytic `So3SplineView::JacobianStruct` knot Jacobians
-  ported from upstream; subscribe the continuous-time node to PointCloud2
-  / Livox custom messages and assemble plane / edge correspondences inside
-  it; publish reference-trajectory parity reports comparing the
-  continuous-time tracker against upstream Coco-LIC on the existing 12/12
-  strict matrix.
+- Closed-form analytic Jacobian helpers in `analytic_jacobians.hpp` cover
+  the IMU position-knot, gyro-bias, accel-bias, and gravity Jacobians plus
+  the LiDAR plane position-knot Jacobian, all validated against finite
+  differences by `analytic_jacobians_probe`. The SO(3) rotation-knot
+  Jacobian (Lie-group chain rule through the cumulative B-spline) remains
+  numeric; once it is ported, the entire `TrajectoryEstimator` can switch
+  from `NumericDiffCostFunction` to `SizedCostFunction` with these helpers
+  filling the easy parameter blocks.
+- Remaining work: port the SO(3) rotation-knot Jacobian (upstream
+  `So3SplineView::JacobianStruct`); subscribe the continuous-time node to
+  PointCloud2 / Livox custom messages and assemble plane / edge
+  correspondences inside it; publish reference-trajectory parity reports
+  comparing the continuous-time tracker against upstream Coco-LIC on the
+  existing 12/12 strict matrix.
