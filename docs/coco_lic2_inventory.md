@@ -188,10 +188,18 @@ Current ROS2 implementation status:
   exceeds `window_knot_count`, the oldest `marginalize_oldest_count` knots
   are dropped. `continuous_time_sliding_window_probe` covers single-step,
   streaming, and marginalization regimes.
+- A new standalone ROS2 node, `continuous_time_node`, is the first
+  executable that drives the ported continuous-time stack on live ROS2
+  topics. It runs alongside (not inside) `tracking_node` so the existing
+  12/12 strict matrix is unaffected. The accompanying smoke
+  (`scripts/continuous_time_node_smoke.sh`) launches the node, publishes
+  80 synthetic IMU samples, and asserts the node emits at least one
+  optimized `nav_msgs/Odometry`. The local run records 26 odometry
+  messages on the smoke burst.
 - Remaining work: replace `NumericDiffCostFunction` in the continuous-time
   estimator with analytic `So3SplineView::JacobianStruct` knot Jacobians
-  ported from upstream; wire `ContinuousTimeSlidingWindowEstimator` into
-  `tracking_node` as an opt-in path next to the existing discrete-state
-  sliding window; publish reference-trajectory parity reports comparing
-  the continuous-time tracker against upstream Coco-LIC on the existing
-  12/12 strict matrix.
+  ported from upstream; subscribe the continuous-time node to PointCloud2
+  / Livox custom messages and assemble plane / edge correspondences inside
+  it; publish reference-trajectory parity reports comparing the
+  continuous-time tracker against upstream Coco-LIC on the existing 12/12
+  strict matrix.
