@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
+find_package(Ceres REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(gaussian_lic_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -37,6 +38,27 @@ ament_target_dependencies(trajectory_manager
   gaussian_lic_msgs
 )
 target_link_libraries(trajectory_manager Eigen3::Eigen)
+
+add_library(continuous_time_trajectory_estimator
+  src/trajectory_estimator.cpp
+)
+target_include_directories(continuous_time_trajectory_estimator PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(continuous_time_trajectory_estimator
+  Eigen3::Eigen
+  Ceres::ceres
+)
+
+add_library(spline_marginalization
+  src/spline_marginalization.cpp
+)
+target_include_directories(spline_marginalization PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:include>"
+)
+target_link_libraries(spline_marginalization Eigen3::Eigen)
 
 add_executable(trajectory_manager_probe
   test/trajectory_manager_probe.cpp
@@ -317,6 +339,25 @@ add_executable(continuous_time_integration_probe
 target_include_directories(continuous_time_integration_probe PRIVATE include)
 target_link_libraries(continuous_time_integration_probe Eigen3::Eigen)
 
+add_executable(trajectory_estimator_probe
+  test/trajectory_estimator_probe.cpp
+)
+target_include_directories(trajectory_estimator_probe PRIVATE include)
+target_link_libraries(trajectory_estimator_probe
+  continuous_time_trajectory_estimator
+  Eigen3::Eigen
+  Ceres::ceres
+)
+
+add_executable(spline_marginalization_probe
+  test/spline_marginalization_probe.cpp
+)
+target_include_directories(spline_marginalization_probe PRIVATE include)
+target_link_libraries(spline_marginalization_probe
+  spline_marginalization
+  Eigen3::Eigen
+)
+
 add_executable(tracking_node
   src/tracking_node.cpp
 )
@@ -334,7 +375,7 @@ ament_target_dependencies(tracking_node
   tf2_ros
 )
 
-install(TARGETS trajectory_manager trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_bias_observability_probe sliding_window_imu_bias_jacobian_probe sliding_window_imu_kinematic_jacobian_probe sliding_window_marginalization_probe sliding_window_dense_prior_probe schur_complement_probe sliding_window_normal_equation_probe sliding_window_schur_marginalization_probe sliding_window_point_factor_probe sliding_window_plane_factor_probe sliding_window_geometric_jacobian_probe sliding_window_prior_jacobian_probe sliding_window_visual_factor_probe sliding_window_se3_photometric_factor_probe sliding_window_smoothness_factor_probe visual_factor_probe visual_se3_jacobian_probe ceres_spline_helper_probe continuous_time_imu_factor_probe continuous_time_lidar_factor_probe continuous_time_photometric_factor_probe continuous_time_integration_probe tracking_node
+install(TARGETS trajectory_manager continuous_time_trajectory_estimator spline_marginalization trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_bias_observability_probe sliding_window_imu_bias_jacobian_probe sliding_window_imu_kinematic_jacobian_probe sliding_window_marginalization_probe sliding_window_dense_prior_probe schur_complement_probe sliding_window_normal_equation_probe sliding_window_schur_marginalization_probe sliding_window_point_factor_probe sliding_window_plane_factor_probe sliding_window_geometric_jacobian_probe sliding_window_prior_jacobian_probe sliding_window_visual_factor_probe sliding_window_se3_photometric_factor_probe sliding_window_smoothness_factor_probe visual_factor_probe visual_se3_jacobian_probe ceres_spline_helper_probe continuous_time_imu_factor_probe continuous_time_lidar_factor_probe continuous_time_photometric_factor_probe continuous_time_integration_probe trajectory_estimator_probe spline_marginalization_probe tracking_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -372,6 +413,8 @@ if(BUILD_TESTING)
   add_test(NAME continuous_time_lidar_factor_probe COMMAND $<TARGET_FILE:continuous_time_lidar_factor_probe>)
   add_test(NAME continuous_time_photometric_factor_probe COMMAND $<TARGET_FILE:continuous_time_photometric_factor_probe>)
   add_test(NAME continuous_time_integration_probe COMMAND $<TARGET_FILE:continuous_time_integration_probe>)
+  add_test(NAME trajectory_estimator_probe COMMAND $<TARGET_FILE:trajectory_estimator_probe>)
+  add_test(NAME spline_marginalization_probe COMMAND $<TARGET_FILE:spline_marginalization_probe>)
 endif()
 
 install(DIRECTORY include/

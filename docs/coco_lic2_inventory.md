@@ -158,7 +158,27 @@ Current ROS2 implementation status:
 - `continuous_time_integration_probe` proves the three factors compose on a
   shared synthetic spline: zero residual on truth, monotonic growth under knot
   perturbation, and a 1D cost-bowl with its minimum at zero shift.
-- Production sliding-window BA driver (Coco-LIC `TrajectoryEstimator`),
-  marginalization on spline control points, and the analytic knot-Jacobian-aware
-  Ceres harness still need to be ported. The new factor surface above provides
-  the residual model those drivers will consume.
+- `gaussian_lic_tracking::spline::TrajectoryEstimator` (port of Coco-LIC's
+  `TrajectoryEstimator`) now wires the new continuous-time IMU and LiDAR
+  factors into Ceres 2.2 (`libceres-dev`). Rotation knots use
+  `EigenQuaternionManifold`; position knots, gyro/accel biases, and gravity
+  are plain 3-vector parameter blocks. `trajectory_estimator_probe` verifies
+  zero residual on truth, that an IMU-only solve drives the cost to zero
+  under a single-knot z perturbation, and that a LiDAR plane factor stack
+  recovers a 10 cm ground-plane drift from a perturbed initial guess.
+- `gaussian_lic_tracking::spline::SplineMarginalizationInfo` (port of
+  Coco-LIC's `MarginalizationInfo`) accumulates linearized residual blocks
+  per-parameter-id, runs Schur complement against the marginalized blocks,
+  and decomposes the reduced prior through a self-adjoint eigendecomposition
+  into a square-root Jacobian + residual. `spline_marginalization_probe`
+  asserts the recovered J^T J and J^T r match the manual Schur reduction on
+  one- and two-residual-block scenarios.
+- Tracking package now reports 32/32 tests passing. The strict parity matrix
+  (`scripts/check_strict_parity_matrix.py`) still reports `required=12/12`
+  with FAST-LIVO/FAST-LIVO2/M2DGR/MCD/R3LIVE covered, because the additions
+  above are new libraries + probes only — `tracking_node` default behavior is
+  unchanged.
+- Remaining work: hook the new continuous-time factors into `tracking_node`
+  as an opt-in path next to the existing discrete-state sliding window;
+  publish reference-trajectory parity reports comparing the continuous-time
+  tracker against upstream Coco-LIC on the existing 12/12 strict matrix.
