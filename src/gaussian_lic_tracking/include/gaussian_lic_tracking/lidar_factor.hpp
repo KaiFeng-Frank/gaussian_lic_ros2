@@ -27,6 +27,7 @@ struct LidarFactorConfig
   double max_correction_m{0.25};
   double max_rotation_rad{0.08};
   double robust_kernel_m{0.15};
+  size_t pose_iterations{1};
   size_t plane_min_neighbors{5};
   double plane_max_condition{0.2};
 };

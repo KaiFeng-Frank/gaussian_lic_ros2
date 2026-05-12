@@ -551,6 +551,8 @@ public:
       declare_parameter<double>("lidar_pose_prior_orientation_huber_delta_rad", 0.25);
     lidar_pose_factor_keyframe_stride_ =
       static_cast<int>(declare_parameter<int>("lidar_pose_factor_keyframe_stride", 5));
+    lidar_pose_factor_iterations_ =
+      static_cast<int>(declare_parameter<int>("lidar_pose_factor_iterations", 1));
     if (!std::isfinite(lidar_pose_prior_position_weight_) ||
       lidar_pose_prior_position_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_velocity_weight_) ||
@@ -567,7 +569,8 @@ public:
       lidar_pose_prior_angular_velocity_huber_delta_radps_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_huber_delta_rad_) ||
       lidar_pose_prior_orientation_huber_delta_rad_ < 0.0 ||
-      lidar_pose_factor_keyframe_stride_ <= 0)
+      lidar_pose_factor_keyframe_stride_ <= 0 ||
+      lidar_pose_factor_iterations_ <= 0)
     {
       throw std::runtime_error("LiDAR pose-prior factor parameters are invalid");
     }
@@ -587,6 +590,7 @@ public:
     lidar_pose_config.min_points = static_cast<size_t>(lidar_pose_min_points);
     lidar_pose_config.max_frame_points = static_cast<size_t>(lidar_pose_max_frame_points);
     lidar_pose_config.max_map_points = static_cast<size_t>(lidar_pose_max_map_points);
+    lidar_pose_config.pose_iterations = static_cast<size_t>(lidar_pose_factor_iterations_);
     lidar_pose_config.nearest_distance_m =
       declare_parameter<double>("lidar_pose_factor_nearest_distance_m", 0.35);
     lidar_pose_config.correction_gain =
@@ -2301,6 +2305,7 @@ private:
   double lidar_pose_prior_angular_velocity_huber_delta_radps_{0.25};
   double lidar_pose_prior_orientation_huber_delta_rad_{0.25};
   int lidar_pose_factor_keyframe_stride_{5};
+  int lidar_pose_factor_iterations_{1};
   LidarFactor lidar_pose_factor_;
   bool lidar_pose_factor_has_keyframe_{false};
   std::size_t lidar_pose_factor_seen_frames_{0};

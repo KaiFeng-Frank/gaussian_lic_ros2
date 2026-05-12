@@ -60,6 +60,9 @@ void LidarFactor::set_config(const LidarFactorConfig & config)
   if (config.min_points == 0U) {
     throw std::runtime_error("LiDAR factor min_points must be positive");
   }
+  if (config.pose_iterations == 0U) {
+    throw std::runtime_error("LiDAR pose correction iterations must be positive");
+  }
   if (config.nearest_distance_m <= 0.0) {
     throw std::runtime_error("LiDAR factor nearest distance must be positive");
   }
@@ -284,96 +287,173 @@ LidarPoseCorrection LidarFactor::compute_pose_correction(
     return correction;
   }
   const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
-  std::vector<Eigen::Vector3d> source_w;
-  std::vector<Eigen::Vector3d> target_w;
-  std::vector<double> match_weights;
-  source_w.reserve(sampled.size());
-  target_w.reserve(sampled.size());
-  match_weights.reserve(sampled.size());
-  double residual_norm_sum = 0.0;
-  double match_weight_sum = 0.0;
+  Eigen::Quaterniond q_est = predicted_pose.q_w_i.normalized();
+  Eigen::Vector3d p_est = predicted_pose.p_w_i;
+  size_t last_matches = 0U;
+  double last_mean_residual = 0.0;
+  const auto estimate_mean_residual =
+    [&](const Eigen::Quaterniond & q_w_i, const Eigen::Vector3d & p_w_i,
+      size_t & matches, double & mean_residual) -> bool
+    {
+      matches = 0U;
+      mean_residual = 0.0;
+      double residual_sum = 0.0;
+      double weight_sum = 0.0;
+      for (const auto & point_i : sampled) {
+        const Eigen::Vector3d point_w = q_w_i * point_i + p_w_i;
+        double best_distance_sq = std::numeric_limits<double>::infinity();
+        Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
+        if (!find_nearest_map_point(point_w, max_distance_sq, best_point_w, best_distance_sq)) {
+          continue;
+        }
+        const double residual_norm = std::sqrt(best_distance_sq);
+        const double match_weight =
+          std::min(1.0, config_.robust_kernel_m / std::max(residual_norm, 1.0e-12));
+        residual_sum += match_weight * residual_norm;
+        weight_sum += match_weight;
+        ++matches;
+      }
+      if (matches < config_.min_points || weight_sum <= std::numeric_limits<double>::epsilon()) {
+        return false;
+      }
+      mean_residual = residual_sum / weight_sum;
+      return true;
+    };
 
-  for (const auto & point_i : sampled) {
-    const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
-    double best_distance_sq = std::numeric_limits<double>::infinity();
-    Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
-    if (find_nearest_map_point(point_w, max_distance_sq, best_point_w, best_distance_sq)) {
-      const double residual_norm = std::sqrt(best_distance_sq);
-      const double match_weight =
-        std::min(1.0, config_.robust_kernel_m / std::max(residual_norm, 1.0e-12));
-      source_w.push_back(point_w);
-      target_w.push_back(best_point_w);
-      match_weights.push_back(match_weight);
-      residual_norm_sum += match_weight * residual_norm;
-      match_weight_sum += match_weight;
+  for (size_t iteration = 0U; iteration < config_.pose_iterations; ++iteration) {
+    std::vector<Eigen::Vector3d> source_w;
+    std::vector<Eigen::Vector3d> target_w;
+    std::vector<double> match_weights;
+    source_w.reserve(sampled.size());
+    target_w.reserve(sampled.size());
+    match_weights.reserve(sampled.size());
+    double residual_norm_sum = 0.0;
+    double match_weight_sum = 0.0;
+
+    for (const auto & point_i : sampled) {
+      const Eigen::Vector3d point_w = q_est * point_i + p_est;
+      double best_distance_sq = std::numeric_limits<double>::infinity();
+      Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
+      if (find_nearest_map_point(point_w, max_distance_sq, best_point_w, best_distance_sq)) {
+        const double residual_norm = std::sqrt(best_distance_sq);
+        const double match_weight =
+          std::min(1.0, config_.robust_kernel_m / std::max(residual_norm, 1.0e-12));
+        source_w.push_back(point_w);
+        target_w.push_back(best_point_w);
+        match_weights.push_back(match_weight);
+        residual_norm_sum += match_weight * residual_norm;
+        match_weight_sum += match_weight;
+      }
+    }
+
+    if (source_w.size() < config_.min_points ||
+      match_weight_sum <= std::numeric_limits<double>::epsilon())
+    {
+      break;
+    }
+
+    Eigen::Vector3d source_centroid = Eigen::Vector3d::Zero();
+    Eigen::Vector3d target_centroid = Eigen::Vector3d::Zero();
+    for (size_t index = 0; index < source_w.size(); ++index) {
+      source_centroid += match_weights[index] * source_w[index];
+      target_centroid += match_weights[index] * target_w[index];
+    }
+    source_centroid /= match_weight_sum;
+    target_centroid /= match_weight_sum;
+
+    Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
+    for (size_t index = 0; index < source_w.size(); ++index) {
+      covariance += match_weights[index] *
+        (target_w[index] - target_centroid) * (source_w[index] - source_centroid).transpose();
+    }
+
+    const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      covariance, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::Matrix3d u = svd.matrixU();
+    const Eigen::Matrix3d v = svd.matrixV();
+    Eigen::Matrix3d rotation = u * v.transpose();
+    if (rotation.determinant() < 0.0) {
+      u.col(2) *= -1.0;
+      rotation = u * v.transpose();
+    }
+
+    Eigen::Quaterniond step_q(rotation);
+    step_q.normalize();
+    Eigen::AngleAxisd step_aa(step_q);
+    double angle = step_aa.angle();
+    if (angle > kPi) {
+      angle -= 2.0 * kPi;
+    }
+    if (std::abs(angle) > config_.max_rotation_rad) {
+      const double clamped = std::copysign(config_.max_rotation_rad, angle);
+      step_q = Eigen::Quaterniond(Eigen::AngleAxisd(clamped, step_aa.axis())).normalized();
+      rotation = step_q.toRotationMatrix();
+    }
+
+    const Eigen::Vector3d correction_translation = target_centroid - rotation * source_centroid;
+    Eigen::Vector3d step_p = (rotation * p_est + correction_translation) - p_est;
+    step_p *= config_.correction_gain;
+    const double step_p_norm = step_p.norm();
+    if (step_p_norm > config_.max_correction_m) {
+      step_p *= config_.max_correction_m / step_p_norm;
+    }
+    if (config_.correction_gain < 1.0) {
+      Eigen::AngleAxisd gained_aa(step_q);
+      if (gained_aa.angle() > 1.0e-12) {
+        step_q = Eigen::Quaterniond(
+          Eigen::AngleAxisd(config_.correction_gain * gained_aa.angle(), gained_aa.axis())).normalized();
+      }
+    }
+
+    Eigen::Quaterniond next_q = (step_q * q_est).normalized();
+    Eigen::Vector3d next_p = p_est + step_p;
+    const Eigen::Vector3d total_p = next_p - predicted_pose.p_w_i;
+    const double total_p_norm = total_p.norm();
+    if (total_p_norm > config_.max_correction_m) {
+      next_p = predicted_pose.p_w_i + total_p * (config_.max_correction_m / total_p_norm);
+    }
+    Eigen::Quaterniond total_q =
+      (next_q * predicted_pose.q_w_i.normalized().inverse()).normalized();
+    Eigen::AngleAxisd total_aa(total_q);
+    double total_angle = total_aa.angle();
+    if (total_angle > kPi) {
+      total_angle -= 2.0 * kPi;
+    }
+    if (std::abs(total_angle) > config_.max_rotation_rad) {
+      const double clamped = std::copysign(config_.max_rotation_rad, total_angle);
+      total_q = Eigen::Quaterniond(Eigen::AngleAxisd(clamped, total_aa.axis())).normalized();
+      next_q = (total_q * predicted_pose.q_w_i.normalized()).normalized();
+    }
+    const double current_mean_residual = residual_norm_sum / match_weight_sum;
+    if (iteration > 0U) {
+      size_t candidate_matches = 0U;
+      double candidate_mean_residual = 0.0;
+      if (!estimate_mean_residual(next_q, next_p, candidate_matches, candidate_mean_residual) ||
+        candidate_mean_residual > current_mean_residual * 1.05)
+      {
+        break;
+      }
+    }
+    q_est = next_q;
+    p_est = next_p;
+    last_matches = source_w.size();
+    last_mean_residual = current_mean_residual;
+
+    const double step_angle = std::abs(Eigen::AngleAxisd(step_q).angle());
+    if (step_p.norm() < 1.0e-6 && step_angle < 1.0e-6) {
+      break;
     }
   }
 
-  if (source_w.size() < config_.min_points ||
-    match_weight_sum <= std::numeric_limits<double>::epsilon())
-  {
+  if (last_matches < config_.min_points) {
     return correction;
   }
 
-  Eigen::Vector3d source_centroid = Eigen::Vector3d::Zero();
-  Eigen::Vector3d target_centroid = Eigen::Vector3d::Zero();
-  for (size_t index = 0; index < source_w.size(); ++index) {
-    source_centroid += match_weights[index] * source_w[index];
-    target_centroid += match_weights[index] * target_w[index];
-  }
-  source_centroid /= match_weight_sum;
-  target_centroid /= match_weight_sum;
-
-  Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
-  for (size_t index = 0; index < source_w.size(); ++index) {
-    covariance += match_weights[index] *
-      (target_w[index] - target_centroid) * (source_w[index] - source_centroid).transpose();
-  }
-
-  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-    covariance, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Matrix3d u = svd.matrixU();
-  const Eigen::Matrix3d v = svd.matrixV();
-  Eigen::Matrix3d rotation = u * v.transpose();
-  if (rotation.determinant() < 0.0) {
-    u.col(2) *= -1.0;
-    rotation = u * v.transpose();
-  }
-
-  Eigen::Quaterniond delta_q(rotation);
-  delta_q.normalize();
-  Eigen::AngleAxisd delta_aa(delta_q);
-  double angle = delta_aa.angle();
-  if (angle > kPi) {
-    angle -= 2.0 * kPi;
-  }
-  if (std::abs(angle) > config_.max_rotation_rad) {
-    const double clamped = std::copysign(config_.max_rotation_rad, angle);
-    delta_q = Eigen::Quaterniond(Eigen::AngleAxisd(clamped, delta_aa.axis())).normalized();
-    rotation = delta_q.toRotationMatrix();
-  }
-
-  Eigen::Vector3d correction_translation = target_centroid - rotation * source_centroid;
-  Eigen::Vector3d delta_p =
-    (rotation * predicted_pose.p_w_i + correction_translation) - predicted_pose.p_w_i;
-  delta_p *= config_.correction_gain;
-  const double delta_norm = delta_p.norm();
-  if (delta_norm > config_.max_correction_m) {
-    delta_p *= config_.max_correction_m / delta_norm;
-  }
-  if (config_.correction_gain < 1.0) {
-    Eigen::AngleAxisd gained_aa(delta_q);
-    if (gained_aa.angle() > 1.0e-12) {
-      delta_q = Eigen::Quaterniond(
-        Eigen::AngleAxisd(config_.correction_gain * gained_aa.angle(), gained_aa.axis())).normalized();
-    }
-  }
-
   correction.applied = true;
-  correction.matched_points = source_w.size();
-  correction.mean_residual_m = residual_norm_sum / match_weight_sum;
-  correction.delta_p_w = delta_p;
-  correction.delta_q = delta_q;
+  correction.matched_points = last_matches;
+  correction.mean_residual_m = last_mean_residual;
+  correction.delta_p_w = p_est - predicted_pose.p_w_i;
+  correction.delta_q = (q_est * predicted_pose.q_w_i.normalized().inverse()).normalized();
   return correction;
 }
 

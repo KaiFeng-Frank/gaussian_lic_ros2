@@ -20,6 +20,7 @@ int main()
   config.max_rotation_rad = 0.2;
   config.robust_kernel_m = 0.02;
   bool rejected_bad_config = false;
+  bool rejected_bad_iteration_config = false;
   try {
     auto bad_config = config;
     bad_config.nearest_distance_m = std::numeric_limits<double>::quiet_NaN();
@@ -27,7 +28,14 @@ int main()
   } catch (const std::exception &) {
     rejected_bad_config = true;
   }
-  if (!rejected_bad_config) {
+  try {
+    auto bad_config = config;
+    bad_config.pose_iterations = 0U;
+    gaussian_lic_tracking::LidarFactor bad_factor(bad_config);
+  } catch (const std::exception &) {
+    rejected_bad_iteration_config = true;
+  }
+  if (!rejected_bad_config || !rejected_bad_iteration_config) {
     std::cerr << "LiDAR factor failed to reject non-finite config\n";
     return 1;
   }
@@ -158,6 +166,37 @@ int main()
   }
   if (pose_translation_error > 1.0e-6 || pose_rotation_error > 1.0e-6) {
     std::cerr << "LiDAR 6-DoF pose correction is wrong\n";
+    return 1;
+  }
+
+  auto single_step_config = config;
+  single_step_config.correction_gain = 0.4;
+  single_step_config.pose_iterations = 1U;
+  auto multi_step_config = single_step_config;
+  multi_step_config.pose_iterations = 4U;
+  gaussian_lic_tracking::LidarFactor single_step_factor(single_step_config);
+  gaussian_lic_tracking::LidarFactor multi_step_factor(multi_step_config);
+  single_step_factor.insert_keyframe(structured_scan, identity);
+  multi_step_factor.insert_keyframe(structured_scan, identity);
+  const auto single_step_correction =
+    single_step_factor.compute_pose_correction(structured_scan, rotated_prediction);
+  const auto multi_step_correction =
+    multi_step_factor.compute_pose_correction(structured_scan, rotated_prediction);
+  const double single_step_error =
+    (rotated_prediction.p_w_i + single_step_correction.delta_p_w).norm() +
+    Eigen::AngleAxisd(
+      (single_step_correction.delta_q * rotated_prediction.q_w_i).normalized()).angle();
+  const double multi_step_error =
+    (rotated_prediction.p_w_i + multi_step_correction.delta_p_w).norm() +
+    Eigen::AngleAxisd(
+      (multi_step_correction.delta_q * rotated_prediction.q_w_i).normalized()).angle();
+  std::cout << "lidar_pose_iterative_correction single_error=" << single_step_error
+            << " multi_error=" << multi_step_error
+            << " iterations=" << multi_step_config.pose_iterations << "\n";
+  if (!single_step_correction.applied || !multi_step_correction.applied ||
+    multi_step_error + 1.0e-6 >= single_step_error)
+  {
+    std::cerr << "LiDAR iterative pose correction did not improve low-gain correction\n";
     return 1;
   }
 
