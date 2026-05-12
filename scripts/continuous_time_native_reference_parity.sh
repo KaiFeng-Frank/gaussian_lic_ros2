@@ -35,6 +35,7 @@ POINTCLOUD_FACTOR_WEIGHT="${POINTCLOUD_FACTOR_WEIGHT:-0.1}"
 MAX_ITERATIONS_PER_STEP="${MAX_ITERATIONS_PER_STEP:-1}"
 IMU_INFO_GYRO="${IMU_INFO_GYRO:-10.0}"
 IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-1.0}"
+APPLY_POSITION_UPDATE_ON_ROTATION_REJECT="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT:-false}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
 ENABLE_PERSISTENT_PLANE_MAP="${ENABLE_PERSISTENT_PLANE_MAP:-true}"
 ENABLE_PERSISTENT_POINT_MAP="${ENABLE_PERSISTENT_POINT_MAP:-false}"
@@ -52,6 +53,7 @@ VOXEL_PLANE_MAX_CORRESPONDENCES="${VOXEL_PLANE_MAX_CORRESPONDENCES:-48}"
 PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS:-3}"
 MAX_POSITION_UPDATE_M="${MAX_POSITION_UPDATE_M:-2.0}"
 MAX_ROTATION_UPDATE_RAD="${MAX_ROTATION_UPDATE_RAD:-0.50}"
+POSITION_EXTRAPOLATION_DAMPING="${POSITION_EXTRAPOLATION_DAMPING:-0.0}"
 
 source "${SOURCE_SETUP}"
 source "${WORKSPACE}/install/setup.bash"
@@ -99,6 +101,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p persistent_plane_map_min_observations_for_match:="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS}" \
   -p max_position_update_m:="${MAX_POSITION_UPDATE_M}" \
   -p max_rotation_update_rad:="${MAX_ROTATION_UPDATE_RAD}" \
+  -p position_extrapolation_damping:="${POSITION_EXTRAPOLATION_DAMPING}" \
+  -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
   -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \
   -p external_odometry_prior_topic:=/external_odometry_prior \
   > "${NODE_LOG}" 2>&1 &
@@ -269,6 +273,8 @@ native = {
     "max_iterations_per_step": int("${MAX_ITERATIONS_PER_STEP}"),
     "imu_info_gyro": float("${IMU_INFO_GYRO}"),
     "imu_info_accel": float("${IMU_INFO_ACCEL}"),
+    "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
+    "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "metrics": {
         "captured_tum_lines": tum_lines,
         "finite_tum_positions": finite_positions,

@@ -149,8 +149,12 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     const Eigen::Quaterniond q_new =
       (impl_->rotation_knots[n - 1] *
       (impl_->rotation_knots[n - 2].inverse() * impl_->rotation_knots[n - 1])).normalized();
+    const double extrapolation_damping =
+      std::isfinite(impl_->options.position_extrapolation_damping) ?
+      std::clamp(impl_->options.position_extrapolation_damping, 0.0, 1.0) : 1.0;
     const Eigen::Vector3d p_new =
       impl_->position_knots[n - 1] +
+      extrapolation_damping *
       (impl_->position_knots[n - 1] - impl_->position_knots[n - 2]);
     impl_->knot_stamps.push_back(next_stamp);
     impl_->rotation_knots.push_back(q_new);
@@ -257,17 +261,17 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   // correspondence set into hundreds of kilometers of odometry in one step.
   const auto rotation_out = estimator.rotation_knots();
   const auto position_out = estimator.position_knots();
-  bool reject_update = false;
+  bool invalid_update = false;
   double max_position_update = 0.0;
   double max_rotation_update = 0.0;
   if (rotation_out.size() != impl_->rotation_knots.size() ||
     position_out.size() != impl_->position_knots.size())
   {
-    reject_update = true;
+    invalid_update = true;
   } else {
     for (std::size_t i = 0; i < rotation_out.size(); ++i) {
       if (!quaternion_is_valid(rotation_out[i]) || !position_out[i].allFinite()) {
-        reject_update = true;
+        invalid_update = true;
         break;
       }
       max_position_update = std::max(
@@ -281,22 +285,33 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   if (!estimator.gyro_bias().allFinite() || !estimator.accel_bias().allFinite() ||
     !estimator.gravity_world().allFinite())
   {
-    reject_update = true;
+    invalid_update = true;
   }
-  if (impl_->options.max_position_update_m > 0.0 &&
-    max_position_update > impl_->options.max_position_update_m)
-  {
-    reject_update = true;
-  }
-  if (impl_->options.max_rotation_update_rad > 0.0 &&
-    max_rotation_update > impl_->options.max_rotation_update_rad)
-  {
-    reject_update = true;
-  }
-  if (reject_update) {
+  const bool position_update_too_large =
+    impl_->options.max_position_update_m > 0.0 &&
+    max_position_update > impl_->options.max_position_update_m;
+  const bool rotation_update_too_large =
+    impl_->options.max_rotation_update_rad > 0.0 &&
+    max_rotation_update > impl_->options.max_rotation_update_rad;
+  if (invalid_update || position_update_too_large) {
     ++impl_->diagnostics.rejected_solver_steps;
     impl_->diagnostics.last_rejected_position_update_m = max_position_update;
     impl_->diagnostics.last_rejected_rotation_update_rad = max_rotation_update;
+    return true;
+  }
+  if (rotation_update_too_large) {
+    if (!impl_->options.apply_position_update_on_rotation_reject) {
+      ++impl_->diagnostics.rejected_solver_steps;
+      impl_->diagnostics.last_rejected_position_update_m = max_position_update;
+      impl_->diagnostics.last_rejected_rotation_update_rad = max_rotation_update;
+      return true;
+    }
+    for (std::size_t i = 0; i < position_out.size(); ++i) {
+      impl_->position_knots[i] = position_out[i];
+    }
+    ++impl_->diagnostics.rotation_limited_solver_steps;
+    impl_->diagnostics.last_rotation_limited_position_update_m = max_position_update;
+    impl_->diagnostics.last_rotation_limited_rotation_update_rad = max_rotation_update;
     return true;
   }
 

@@ -65,6 +65,17 @@ struct ContinuousTimeSlidingWindowOptions
   // a malformed geometric factor should drop that solve, not explode odometry.
   double max_position_update_m{2.0};
   double max_rotation_update_rad{0.50};
+  // Multiplier for the constant-velocity position prediction used when a new
+  // knot is appended before optimization. Keep the library default at 1.0 for
+  // synthetic tests; real-bag launch paths can lower this when rejected online
+  // solves would otherwise dead-reckon a stale velocity for hundreds of steps.
+  double position_extrapolation_damping{1.0};
+  // Online real-bag solves can occasionally propose a poorly-observed SO(3)
+  // update while the position spline update remains small and useful. Keep
+  // the old rotations in that case but let the bounded position correction
+  // feed the next window instead of turning the whole step into dead
+  // reckoning.
+  bool apply_position_update_on_rotation_reject{false};
 };
 
 struct ContinuousTimeSlidingWindowDiagnostics
@@ -76,8 +87,11 @@ struct ContinuousTimeSlidingWindowDiagnostics
   double last_step_initial_cost{0.0};
   double last_step_final_cost{0.0};
   std::size_t rejected_solver_steps{0};
+  std::size_t rotation_limited_solver_steps{0};
   double last_rejected_position_update_m{0.0};
   double last_rejected_rotation_update_rad{0.0};
+  double last_rotation_limited_position_update_m{0.0};
+  double last_rotation_limited_rotation_update_rad{0.0};
 };
 
 class ContinuousTimeSlidingWindowEstimator

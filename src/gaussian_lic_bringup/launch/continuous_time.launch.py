@@ -32,6 +32,10 @@ def generate_launch_description() -> LaunchDescription:
     imu_linear_acceleration_scale = LaunchConfiguration("imu_linear_acceleration_scale")
     max_position_update_m = LaunchConfiguration("max_position_update_m")
     max_rotation_update_rad = LaunchConfiguration("max_rotation_update_rad")
+    position_extrapolation_damping = LaunchConfiguration("position_extrapolation_damping")
+    apply_position_update_on_rotation_reject = LaunchConfiguration(
+        "apply_position_update_on_rotation_reject"
+    )
     pointcloud_enable = LaunchConfiguration("pointcloud_enable")
     pointcloud_subsample_stride = LaunchConfiguration("pointcloud_subsample_stride")
     pointcloud_max_points_per_msg = LaunchConfiguration("pointcloud_max_points_per_msg")
@@ -70,6 +74,10 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("imu_linear_acceleration_scale", default_value="1.0"),
         DeclareLaunchArgument("max_position_update_m", default_value="2.0"),
         DeclareLaunchArgument("max_rotation_update_rad", default_value="0.50"),
+        DeclareLaunchArgument("position_extrapolation_damping", default_value="0.0"),
+        DeclareLaunchArgument(
+            "apply_position_update_on_rotation_reject", default_value="false"
+        ),
         DeclareLaunchArgument("pointcloud_enable", default_value="true"),
         DeclareLaunchArgument("pointcloud_subsample_stride", default_value="50"),
         DeclareLaunchArgument("pointcloud_max_points_per_msg", default_value="256"),
@@ -124,6 +132,8 @@ def generate_launch_description() -> LaunchDescription:
                 "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
                 "max_position_update_m": max_position_update_m,
                 "max_rotation_update_rad": max_rotation_update_rad,
+                "position_extrapolation_damping": position_extrapolation_damping,
+                "apply_position_update_on_rotation_reject": apply_position_update_on_rotation_reject,
                 "pointcloud_enable": pointcloud_enable,
                 "pointcloud_subsample_stride": pointcloud_subsample_stride,
                 "pointcloud_max_points_per_msg": pointcloud_max_points_per_msg,

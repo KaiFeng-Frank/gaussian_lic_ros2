@@ -128,6 +128,16 @@ public:
       declare_parameter<double>("max_position_update_m", 2.0);
     options.max_rotation_update_rad =
       declare_parameter<double>("max_rotation_update_rad", 0.50);
+    options.position_extrapolation_damping =
+      declare_parameter<double>("position_extrapolation_damping", 0.0);
+    if (!std::isfinite(options.position_extrapolation_damping) ||
+      options.position_extrapolation_damping < 0.0 ||
+      options.position_extrapolation_damping > 1.0)
+    {
+      throw std::runtime_error("position_extrapolation_damping must be finite in [0, 1]");
+    }
+    options.apply_position_update_on_rotation_reject =
+      declare_parameter<bool>("apply_position_update_on_rotation_reject", false);
     enable_startup_bias_autocal_ =
       declare_parameter<bool>("enable_startup_bias_autocal", true);
     imu_linear_acceleration_scale_ =
@@ -542,6 +552,19 @@ private:
         diagnostics.last_rejected_position_update_m,
         diagnostics.last_rejected_rotation_update_rad);
     }
+    if (
+      diagnostics.rotation_limited_solver_steps >
+      last_logged_rotation_limited_solver_steps_)
+    {
+      last_logged_rotation_limited_solver_steps_ =
+        diagnostics.rotation_limited_solver_steps;
+      RCLCPP_WARN(
+        get_logger(),
+        "continuous-time solve rotation update limited: total=%zu kept_rotation=true max_dp=%.3f m max_dtheta=%.3f rad",
+        diagnostics.rotation_limited_solver_steps,
+        diagnostics.last_rotation_limited_position_update_m,
+        diagnostics.last_rotation_limited_rotation_update_rad);
+    }
     publish_latest_pose();
   }
 
@@ -867,6 +890,7 @@ private:
   int64_t knot_interval_ns_{50000000};
   int64_t last_published_query_ns_{0};
   std::size_t last_logged_rejected_solver_steps_{0};
+  std::size_t last_logged_rotation_limited_solver_steps_{0};
 };
 
 }  // namespace gaussian_lic_tracking
