@@ -351,10 +351,14 @@ public:
       declare_parameter<double>("visual_se3_position_weight", 0.0);
     visual_se3_orientation_weight_ =
       declare_parameter<double>("visual_se3_orientation_weight", 0.0);
+    visual_se3_velocity_weight_ =
+      declare_parameter<double>("visual_se3_velocity_weight", 0.0);
     visual_se3_huber_delta_m_ =
       declare_parameter<double>("visual_se3_huber_delta_m", 0.05);
     visual_se3_huber_delta_rad_ =
       declare_parameter<double>("visual_se3_huber_delta_rad", 0.05);
+    visual_se3_huber_delta_mps_ =
+      declare_parameter<double>("visual_se3_huber_delta_mps", 0.10);
     visual_se3_max_samples_ =
       static_cast<int>(declare_parameter<int>("visual_se3_max_samples", 1000));
     visual_se3_min_samples_ =
@@ -419,10 +423,14 @@ public:
       visual_se3_position_weight_ < 0.0 ||
       !std::isfinite(visual_se3_orientation_weight_) ||
       visual_se3_orientation_weight_ < 0.0 ||
+      !std::isfinite(visual_se3_velocity_weight_) ||
+      visual_se3_velocity_weight_ < 0.0 ||
       !std::isfinite(visual_se3_huber_delta_m_) ||
       visual_se3_huber_delta_m_ < 0.0 ||
       !std::isfinite(visual_se3_huber_delta_rad_) ||
       visual_se3_huber_delta_rad_ < 0.0 ||
+      !std::isfinite(visual_se3_huber_delta_mps_) ||
+      visual_se3_huber_delta_mps_ < 0.0 ||
       visual_se3_max_samples_ <= 0 ||
       visual_se3_min_samples_ <= 0 ||
       visual_se3_max_samples_ < visual_se3_min_samples_ ||
@@ -1313,6 +1321,17 @@ private:
         visual_se3_position_weight_, visual_se3_huber_delta_m_);
       ++visual_se3_position_priors_;
     }
+    const double dt_s =
+      static_cast<double>(current.stamp_ns - last_visual_frame_.stamp_ns) * 1.0e-9;
+    if (visual_se3_velocity_weight_ > 0.0 && dt_s > 1.0e-6) {
+      const Eigen::Vector3d target_velocity = q_prev * (translation_delta / dt_s);
+      if (target_velocity.allFinite()) {
+        estimator_->add_velocity_prior(
+          current.stamp_ns, target_velocity,
+          visual_se3_velocity_weight_, visual_se3_huber_delta_mps_);
+        ++visual_se3_velocity_priors_;
+      }
+    }
     if (visual_se3_orientation_weight_ > 0.0) {
       estimator_->add_orientation_prior(
         current.stamp_ns, target_q,
@@ -1679,7 +1698,8 @@ private:
       "visual_se_depth_frames=%zu visual_se_depth_miss=%zu "
       "visual_se_batches=%zu visual_se_valid=%zu visual_se_rejected=%zu "
       "visual_se_degenerate=%zu visual_se_step_rejected=%zu "
-      "visual_se_position_priors=%zu visual_se_orientation_priors=%zu "
+      "visual_se_position_priors=%zu visual_se_velocity_priors=%zu "
+      "visual_se_orientation_priors=%zu "
       "visual_se_sampled_depth=%zu visual_se_rejected_gradient=%zu "
       "visual_se_rejected_residual=%zu visual_se_last_samples=%zu "
       "visual_se_last_rank=%zu visual_se_last_coverage_tiles=%zu "
@@ -1759,6 +1779,7 @@ private:
       visual_se3_degenerate_batches_,
       visual_se3_step_rejected_batches_,
       visual_se3_position_priors_,
+      visual_se3_velocity_priors_,
       visual_se3_orientation_priors_,
       visual_se3_sampled_depth_pixels_,
       visual_se3_rejected_gradient_pixels_,
@@ -2244,8 +2265,10 @@ private:
   bool enable_visual_se3_prior_{false};
   double visual_se3_position_weight_{0.0};
   double visual_se3_orientation_weight_{0.0};
+  double visual_se3_velocity_weight_{0.0};
   double visual_se3_huber_delta_m_{0.05};
   double visual_se3_huber_delta_rad_{0.05};
+  double visual_se3_huber_delta_mps_{0.10};
   int visual_se3_max_samples_{1000};
   int visual_se3_min_samples_{32};
   double visual_se3_min_gradient_{1.0e-4};
@@ -2276,6 +2299,7 @@ private:
   std::size_t visual_se3_degenerate_batches_{0};
   std::size_t visual_se3_step_rejected_batches_{0};
   std::size_t visual_se3_position_priors_{0};
+  std::size_t visual_se3_velocity_priors_{0};
   std::size_t visual_se3_orientation_priors_{0};
   std::size_t visual_se3_sampled_depth_pixels_{0};
   std::size_t visual_se3_rejected_gradient_pixels_{0};

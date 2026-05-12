@@ -78,8 +78,10 @@ CAMERA_TO_IMU_TRANSLATION_M="${CAMERA_TO_IMU_TRANSLATION_M:-[0.0673699, 0.041241
 ENABLE_VISUAL_SE3_PRIOR="${ENABLE_VISUAL_SE3_PRIOR:-false}"
 VISUAL_SE3_POSITION_WEIGHT="${VISUAL_SE3_POSITION_WEIGHT:-0.0}"
 VISUAL_SE3_ORIENTATION_WEIGHT="${VISUAL_SE3_ORIENTATION_WEIGHT:-0.0}"
+VISUAL_SE3_VELOCITY_WEIGHT="${VISUAL_SE3_VELOCITY_WEIGHT:-0.0}"
 VISUAL_SE3_HUBER_DELTA_M="${VISUAL_SE3_HUBER_DELTA_M:-0.05}"
 VISUAL_SE3_HUBER_DELTA_RAD="${VISUAL_SE3_HUBER_DELTA_RAD:-0.05}"
+VISUAL_SE3_HUBER_DELTA_MPS="${VISUAL_SE3_HUBER_DELTA_MPS:-0.10}"
 VISUAL_SE3_MAX_SAMPLES="${VISUAL_SE3_MAX_SAMPLES:-1000}"
 VISUAL_SE3_MIN_SAMPLES="${VISUAL_SE3_MIN_SAMPLES:-32}"
 VISUAL_SE3_MIN_GRADIENT="${VISUAL_SE3_MIN_GRADIENT:-0.0001}"
@@ -211,8 +213,10 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p enable_visual_se3_prior:="${ENABLE_VISUAL_SE3_PRIOR}" \
   -p visual_se3_position_weight:="${VISUAL_SE3_POSITION_WEIGHT}" \
   -p visual_se3_orientation_weight:="${VISUAL_SE3_ORIENTATION_WEIGHT}" \
+  -p visual_se3_velocity_weight:="${VISUAL_SE3_VELOCITY_WEIGHT}" \
   -p visual_se3_huber_delta_m:="${VISUAL_SE3_HUBER_DELTA_M}" \
   -p visual_se3_huber_delta_rad:="${VISUAL_SE3_HUBER_DELTA_RAD}" \
+  -p visual_se3_huber_delta_mps:="${VISUAL_SE3_HUBER_DELTA_MPS}" \
   -p visual_se3_max_samples:="${VISUAL_SE3_MAX_SAMPLES}" \
   -p visual_se3_min_samples:="${VISUAL_SE3_MIN_SAMPLES}" \
   -p visual_se3_min_gradient:="${VISUAL_SE3_MIN_GRADIENT}" \
@@ -491,8 +495,10 @@ native = {
     "enable_visual_se3_prior": "${ENABLE_VISUAL_SE3_PRIOR}" == "true",
     "visual_se3_position_weight": float("${VISUAL_SE3_POSITION_WEIGHT}"),
     "visual_se3_orientation_weight": float("${VISUAL_SE3_ORIENTATION_WEIGHT}"),
+    "visual_se3_velocity_weight": float("${VISUAL_SE3_VELOCITY_WEIGHT}"),
     "visual_se3_huber_delta_m": float("${VISUAL_SE3_HUBER_DELTA_M}"),
     "visual_se3_huber_delta_rad": float("${VISUAL_SE3_HUBER_DELTA_RAD}"),
+    "visual_se3_huber_delta_mps": float("${VISUAL_SE3_HUBER_DELTA_MPS}"),
     "visual_se3_max_samples": int("${VISUAL_SE3_MAX_SAMPLES}"),
     "visual_se3_min_samples": int("${VISUAL_SE3_MIN_SAMPLES}"),
     "visual_se3_min_gradient": float("${VISUAL_SE3_MIN_GRADIENT}"),
