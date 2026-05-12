@@ -1132,6 +1132,81 @@
           "min": 30
         }
       ]
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "dataset": "M2DGR",
+      "sequence": "room_01",
+      "required": true,
+      "report": "results/m2dgr/room_01_continuous_time_native_parity/native_tracking_report.json",
+      "requires_reference_parity": false,
+      "notes": "Liveness gate for the continuous-time tracker on M2DGR room_01. Validates portability across the M2DGR profile.",
+      "thresholds": [
+        {
+          "path": "metrics.captured_tum_lines",
+          "min": 10
+        },
+        {
+          "path": "metrics.finite_tum_positions",
+          "min": 10
+        },
+        {
+          "path": "metrics.odom_messages_received",
+          "min": 30
+        }
+      ]
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "dataset": "MCD",
+      "sequence": "ntu_day_01",
+      "required": true,
+      "report": "results/mcd/ntu_day_01_continuous_time_native_parity/native_tracking_report.json",
+      "requires_reference_parity": false,
+      "notes": "Liveness gate for the continuous-time tracker on MCD ntu_day_01. Validates portability across the MCD profile.",
+      "thresholds": [
+        {
+          "path": "metrics.captured_tum_lines",
+          "min": 10
+        },
+        {
+          "path": "metrics.finite_tum_positions",
+          "min": 10
+        },
+        {
+          "path": "metrics.odom_messages_received",
+          "min": 30
+        }
+      ]
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "dataset": "R3LIVE",
+      "sequence": "hku_park_00",
+      "required": true,
+      "report": "results/r3live/hku_park_00_continuous_time_native_parity/native_tracking_report.json",
+      "requires_reference_parity": false,
+      "notes": "Liveness gate for the continuous-time tracker on R3LIVE hku_park_00. Validates portability across the R3LIVE profile.",
+      "thresholds": [
+        {
+          "path": "metrics.captured_tum_lines",
+          "min": 10
+        },
+        {
+          "path": "metrics.finite_tum_positions",
+          "min": 10
+        },
+        {
+          "path": "metrics.odom_messages_received",
+          "min": 30
+        }
+      ]
     }
   ]
 }

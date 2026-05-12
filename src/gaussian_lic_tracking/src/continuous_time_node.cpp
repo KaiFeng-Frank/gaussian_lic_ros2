@@ -66,6 +66,10 @@ public:
   {
     raw_imu_topic_ = declare_parameter<std::string>(
       "raw_imu_topic", "/imu_for_gs");
+    external_odometry_prior_topic_ = declare_parameter<std::string>(
+      "external_odometry_prior_topic", "");
+    enable_external_odometry_prior_ =
+      declare_parameter<bool>("enable_external_odometry_prior", false);
     odometry_topic_ = declare_parameter<std::string>(
       "odometry_topic", "/gaussian_lic/continuous_time/odometry");
     path_topic_ = declare_parameter<std::string>(
@@ -195,6 +199,14 @@ public:
         std::bind(&ContinuousTimeNode::on_pointcloud, this, std::placeholders::_1));
     }
 
+    if (enable_external_odometry_prior_ && !external_odometry_prior_topic_.empty()) {
+      rclcpp::QoS prior_qos(rclcpp::KeepLast(20));
+      prior_qos.reliable();
+      external_odometry_subscription_ = create_subscription<nav_msgs::msg::Odometry>(
+        external_odometry_prior_topic_, prior_qos,
+        std::bind(&ContinuousTimeNode::on_external_odometry_prior, this, std::placeholders::_1));
+    }
+
     odom_publisher_ = create_publisher<nav_msgs::msg::Odometry>(
       odometry_topic_, rclcpp::QoS(50));
     path_publisher_ = create_publisher<nav_msgs::msg::Path>(
@@ -259,6 +271,31 @@ private:
     }
     estimator_->add_imu_sample(stamp_ns, sample);
     ++accepted_imu_count_;
+  }
+
+  void on_external_odometry_prior(const nav_msgs::msg::Odometry::SharedPtr msg)
+  {
+    if (!msg) {
+      return;
+    }
+    const auto & pose = msg->pose.pose;
+    Eigen::Vector3d p(pose.position.x, pose.position.y, pose.position.z);
+    Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x,
+      pose.orientation.y, pose.orientation.z);
+    if (!p.allFinite() || !q.coeffs().allFinite() ||
+      q.norm() < 1.0e-6)
+    {
+      ++rejected_prior_count_;
+      return;
+    }
+    std::lock_guard<std::mutex> lock(estimator_mutex_);
+    if (initialized_) {
+      return;   // Prior only used for the seed; ignore subsequent messages.
+    }
+    latest_prior_position_ = p;
+    latest_prior_orientation_ = q.normalized();
+    have_prior_pose_ = true;
+    ++accepted_prior_count_;
   }
 
   void on_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -375,7 +412,22 @@ private:
     // Yaw stays 0 (not observable from gravity alone). Mirrors the upstream
     // Coco-LIC / `tracking_node` `enable_imu_gravity_autocalibration` default.
     Eigen::Quaterniond seed_orientation = Eigen::Quaterniond::Identity();
-    if (enable_imu_gravity_autocal_) {
+    Eigen::Vector3d seed_position = Eigen::Vector3d::Zero();
+
+    // External pose prior takes precedence over gravity autocal — if a
+    // ground-truth or external SLAM frontend has been publishing on
+    // `external_odometry_prior_topic`, use the most recent pose as the
+    // seed instead of identity.
+    if (enable_external_odometry_prior_ && have_prior_pose_) {
+      seed_orientation = latest_prior_orientation_;
+      seed_position = latest_prior_position_;
+      RCLCPP_INFO(
+        get_logger(),
+        "seed from external prior: p=(%.3f, %.3f, %.3f) q=(%.3f, %.3f, %.3f, %.3f)",
+        seed_position.x(), seed_position.y(), seed_position.z(),
+        seed_orientation.w(), seed_orientation.x(),
+        seed_orientation.y(), seed_orientation.z());
+    } else if (enable_imu_gravity_autocal_) {
       Eigen::Vector3d accel_sum = Eigen::Vector3d::Zero();
       for (const auto & sample : seed_imu_buffer_) {
         accel_sum += sample.second.accel;
@@ -409,7 +461,7 @@ private:
       static_cast<std::size_t>(estimator_->N + 4),
       seed_orientation);
     std::vector<Eigen::Vector3d> pos_knots(
-      rot_knots.size(), Eigen::Vector3d::Zero());
+      rot_knots.size(), seed_position);
     estimator_->initialize(start_stamp, rot_knots, pos_knots);
 
     for (const auto & sample : seed_imu_buffer_) {
@@ -492,6 +544,7 @@ private:
 
   std::string raw_imu_topic_;
   std::string raw_pointcloud_topic_;
+  std::string external_odometry_prior_topic_;
   std::string odometry_topic_;
   std::string path_topic_;
   std::string body_frame_id_;
@@ -501,6 +554,7 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_subscription_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr external_odometry_subscription_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher_;
   rclcpp::TimerBase::SharedPtr step_timer_;
@@ -537,6 +591,12 @@ private:
 
   bool enable_imu_gravity_autocal_{true};
   bool enable_voxel_plane_extraction_{true};
+  bool enable_external_odometry_prior_{false};
+  bool have_prior_pose_{false};
+  Eigen::Vector3d latest_prior_position_{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond latest_prior_orientation_{Eigen::Quaterniond::Identity()};
+  std::size_t accepted_prior_count_{0};
+  std::size_t rejected_prior_count_{0};
   spline::LidarPlaneExtractor plane_extractor_{};
 
   double step_period_seconds_{0.10};
