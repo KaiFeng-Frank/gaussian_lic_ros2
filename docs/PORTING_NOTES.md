@@ -221,6 +221,14 @@ first-aligned path drift low but still misses first-align RMSE/mean; the same
 artifact passes the yaw-gauge comparison (`coverage=44.5%`, `RMSE=1.65 m`,
 `mean=1.43 m`, `max=3.07 m`). The remaining non-paper-grade gap is therefore
 native yaw observability/initial heading, not dataset availability or IMU scale.
+The script also exposes `visual_alignment_window_weight` and
+`se3_photometric_window_weight` for the native visual BA path. Enabling visual
+plus Gaussian feedback on the 75 s CBD probe activates both factor families
+(`98` visual and `98` SE3 photometric factors in the 70 s diagnostic; the 75 s
+artifact records the same path active) and nearly closes first-align tracking:
+coverage `42.65%`, RMSE `1.83 m`, max `3.49 m`, path drift `7.8%`, with mean
+`1.5208 m` just over the `1.5 m` gate. The yaw-gauge comparison for the same
+75 s artifact passes (`RMSE=1.461 m`, `mean=1.373 m`, `max=2.499 m`).
 
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and

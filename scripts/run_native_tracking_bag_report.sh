@@ -86,6 +86,8 @@ VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
 VISUAL_DEPTH_DILATION_PX=5
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
+VISUAL_ALIGNMENT_WINDOW_WEIGHT=1.0
+SE3_PHOTOMETRIC_WINDOW_WEIGHT=0.5
 SE3_PHOTOMETRIC_MIN_SAMPLES=8
 SE3_PHOTOMETRIC_MIN_HESSIAN_RANK=3
 SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION=1000000000000.0
@@ -222,6 +224,10 @@ Options:
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
+  --visual-alignment-window-weight W
+                               Sliding-window 2D visual alignment factor weight. Default: 1.0.
+  --se3-photometric-window-weight W
+                               Sliding-window SE3 photometric factor weight. Default: 0.5.
   --se3-photometric-min-samples N
                                Minimum valid sparse-depth samples needed before adding an SE3 photometric BA factor. Default: 8.
   --se3-photometric-min-hessian-rank N
@@ -556,6 +562,14 @@ while [[ $# -gt 0 ]]; do
       VISUAL_DEPTH_DILATION_PX="$2"
       shift 2
       ;;
+    --visual-alignment-window-weight)
+      VISUAL_ALIGNMENT_WINDOW_WEIGHT="$2"
+      shift 2
+      ;;
+    --se3-photometric-window-weight)
+      SE3_PHOTOMETRIC_WINDOW_WEIGHT="$2"
+      shift 2
+      ;;
     --se3-photometric-min-samples)
       SE3_PHOTOMETRIC_MIN_SAMPLES="$2"
       shift 2
@@ -739,6 +753,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
+  visual_alignment_window_weight:="${VISUAL_ALIGNMENT_WINDOW_WEIGHT}" \
+  se3_photometric_window_weight:="${SE3_PHOTOMETRIC_WINDOW_WEIGHT}" \
   rendered_frame_cache_size:=64 \
   observed_frame_cache_size:=128 \
   visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
@@ -894,7 +910,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
   "${ENABLE_VISUAL_FACTORS}" "${REQUIRE_DESKEW}" "${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
   "${VISUAL_FACTOR_MAX_DT_NS}" "${VISUAL_DEPTH_MAX_DT_NS}" \
-  "${VISUAL_DEPTH_DILATION_PX}" "${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
+  "${VISUAL_DEPTH_DILATION_PX}" \
+  "${VISUAL_ALIGNMENT_WINDOW_WEIGHT}" "${SE3_PHOTOMETRIC_WINDOW_WEIGHT}" \
+  "${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
   "${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" "${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
   "${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}" \
   "${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" \
@@ -929,26 +947,28 @@ visual_pending_factor_queue_size = int(sys.argv[12])
 visual_factor_max_dt_ns = int(sys.argv[13])
 visual_depth_max_dt_ns = int(sys.argv[14])
 visual_depth_dilation_px = int(sys.argv[15])
-se3_photometric_min_samples = int(sys.argv[16])
-se3_photometric_min_hessian_rank = int(sys.argv[17])
-se3_photometric_max_hessian_condition = float(sys.argv[18])
-se3_photometric_min_sample_inlier_ratio = float(sys.argv[19])
-se3_photometric_max_mean_abs_residual_for_factor = float(sys.argv[20])
-se3_photometric_coverage_grid_cols = int(sys.argv[21])
-se3_photometric_coverage_grid_rows = int(sys.argv[22])
-se3_photometric_min_coverage_tiles = int(sys.argv[23])
-mapper_feedback_sync_tolerance_sec = float(sys.argv[24])
-enable_gaussian_map_feedback = sys.argv[25].lower() == "true"
-require_gaussian_snapshot = sys.argv[26].lower() == "true"
-mapper_feedback_torch_device = sys.argv[27]
-mapper_feedback_torch_optimization_steps = int(sys.argv[28])
-mapper_feedback_gaussian_map_publish_min_interval_sec = float(sys.argv[29])
-mapper_feedback_gaussian_map_publish_on_empty_extend = sys.argv[30].lower() == "true"
-sliding_window_optimize_every_n_frames = int(sys.argv[31])
-sliding_window_max_feedback_translation_m = float(sys.argv[32])
-sliding_window_max_feedback_rotation_rad = float(sys.argv[33])
-sliding_window_max_feedback_velocity_mps = float(sys.argv[34])
-reference_tum_path = Path(sys.argv[35]) if sys.argv[35] else None
+visual_alignment_window_weight = float(sys.argv[16])
+se3_photometric_window_weight = float(sys.argv[17])
+se3_photometric_min_samples = int(sys.argv[18])
+se3_photometric_min_hessian_rank = int(sys.argv[19])
+se3_photometric_max_hessian_condition = float(sys.argv[20])
+se3_photometric_min_sample_inlier_ratio = float(sys.argv[21])
+se3_photometric_max_mean_abs_residual_for_factor = float(sys.argv[22])
+se3_photometric_coverage_grid_cols = int(sys.argv[23])
+se3_photometric_coverage_grid_rows = int(sys.argv[24])
+se3_photometric_min_coverage_tiles = int(sys.argv[25])
+mapper_feedback_sync_tolerance_sec = float(sys.argv[26])
+enable_gaussian_map_feedback = sys.argv[27].lower() == "true"
+require_gaussian_snapshot = sys.argv[28].lower() == "true"
+mapper_feedback_torch_device = sys.argv[29]
+mapper_feedback_torch_optimization_steps = int(sys.argv[30])
+mapper_feedback_gaussian_map_publish_min_interval_sec = float(sys.argv[31])
+mapper_feedback_gaussian_map_publish_on_empty_extend = sys.argv[32].lower() == "true"
+sliding_window_optimize_every_n_frames = int(sys.argv[33])
+sliding_window_max_feedback_translation_m = float(sys.argv[34])
+sliding_window_max_feedback_rotation_rad = float(sys.argv[35])
+sliding_window_max_feedback_velocity_mps = float(sys.argv[36])
+reference_tum_path = Path(sys.argv[37]) if sys.argv[37] else None
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
@@ -1161,6 +1181,8 @@ report = {
         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
         "visual_depth_dilation_px": visual_depth_dilation_px,
+        "visual_alignment_window_weight": visual_alignment_window_weight,
+        "se3_photometric_window_weight": se3_photometric_window_weight,
         "mapper_feedback_sync_tolerance_sec": mapper_feedback_sync_tolerance_sec,
         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
         "se3_photometric_min_samples": se3_photometric_min_samples,
