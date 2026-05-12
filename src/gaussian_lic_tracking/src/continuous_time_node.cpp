@@ -187,6 +187,8 @@ public:
       declare_parameter<double>("persistent_plane_map_match_distance_m", 0.25);
     plane_map_options.min_normal_dot =
       declare_parameter<double>("persistent_plane_map_min_normal_dot", 0.95);
+    plane_map_options.min_observations_for_match = static_cast<int>(
+      declare_parameter<int>("persistent_plane_map_min_observations_for_match", 3));
     persistent_plane_map_.set_options(plane_map_options);
 
     const auto plane_param = declare_parameter<std::vector<double>>(

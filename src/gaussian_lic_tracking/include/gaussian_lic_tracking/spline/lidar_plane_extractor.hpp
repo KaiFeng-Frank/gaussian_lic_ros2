@@ -81,6 +81,7 @@ struct PersistentPlaneMapOptions
   int max_planes{512};
   double max_point_to_plane_distance_m{0.25};
   double min_normal_dot{0.95};
+  int min_observations_for_match{3};
 };
 
 struct PersistentPlane
@@ -116,6 +117,22 @@ public:
     const Eigen::Vector3d & centroid_world,
     const Eigen::Vector3d & normal_world) const
   {
+    return match_impl(centroid_world, normal_world, true);
+  }
+
+  std::optional<PersistentPlaneMatch> match_for_update(
+    const Eigen::Vector3d & centroid_world,
+    const Eigen::Vector3d & normal_world) const
+  {
+    return match_impl(centroid_world, normal_world, false);
+  }
+
+private:
+  std::optional<PersistentPlaneMatch> match_impl(
+    const Eigen::Vector3d & centroid_world,
+    const Eigen::Vector3d & normal_world,
+    bool require_mature_observation_count) const
+  {
     if (!centroid_world.allFinite() || !normal_world.allFinite()) {
       return std::nullopt;
     }
@@ -129,6 +146,11 @@ public:
     double best_distance = options_.max_point_to_plane_distance_m;
     for (std::size_t i = 0; i < planes_.size(); ++i) {
       const auto & plane = planes_[i];
+      if (require_mature_observation_count &&
+        plane.observations < options_.min_observations_for_match)
+      {
+        continue;
+      }
       const double signed_normal_dot = plane.normal_world.dot(n);
       const double normal_dot = std::abs(signed_normal_dot);
       if (normal_dot < options_.min_normal_dot) {
@@ -156,6 +178,7 @@ public:
     return best;
   }
 
+public:
   std::optional<int> add_or_update(
     const Eigen::Vector3d & centroid_world,
     const Eigen::Vector3d & normal_world,
@@ -173,7 +196,7 @@ public:
     Eigen::Vector3d n = normal_world / normal_norm;
     double d = offset_world / normal_norm;
 
-    const auto existing = match(centroid_world, n);
+    const auto existing = match_for_update(centroid_world, n);
     if (existing) {
       auto & plane = planes_[static_cast<std::size_t>(existing->index)];
       if (plane.normal_world.dot(n) < 0.0) {

@@ -78,6 +78,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("persistent_plane_map_max_planes", default_value="512"),
         DeclareLaunchArgument("persistent_plane_map_match_distance_m", default_value="0.25"),
         DeclareLaunchArgument("persistent_plane_map_min_normal_dot", default_value="0.95"),
+        DeclareLaunchArgument("persistent_plane_map_min_observations_for_match", default_value="3"),
         DeclareLaunchArgument("body_frame_id", default_value="imu_link"),
         DeclareLaunchArgument("world_frame_id", default_value="map"),
     ]
@@ -121,6 +122,7 @@ def generate_launch_description() -> LaunchDescription:
                 "persistent_plane_map_max_planes": LaunchConfiguration("persistent_plane_map_max_planes"),
                 "persistent_plane_map_match_distance_m": LaunchConfiguration("persistent_plane_map_match_distance_m"),
                 "persistent_plane_map_min_normal_dot": LaunchConfiguration("persistent_plane_map_min_normal_dot"),
+                "persistent_plane_map_min_observations_for_match": LaunchConfiguration("persistent_plane_map_min_observations_for_match"),
                 "body_frame_id": body_frame_id,
                 "world_frame_id": world_frame_id,
             }

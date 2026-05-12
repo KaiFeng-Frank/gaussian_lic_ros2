@@ -35,6 +35,7 @@ VOXEL_PLANE_MIN_POINTS="${VOXEL_PLANE_MIN_POINTS:-6}"
 VOXEL_PLANE_EIGEN_RATIO="${VOXEL_PLANE_EIGEN_RATIO:-0.10}"
 VOXEL_PLANE_MAX_INLIER_M="${VOXEL_PLANE_MAX_INLIER_M:-0.20}"
 VOXEL_PLANE_MAX_CORRESPONDENCES="${VOXEL_PLANE_MAX_CORRESPONDENCES:-48}"
+PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS:-3}"
 MAX_POSITION_UPDATE_M="${MAX_POSITION_UPDATE_M:-2.0}"
 MAX_ROTATION_UPDATE_RAD="${MAX_ROTATION_UPDATE_RAD:-0.50}"
 
@@ -70,6 +71,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p voxel_plane_eigen_ratio:="${VOXEL_PLANE_EIGEN_RATIO}" \
   -p voxel_plane_max_inlier_m:="${VOXEL_PLANE_MAX_INLIER_M}" \
   -p voxel_plane_max_correspondences:="${VOXEL_PLANE_MAX_CORRESPONDENCES}" \
+  -p persistent_plane_map_min_observations_for_match:="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS}" \
   -p max_position_update_m:="${MAX_POSITION_UPDATE_M}" \
   -p max_rotation_update_rad:="${MAX_ROTATION_UPDATE_RAD}" \
   -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \

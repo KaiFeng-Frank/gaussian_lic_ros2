@@ -137,6 +137,7 @@ void check_persistent_plane_map_matches_and_updates()
   options.max_planes = 4;
   options.max_point_to_plane_distance_m = 0.20;
   options.min_normal_dot = 0.95;
+  options.min_observations_for_match = 3;
   PersistentPlaneMap map(options);
 
   const auto first_index = map.add_or_update(
@@ -148,11 +149,11 @@ void check_persistent_plane_map_matches_and_updates()
     std::exit(1);
   }
 
-  const auto match = map.match(
+  const auto immature_match = map.match(
     Eigen::Vector3d(1.0, -0.5, 0.05),
     Eigen::Vector3d(0.0, 0.0, 1.0));
-  if (!match || match->index != 0 || match->point_to_plane_distance_m > 0.051) {
-    std::fprintf(stderr, "persistent plane map failed near-plane match\n");
+  if (immature_match) {
+    std::fprintf(stderr, "persistent plane map matched an immature one-observation plane\n");
     std::exit(1);
   }
 
@@ -167,6 +168,22 @@ void check_persistent_plane_map_matches_and_updates()
   const auto & updated = map.planes().front();
   if (updated.observations != 2 || std::abs(updated.normal_world.z()) < 0.99) {
     std::fprintf(stderr, "persistent plane map update produced bad plane\n");
+    std::exit(1);
+  }
+
+  const auto third_update = map.add_or_update(
+    Eigen::Vector3d(-0.5, 0.2, 0.01),
+    Eigen::Vector3d(0.0, 0.0, 1.0),
+    -0.01);
+  if (!third_update || *third_update != 0 || map.planes().front().observations != 3) {
+    std::fprintf(stderr, "persistent plane map failed to mature plane\n");
+    std::exit(1);
+  }
+  const auto match = map.match(
+    Eigen::Vector3d(1.0, -0.5, 0.05),
+    Eigen::Vector3d(0.0, 0.0, 1.0));
+  if (!match || match->index != 0 || match->point_to_plane_distance_m > 0.06) {
+    std::fprintf(stderr, "persistent plane map failed mature near-plane match\n");
     std::exit(1);
   }
 
