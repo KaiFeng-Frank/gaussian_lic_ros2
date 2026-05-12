@@ -17,6 +17,11 @@ BAG_DIR="${BAG_DIR:-/home/frank/data/fast_livo/CBD_Building_01_frontend_raw}"
 REFERENCE_TUM="${REFERENCE_TUM:-${WORKSPACE}/baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum}"
 # Set REFERENCE_TUM=__skip__ to produce a liveness-only native_tracking_report
 # (no trajectory_compare). Used by bags without an archived native reference.
+PRIOR_TUM="${PRIOR_TUM:-}"
+# When set to an existing TUM file, the parity script publishes it as
+# nav_msgs/Odometry on `external_odometry_prior_topic` so the estimator
+# can seed its initial pose from ground truth. Leave empty for identity
+# / gravity-autocal seeding.
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
 PLAYBACK_RATE="${PLAYBACK_RATE:-0.5}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
@@ -50,9 +55,29 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p voxel_plane_eigen_ratio:=0.10 \
   -p voxel_plane_max_inlier_m:=0.20 \
   -p voxel_plane_max_correspondences:=48 \
+  -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \
+  -p external_odometry_prior_topic:=/external_odometry_prior \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
 NODE_PGID=$(ps -o pgid= -p "${NODE_PID}" 2>/dev/null | tr -d ' ')
+
+PRIOR_PID=""
+PRIOR_PGID=""
+if [ -n "${PRIOR_TUM}" ]; then
+  if [ ! -f "${PRIOR_TUM}" ]; then
+    echo "continuous_time_native_reference_parity FAIL: PRIOR_TUM ${PRIOR_TUM} not found"
+    exit 1
+  fi
+  setsid /usr/bin/python3.12 "${WORKSPACE}/scripts/tum_to_odometry_publisher.py" \
+    --tum "${PRIOR_TUM}" \
+    --topic /external_odometry_prior \
+    --rate-hz 20 \
+    --duration 6 \
+    --max-messages 60 \
+    > "${OUTPUT_DIR}/prior_publisher.log" 2>&1 &
+  PRIOR_PID=$!
+  PRIOR_PGID=$(ps -o pgid= -p "${PRIOR_PID}" 2>/dev/null | tr -d ' ')
+fi
 
 PLAYBACK_SECS=$(awk -v d="${PLAYBACK_DURATION}" -v r="${PLAYBACK_RATE}" 'BEGIN{ print d / r }')
 CAPTURE_SECS=$(awk -v p="${PLAYBACK_SECS}" 'BEGIN{ print p + 3 }')
@@ -65,20 +90,22 @@ CAPTURE_SECS=$(awk -v p="${PLAYBACK_SECS}" 'BEGIN{ print p + 3 }')
 LOGGER_PID=$!
 
 cleanup() {
-  if [ -n "${NODE_PGID:-}" ]; then
-    kill -9 -- "-${NODE_PGID}" 2>/dev/null || true
-  fi
-  for pid in "${LOGGER_PID:-}" "${NODE_PID:-}" "${PLAY_PID:-}"; do
+  for pgid in "${NODE_PGID:-}" "${PRIOR_PGID:-}"; do
+    if [ -n "${pgid}" ]; then
+      kill -9 -- "-${pgid}" 2>/dev/null || true
+    fi
+  done
+  for pid in "${LOGGER_PID:-}" "${NODE_PID:-}" "${PLAY_PID:-}" "${PRIOR_PID:-}"; do
     if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
       kill -TERM "${pid}" 2>/dev/null || true
       sleep 0.2
       kill -9 "${pid}" 2>/dev/null || true
     fi
   done
-  # Belt-and-suspenders: kill any continuous_time_node that escaped.
   pkill -9 -f "continuous_time_node --ros-args" 2>/dev/null || true
   pkill -9 -f "ros2 bag play ${BAG_DIR}" 2>/dev/null || true
   pkill -9 -f "odom_to_tum" 2>/dev/null || true
+  pkill -9 -f "tum_to_odometry_publisher" 2>/dev/null || true
 }
 trap cleanup EXIT
 

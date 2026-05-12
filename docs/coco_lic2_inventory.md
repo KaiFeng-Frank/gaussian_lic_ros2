@@ -232,6 +232,14 @@ Current ROS2 implementation status:
   voxel size, minimum support, planarity ratio, and inlier-distance gates.
   `lidar_plane_extractor_probe` confirms ground-plane recovery, two-plane
   recovery, and rejection of pseudo-random noise.
+- `scripts/tum_to_odometry_publisher.py` + parity-script `PRIOR_TUM=...`
+  let the estimator be seeded from any TUM file (typically a dataset
+  ground-truth trajectory) on `external_odometry_prior_topic`. Verified
+  on M2DGR room_01: the seed pose is consumed correctly, but the dataset
+  GT and IMU sensor live in different frames (~180° about x for M2DGR
+  room_01), so direct GT-as-prior still produces unbounded drift until
+  the IMU-to-GT extrinsic composition is added. The toolchain is in
+  place; the remaining work is a single configurable extrinsic.
 - `scripts/continuous_time_native_reference_parity.sh` and
   `scripts/odom_to_tum.py` run the continuous-time stack against a real
   frontend_raw rosbag2, capture odometry as a TUM file via an external
