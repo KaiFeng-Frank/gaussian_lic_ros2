@@ -69,6 +69,8 @@ LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCIT
 LIDAR_SCAN_TO_SCAN_POSITION_HUBER_DELTA_M="${LIDAR_SCAN_TO_SCAN_POSITION_HUBER_DELTA_M:-0.25}"
 LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS="${LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS:-0.25}"
 LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS:-0.25}"
+LIDAR_SCAN_TO_SCAN_MAX_VELOCITY_MPS="${LIDAR_SCAN_TO_SCAN_MAX_VELOCITY_MPS:-0.0}"
+LIDAR_SCAN_TO_SCAN_MAX_ANGULAR_VELOCITY_RADPS="${LIDAR_SCAN_TO_SCAN_MAX_ANGULAR_VELOCITY_RADPS:-0.0}"
 LIDAR_SCAN_TO_SCAN_ORIENTATION_WEIGHT="${LIDAR_SCAN_TO_SCAN_ORIENTATION_WEIGHT:-0.0}"
 LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD="${LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD:-0.25}"
 LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION="${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION:-false}"
@@ -239,6 +241,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p lidar_scan_to_scan_position_huber_delta_m:="${LIDAR_SCAN_TO_SCAN_POSITION_HUBER_DELTA_M}" \
   -p lidar_scan_to_scan_velocity_huber_delta_mps:="${LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS}" \
   -p lidar_scan_to_scan_angular_velocity_huber_delta_radps:="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS}" \
+  -p lidar_scan_to_scan_max_velocity_mps:="${LIDAR_SCAN_TO_SCAN_MAX_VELOCITY_MPS}" \
+  -p lidar_scan_to_scan_max_angular_velocity_radps:="${LIDAR_SCAN_TO_SCAN_MAX_ANGULAR_VELOCITY_RADPS}" \
   -p lidar_scan_to_scan_orientation_weight:="${LIDAR_SCAN_TO_SCAN_ORIENTATION_WEIGHT}" \
   -p lidar_scan_to_scan_orientation_huber_delta_rad:="${LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD}" \
   -p lidar_scan_to_scan_use_odometry_prediction:="${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION}" \
@@ -549,6 +553,8 @@ native = {
     "lidar_scan_to_scan_position_huber_delta_m": float("${LIDAR_SCAN_TO_SCAN_POSITION_HUBER_DELTA_M}"),
     "lidar_scan_to_scan_velocity_huber_delta_mps": float("${LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS}"),
     "lidar_scan_to_scan_angular_velocity_huber_delta_radps": float("${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS}"),
+    "lidar_scan_to_scan_max_velocity_mps": float("${LIDAR_SCAN_TO_SCAN_MAX_VELOCITY_MPS}"),
+    "lidar_scan_to_scan_max_angular_velocity_radps": float("${LIDAR_SCAN_TO_SCAN_MAX_ANGULAR_VELOCITY_RADPS}"),
     "lidar_scan_to_scan_orientation_weight": float("${LIDAR_SCAN_TO_SCAN_ORIENTATION_WEIGHT}"),
     "lidar_scan_to_scan_orientation_huber_delta_rad": float("${LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD}"),
     "lidar_scan_to_scan_use_odometry_prediction": "${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION}" == "true",
