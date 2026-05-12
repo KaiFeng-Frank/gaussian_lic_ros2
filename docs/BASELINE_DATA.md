@@ -334,7 +334,7 @@ The successful OpenCV 4.10 + TensorRT build log is written to:
 log/noetic_gaussian_lic_build_attempt_opencv410_tensorrt.log
 ```
 
-No `baseline/fastlivo2/CBD_Building_01` archive should be created until the upstream run actually emits `trajectory.tum`, `point_cloud.ply`, `metrics.json`, `run.log`, and renders. The comparison gate must remain blocked until both ROS1 baseline artifacts and ROS2 current artifacts exist.
+Strict baseline archives are accepted only after the upstream run emits `trajectory.tum`, `point_cloud.ply`, `metrics.json`, `run.log`, renders, and `baseline_manifest.json`. `baseline/fastlivo2/CBD_Building_01` and the current required profile baselines now satisfy that contract; any new sequence must stay blocked until the same artifacts exist.
 
 `scripts/collect_current_results.sh` creates the ROS2 current archive from actual `/gaussian_lic/*` mapper outputs. It also stores `run.log`, the recorded `ros2_output_bag/`, the service-saved `saved_map/`, and offline debug extraction under `offline/` for auditability.
 

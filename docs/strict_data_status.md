@@ -1,44 +1,48 @@
 # Strict Data Input Audit
 
-Generated: `2026-05-08T06:08:09+00:00`
+Generated: `2026-05-12T15:39:58+00:00`
 Data root: `/home/frank/data`
-Disk free: `105.34 GiB` (minimum requested `100.00 GiB`) - PASS
-Strict evidence currently materialized: `12/12`
+Disk free: `109.39 GiB` (minimum requested `100.00 GiB`) - PASS
+Strict evidence currently materialized: `17/17`
 Raw/frontend inputs local: `PASS`
-ROS1 baseline artifacts local: `INCOMPLETE`
-Native reference trajectories local: `INCOMPLETE`
+ROS1 baseline artifacts local: `PASS`
+Native reference trajectories local: `PASS`
 
 | Profile | Dataset | Raw | Frontend | Baseline | Current | Reference | Status | Missing Inputs |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `fastlivo` | FAST-LIVO | PASS | PASS | PASS | PASS | MISS | MISSING | native_reference_trajectory |
-| `fastlivo2` | FAST-LIVO2 | PASS | PASS | MISS | PASS | MISS | MISSING | native_reference_trajectory, ros1_baseline_artifacts |
+| `fastlivo` | FAST-LIVO | PASS | PASS | PASS | PASS | PASS | PASS | none |
+| `fastlivo2` | FAST-LIVO2 | PASS | PASS | PASS | PASS | PASS | PASS | none |
 | `m2dgr` | M2DGR | PASS | PASS | PASS | PASS | PASS | PASS | none |
 | `mcd` | MCD | PASS | PASS | PASS | PASS | PASS | PASS | none |
-| `r3live` | R3LIVE | PASS | PASS | PASS | PASS | MISS | MISSING | native_reference_trajectory |
+| `r3live` | R3LIVE | PASS | PASS | PASS | PASS | PASS | PASS | none |
 
 ## Sequence Detail
 
 ### fastlivo
-- `LiDAR_Degenerate`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+- `LiDAR_Degenerate`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/LiDAR_Degenerate/LiDAR_Degenerate_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/LiDAR_Degenerate_frontend_raw`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/LiDAR_Degenerate`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/LiDAR_Degenerate_strict_current`
-- `Visual_Challenge`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+  - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/LiDAR_Degenerate/native_reference/ros1_mapper_baseline_full.tum`
+- `Visual_Challenge`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/Visual_Challenge/Visual_Challenge_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/Visual_Challenge_frontend_raw`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/Visual_Challenge`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/Visual_Challenge_strict_current`
-- `hku1`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+  - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/Visual_Challenge/native_reference/ros1_mapper_baseline_full.tum`
+- `hku1`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/hku1/hku1_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/hku1_frontend_raw`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku1`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/hku1_strict_current`
-- `hku2`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+  - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku1/native_reference/ros1_mapper_baseline_full.tum`
+- `hku2`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/fast_livo_mcap/FAST-LIVO/hku2/hku2_0.mcap`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo_mcap/hku2_frontend_raw`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku2`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo/hku2_strict_current`
+  - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/fastlivo/hku2/native_reference/ros1_mapper_baseline_full.tum`
 
 ### fastlivo2
 - `CBD_Building_01`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
@@ -47,10 +51,12 @@ Native reference trajectories local: `INCOMPLETE`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo2/CBD_Building_01`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_current_round_no_opacity_prune_probe`
   - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum`
-- `Retail_Street`: MISSING (raw=PASS, frontend=PASS, baseline=MISS, current=PASS, reference=MISS); missing: ros1_baseline_artifacts, native_reference_trajectory
+- `Retail_Street`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/fast_livo/Retail_Street.bag`
   - frontend_raw_rosbag2: `/home/frank/data/fast_livo/Retail_Street_frontend_raw`
+  - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Retail_Street`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/fastlivo2/Retail_Street_native_tracking_scan_order_60s`
+  - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/fastlivo2/Retail_Street/native_reference/ros1_mapper_baseline_full.tum`
 
 ### m2dgr
 - `room_01`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
@@ -84,17 +90,22 @@ Native reference trajectories local: `INCOMPLETE`
   - raw_component_imu_vn100_or_vn200: `/home/frank/data/mcd/ntu_day_01/ntu_day_01_vn100.bag`
 
 ### r3live
-- `hku_park_00`: MISSING (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=MISS); missing: native_reference_trajectory
+- `hku_park_00`: PASS (raw=PASS, frontend=PASS, baseline=PASS, current=PASS, reference=PASS); missing: none
   - raw_ros1_bag: `/home/frank/data/r3live/hku_park_00.bag`
   - frontend_raw_rosbag2: `/home/frank/data/r3live/hku_park_00_frontend_raw`
   - ros1_baseline_artifacts: `/home/frank/gaussian_lic_ros2/baseline/r3live/hku_park_00`
   - ros2_current_artifacts: `/home/frank/gaussian_lic_ros2/results/r3live/hku_park_00_strict_current`
+  - native_reference_trajectory: `/home/frank/gaussian_lic_ros2/baseline/r3live/hku_park_00/native_reference/ros1_mapper_baseline_full.tum`
 
 ## Largest Non-Matrix Artifact Candidates
 
-- `/home/frank/gaussian_lic_ros2/results/smoke_torch_optimization/ros2_output_bag` - 0.00 GiB
-- `/home/frank/gaussian_lic_ros2/results/smoke_torch_pruning/ros2_output_bag` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_lidar_w_0p5_probe_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_pc_wait_queue_diag_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_scaled_iter1_prior_smoke_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_external_position_prior_diag_60s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_damped0_prior_smoke_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_20s` - 0.00 GiB
+- `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_position_prior_w0p2_apply_diag_60s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_balanced_sampling_120s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_native_tracking_reference_tum_sync50ms_120s` - 0.00 GiB
 - `/home/frank/gaussian_lic_ros2/results/m2dgr/room_01_tracking_sweep_rebase_60s` - 0.00 GiB

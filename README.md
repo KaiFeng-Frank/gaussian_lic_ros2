@@ -29,9 +29,9 @@ Available now:
 - Strict FAST-LIVO2 `CBD_Building_01` artifact/readiness pipeline with trajectory, PSNR/SSIM/LPIPS, render-pair, and point-cloud gates passing for the mapper-contract/CUDA path.
 - `scripts/run_strict_parity_queue.sh` turns the remaining data/evidence backlog into a resumable full-profile queue: it reuses or creates frontend-raw bags, emits ROS1 mapper-contract bags, runs the upstream baseline with the matching profile config, collects ROS2 CUDA current artifacts, and writes strict readiness/reproduction reports for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE targets.
 - `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It now reports `required=17/17`: FAST-LIVO2 mapper strict parity, FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper strict parity, M2DGR room_01/room_02/room_03 mapper strict parity, MCD `ntu_day_01` mapper strict parity, R3LIVE `hku_park_00` mapper strict parity, CBD native BA runtime health, CBD native reference trajectory parity, and five continuous-time native tracker producer-chain gates are all archived and passing.
-- `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it now separates raw/frontend data, ROS1 baseline artifacts, ROS2 current artifacts, and native reference trajectories. Raw and converted frontend inputs are local for every required profile; the current required matrix is green, while extra native reference trajectories outside that matrix remain useful follow-up evidence.
+- `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it now separates raw/frontend data, ROS1 baseline artifacts, ROS2 current artifacts, and native reference trajectories. As of 2026-05-12 all required profiles pass those input checks and the strict evidence matrix is `17/17`.
 - R3LIVE `hku_park_00` can be converted to ROS2 frontend-raw, passes the native sensor-only tracking health gate, and now has a passing full-sequence mapper-contract/CUDA strict parity report.
-- FAST-LIVO2 `Retail_Street` is now fetched from the official Google Drive index, converted to ROS2 frontend-raw, and passes a 60s native scan-order deskew tracking health gate; this is additional runtime coverage, not strict ROS1-vs-ROS2 parity.
+- FAST-LIVO2 `Retail_Street` is now fetched from the official Google Drive index, converted to ROS2 frontend-raw, has an archived ROS1 upstream mapper baseline with 1,354 poses, 704,826 PLY vertices, and 1,354 renders, and passes a 60s native scan-order deskew tracking health gate; this remains additional runtime/data coverage, not an RMSE-gated native tracker parity claim.
 - Generic Google Drive file fetching is available through `scripts/fetch_google_drive_file.py`; MCD `ntu_day_01` now has local `d435i`, `mid70`, `vn100`, ground-truth TUM, frontend-raw conversion, archived ROS1 baseline artifacts, ROS2 current artifacts, and a passing strict mapper-contract/CUDA report.
 - SPNet TensorRT engine generation for the local `sm_120` GPU via TensorRT 10.9, with the generated FP16 engine kept outside git.
 - Native tracking probes are registered with CTest, so `colcon test --packages-select gaussian_lic_tracking` runs trajectory, IMU, LiDAR, sliding-window, bias observability, geometric Jacobian, Gaussian snapshot, trajectory smoothness, SE3 photometric Jacobian/factor, and visual checks automatically. `scripts/tracking_smoke_test.sh` also verifies the launch path through `/gaussian_lic/frontend/status`, including signed-nanosecond time status, tracking QoS, executor callback serialization, auto-start IMU preintegration re-integration semantics, cumulative IMU-factor/preintegration and visual/SE3 factor evidence that survives window marginalization, dense-prior health with stamp/reference validation, Schur/fallback marginalization health, same-stamp prior plus same-source IMU/LiDAR/visual/SE3/smoothness replacement counters, orphan-factor health, active-window state-cadence health, bias observability, accepted BA feedback stamp/delta/limit health, optimized IMU re-anchors, last-consumed IMU preintegration sample/dt/span health with time-gap skip gating, B-spline trajectory control poses, LiDAR correspondence confidence and spatial-index health, sliding-window optimization timing, zero global numeric-Jacobian fallback, nonzero trajectory smoothness factors, accepted/rejected/limited BA step health, linearization/linear-solve failure counters, factor skip counters, visual alignment, bounded photometric sample weights, photometric linearization status, rendered/depth cache diagnostics, and SE3 photometric sample quality/rejection counters.
@@ -39,7 +39,7 @@ Available now:
 
 Still pending:
 
-- Additional non-required native reference trajectory archives for profiles that do not publish trusted frontend reference odometry locally.
+- RMSE-gated continuous-time native tracker parity on the full long-window datasets; the data and reference-trajectory archive gate itself is now complete.
 - Continuous-time tracker quality hardening: the producer chain is now cross-profile and matrix-gated, persistent world-frame plane constraints plus online solve-step rejection are in tree, but the newest continuous-time entries are still liveness-gated while RMSE/paper-grade parity remains the next numerical target.
 - Continued production hardening of the native tracker under faster-than-strict replay; strict reference parity still uses controlled rosbag2 replay to preserve ROS1-style sequential timing semantics.
 
@@ -52,7 +52,7 @@ Still pending:
 | Strict `CBD_Building_01` paper-data gate | Official bag is local; ROS1 baseline is archived; latest ROS2 mapper-contract/CUDA strict report passes `reproduction_report.py --strict` |
 | Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend, executable strict mapper-contract chain, local SPNet TensorRT engine generation, continuous-time spline factors, persistent world-frame LiDAR plane map constraints, and solve-step rejection are in place; full RMSE-gated native Coco-LIC2 tracking BA remains |
 | Full-dataset strict parity matrix | PASS: `scripts/check_strict_parity_matrix.py` reports `required=17/17` with FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE covered by required mapper/native/continuous-time evidence |
-| Full raw/frontend data inputs | Local audit passes raw and frontend coverage for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE; missing items are now baseline/reference evidence, not raw downloads |
+| Full raw/frontend/baseline/reference data inputs | PASS: `scripts/audit_strict_data_inputs.py` reports raw, frontend, ROS1 baseline, ROS2 current, native-reference, and disk-headroom checks passing for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE |
 | R3LIVE coverage | `hku_park_00` frontend-raw conversion, 60s sensor-only native tracking health gate, and full-sequence mapper-contract/CUDA strict parity report pass |
 
 The Bright substitute report is a regression/evidence chain for current ROS2 plumbing and Torch Gaussian tensor boundaries. It is not a claim that the full paper algorithm has been ported.
@@ -1066,16 +1066,14 @@ The matching data audit is:
   --min-free-gb 100
 ```
 
-As of 2026-05-08 it reports `105.35 GiB` free on `/home/frank/data`.
-Raw bags and converted frontend-raw bags are local for every required profile:
-FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE. M2DGR and MCD also have local
-native reference TUM files, and MCD now has archived ROS1 baseline plus ROS2
-current strict artifacts. R3LIVE now has archived ROS1 baseline plus ROS2
-current strict artifacts. The remaining data/evidence blockers are trusted
-native reference trajectories for FAST-LIVO, FAST-LIVO2, and R3LIVE. The script
-also lists the largest non-matrix `results/`
-directories that can be reviewed before reclaiming space; it deliberately does
-not list archived baseline directories as cleanup candidates.
+As of 2026-05-12 it reports `109.39 GiB` free on `/home/frank/data`, above the
+100 GiB release threshold. Raw bags, converted frontend-raw bags, ROS1 baseline
+artifacts, ROS2 current artifacts, and native reference trajectories are local
+for every required profile: FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE.
+FAST-LIVO2 `Retail_Street` now also has an archived ROS1 upstream mapper
+baseline and native-reference TUM. The script also lists the largest non-matrix
+`results/` directories that can be reviewed before reclaiming space; it
+deliberately does not list archived baseline directories as cleanup candidates.
 
 ## Release Roadmap
 

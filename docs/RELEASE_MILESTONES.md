@@ -86,29 +86,27 @@ retained dense-prior, IMU bias-continuity, and SE3 photometric window rows now
 have analytic Jacobian coverage; full native Coco-LIC2 frontend parity remains
 follow-up work.
 The release gate for full-dataset parity is now executable via
-`scripts/check_strict_parity_matrix.py` and intentionally reports incomplete
-status until required native reference trajectory evidence and full-sequence
-FAST-LIVO/M2DGR/MCD/R3LIVE strict artifacts are archived. Current local matrix
-status is `required=4/9`, with FAST-LIVO2 mapper-contract/CUDA strict parity,
-FAST-LIVO hku1/hku2 mapper-contract/CUDA strict parity, and the 120s CBD native
-visual/SE3 BA health report passing.
+`scripts/check_strict_parity_matrix.py` and the required local evidence matrix
+passes at `required=17/17`, covering FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and
+R3LIVE mapper/native/continuous-time evidence. The continuous-time entries are
+still liveness/producer-chain gates unless a dataset-specific report explicitly
+states RMSE-gated paper parity.
 The matching data-side gate is now executable via
 `scripts/audit_strict_data_inputs.py`; `docs/strict_data_status.md` records the
-current blocker explicitly: raw/frontend inputs are local for every required
-profile, disk headroom is back above the 100 GiB audit threshold, and the
-remaining blockers are archived ROS1 baseline artifacts plus trusted native
-reference trajectories for the profiles still marked pending in the matrix.
-R3LIVE `hku_park_00` now also has a frontend-raw conversion plus 60s native
-sensor-only tracking health report, but it remains optional runtime coverage
-until ROS1-vs-ROS2 strict parity artifacts are archived.
+current data status explicitly: raw/frontend inputs, archived ROS1 baselines,
+ROS2 current artifacts, native reference trajectories, and disk headroom all
+pass for every required profile, with `109.39 GiB` free on `/home/frank/data`.
+R3LIVE `hku_park_00` now also has frontend-raw conversion, 60s native sensor-only
+tracking health, and full mapper-contract/CUDA strict parity artifacts.
 FAST-LIVO2 `Retail_Street` is also fetched, converted to frontend-raw, and
-runtime-gated through a 60s native scan-order deskew tracking report; it remains
-optional coverage until a matching ROS1 baseline/reference trajectory and strict
-current artifact are archived.
-MCD acquisition has started through `scripts/fetch_google_drive_file.py`; the
-local `ntu_day_01` directory has Livox `mid70` and `vn100` components, and the
-data audit keeps MCD failing until the `d435i` camera component and downstream
-frontend/baseline/current/reference artifacts are present.
+runtime-gated through a 60s native scan-order deskew tracking report; it now has
+an archived ROS1 upstream mapper baseline with 1,354 poses, 704,826 PLY vertices,
+1,354 renders, and a native-reference TUM. It remains additional coverage rather
+than an RMSE-gated native tracker parity claim.
+MCD `ntu_day_01` acquisition through `scripts/fetch_google_drive_file.py` is
+complete for the release audit: `d435i`, `mid70`, `vn100`, ground truth,
+frontend conversion, ROS1 baseline, ROS2 current artifacts, and the native
+reference trajectory are all present.
 The native tracking launch now defaults the sliding-window BA, visual-alignment
 window factors, and SE3 photometric window factors to enabled so ordinary
 tracking launch paths exercise the joint optimizer when the corresponding
