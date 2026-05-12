@@ -71,6 +71,10 @@ struct ContinuousTimeSlidingWindowOptions
   // a malformed geometric factor should drop that solve, not explode odometry.
   double max_position_update_m{2.0};
   double max_rotation_update_rad{0.50};
+  // Exclude this many guard knots on each side when computing the update
+  // acceptance magnitude. Edge knots are finite-checked but do not veto the
+  // whole interior update when this is positive.
+  int update_gate_edge_knot_margin{0};
   // Multiplier for the constant-velocity position prediction used when a new
   // knot is appended before optimization. Keep the library default at 1.0 for
   // synthetic tests; real-bag launch paths can lower this when rejected online

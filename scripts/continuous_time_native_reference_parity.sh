@@ -83,6 +83,7 @@ VOXEL_PLANE_MAX_CORRESPONDENCES="${VOXEL_PLANE_MAX_CORRESPONDENCES:-48}"
 PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS:-3}"
 MAX_POSITION_UPDATE_M="${MAX_POSITION_UPDATE_M:-2.0}"
 MAX_ROTATION_UPDATE_RAD="${MAX_ROTATION_UPDATE_RAD:-0.50}"
+UPDATE_GATE_EDGE_KNOT_MARGIN="${UPDATE_GATE_EDGE_KNOT_MARGIN:-0}"
 POSITION_EXTRAPOLATION_DAMPING="${POSITION_EXTRAPOLATION_DAMPING:-0.0}"
 
 source "${SOURCE_SETUP}"
@@ -150,6 +151,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p persistent_plane_map_min_observations_for_match:="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS}" \
   -p max_position_update_m:="${MAX_POSITION_UPDATE_M}" \
   -p max_rotation_update_rad:="${MAX_ROTATION_UPDATE_RAD}" \
+  -p update_gate_edge_knot_margin:="${UPDATE_GATE_EDGE_KNOT_MARGIN}" \
   -p position_extrapolation_damping:="${POSITION_EXTRAPOLATION_DAMPING}" \
   -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
   -p apply_limited_rotation_update:="${APPLY_LIMITED_ROTATION_UPDATE}" \
@@ -361,6 +363,7 @@ native = {
     "enable_lidar_plane_normal_factor": "${ENABLE_LIDAR_PLANE_NORMAL_FACTOR}" == "true",
     "lidar_plane_normal_factor_weight": float("${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT}"),
     "lidar_plane_normal_huber_delta_rad": float("${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD}"),
+    "update_gate_edge_knot_margin": int("${UPDATE_GATE_EDGE_KNOT_MARGIN}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",

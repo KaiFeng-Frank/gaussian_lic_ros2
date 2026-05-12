@@ -176,6 +176,8 @@ public:
       declare_parameter<double>("max_position_update_m", 2.0);
     options.max_rotation_update_rad =
       declare_parameter<double>("max_rotation_update_rad", 0.50);
+    options.update_gate_edge_knot_margin =
+      declare_parameter<int>("update_gate_edge_knot_margin", 0);
     options.position_extrapolation_damping =
       declare_parameter<double>("position_extrapolation_damping", 0.0);
     if (!std::isfinite(options.position_extrapolation_damping) ||

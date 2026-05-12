@@ -102,6 +102,9 @@ ContinuousTimeSlidingWindowEstimator::ContinuousTimeSlidingWindowEstimator(
   if (!(options.dt_s > 0.0)) {
     throw std::runtime_error("sliding window dt_s must be positive");
   }
+  if (options.update_gate_edge_knot_margin < 0) {
+    throw std::runtime_error("update_gate_edge_knot_margin must be non-negative");
+  }
   if (options.window_knot_count < N + 2) {
     throw std::runtime_error("window must hold at least N+2 knots to expose interior samples");
   }
@@ -456,6 +459,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   bool invalid_update = false;
   double max_position_update = 0.0;
   double max_rotation_update = 0.0;
+  std::size_t gated_update_count = 0U;
   if (rotation_out.size() != impl_->rotation_knots.size() ||
     position_out.size() != impl_->position_knots.size())
   {
@@ -466,12 +470,22 @@ bool ContinuousTimeSlidingWindowEstimator::step()
         invalid_update = true;
         break;
       }
-      max_position_update = std::max(
-        max_position_update,
-        (position_out[i] - impl_->position_knots[i]).norm());
-      max_rotation_update = std::max(
-        max_rotation_update,
-        rotation_out[i].angularDistance(impl_->rotation_knots[i]));
+      const std::size_t edge_margin =
+        static_cast<std::size_t>(impl_->options.update_gate_edge_knot_margin);
+      const bool include_in_update_gate =
+        edge_margin == 0U || (i >= edge_margin && i + edge_margin < rotation_out.size());
+      if (include_in_update_gate) {
+        ++gated_update_count;
+        max_position_update = std::max(
+          max_position_update,
+          (position_out[i] - impl_->position_knots[i]).norm());
+        max_rotation_update = std::max(
+          max_rotation_update,
+          rotation_out[i].angularDistance(impl_->rotation_knots[i]));
+      }
+    }
+    if (!invalid_update && gated_update_count == 0U) {
+      invalid_update = true;
     }
   }
   if (!estimator.gyro_bias().allFinite() || !estimator.accel_bias().allFinite() ||
