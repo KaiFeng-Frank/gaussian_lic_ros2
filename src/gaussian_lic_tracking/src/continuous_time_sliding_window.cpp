@@ -513,7 +513,9 @@ bool ContinuousTimeSlidingWindowEstimator::step()
         impl_->rotation_knots[i] =
           (impl_->rotation_knots[i] *
           quaternion_exp(quaternion_log(delta) * rotation_scale)).normalized();
-        impl_->position_knots[i] = position_out[i];
+        const Eigen::Vector3d position_delta = position_out[i] - impl_->position_knots[i];
+        impl_->position_knots[i] += impl_->options.scale_position_with_limited_rotation ?
+          rotation_scale * position_delta : position_delta;
       }
       ++impl_->diagnostics.rotation_limited_solver_steps;
       impl_->diagnostics.last_step_rotation_limited = true;

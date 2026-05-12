@@ -64,6 +64,7 @@ POSITION_SMOOTHNESS_WEIGHT="${POSITION_SMOOTHNESS_WEIGHT:-0.0}"
 POSITION_SMOOTHNESS_HUBER_DELTA_M="${POSITION_SMOOTHNESS_HUBER_DELTA_M:-0.0}"
 APPLY_POSITION_UPDATE_ON_ROTATION_REJECT="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT:-false}"
 APPLY_LIMITED_ROTATION_UPDATE="${APPLY_LIMITED_ROTATION_UPDATE:-false}"
+SCALE_POSITION_WITH_LIMITED_ROTATION="${SCALE_POSITION_WITH_LIMITED_ROTATION:-true}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
 ENABLE_PERSISTENT_PLANE_MAP="${ENABLE_PERSISTENT_PLANE_MAP:-true}"
 ENABLE_PERSISTENT_POINT_MAP="${ENABLE_PERSISTENT_POINT_MAP:-false}"
@@ -152,6 +153,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p position_extrapolation_damping:="${POSITION_EXTRAPOLATION_DAMPING}" \
   -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
   -p apply_limited_rotation_update:="${APPLY_LIMITED_ROTATION_UPDATE}" \
+  -p scale_position_with_limited_rotation:="${SCALE_POSITION_WITH_LIMITED_ROTATION}" \
   -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \
   -p enable_external_odometry_position_factors:="${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" \
   -p enable_external_odometry_orientation_factors:="${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" \
@@ -362,6 +364,7 @@ native = {
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",
+    "scale_position_with_limited_rotation": "${SCALE_POSITION_WITH_LIMITED_ROTATION}" == "true",
     "persistent_map_update_requires_accepted_solve": "${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" == "true",
     "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
     "enable_external_odometry_orientation_factors": "${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" == "true",

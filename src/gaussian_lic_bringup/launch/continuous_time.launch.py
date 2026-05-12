@@ -66,6 +66,9 @@ def generate_launch_description() -> LaunchDescription:
         "apply_position_update_on_rotation_reject"
     )
     apply_limited_rotation_update = LaunchConfiguration("apply_limited_rotation_update")
+    scale_position_with_limited_rotation = LaunchConfiguration(
+        "scale_position_with_limited_rotation"
+    )
     pointcloud_enable = LaunchConfiguration("pointcloud_enable")
     pointcloud_subsample_stride = LaunchConfiguration("pointcloud_subsample_stride")
     pointcloud_max_points_per_msg = LaunchConfiguration("pointcloud_max_points_per_msg")
@@ -139,6 +142,7 @@ def generate_launch_description() -> LaunchDescription:
             "apply_position_update_on_rotation_reject", default_value="false"
         ),
         DeclareLaunchArgument("apply_limited_rotation_update", default_value="false"),
+        DeclareLaunchArgument("scale_position_with_limited_rotation", default_value="true"),
         DeclareLaunchArgument("pointcloud_enable", default_value="true"),
         DeclareLaunchArgument("pointcloud_subsample_stride", default_value="50"),
         DeclareLaunchArgument("pointcloud_max_points_per_msg", default_value="256"),
@@ -230,6 +234,7 @@ def generate_launch_description() -> LaunchDescription:
                 "position_extrapolation_damping": position_extrapolation_damping,
                 "apply_position_update_on_rotation_reject": apply_position_update_on_rotation_reject,
                 "apply_limited_rotation_update": apply_limited_rotation_update,
+                "scale_position_with_limited_rotation": scale_position_with_limited_rotation,
                 "pointcloud_enable": pointcloud_enable,
                 "pointcloud_subsample_stride": pointcloud_subsample_stride,
                 "pointcloud_max_points_per_msg": pointcloud_max_points_per_msg,

@@ -86,6 +86,10 @@ struct ContinuousTimeSlidingWindowOptions
   // log-map scaled version of the rotation delta instead of rejecting the
   // rotation entirely. This is an online trust-region guard for real bags.
   bool apply_limited_rotation_update{false};
+  // When limited rotation is active, scale the accompanying position knot
+  // delta by the same trust-region ratio. This keeps a rejected SE(3)
+  // proposal from applying full translation with only partial rotation.
+  bool scale_position_with_limited_rotation{true};
 };
 
 struct ContinuousTimeSlidingWindowDiagnostics

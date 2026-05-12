@@ -188,6 +188,8 @@ public:
       declare_parameter<bool>("apply_position_update_on_rotation_reject", false);
     options.apply_limited_rotation_update =
       declare_parameter<bool>("apply_limited_rotation_update", false);
+    options.scale_position_with_limited_rotation =
+      declare_parameter<bool>("scale_position_with_limited_rotation", true);
     enable_startup_bias_autocal_ =
       declare_parameter<bool>("enable_startup_bias_autocal", true);
     imu_linear_acceleration_scale_ =
