@@ -249,6 +249,55 @@ void check_lidar_plane_factor_pulls_position()
   }
 }
 
+void check_lidar_huber_loss_suppresses_plane_outlier()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  LidarExtrinsics extrinsics;
+
+  auto run_case = [&](double huber_delta_m) {
+      TrajectoryEstimator estimator(dt);
+      auto perturbed_positions = truth.position_knots;
+      for (auto & p : perturbed_positions) {
+        p.z() += 0.10;
+      }
+      estimator.set_knots(truth.rotation_knots, perturbed_positions);
+
+      LidarPointCorrespondence inlier;
+      inlier.geometry = LidarFeatureGeometry::kPlane;
+      inlier.plane << 0.0, 0.0, 1.0, 0.0;
+      LidarPointCorrespondence outlier = inlier;
+      outlier.plane << 0.0, 0.0, 1.0, -1.0;
+      for (double t = 0.08; t < 0.32; t += 0.01) {
+        for (double offset_x = -0.4; offset_x <= 0.4; offset_x += 0.2) {
+          inlier.point_lidar = Eigen::Vector3d(offset_x, 0.0, -truth.position_knots[3].z());
+          outlier.point_lidar = inlier.point_lidar;
+          estimator.add_lidar_factor(t, inlier, extrinsics, 1.0, huber_delta_m);
+          estimator.add_lidar_factor(t, outlier, extrinsics, 1.0, huber_delta_m);
+        }
+      }
+
+      TrajectoryEstimatorOptions options;
+      options.max_num_iterations = 60;
+      options.hold_gyro_bias_constant = true;
+      options.hold_accel_bias_constant = true;
+      options.hold_gravity_constant = true;
+      estimator.solve(options);
+      return estimator.position_knots()[3].z();
+    };
+
+  const double unrobust_z = run_case(0.0);
+  const double robust_z = run_case(0.05);
+  if (!(std::abs(robust_z) < std::abs(unrobust_z) &&
+    std::abs(robust_z) < 0.20))
+  {
+    std::fprintf(stderr,
+      "Huber loss failed to suppress LiDAR plane outlier: unrobust_z=%.6f robust_z=%.6f\n",
+      unrobust_z, robust_z);
+    std::exit(1);
+  }
+}
+
 }  // namespace
 
 int main()
@@ -257,6 +306,7 @@ int main()
     check_zero_residual_when_seeded_with_truth();
     check_converges_from_position_perturbation();
     check_lidar_plane_factor_pulls_position();
+    check_lidar_huber_loss_suppresses_plane_outlier();
   } catch (const std::exception & exception) {
     std::fprintf(stderr, "trajectory_estimator_probe exception: %s\n", exception.what());
     return 1;

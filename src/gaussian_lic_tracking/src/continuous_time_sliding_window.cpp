@@ -26,6 +26,7 @@ struct BufferedLidar
   LidarPointCorrespondence correspondence;
   LidarExtrinsics extrinsics;
   double weight{1.0};
+  double huber_delta_m{0.0};
 };
 
 bool quaternion_is_valid(const Eigen::Quaterniond & q)
@@ -116,9 +117,13 @@ void ContinuousTimeSlidingWindowEstimator::add_lidar_correspondence(
   int64_t stamp_ns,
   const LidarPointCorrespondence & correspondence,
   const LidarExtrinsics & extrinsics,
-  double weight)
+  double weight,
+  double huber_delta_m)
 {
-  impl_->pending_lidar.push_back({stamp_ns, correspondence, extrinsics, weight});
+  const double effective_huber =
+    huber_delta_m >= 0.0 ? huber_delta_m : impl_->options.lidar_huber_delta_m;
+  impl_->pending_lidar.push_back(
+    {stamp_ns, correspondence, extrinsics, weight, effective_huber});
 }
 
 bool ContinuousTimeSlidingWindowEstimator::step()
@@ -226,7 +231,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   for (const auto & active : impl_->active_lidar) {
     const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
     if (estimator.add_lidar_factor(
-        t_s, active.correspondence, active.extrinsics, active.weight))
+        t_s, active.correspondence, active.extrinsics, active.weight,
+        active.huber_delta_m))
     {
       ++impl_->diagnostics.total_lidar_factors;
     }

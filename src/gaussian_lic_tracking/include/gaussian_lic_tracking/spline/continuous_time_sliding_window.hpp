@@ -55,6 +55,7 @@ struct ContinuousTimeSlidingWindowOptions
   // accel variance ~1e-1 m²/s⁴ → info ~10¹.
   double imu_info_gyro{100.0};
   double imu_info_accel{10.0};
+  double lidar_huber_delta_m{0.10};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};
   bool hold_gravity_constant{true};
@@ -107,7 +108,8 @@ public:
     int64_t stamp_ns,
     const LidarPointCorrespondence & correspondence,
     const LidarExtrinsics & extrinsics,
-    double weight = 1.0);
+    double weight = 1.0,
+    double huber_delta_m = -1.0);
 
   // Advances the window by one knot, absorbs all buffered samples that fit
   // inside the new window, optionally marginalizes the oldest knot(s), and

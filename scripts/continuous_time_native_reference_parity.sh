@@ -29,6 +29,7 @@ POINTCLOUD_ENABLE="${POINTCLOUD_ENABLE:-true}"
 POINTCLOUD_FACTOR_WEIGHT="${POINTCLOUD_FACTOR_WEIGHT:-1.0}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
 ENABLE_PERSISTENT_PLANE_MAP="${ENABLE_PERSISTENT_PLANE_MAP:-true}"
+LIDAR_HUBER_DELTA_M="${LIDAR_HUBER_DELTA_M:-0.10}"
 VOXEL_PLANE_SIZE_M="${VOXEL_PLANE_SIZE_M:-0.8}"
 VOXEL_PLANE_MIN_POINTS="${VOXEL_PLANE_MIN_POINTS:-6}"
 VOXEL_PLANE_EIGEN_RATIO="${VOXEL_PLANE_EIGEN_RATIO:-0.10}"
@@ -61,6 +62,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p step_period_seconds:=0.20 \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
   -p pointcloud_factor_weight:="${POINTCLOUD_FACTOR_WEIGHT}" \
+  -p lidar_huber_delta_m:="${LIDAR_HUBER_DELTA_M}" \
   -p enable_voxel_plane_extraction:="${ENABLE_VOXEL_PLANE_EXTRACTION}" \
   -p enable_persistent_plane_map:="${ENABLE_PERSISTENT_PLANE_MAP}" \
   -p voxel_plane_size_m:="${VOXEL_PLANE_SIZE_M}" \

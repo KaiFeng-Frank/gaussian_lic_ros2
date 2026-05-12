@@ -98,7 +98,8 @@ public:
     double t_s,
     const LidarPointCorrespondence & correspondence,
     const LidarExtrinsics & extrinsics,
-    double weight = 1.0);
+    double weight = 1.0,
+    double huber_delta_m = 0.0);
 
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }

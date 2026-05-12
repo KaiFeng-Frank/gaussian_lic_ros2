@@ -20,6 +20,7 @@ def generate_launch_description() -> LaunchDescription:
     window_knot_count = LaunchConfiguration("window_knot_count")
     marginalize_oldest_count = LaunchConfiguration("marginalize_oldest_count")
     max_iterations_per_step = LaunchConfiguration("max_iterations_per_step")
+    lidar_huber_delta_m = LaunchConfiguration("lidar_huber_delta_m")
     step_period_seconds = LaunchConfiguration("step_period_seconds")
     seed_min_imu_count = LaunchConfiguration("seed_min_imu_count")
     hold_gravity_constant = LaunchConfiguration("hold_gravity_constant")
@@ -53,6 +54,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("window_knot_count", default_value="8"),
         DeclareLaunchArgument("marginalize_oldest_count", default_value="1"),
         DeclareLaunchArgument("max_iterations_per_step", default_value="12"),
+        DeclareLaunchArgument("lidar_huber_delta_m", default_value="0.10"),
         DeclareLaunchArgument("step_period_seconds", default_value="0.10"),
         DeclareLaunchArgument("seed_min_imu_count", default_value="25"),
         DeclareLaunchArgument("hold_gravity_constant", default_value="true"),
@@ -95,6 +97,7 @@ def generate_launch_description() -> LaunchDescription:
                 "window_knot_count": window_knot_count,
                 "marginalize_oldest_count": marginalize_oldest_count,
                 "max_iterations_per_step": max_iterations_per_step,
+                "lidar_huber_delta_m": lidar_huber_delta_m,
                 "step_period_seconds": step_period_seconds,
                 "seed_min_imu_count": seed_min_imu_count,
                 "hold_gravity_constant": hold_gravity_constant,

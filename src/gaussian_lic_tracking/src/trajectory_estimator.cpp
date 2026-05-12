@@ -306,8 +306,14 @@ bool TrajectoryEstimator::add_lidar_factor(
   double t_s,
   const LidarPointCorrespondence & correspondence,
   const LidarExtrinsics & extrinsics,
-  double weight)
+  double weight,
+  double huber_delta_m)
 {
+  if (!std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_m) || huber_delta_m < 0.0)
+  {
+    return false;
+  }
   int segment_index = 0;
   double u = 0.0;
   if (!find_segment(t_s, segment_index, u)) {
@@ -340,7 +346,11 @@ bool TrajectoryEstimator::add_lidar_factor(
     parameter_blocks.push_back(impl_->position_storage[base + i].data());
   }
 
-  impl_->problem->AddResidualBlock(cost, nullptr, parameter_blocks);
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_m > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_m);
+  }
+  impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   ++lidar_factor_count_;
   return true;
 }

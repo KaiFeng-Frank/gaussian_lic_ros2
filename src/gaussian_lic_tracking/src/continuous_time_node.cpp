@@ -99,6 +99,9 @@ public:
       static_cast<int>(declare_parameter<int>("marginalize_oldest_count", 1));
     options.max_iterations_per_step =
       static_cast<int>(declare_parameter<int>("max_iterations_per_step", 12));
+    options.lidar_huber_delta_m =
+      declare_parameter<double>("lidar_huber_delta_m", 0.10);
+    lidar_huber_delta_m_ = options.lidar_huber_delta_m;
     const auto gravity_param =
       declare_parameter<std::vector<double>>(
       "gravity_world", std::vector<double>{0.0, 0.0, -9.81});
@@ -411,7 +414,8 @@ private:
           if (match) {
             pc.plane = match->plane;
             estimator_->add_lidar_correspondence(
-              stamp_ns, pc, extrinsics, pointcloud_factor_weight_);
+              stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
+              lidar_huber_delta_m_);
             ++accepted;
             ++persistent_plane_map_matches_;
           }
@@ -431,7 +435,8 @@ private:
           pc.plane[3] = plane.offset;
         }
         estimator_->add_lidar_correspondence(
-          stamp_ns, pc, extrinsics, pointcloud_factor_weight_);
+          stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
+          lidar_huber_delta_m_);
         ++accepted;
       }
       accepted_pointcloud_correspondences_ += static_cast<std::size_t>(accepted);
@@ -467,7 +472,8 @@ private:
       }
       pc.point_lidar = Eigen::Vector3d(rx, ry, rz);
       estimator_->add_lidar_correspondence(
-        stamp_ns, pc, extrinsics, pointcloud_factor_weight_);
+        stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
+        lidar_huber_delta_m_);
       ++accepted;
       if (pointcloud_max_points_per_msg_ > 0 &&
         accepted >= pointcloud_max_points_per_msg_)
@@ -688,6 +694,7 @@ private:
   double pointcloud_min_range_m_{0.3};
   double pointcloud_max_range_m_{30.0};
   double pointcloud_factor_weight_{1.0};
+  double lidar_huber_delta_m_{0.10};
   std::size_t accepted_pointcloud_correspondences_{0};
   std::size_t pointcloud_messages_{0};
 
