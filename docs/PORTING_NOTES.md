@@ -196,6 +196,18 @@ factor cost but worsened short-window RMSE relative to the original `1.0`
 weight, so the default remains `1.0` while long-window work focuses on replay
 coverage, correspondence quality, and visual/global coupling rather than a
 blind scalar downweight.
+`mapping_node` now exposes `gaussian_map_publish_min_interval_sec` and
+`gaussian_map_publish_on_empty_extend`; mapper-feedback report runs use a
+0.5 s simulated-time full-map publish interval and skip keyframes that insert
+zero new Gaussians, while normal launch defaults preserve immediate publishing.
+This is a ROS2 runtime timing guard: it reduces repeated full-map chunk bursts
+without changing Gaussian math or QoS semantics.
+The matching tracker guard is `sliding_window_optimize_every_n_frames`:
+normal launch defaults keep every-frame BA, but Gaussian-map feedback evidence
+runs default to optimizing every 4 point-cloud frames because full Gaussian
+anchor windows take seconds per solve on the current setup. Factors are still
+accumulated every frame; only the synchronous Ceres solve cadence is decimated
+to preserve rosbag replay coverage.
 
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and

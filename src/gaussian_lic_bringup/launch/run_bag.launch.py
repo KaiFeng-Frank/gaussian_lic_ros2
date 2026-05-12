@@ -57,6 +57,8 @@ def generate_launch_description():
     torch_gaussian_opacity_reset_interval = LaunchConfiguration("torch_gaussian_opacity_reset_interval")
     torch_gaussian_device = LaunchConfiguration("torch_gaussian_device")
     publish_gaussian_map = LaunchConfiguration("publish_gaussian_map")
+    gaussian_map_publish_min_interval_sec = LaunchConfiguration("gaussian_map_publish_min_interval_sec")
+    gaussian_map_publish_on_empty_extend = LaunchConfiguration("gaussian_map_publish_on_empty_extend")
     save_map_render_evaluation = LaunchConfiguration("save_map_render_evaluation")
     test_frame_stride = LaunchConfiguration("test_frame_stride")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
@@ -139,6 +141,8 @@ def generate_launch_description():
             "torch_gaussian_opacity_reset_interval": torch_gaussian_opacity_reset_interval,
             "torch_gaussian_device": torch_gaussian_device,
             "publish_gaussian_map": publish_gaussian_map,
+            "gaussian_map_publish_min_interval_sec": gaussian_map_publish_min_interval_sec,
+            "gaussian_map_publish_on_empty_extend": gaussian_map_publish_on_empty_extend,
             "save_map_render_evaluation": save_map_render_evaluation,
             "test_frame_stride": test_frame_stride,
             "sensor_qos_reliability": sensor_qos_reliability,
@@ -437,6 +441,16 @@ def generate_launch_description():
             "publish_gaussian_map",
             default_value="true",
             description="Publish full GaussianArray chunks for visualization; strict metric runs can disable this to avoid GPU-to-CPU map transfer overhead",
+        ),
+        DeclareLaunchArgument(
+            "gaussian_map_publish_min_interval_sec",
+            default_value="0.0",
+            description="Minimum simulated-time interval between full GaussianArray publications; 0 disables throttling.",
+        ),
+        DeclareLaunchArgument(
+            "gaussian_map_publish_on_empty_extend",
+            default_value="true",
+            description="Publish GaussianArray after keyframes that insert no new Gaussians. Disable for mapper-feedback runs to avoid repeated full-map chunks.",
         ),
         DeclareLaunchArgument(
             "save_map_render_evaluation",

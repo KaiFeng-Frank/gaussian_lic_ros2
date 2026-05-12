@@ -37,6 +37,7 @@ LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
 LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
 CAMERA_TO_IMU_TRANSLATION_M="[0.0673699, 0.0412418, 0.0764217]"
 CAMERA_TO_IMU_RPY_RAD="[-1.5768568829, 0.0154178108, -1.5646936365]"
+SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=1
 SLIDING_WINDOW_MAX_ITERATIONS=3
 SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
 SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
@@ -64,6 +65,8 @@ MAPPER_FEEDBACK_RENDER_MODE=debug_input
 MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
 MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
 MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH=128
+MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC=0.5
+MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND=false
 GAUSSIAN_SNAPSHOT_QOS_DEPTH=128
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT=1.0
 MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=8
@@ -156,6 +159,8 @@ Options:
   --camera-to-imu-rpy V         YAML vector for camera->IMU RPY radians. Default: FAST-LIVO2.
   --sliding-window-max-iterations N
                                Max BA iterations per solve. Default: 3.
+  --sliding-window-optimize-every-n-frames N
+                               Optimize the accumulated sliding window every N point-cloud frames. Default: 1; Gaussian-map feedback sets 4.
   --sliding-window-max-state-gap-s SEC
                                Max active-window state gap before BA is marked degenerate. Default: 1.0.
   --sliding-window-max-condition C
@@ -195,6 +200,10 @@ Options:
                                Weight multiplier for LiDAR-to-Gaussian map anchors. Default: 1.0.
   --mapper-feedback-sync-tolerance-sec SEC
                                mapping_node frame sync tolerance for mapper feedback. Default: 0.01.
+  --mapper-feedback-gaussian-map-publish-min-interval-sec SEC
+                               Minimum simulated-time interval between full GaussianArray feedback publications. Default: 0.5.
+  --mapper-feedback-gaussian-map-publish-on-empty-extend
+                               Publish GaussianArray after keyframes that insert no new Gaussians. Disabled by default for feedback runs.
   --mapper-feedback-torch-device DEV
                                Torch device for mapper feedback Gaussian snapshots. Default: cpu; --enable-gaussian-map-feedback sets auto.
   --mapper-feedback-torch-optimization-steps N
@@ -388,6 +397,10 @@ while [[ $# -gt 0 ]]; do
       SLIDING_WINDOW_MAX_ITERATIONS="$2"
       shift 2
       ;;
+    --sliding-window-optimize-every-n-frames)
+      SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES="$2"
+      shift 2
+      ;;
     --sliding-window-max-state-gap-s)
       SLIDING_WINDOW_MAX_STATE_GAP_S="$2"
       shift 2
@@ -470,6 +483,7 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
       MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
+      SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=4
       REQUIRE_GAUSSIAN_SNAPSHOT=true
       shift
       ;;
@@ -484,6 +498,14 @@ while [[ $# -gt 0 ]]; do
     --mapper-feedback-sync-tolerance-sec)
       MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC="$2"
       shift 2
+      ;;
+    --mapper-feedback-gaussian-map-publish-min-interval-sec)
+      MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC="$2"
+      shift 2
+      ;;
+    --mapper-feedback-gaussian-map-publish-on-empty-extend)
+      MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND=true
+      shift
       ;;
     --mapper-feedback-torch-device)
       MAPPER_FEEDBACK_TORCH_DEVICE="$2"
@@ -734,6 +756,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   lidar_robust_kernel_m:="${LIDAR_ROBUST_KERNEL_M}" \
   lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
   lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
+  sliding_window_optimize_every_n_frames:="${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
   sliding_window_max_iterations:="${SLIDING_WINDOW_MAX_ITERATIONS}" \
   sliding_window_max_state_gap_s:="${SLIDING_WINDOW_MAX_STATE_GAP_S}" \
   sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
@@ -764,6 +787,8 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p publish_gaussian_map:="${MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP}" \
     -p gaussian_map_chunk_size:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE}" \
     -p gaussian_map_qos_depth:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH}" \
+    -p gaussian_map_publish_min_interval_sec:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC}" \
+    -p gaussian_map_publish_on_empty_extend:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND}" \
     -p enable_torch_camera_conversion:="${MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION}" \
     -p enable_torch_gaussian_init:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT}" \
     -p enable_torch_gaussian_extend:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND}" \
@@ -849,6 +874,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" "${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
   "${ENABLE_GAUSSIAN_MAP_FEEDBACK}" "${REQUIRE_GAUSSIAN_SNAPSHOT}" \
   "${MAPPER_FEEDBACK_TORCH_DEVICE}" "${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS}" \
+  "${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC}" \
+  "${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND}" \
+  "${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
   "${REFERENCE_TUM_PATH}" <<'PY'
 import json
 import os
@@ -883,7 +911,10 @@ enable_gaussian_map_feedback = sys.argv[25].lower() == "true"
 require_gaussian_snapshot = sys.argv[26].lower() == "true"
 mapper_feedback_torch_device = sys.argv[27]
 mapper_feedback_torch_optimization_steps = int(sys.argv[28])
-reference_tum_path = Path(sys.argv[29]) if sys.argv[29] else None
+mapper_feedback_gaussian_map_publish_min_interval_sec = float(sys.argv[29])
+mapper_feedback_gaussian_map_publish_on_empty_extend = sys.argv[30].lower() == "true"
+sliding_window_optimize_every_n_frames = int(sys.argv[31])
+reference_tum_path = Path(sys.argv[32]) if sys.argv[32] else None
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
@@ -1116,6 +1147,13 @@ report = {
         "require_gaussian_snapshot": require_gaussian_snapshot,
         "mapper_feedback_torch_device": mapper_feedback_torch_device,
         "mapper_feedback_torch_optimization_steps": mapper_feedback_torch_optimization_steps,
+        "mapper_feedback_gaussian_map_publish_min_interval_sec": (
+            mapper_feedback_gaussian_map_publish_min_interval_sec
+        ),
+        "mapper_feedback_gaussian_map_publish_on_empty_extend": (
+            mapper_feedback_gaussian_map_publish_on_empty_extend
+        ),
+        "sliding_window_optimize_every_n_frames": sliding_window_optimize_every_n_frames,
     },
     "metrics": metrics,
 }

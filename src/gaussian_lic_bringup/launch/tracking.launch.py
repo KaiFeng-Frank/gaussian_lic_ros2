@@ -128,6 +128,7 @@ def generate_launch_description():
     trajectory_control_interval_ns = LaunchConfiguration("trajectory_control_interval_ns")
     enable_sliding_window_optimizer = LaunchConfiguration("enable_sliding_window_optimizer")
     sliding_window_max_states = LaunchConfiguration("sliding_window_max_states")
+    sliding_window_optimize_every_n_frames = LaunchConfiguration("sliding_window_optimize_every_n_frames")
     sliding_window_max_iterations = LaunchConfiguration("sliding_window_max_iterations")
     sliding_window_max_rotation_step_rad = LaunchConfiguration("sliding_window_max_rotation_step_rad")
     sliding_window_max_translation_step_m = LaunchConfiguration("sliding_window_max_translation_step_m")
@@ -263,6 +264,7 @@ def generate_launch_description():
             DeclareLaunchArgument("trajectory_control_interval_ns", default_value="50000000"),
             DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="true"),
             DeclareLaunchArgument("sliding_window_max_states", default_value="12"),
+            DeclareLaunchArgument("sliding_window_optimize_every_n_frames", default_value="1"),
             DeclareLaunchArgument("sliding_window_max_iterations", default_value="3"),
             DeclareLaunchArgument("sliding_window_max_rotation_step_rad", default_value="0.5"),
             DeclareLaunchArgument("sliding_window_max_translation_step_m", default_value="1.0"),
@@ -390,6 +392,7 @@ def generate_launch_description():
                         "trajectory_control_interval_ns": trajectory_control_interval_ns,
                         "enable_sliding_window_optimizer": enable_sliding_window_optimizer,
                         "sliding_window_max_states": sliding_window_max_states,
+                        "sliding_window_optimize_every_n_frames": sliding_window_optimize_every_n_frames,
                         "sliding_window_max_iterations": sliding_window_max_iterations,
                         "sliding_window_max_rotation_step_rad": sliding_window_max_rotation_step_rad,
                         "sliding_window_max_translation_step_m": sliding_window_max_translation_step_m,

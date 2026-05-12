@@ -320,6 +320,9 @@ public:
     sliding_window_max_states_ = integer_parameter_at_least(
       "sliding_window_max_states",
       declare_parameter<int>("sliding_window_max_states", 12), 2);
+    sliding_window_optimize_every_n_frames_ = integer_parameter_at_least(
+      "sliding_window_optimize_every_n_frames",
+      declare_parameter<int>("sliding_window_optimize_every_n_frames", 1), 1);
     sliding_window_max_iterations_ = integer_parameter_at_least(
       "sliding_window_max_iterations",
       declare_parameter<int>("sliding_window_max_iterations", 3), 1);
@@ -1789,7 +1792,11 @@ private:
       }
     }
 
-    if (has_sliding_window_state_ && window_factor_added) {
+    ++sliding_window_frame_count_;
+    const bool optimize_this_frame =
+      sliding_window_optimize_every_n_frames_ <= 1 ||
+      sliding_window_frame_count_ % static_cast<uint64_t>(sliding_window_optimize_every_n_frames_) == 0U;
+    if (has_sliding_window_state_ && window_factor_added && optimize_this_frame) {
       try {
         const auto optimization_start = std::chrono::steady_clock::now();
         const auto summary = sliding_window_optimizer_.optimize();
@@ -1920,6 +1927,8 @@ private:
           get_logger(), *get_clock(), 2000,
           "sliding window optimization skipped: %s", ex.what());
       }
+    } else if (has_sliding_window_state_ && window_factor_added) {
+      ++sliding_window_optimization_skip_count_;
     }
 
     if (has_sliding_window_state_) {
@@ -3595,6 +3604,7 @@ private:
   int64_t external_odometry_prior_max_dt_ns_{100000000LL};
   int external_odometry_prior_cache_size_{128};
   int sliding_window_max_states_{12};
+  int sliding_window_optimize_every_n_frames_{1};
   int sliding_window_max_iterations_{3};
   double sliding_window_max_rotation_step_rad_{0.5};
   double sliding_window_max_translation_step_m_{1.0};
@@ -3695,6 +3705,7 @@ private:
   int64_t last_sliding_window_imu_preintegration_start_stamp_ns_{0};
   int64_t last_sliding_window_imu_preintegration_end_stamp_ns_{0};
   uint64_t sliding_window_optimization_skip_count_{0};
+  uint64_t sliding_window_frame_count_{0};
   uint64_t sliding_window_invalid_optimized_states_{0};
   uint64_t trajectory_deskew_queries_{0};
   uint64_t trajectory_deskew_hits_{0};

@@ -197,6 +197,11 @@ public:
     torch_gaussian_device_name_ = declare_parameter<std::string>("torch_gaussian_device", "cpu");
     gaussian_map_chunk_size_ = declare_parameter<int>("gaussian_map_chunk_size", 1024);
     gaussian_map_qos_depth_ = declare_parameter<int>("gaussian_map_qos_depth", 64);
+    gaussian_map_publish_min_interval_ns_ = seconds_to_nsec(
+      declare_parameter<double>("gaussian_map_publish_min_interval_sec", 0.0),
+      "gaussian_map_publish_min_interval_sec");
+    gaussian_map_publish_on_empty_extend_ =
+      declare_parameter<bool>("gaussian_map_publish_on_empty_extend", true);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
     max_map_points_ = declare_parameter<int>("max_map_points", 200000);
     publish_gaussian_map_ = declare_parameter<bool>("publish_gaussian_map", true);
@@ -1156,7 +1161,7 @@ private:
         maybe_densify_torch_gaussians(device);
         maybe_prune_torch_gaussians(device);
         maybe_reset_torch_gaussian_opacity(device);
-        publish_torch_gaussian_map();
+        publish_torch_gaussian_map(true);
         RCLCPP_INFO(
           get_logger(),
           "Initialized Torch Gaussian map: foreground=%zu skybox=%zu xyz=%s features_dc=%s device=%s opt_steps=%lu opt_loss=%.6f supervised=%zu densified=%zu pruned=%zu reset_opacity=%zu",
@@ -1183,7 +1188,15 @@ private:
       maybe_densify_torch_gaussians(device);
       maybe_prune_torch_gaussians(device);
       maybe_reset_torch_gaussian_opacity(device);
-      publish_torch_gaussian_map();
+      const bool gaussian_map_changed =
+        last_torch_gaussian_inserted_ > 0U ||
+        (backend_config_.enable_photometric_optimization &&
+        backend_config_.optimization_steps_per_keyframe > 0) ||
+        last_torch_densified_ > 0U || last_torch_pruned_ > 0U ||
+        last_torch_opacity_reset_ > 0U;
+      if (gaussian_map_changed || gaussian_map_publish_on_empty_extend_) {
+        publish_torch_gaussian_map(false);
+      }
       RCLCPP_INFO(
         get_logger(),
         "Extended Torch Gaussian map: inserted=%zu foreground=%zu skybox=%zu xyz=%s device=%s opt_steps=%lu opt_loss=%.6f supervised=%zu densified=%zu pruned=%zu reset_opacity=%zu",
@@ -1204,9 +1217,19 @@ private:
     }
   }
 
-  void publish_torch_gaussian_map()
+  void publish_torch_gaussian_map(const bool force)
   {
     if (!publish_gaussian_map_ || !torch_gaussian_initialized_ || torch_gaussian_count_ == 0) {
+      return;
+    }
+
+    const auto publish_stamp = now();
+    const int64_t publish_stamp_ns = publish_stamp.nanoseconds();
+    if (
+      !force && gaussian_map_publish_min_interval_ns_ > 0 && gaussian_map_publish_stamp_valid_ &&
+      publish_stamp_ns >= last_gaussian_map_publish_stamp_ns_ &&
+      publish_stamp_ns - last_gaussian_map_publish_stamp_ns_ < gaussian_map_publish_min_interval_ns_)
+    {
       return;
     }
 
@@ -1239,7 +1262,7 @@ private:
       const size_t end = std::min(begin + chunk_size, total_count);
 
       gaussian_lic_msgs::msg::GaussianArray message;
-      message.header.stamp = now();
+      message.header.stamp = publish_stamp;
       message.header.frame_id = world_frame_;
       message.total_count = total_count_msg;
       message.chunk_index = static_cast<uint32_t>(
@@ -1281,6 +1304,8 @@ private:
 
       gaussian_map_pub_->publish(message);
     }
+    last_gaussian_map_publish_stamp_ns_ = publish_stamp_ns;
+    gaussian_map_publish_stamp_valid_ = true;
   }
 
   void write_torch_gaussian_ply(
@@ -2185,6 +2210,10 @@ private:
   std::string torch_gaussian_device_name_{"cpu"};
   int gaussian_map_chunk_size_{1024};
   int gaussian_map_qos_depth_{64};
+  int64_t gaussian_map_publish_min_interval_ns_{0};
+  bool gaussian_map_publish_on_empty_extend_{true};
+  int64_t last_gaussian_map_publish_stamp_ns_{0};
+  bool gaussian_map_publish_stamp_valid_{false};
   int max_path_length_{5000};
   int max_map_points_{200000};
 
