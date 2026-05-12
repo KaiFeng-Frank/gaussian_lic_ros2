@@ -8,6 +8,7 @@ BAG_PATH="/home/frank/data/fast_livo/Bright_Screen_Wall_frontend_raw"
 OUTPUT_DIR="${ROOT_DIR}/results/fastlivo2/Bright_Screen_Wall_native_tracking_12s"
 PLAYBACK_DURATION=12
 PLAYBACK_RATE=1.0
+PLAYBACK_RATE_EXPLICIT=false
 TIMEOUT_SEC=30
 POST_PLAY_SETTLE_SEC=8
 MIN_POSES=20
@@ -126,7 +127,7 @@ Options:
   --bag DIR                    Frontend-raw rosbag2 directory.
   --output DIR                 Output report directory.
   --playback-duration SEC      rosbag2 playback duration. Default: 12.
-  --rate RATE                  rosbag2 playback rate. Default: 1.0.
+  --rate RATE                  rosbag2 playback rate. Default: 1.0; Gaussian-map feedback uses 0.5 unless explicitly overridden.
   --timeout SEC                Topic/report timeout. Default: 30.
   --post-play-settle SEC       Time to drain tracking callbacks after rosbag play exits. Default: 8.
   --min-poses N                Minimum recorded frontend odometry poses. Default: 20.
@@ -286,6 +287,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --rate)
       PLAYBACK_RATE="$2"
+      PLAYBACK_RATE_EXPLICIT=true
       shift 2
       ;;
     --timeout)
@@ -510,6 +512,9 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
       MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
+      if [[ "${PLAYBACK_RATE_EXPLICIT}" != "true" ]]; then
+        PLAYBACK_RATE=0.5
+      fi
       LIDAR_MAX_FRAME_POINTS=500
       TRACKING_MAX_POSE_STEP_M=0.025
       SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=4
@@ -904,6 +909,7 @@ stop_process_group "${launch_pid}" TERM
 unset launch_pid
 
 IMU_LINEAR_ACCELERATION_SCALE_REPORT="${IMU_LINEAR_ACCELERATION_SCALE}" \
+PLAYBACK_RATE_REPORT="${PLAYBACK_RATE}" \
 MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
@@ -971,6 +977,7 @@ sliding_window_max_feedback_velocity_mps = float(sys.argv[36])
 reference_tum_path = Path(sys.argv[37]) if sys.argv[37] else None
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
+playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
 
 
@@ -1197,6 +1204,7 @@ report = {
         "se3_photometric_min_coverage_tiles": se3_photometric_min_coverage_tiles,
         "reference_tum_path": str(reference_tum_path) if reference_tum_path else "",
         "external_reference_tum_poses": external_reference_pose_count,
+        "playback_rate": playback_rate,
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,

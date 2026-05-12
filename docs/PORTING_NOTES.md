@@ -229,6 +229,12 @@ artifact records the same path active) and nearly closes first-align tracking:
 coverage `42.65%`, RMSE `1.83 m`, max `3.49 m`, path drift `7.8%`, with mean
 `1.5208 m` just over the `1.5 m` gate. The yaw-gauge comparison for the same
 75 s artifact passes (`RMSE=1.461 m`, `mean=1.373 m`, `max=2.499 m`).
+Because the synchronous native BA path is still heavier than 1x bag playback,
+Gaussian-map feedback report runs now default to `--rate 0.5` unless the caller
+explicitly passes `--rate`. This preserves all ROS stamps and `/clock` semantics
+but gives callbacks enough wall time. The 75 s CBD visual+Gaussian feedback run
+at rate `0.5` passes first-align tracking comparison with coverage `55.65%`,
+RMSE `1.396 m`, mean `1.033 m`, max `3.278 m`, and path drift `15.5%`.
 
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and
