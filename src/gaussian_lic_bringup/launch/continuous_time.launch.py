@@ -67,7 +67,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("pointcloud_max_points_per_msg", default_value="256"),
         DeclareLaunchArgument("pointcloud_min_range_m", default_value="0.3"),
         DeclareLaunchArgument("pointcloud_max_range_m", default_value="30.0"),
-        DeclareLaunchArgument("pointcloud_factor_weight", default_value="1.0"),
+        DeclareLaunchArgument("pointcloud_factor_weight", default_value="0.1"),
         DeclareLaunchArgument("enable_voxel_plane_extraction", default_value="false"),
         DeclareLaunchArgument("enable_persistent_plane_map", default_value="true"),
         DeclareLaunchArgument("voxel_plane_size_m", default_value="0.5"),

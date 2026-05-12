@@ -154,7 +154,7 @@ public:
     pointcloud_max_range_m_ =
       declare_parameter<double>("pointcloud_max_range_m", 30.0);
     pointcloud_factor_weight_ =
-      declare_parameter<double>("pointcloud_factor_weight", 1.0);
+      declare_parameter<double>("pointcloud_factor_weight", 0.1);
 
     enable_imu_gravity_autocal_ =
       declare_parameter<bool>("enable_imu_gravity_autocal", true);
@@ -695,7 +695,7 @@ private:
   int pointcloud_max_points_per_msg_{256};
   double pointcloud_min_range_m_{0.3};
   double pointcloud_max_range_m_{30.0};
-  double pointcloud_factor_weight_{1.0};
+  double pointcloud_factor_weight_{0.1};
   double lidar_huber_delta_m_{0.10};
   std::size_t accepted_pointcloud_correspondences_{0};
   std::size_t pointcloud_messages_{0};
