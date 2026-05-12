@@ -30,7 +30,9 @@ NODE_LOG="${LOG_DIR}/node.log"
 PLAY_LOG="${LOG_DIR}/play.log"
 TUM_PATH="${LOG_DIR}/continuous_time_trajectory.tum"
 
-ros2 run gaussian_lic_tracking continuous_time_node \
+# `setsid` puts the node in its own process group so `kill -9 -- -PGID`
+# can take down both the `ros2 run` wrapper AND the actual node grandchild.
+setsid ros2 run gaussian_lic_tracking continuous_time_node \
   --ros-args \
   --remap /imu_for_gs:=/imu \
   --remap /points_for_gs:=/livox/lidar \
@@ -45,13 +47,19 @@ ros2 run gaussian_lic_tracking continuous_time_node \
   -p output_tum_path:="${TUM_PATH}" \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
+NODE_PGID=$(ps -o pgid= -p "${NODE_PID}" 2>/dev/null | tr -d ' ')
 
 cleanup() {
+  if [ -n "${NODE_PGID}" ]; then
+    kill -9 -- "-${NODE_PGID}" 2>/dev/null || true
+  fi
   for pid in "${NODE_PID:-}" "${PLAY_PID:-}"; do
     if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
       kill -9 "${pid}" 2>/dev/null || true
     fi
   done
+  pkill -9 -f "continuous_time_node --ros-args" 2>/dev/null || true
+  pkill -9 -f "ros2 bag play ${BAG_DIR}" 2>/dev/null || true
 }
 trap cleanup EXIT
 

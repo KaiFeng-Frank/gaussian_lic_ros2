@@ -28,7 +28,9 @@ PLAY_LOG="${OUTPUT_DIR}/play.log"
 TUM_PATH="${OUTPUT_DIR}/continuous_time_trajectory.tum"
 REPORT_PATH="${OUTPUT_DIR}/trajectory_compare_report.json"
 
-ros2 run gaussian_lic_tracking continuous_time_node \
+# `setsid` puts the node in its own process group so cleanup can kill the
+# full process tree, not just the `ros2 run` wrapper.
+setsid ros2 run gaussian_lic_tracking continuous_time_node \
   --ros-args \
   --remap /imu_for_gs:=/imu \
   --remap /points_for_gs:=/livox/lidar \
@@ -48,6 +50,7 @@ ros2 run gaussian_lic_tracking continuous_time_node \
   -p voxel_plane_max_correspondences:=48 \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
+NODE_PGID=$(ps -o pgid= -p "${NODE_PID}" 2>/dev/null | tr -d ' ')
 
 PLAYBACK_SECS=$(awk -v d="${PLAYBACK_DURATION}" -v r="${PLAYBACK_RATE}" 'BEGIN{ print d / r }')
 CAPTURE_SECS=$(awk -v p="${PLAYBACK_SECS}" 'BEGIN{ print p + 3 }')
@@ -60,6 +63,9 @@ CAPTURE_SECS=$(awk -v p="${PLAYBACK_SECS}" 'BEGIN{ print p + 3 }')
 LOGGER_PID=$!
 
 cleanup() {
+  if [ -n "${NODE_PGID:-}" ]; then
+    kill -9 -- "-${NODE_PGID}" 2>/dev/null || true
+  fi
   for pid in "${LOGGER_PID:-}" "${NODE_PID:-}" "${PLAY_PID:-}"; do
     if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
       kill -TERM "${pid}" 2>/dev/null || true
@@ -67,6 +73,10 @@ cleanup() {
       kill -9 "${pid}" 2>/dev/null || true
     fi
   done
+  # Belt-and-suspenders: kill any continuous_time_node that escaped.
+  pkill -9 -f "continuous_time_node --ros-args" 2>/dev/null || true
+  pkill -9 -f "ros2 bag play ${BAG_DIR}" 2>/dev/null || true
+  pkill -9 -f "odom_to_tum" 2>/dev/null || true
 }
 trap cleanup EXIT
 
