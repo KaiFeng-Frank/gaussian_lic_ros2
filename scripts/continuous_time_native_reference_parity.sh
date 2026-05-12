@@ -62,6 +62,11 @@ LIDAR_POSE_FACTOR_MAX_CORRECTION_M="${LIDAR_POSE_FACTOR_MAX_CORRECTION_M:-0.25}"
 LIDAR_POSE_FACTOR_MAX_ROTATION_RAD="${LIDAR_POSE_FACTOR_MAX_ROTATION_RAD:-0.08}"
 LIDAR_POSE_FACTOR_ROBUST_KERNEL_M="${LIDAR_POSE_FACTOR_ROBUST_KERNEL_M:-0.15}"
 LIDAR_POSE_FACTOR_ITERATIONS="${LIDAR_POSE_FACTOR_ITERATIONS:-1}"
+ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR="${ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR:-false}"
+LIDAR_SCAN_TO_SCAN_VELOCITY_WEIGHT="${LIDAR_SCAN_TO_SCAN_VELOCITY_WEIGHT:-0.0}"
+LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT:-0.0}"
+LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS="${LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS:-0.25}"
+LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS:-0.25}"
 ENABLE_LIDAR_PLANE_NORMAL_FACTOR="${ENABLE_LIDAR_PLANE_NORMAL_FACTOR:-false}"
 LIDAR_PLANE_NORMAL_FACTOR_WEIGHT="${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT:-0.1}"
 LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD="${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD:-0.10}"
@@ -211,6 +216,11 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p lidar_pose_factor_max_rotation_rad:="${LIDAR_POSE_FACTOR_MAX_ROTATION_RAD}" \
   -p lidar_pose_factor_robust_kernel_m:="${LIDAR_POSE_FACTOR_ROBUST_KERNEL_M}" \
   -p lidar_pose_factor_iterations:="${LIDAR_POSE_FACTOR_ITERATIONS}" \
+  -p enable_lidar_scan_to_scan_prior:="${ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR}" \
+  -p lidar_scan_to_scan_velocity_weight:="${LIDAR_SCAN_TO_SCAN_VELOCITY_WEIGHT}" \
+  -p lidar_scan_to_scan_angular_velocity_weight:="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT}" \
+  -p lidar_scan_to_scan_velocity_huber_delta_mps:="${LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS}" \
+  -p lidar_scan_to_scan_angular_velocity_huber_delta_radps:="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS}" \
   -p enable_lidar_plane_normal_factor:="${ENABLE_LIDAR_PLANE_NORMAL_FACTOR}" \
   -p lidar_plane_normal_factor_weight:="${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT}" \
   -p lidar_plane_normal_huber_delta_rad:="${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD}" \
@@ -500,6 +510,11 @@ native = {
     "lidar_pose_factor_max_rotation_rad": float("${LIDAR_POSE_FACTOR_MAX_ROTATION_RAD}"),
     "lidar_pose_factor_robust_kernel_m": float("${LIDAR_POSE_FACTOR_ROBUST_KERNEL_M}"),
     "lidar_pose_factor_iterations": int("${LIDAR_POSE_FACTOR_ITERATIONS}"),
+    "enable_lidar_scan_to_scan_prior": "${ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR}" == "true",
+    "lidar_scan_to_scan_velocity_weight": float("${LIDAR_SCAN_TO_SCAN_VELOCITY_WEIGHT}"),
+    "lidar_scan_to_scan_angular_velocity_weight": float("${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT}"),
+    "lidar_scan_to_scan_velocity_huber_delta_mps": float("${LIDAR_SCAN_TO_SCAN_VELOCITY_HUBER_DELTA_MPS}"),
+    "lidar_scan_to_scan_angular_velocity_huber_delta_radps": float("${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_HUBER_DELTA_RADPS}"),
     "enable_lidar_plane_normal_factor": "${ENABLE_LIDAR_PLANE_NORMAL_FACTOR}" == "true",
     "lidar_plane_normal_factor_weight": float("${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT}"),
     "lidar_plane_normal_huber_delta_rad": float("${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD}"),

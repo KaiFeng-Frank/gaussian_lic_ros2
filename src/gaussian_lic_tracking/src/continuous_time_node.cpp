@@ -553,6 +553,16 @@ public:
       static_cast<int>(declare_parameter<int>("lidar_pose_factor_keyframe_stride", 5));
     lidar_pose_factor_iterations_ =
       static_cast<int>(declare_parameter<int>("lidar_pose_factor_iterations", 1));
+    enable_lidar_scan_to_scan_prior_ =
+      declare_parameter<bool>("enable_lidar_scan_to_scan_prior", false);
+    lidar_scan_to_scan_velocity_weight_ =
+      declare_parameter<double>("lidar_scan_to_scan_velocity_weight", 0.0);
+    lidar_scan_to_scan_angular_velocity_weight_ =
+      declare_parameter<double>("lidar_scan_to_scan_angular_velocity_weight", 0.0);
+    lidar_scan_to_scan_velocity_huber_delta_mps_ =
+      declare_parameter<double>("lidar_scan_to_scan_velocity_huber_delta_mps", 0.25);
+    lidar_scan_to_scan_angular_velocity_huber_delta_radps_ =
+      declare_parameter<double>("lidar_scan_to_scan_angular_velocity_huber_delta_radps", 0.25);
     if (!std::isfinite(lidar_pose_prior_position_weight_) ||
       lidar_pose_prior_position_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_velocity_weight_) ||
@@ -569,6 +579,14 @@ public:
       lidar_pose_prior_angular_velocity_huber_delta_radps_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_huber_delta_rad_) ||
       lidar_pose_prior_orientation_huber_delta_rad_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_velocity_weight_) ||
+      lidar_scan_to_scan_velocity_weight_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_angular_velocity_weight_) ||
+      lidar_scan_to_scan_angular_velocity_weight_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_velocity_huber_delta_mps_) ||
+      lidar_scan_to_scan_velocity_huber_delta_mps_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_angular_velocity_huber_delta_radps_) ||
+      lidar_scan_to_scan_angular_velocity_huber_delta_radps_ < 0.0 ||
       lidar_pose_factor_keyframe_stride_ <= 0 ||
       lidar_pose_factor_iterations_ <= 0)
     {
@@ -1507,6 +1525,8 @@ private:
       int accepted = 0;
       maybe_add_lidar_pose_prior_locked(
         stamp_ns, points, q_b_w_at_scan, p_b_w_at_scan, extrinsics, have_scan_pose);
+      maybe_add_lidar_scan_to_scan_prior_locked(
+        stamp_ns, points, q_b_w_at_scan, p_b_w_at_scan, extrinsics, have_scan_pose);
       if (enable_persistent_point_map_ && have_scan_pose) {
         accepted += add_persistent_point_map_correspondences(
           stamp_ns, points, R_w_l, p_w_l, extrinsics,
@@ -1581,7 +1601,9 @@ private:
     int accepted = 0;
     int stride_counter = 0;
     std::vector<Eigen::Vector3d> points;
-    if (enable_lidar_pose_prior_factor_ || enable_visual_se3_prior_) {
+    if (enable_lidar_pose_prior_factor_ || enable_lidar_scan_to_scan_prior_ ||
+      enable_visual_se3_prior_)
+    {
       points.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
     }
     sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
@@ -1604,7 +1626,9 @@ private:
       if (range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_) {
         continue;
       }
-      if (enable_lidar_pose_prior_factor_ || enable_visual_se3_prior_) {
+      if (enable_lidar_pose_prior_factor_ || enable_lidar_scan_to_scan_prior_ ||
+        enable_visual_se3_prior_)
+      {
         points.emplace_back(rx, ry, rz);
       }
       pc.point_lidar = Eigen::Vector3d(rx, ry, rz);
@@ -1623,6 +1647,14 @@ private:
       Eigen::Vector3d p;
       const bool have_scan_pose = estimator_->query_pose(stamp_ns, q, p);
       maybe_add_lidar_pose_prior_locked(stamp_ns, points, q, p, extrinsics, have_scan_pose);
+      maybe_add_lidar_scan_to_scan_prior_locked(
+        stamp_ns, points, q, p, extrinsics, have_scan_pose);
+    } else if (enable_lidar_scan_to_scan_prior_) {
+      Eigen::Quaterniond q;
+      Eigen::Vector3d p;
+      const bool have_scan_pose = estimator_->query_pose(stamp_ns, q, p);
+      maybe_add_lidar_scan_to_scan_prior_locked(
+        stamp_ns, points, q, p, extrinsics, have_scan_pose);
     }
     cache_sparse_depth_frame_locked(stamp_ns, points, extrinsics);
     accepted_pointcloud_correspondences_ += static_cast<std::size_t>(accepted);
@@ -1762,6 +1794,10 @@ private:
       "lidar_pose_angular_velocity_priors=%zu "
       "lidar_pose_matches=%zu lidar_pose_keyframes=%zu "
       "lidar_pose_rejected=%zu lidar_pose_last_residual=%.9g "
+      "lidar_scan_to_scan_priors=%zu lidar_scan_to_scan_velocity_priors=%zu "
+      "lidar_scan_to_scan_angular_velocity_priors=%zu "
+      "lidar_scan_to_scan_matches=%zu lidar_scan_to_scan_rejected=%zu "
+      "lidar_scan_to_scan_last_residual=%.9g "
       "prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
@@ -1859,6 +1895,12 @@ private:
       lidar_pose_factor_keyframes_,
       lidar_pose_prior_rejected_,
       lidar_pose_prior_last_mean_residual_m_,
+      lidar_scan_to_scan_priors_,
+      lidar_scan_to_scan_velocity_priors_,
+      lidar_scan_to_scan_angular_velocity_priors_,
+      lidar_scan_to_scan_matches_,
+      lidar_scan_to_scan_rejected_,
+      lidar_scan_to_scan_last_residual_m_,
       accepted_prior_count_,
       accepted_prior_position_factor_messages_,
       accepted_prior_orientation_factor_messages_,
@@ -1956,6 +1998,118 @@ private:
       }
     }
     return accepted * 3;
+  }
+
+  void maybe_add_lidar_scan_to_scan_prior_locked(
+    int64_t stamp_ns,
+    const std::vector<Eigen::Vector3d> & points_lidar,
+    const Eigen::Quaterniond & q_w_i,
+    const Eigen::Vector3d & p_w_i,
+    const spline::LidarExtrinsics & extrinsics,
+    bool have_scan_pose)
+  {
+    if (!enable_lidar_scan_to_scan_prior_ || !have_scan_pose ||
+      !q_w_i.coeffs().allFinite() || !p_w_i.allFinite() ||
+      (lidar_scan_to_scan_velocity_weight_ <= 0.0 &&
+      lidar_scan_to_scan_angular_velocity_weight_ <= 0.0))
+    {
+      return;
+    }
+    std::vector<Eigen::Vector3d> points_imu;
+    points_imu.reserve(points_lidar.size());
+    for (const auto & point_lidar : points_lidar) {
+      const double range = point_lidar.norm();
+      if (!point_lidar.allFinite() || !std::isfinite(range) ||
+        range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_)
+      {
+        continue;
+      }
+      points_imu.push_back(extrinsics.q_lidar_to_imu * point_lidar + extrinsics.p_lidar_in_imu);
+    }
+    if (points_imu.empty()) {
+      return;
+    }
+
+    TrajectoryPose current_pose;
+    current_pose.stamp_ns = stamp_ns;
+    current_pose.q_w_i = q_w_i.normalized();
+    current_pose.p_w_i = p_w_i;
+    if (!have_last_lidar_scan_to_scan_) {
+      last_lidar_scan_to_scan_points_imu_ = points_imu;
+      last_lidar_scan_to_scan_pose_ = current_pose;
+      have_last_lidar_scan_to_scan_ = true;
+      return;
+    }
+
+    const double dt_s =
+      static_cast<double>(stamp_ns - last_lidar_scan_to_scan_pose_.stamp_ns) * 1.0e-9;
+    if (!std::isfinite(dt_s) || dt_s <= 1.0e-6) {
+      ++lidar_scan_to_scan_rejected_;
+      last_lidar_scan_to_scan_points_imu_ = points_imu;
+      last_lidar_scan_to_scan_pose_ = current_pose;
+      return;
+    }
+
+    LidarFactor scan_matcher(lidar_pose_factor_.config());
+    TrajectoryPose previous_identity;
+    previous_identity.stamp_ns = last_lidar_scan_to_scan_pose_.stamp_ns;
+    previous_identity.q_w_i = Eigen::Quaterniond::Identity();
+    previous_identity.p_w_i = Eigen::Vector3d::Zero();
+    scan_matcher.insert_keyframe(last_lidar_scan_to_scan_points_imu_, previous_identity);
+
+    TrajectoryPose predicted_relative;
+    predicted_relative.stamp_ns = stamp_ns;
+    predicted_relative.q_w_i =
+      (last_lidar_scan_to_scan_pose_.q_w_i.inverse() * current_pose.q_w_i).normalized();
+    predicted_relative.p_w_i =
+      last_lidar_scan_to_scan_pose_.q_w_i.inverse() *
+      (current_pose.p_w_i - last_lidar_scan_to_scan_pose_.p_w_i);
+    const auto correction = scan_matcher.compute_pose_correction(points_imu, predicted_relative);
+    if (!correction.applied) {
+      ++lidar_scan_to_scan_rejected_;
+      last_lidar_scan_to_scan_points_imu_ = points_imu;
+      last_lidar_scan_to_scan_pose_ = current_pose;
+      return;
+    }
+
+    const Eigen::Quaterniond target_relative_q =
+      (correction.delta_q * predicted_relative.q_w_i).normalized();
+    const Eigen::Vector3d target_relative_p =
+      predicted_relative.p_w_i + correction.delta_p_w;
+    const Eigen::Quaterniond target_q =
+      (last_lidar_scan_to_scan_pose_.q_w_i * target_relative_q).normalized();
+    const Eigen::Vector3d target_p =
+      last_lidar_scan_to_scan_pose_.p_w_i +
+      last_lidar_scan_to_scan_pose_.q_w_i * target_relative_p;
+
+    if (lidar_scan_to_scan_velocity_weight_ > 0.0) {
+      const Eigen::Vector3d target_velocity =
+        (target_p - last_lidar_scan_to_scan_pose_.p_w_i) / dt_s;
+      if (target_velocity.allFinite()) {
+        estimator_->add_velocity_prior(
+          stamp_ns, target_velocity, lidar_scan_to_scan_velocity_weight_,
+          lidar_scan_to_scan_velocity_huber_delta_mps_);
+        ++lidar_scan_to_scan_velocity_priors_;
+      }
+    }
+    if (lidar_scan_to_scan_angular_velocity_weight_ > 0.0) {
+      const Eigen::Vector3d target_angular_velocity =
+        spline::quaternion_log(target_relative_q) / dt_s;
+      if (target_angular_velocity.allFinite()) {
+        estimator_->add_angular_velocity_prior(
+          stamp_ns, target_angular_velocity, lidar_scan_to_scan_angular_velocity_weight_,
+          lidar_scan_to_scan_angular_velocity_huber_delta_radps_);
+        ++lidar_scan_to_scan_angular_velocity_priors_;
+      }
+    }
+
+    ++lidar_scan_to_scan_priors_;
+    lidar_scan_to_scan_matches_ += correction.matched_points;
+    lidar_scan_to_scan_last_residual_m_ = correction.mean_residual_m;
+    last_lidar_scan_to_scan_points_imu_ = points_imu;
+    last_lidar_scan_to_scan_pose_ = current_pose;
+    last_lidar_scan_to_scan_pose_.p_w_i = target_p;
+    last_lidar_scan_to_scan_pose_.q_w_i = target_q;
   }
 
   void maybe_add_lidar_pose_prior_locked(
@@ -2306,6 +2460,11 @@ private:
   double lidar_pose_prior_orientation_huber_delta_rad_{0.25};
   int lidar_pose_factor_keyframe_stride_{5};
   int lidar_pose_factor_iterations_{1};
+  bool enable_lidar_scan_to_scan_prior_{false};
+  double lidar_scan_to_scan_velocity_weight_{0.0};
+  double lidar_scan_to_scan_angular_velocity_weight_{0.0};
+  double lidar_scan_to_scan_velocity_huber_delta_mps_{0.25};
+  double lidar_scan_to_scan_angular_velocity_huber_delta_radps_{0.25};
   LidarFactor lidar_pose_factor_;
   bool lidar_pose_factor_has_keyframe_{false};
   std::size_t lidar_pose_factor_seen_frames_{0};
@@ -2320,6 +2479,15 @@ private:
   int64_t last_lidar_pose_prior_stamp_ns_{0};
   Eigen::Vector3d last_lidar_pose_prior_position_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond last_lidar_pose_prior_orientation_{Eigen::Quaterniond::Identity()};
+  bool have_last_lidar_scan_to_scan_{false};
+  std::vector<Eigen::Vector3d> last_lidar_scan_to_scan_points_imu_;
+  TrajectoryPose last_lidar_scan_to_scan_pose_;
+  std::size_t lidar_scan_to_scan_priors_{0};
+  std::size_t lidar_scan_to_scan_velocity_priors_{0};
+  std::size_t lidar_scan_to_scan_angular_velocity_priors_{0};
+  std::size_t lidar_scan_to_scan_matches_{0};
+  std::size_t lidar_scan_to_scan_rejected_{0};
+  double lidar_scan_to_scan_last_residual_m_{0.0};
   bool enable_lidar_plane_normal_factor_{false};
   double lidar_plane_normal_factor_weight_{0.1};
   double lidar_plane_normal_huber_delta_rad_{0.10};
