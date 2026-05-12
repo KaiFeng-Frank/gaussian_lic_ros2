@@ -489,6 +489,16 @@ private:
     if (!stepped) {
       return;
     }
+    const auto & diagnostics = estimator_->diagnostics();
+    if (diagnostics.rejected_solver_steps > last_logged_rejected_solver_steps_) {
+      last_logged_rejected_solver_steps_ = diagnostics.rejected_solver_steps;
+      RCLCPP_WARN(
+        get_logger(),
+        "continuous-time solve update rejected: total=%zu max_dp=%.3f m max_dtheta=%.3f rad",
+        diagnostics.rejected_solver_steps,
+        diagnostics.last_rejected_position_update_m,
+        diagnostics.last_rejected_rotation_update_rad);
+    }
     publish_latest_pose();
   }
 
@@ -704,6 +714,7 @@ private:
   int64_t step_period_ns_{0};
   int64_t knot_interval_ns_{50000000};
   int64_t last_published_query_ns_{0};
+  std::size_t last_logged_rejected_solver_steps_{0};
 };
 
 }  // namespace gaussian_lic_tracking
