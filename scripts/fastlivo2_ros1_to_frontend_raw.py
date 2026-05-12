@@ -391,13 +391,13 @@ def make_pointcloud2(store, np, livox_msg, frame_id):
     header = make_header(store, livox_msg.header, frame_id)
     points = livox_msg.points
     point_count = int(min(len(points), int(livox_msg.point_num)))
-    point_step = 16
+    point_step = 20
     data = bytearray(point_count * point_step)
     for index in range(point_count):
         point = points[index]
         offset = index * point_step
         struct.pack_into(
-            "<fffBBBB",
+            "<fffBBBBI",
             data,
             offset,
             float(point.x),
@@ -407,6 +407,7 @@ def make_pointcloud2(store, np, livox_msg, frame_id):
             int(point.tag) & 0xFF,
             int(point.line) & 0xFF,
             0,
+            int(getattr(point, "offset_time", 0)) & 0xFFFFFFFF,
         )
     fields = [
         pointfield_cls(name="x", offset=0, datatype=pointfield_cls.FLOAT32, count=1),
@@ -415,6 +416,7 @@ def make_pointcloud2(store, np, livox_msg, frame_id):
         pointfield_cls(name="intensity", offset=12, datatype=pointfield_cls.UINT8, count=1),
         pointfield_cls(name="tag", offset=13, datatype=pointfield_cls.UINT8, count=1),
         pointfield_cls(name="line", offset=14, datatype=pointfield_cls.UINT8, count=1),
+        pointfield_cls(name="offset_time", offset=16, datatype=pointfield_cls.UINT32, count=1),
     ]
     return pointcloud_cls(
         header=header,

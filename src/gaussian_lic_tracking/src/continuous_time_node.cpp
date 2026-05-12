@@ -14,11 +14,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <deque>
 #include <fstream>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -56,6 +58,174 @@ enum class VisualSe3PriorStatus
   kRejected,
   kAdded
 };
+
+const sensor_msgs::msg::PointField * find_pointcloud_field(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  const std::string & field_name)
+{
+  const auto it = std::find_if(
+    msg.fields.begin(), msg.fields.end(),
+    [&field_name](const sensor_msgs::msg::PointField & field) {
+      return field.name == field_name;
+    });
+  return it == msg.fields.end() ? nullptr : &(*it);
+}
+
+const sensor_msgs::msg::PointField * find_point_time_field(
+  const sensor_msgs::msg::PointCloud2 & msg)
+{
+  for (const std::string & field_name : {"offset_time", "time", "timestamp", "t"}) {
+    if (const auto * field = find_pointcloud_field(msg, field_name); field != nullptr) {
+      return field;
+    }
+  }
+  return nullptr;
+}
+
+size_t point_field_scalar_size(const sensor_msgs::msg::PointField & field)
+{
+  switch (field.datatype) {
+    case sensor_msgs::msg::PointField::INT8:
+    case sensor_msgs::msg::PointField::UINT8:
+      return 1U;
+    case sensor_msgs::msg::PointField::INT16:
+    case sensor_msgs::msg::PointField::UINT16:
+      return 2U;
+    case sensor_msgs::msg::PointField::INT32:
+    case sensor_msgs::msg::PointField::UINT32:
+    case sensor_msgs::msg::PointField::FLOAT32:
+      return 4U;
+    case sensor_msgs::msg::PointField::FLOAT64:
+      return 8U;
+    default:
+      return 0U;
+  }
+}
+
+bool read_point_numeric_field(
+  const uint8_t * base,
+  const sensor_msgs::msg::PointField & field,
+  double & value)
+{
+  switch (field.datatype) {
+    case sensor_msgs::msg::PointField::INT8: {
+        int8_t raw = 0;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::UINT8: {
+        uint8_t raw = 0;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::INT16: {
+        int16_t raw = 0;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::UINT16: {
+        uint16_t raw = 0;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::INT32: {
+        int32_t raw = 0;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::UINT32: {
+        uint32_t raw = 0U;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::FLOAT32: {
+        float raw = 0.0F;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = static_cast<double>(raw);
+        return true;
+      }
+    case sensor_msgs::msg::PointField::FLOAT64: {
+        double raw = 0.0;
+        std::memcpy(&raw, base + field.offset, sizeof(raw));
+        value = raw;
+        return true;
+      }
+    default:
+      return false;
+  }
+}
+
+std::optional<int64_t> decode_point_stamp_ns(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  const sensor_msgs::msg::PointField * time_field,
+  const size_t point_index,
+  const int64_t cloud_stamp_ns)
+{
+  const size_t point_count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
+  if (time_field == nullptr || msg.point_step == 0U || point_index >= point_count) {
+    return std::nullopt;
+  }
+  const size_t scalar_size = point_field_scalar_size(*time_field);
+  const size_t base = point_index * static_cast<size_t>(msg.point_step);
+  if (scalar_size == 0U || base + time_field->offset + scalar_size > msg.data.size()) {
+    return std::nullopt;
+  }
+  double raw_time = 0.0;
+  if (!read_point_numeric_field(msg.data.data() + base, *time_field, raw_time) ||
+    !std::isfinite(raw_time))
+  {
+    return std::nullopt;
+  }
+
+  auto scale_to_ns = [](const double value, const double scale) {
+      return static_cast<int64_t>(std::llround(value * scale));
+    };
+  bool offset_mode = true;
+  int64_t time_ns = 0;
+  const double abs_time = std::abs(raw_time);
+  if (time_field->name == "offset_time") {
+    time_ns = static_cast<int64_t>(std::llround(raw_time));
+  } else if (abs_time > 1.0e17) {
+    time_ns = static_cast<int64_t>(std::llround(raw_time));
+    offset_mode = false;
+  } else if (abs_time > 1.0e14) {
+    time_ns = scale_to_ns(raw_time, 1.0e3);
+    offset_mode = false;
+  } else if ((time_field->name == "timestamp" || time_field->name == "t") && abs_time > 1.0e8) {
+    time_ns = scale_to_ns(raw_time, 1.0e9);
+    offset_mode = false;
+  } else {
+    time_ns = scale_to_ns(raw_time, 1.0e9);
+  }
+  return offset_mode ? cloud_stamp_ns + time_ns : time_ns;
+}
+
+int64_t nearest_point_stamp_ns(
+  const std::vector<Eigen::Vector3d> & points,
+  const std::vector<int64_t> & point_stamps_ns,
+  const Eigen::Vector3d & sample_point,
+  const int64_t fallback_stamp_ns)
+{
+  if (points.empty() || points.size() != point_stamps_ns.size() || !sample_point.allFinite()) {
+    return fallback_stamp_ns;
+  }
+  double best_distance_sq = std::numeric_limits<double>::infinity();
+  int64_t best_stamp_ns = fallback_stamp_ns;
+  for (size_t index = 0; index < points.size(); ++index) {
+    const double distance_sq = (points[index] - sample_point).squaredNorm();
+    if (distance_sq < best_distance_sq) {
+      best_distance_sq = distance_sq;
+      best_stamp_ns = point_stamps_ns[index];
+    }
+  }
+  return best_stamp_ns;
+}
 
 Eigen::Quaterniond quaternion_from_rotation_vector(const Eigen::Vector3d & rotation_vector)
 {
@@ -525,6 +695,13 @@ public:
       declare_parameter<double>("pointcloud_max_range_m", 30.0);
     pointcloud_factor_weight_ =
       declare_parameter<double>("pointcloud_factor_weight", 0.1);
+    lidar_max_abs_point_time_offset_s_ =
+      declare_parameter<double>("lidar_max_abs_point_time_offset_s", 0.25);
+    if (!std::isfinite(lidar_max_abs_point_time_offset_s_) ||
+      lidar_max_abs_point_time_offset_s_ < 0.0)
+    {
+      throw std::runtime_error("lidar_max_abs_point_time_offset_s must be finite and non-negative");
+    }
     enable_lidar_pose_prior_factor_ =
       declare_parameter<bool>("enable_lidar_pose_prior_factor", false);
     lidar_pose_prior_position_weight_ =
@@ -1670,21 +1847,47 @@ private:
 
     if (enable_voxel_plane_extraction_) {
       std::vector<Eigen::Vector3d> points;
+      std::vector<int64_t> point_stamps_ns;
       points.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
+      point_stamps_ns.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
+      const auto * time_field = find_point_time_field(*msg);
+      if (time_field != nullptr) {
+        ++pointcloud_time_field_frames_;
+      }
       sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
       sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
       sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
-      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+      size_t point_index = 0U;
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++point_index) {
         const float fx = *iter_x;
         const float fy = *iter_y;
         const float fz = *iter_z;
         if (!std::isfinite(fx) || !std::isfinite(fy) || !std::isfinite(fz)) {
           continue;
         }
+        int64_t point_stamp_ns = stamp_ns;
+        if (time_field != nullptr) {
+          const auto decoded_stamp = decode_point_stamp_ns(*msg, time_field, point_index, stamp_ns);
+          if (decoded_stamp.has_value()) {
+            const double abs_offset_s =
+              std::abs(static_cast<double>(decoded_stamp.value() - stamp_ns) * 1.0e-9);
+            pointcloud_last_max_abs_point_time_offset_s_ =
+              std::max(pointcloud_last_max_abs_point_time_offset_s_, abs_offset_s);
+            if (abs_offset_s <= lidar_max_abs_point_time_offset_s_) {
+              point_stamp_ns = decoded_stamp.value();
+              ++pointcloud_timed_points_;
+            } else {
+              ++pointcloud_out_of_range_point_times_;
+            }
+          } else {
+            ++pointcloud_invalid_point_times_;
+          }
+        }
         points.emplace_back(
           static_cast<double>(fx),
           static_cast<double>(fy),
           static_cast<double>(fz));
+        point_stamps_ns.push_back(point_stamp_ns);
       }
       const auto planes = plane_extractor_.extract(points);
       cache_sparse_depth_frame_locked(stamp_ns, points, extrinsics);
@@ -1751,12 +1954,14 @@ private:
           const auto match = persistent_plane_map_.match(centroid_world, n_world);
           if (match) {
             pc.plane = match->plane;
+            const int64_t plane_stamp_ns =
+              nearest_point_stamp_ns(points, point_stamps_ns, plane.sample_point, stamp_ns);
             estimator_->add_lidar_correspondence(
-              stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
+              plane_stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
               lidar_huber_delta_m_);
             if (enable_lidar_plane_normal_factor_) {
               estimator_->add_lidar_plane_normal_correspondence(
-                stamp_ns, plane.normal, pc.plane.head<3>(), extrinsics,
+                plane_stamp_ns, plane.normal, pc.plane.head<3>(), extrinsics,
                 lidar_plane_normal_factor_weight_,
                 lidar_plane_normal_huber_delta_rad_);
               ++persistent_plane_normal_factors_;
@@ -1785,8 +1990,10 @@ private:
           pc.plane.head<3>() = plane.normal;
           pc.plane[3] = plane.offset;
         }
+        const int64_t plane_stamp_ns =
+          nearest_point_stamp_ns(points, point_stamps_ns, plane.sample_point, stamp_ns);
         estimator_->add_lidar_correspondence(
-          stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
+          plane_stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
           lidar_huber_delta_m_);
         ++accepted;
       }
@@ -1805,15 +2012,22 @@ private:
     int accepted = 0;
     int stride_counter = 0;
     std::vector<Eigen::Vector3d> points;
+    std::vector<int64_t> point_stamps_ns;
     if (enable_lidar_pose_prior_factor_ || enable_lidar_scan_to_scan_prior_ ||
       enable_visual_se3_prior_)
     {
       points.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
     }
+    point_stamps_ns.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
+    const auto * time_field = find_point_time_field(*msg);
+    if (time_field != nullptr) {
+      ++pointcloud_time_field_frames_;
+    }
     sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
     sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
     sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
-    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+    size_t point_index = 0U;
+    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++point_index) {
       if (stride_counter++ % std::max(1, pointcloud_subsample_stride_) != 0) {
         continue;
       }
@@ -1830,14 +2044,33 @@ private:
       if (range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_) {
         continue;
       }
+      int64_t point_stamp_ns = stamp_ns;
+      if (time_field != nullptr) {
+        const auto decoded_stamp = decode_point_stamp_ns(*msg, time_field, point_index, stamp_ns);
+        if (decoded_stamp.has_value()) {
+          const double abs_offset_s =
+            std::abs(static_cast<double>(decoded_stamp.value() - stamp_ns) * 1.0e-9);
+          pointcloud_last_max_abs_point_time_offset_s_ =
+            std::max(pointcloud_last_max_abs_point_time_offset_s_, abs_offset_s);
+          if (abs_offset_s <= lidar_max_abs_point_time_offset_s_) {
+            point_stamp_ns = decoded_stamp.value();
+            ++pointcloud_timed_points_;
+          } else {
+            ++pointcloud_out_of_range_point_times_;
+          }
+        } else {
+          ++pointcloud_invalid_point_times_;
+        }
+      }
       if (enable_lidar_pose_prior_factor_ || enable_lidar_scan_to_scan_prior_ ||
         enable_visual_se3_prior_)
       {
         points.emplace_back(rx, ry, rz);
+        point_stamps_ns.push_back(point_stamp_ns);
       }
       pc.point_lidar = Eigen::Vector3d(rx, ry, rz);
       estimator_->add_lidar_correspondence(
-        stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
+        point_stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
         lidar_huber_delta_m_);
       ++accepted;
       if (pointcloud_max_points_per_msg_ > 0 &&
@@ -1989,6 +2222,9 @@ private:
       "gyro_bias_prior_factors=%zu accel_bias_prior_factors=%zu "
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
+      "pointcloud_time_field_frames=%zu pointcloud_timed_points=%zu "
+      "pointcloud_invalid_point_times=%zu pointcloud_out_of_range_point_times=%zu "
+      "pointcloud_last_max_abs_point_time_offset_s=%.9g "
       "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
       "plane_normal_factors=%zu "
       "visual_rotation_images=%zu visual_rotation_accepted=%zu "
@@ -2089,8 +2325,13 @@ private:
       accepted_pointcloud_correspondences_,
       persistent_plane_map_matches_,
       persistent_plane_map_updates_,
-      persistent_plane_map_update_skips_,
       persistent_point_map_matches_,
+      pointcloud_time_field_frames_,
+      pointcloud_timed_points_,
+      pointcloud_invalid_point_times_,
+      pointcloud_out_of_range_point_times_,
+      pointcloud_last_max_abs_point_time_offset_s_,
+      persistent_plane_map_update_skips_,
       persistent_point_map_updates_,
       persistent_point_map_update_skips_,
       persistent_plane_normal_factors_,
@@ -2826,6 +3067,7 @@ private:
   double pointcloud_min_range_m_{0.3};
   double pointcloud_max_range_m_{30.0};
   double pointcloud_factor_weight_{0.1};
+  double lidar_max_abs_point_time_offset_s_{0.25};
   double lidar_huber_delta_m_{0.10};
   bool enable_lidar_pose_prior_factor_{false};
   double lidar_pose_prior_position_weight_{1.0};
@@ -2904,6 +3146,11 @@ private:
   double lidar_plane_normal_huber_delta_rad_{0.10};
   std::size_t accepted_pointcloud_correspondences_{0};
   std::size_t pointcloud_messages_{0};
+  std::size_t pointcloud_time_field_frames_{0};
+  std::size_t pointcloud_timed_points_{0};
+  std::size_t pointcloud_invalid_point_times_{0};
+  std::size_t pointcloud_out_of_range_point_times_{0};
+  double pointcloud_last_max_abs_point_time_offset_s_{0.0};
   std::deque<sensor_msgs::msg::PointCloud2::SharedPtr> delayed_pointcloud_queue_;
   std::size_t delayed_pointcloud_deferred_{0};
   std::size_t delayed_pointcloud_released_{0};

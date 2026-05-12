@@ -43,6 +43,7 @@ IMU_LINEAR_ACCELERATION_SCALE="${IMU_LINEAR_ACCELERATION_SCALE:-9.80665}"
 POINTCLOUD_ENABLE="${POINTCLOUD_ENABLE:-true}"
 POINTCLOUD_FACTOR_WEIGHT="${POINTCLOUD_FACTOR_WEIGHT:-0.1}"
 POINTCLOUD_WAIT_QUEUE_MAX_SIZE="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE:-100}"
+LIDAR_MAX_ABS_POINT_TIME_OFFSET_S="${LIDAR_MAX_ABS_POINT_TIME_OFFSET_S:-0.25}"
 ENABLE_LIDAR_POSE_PRIOR_FACTOR="${ENABLE_LIDAR_POSE_PRIOR_FACTOR:-false}"
 LIDAR_POSE_PRIOR_POSITION_WEIGHT="${LIDAR_POSE_PRIOR_POSITION_WEIGHT:-1.0}"
 LIDAR_POSE_PRIOR_VELOCITY_WEIGHT="${LIDAR_POSE_PRIOR_VELOCITY_WEIGHT:-0.0}"
@@ -223,6 +224,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
   -p pointcloud_factor_weight:="${POINTCLOUD_FACTOR_WEIGHT}" \
   -p pointcloud_wait_queue_max_size:="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}" \
+  -p lidar_max_abs_point_time_offset_s:="${LIDAR_MAX_ABS_POINT_TIME_OFFSET_S}" \
   -p enable_lidar_pose_prior_factor:="${ENABLE_LIDAR_POSE_PRIOR_FACTOR}" \
   -p lidar_pose_prior_position_weight:="${LIDAR_POSE_PRIOR_POSITION_WEIGHT}" \
   -p lidar_pose_prior_velocity_weight:="${LIDAR_POSE_PRIOR_VELOCITY_WEIGHT}" \
@@ -540,6 +542,7 @@ native = {
     "accel_bias_prior_weight": float("${ACCEL_BIAS_PRIOR_WEIGHT}"),
     "accel_bias_prior_huber_delta_mps2": float("${ACCEL_BIAS_PRIOR_HUBER_DELTA_MPS2}"),
     "pointcloud_wait_queue_max_size": int("${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}"),
+    "lidar_max_abs_point_time_offset_s": float("${LIDAR_MAX_ABS_POINT_TIME_OFFSET_S}"),
     "enable_lidar_pose_prior_factor": "${ENABLE_LIDAR_POSE_PRIOR_FACTOR}" == "true",
     "lidar_pose_prior_position_weight": float("${LIDAR_POSE_PRIOR_POSITION_WEIGHT}"),
     "lidar_pose_prior_velocity_weight": float("${LIDAR_POSE_PRIOR_VELOCITY_WEIGHT}"),
