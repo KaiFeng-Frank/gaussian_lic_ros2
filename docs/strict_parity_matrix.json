@@ -1107,6 +1107,31 @@
           "min": 0.005
         }
       ]
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "dataset": "FAST-LIVO2",
+      "sequence": "Retail_Street",
+      "required": true,
+      "report": "results/fastlivo2/Retail_Street_continuous_time_native_parity/native_tracking_report.json",
+      "requires_reference_parity": false,
+      "notes": "Liveness gate for the continuous-time tracker on the second FAST-LIVO2 sequence. Validates the ported stack on Retail_Street (no archived Coco-LIC native reference; liveness-only mode via REFERENCE_TUM=__skip__). Broadens the continuous-time evidence base beyond a single bag.",
+      "thresholds": [
+        {
+          "path": "metrics.captured_tum_lines",
+          "min": 10
+        },
+        {
+          "path": "metrics.finite_tum_positions",
+          "min": 10
+        },
+        {
+          "path": "metrics.odom_messages_received",
+          "min": 30
+        }
+      ]
     }
   ]
 }

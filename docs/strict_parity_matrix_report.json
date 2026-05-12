@@ -306,13 +306,23 @@
       "report": "/home/frank/gaussian_lic_ros2/results/fastlivo2/CBD_Building_01_continuous_time_native_parity/native_tracking_report.json",
       "required": true,
       "sequence": "CBD_Building_01"
+    },
+    {
+      "errors": [],
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "fastlivo2",
+      "report": "/home/frank/gaussian_lic_ros2/results/fastlivo2/Retail_Street_continuous_time_native_parity/native_tracking_report.json",
+      "required": true,
+      "sequence": "Retail_Street"
     }
   ],
   "manifest": "gaussian_lic_strict_parity_matrix/v1",
   "missing_profiles": [],
   "ok": true,
-  "required_count": 13,
-  "required_ok_count": 13,
+  "required_count": 14,
+  "required_ok_count": 14,
   "schema": "gaussian_lic_strict_parity_matrix_report/v1",
   "target_profiles": [
     "fastlivo",

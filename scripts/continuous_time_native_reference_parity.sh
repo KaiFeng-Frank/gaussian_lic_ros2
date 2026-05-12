@@ -15,6 +15,8 @@ export ROS_DOMAIN_ID
 
 BAG_DIR="${BAG_DIR:-/home/frank/data/fast_livo/CBD_Building_01_frontend_raw}"
 REFERENCE_TUM="${REFERENCE_TUM:-${WORKSPACE}/baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum}"
+# Set REFERENCE_TUM=__skip__ to produce a liveness-only native_tracking_report
+# (no trajectory_compare). Used by bags without an archived native reference.
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
 PLAYBACK_RATE="${PLAYBACK_RATE:-0.5}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
@@ -102,26 +104,30 @@ fi
 TUM_LINES=$(grep -cv '^#' "${TUM_PATH}" || echo 0)
 echo "Captured TUM trajectory: ${TUM_PATH} (${TUM_LINES} lines)"
 
-python3 "${WORKSPACE}/scripts/trajectory_compare.py" \
-  --baseline "${REFERENCE_TUM}" \
-  --current "${TUM_PATH}" \
-  --align yaw \
-  --output "${REPORT_PATH}" \
-  --max-association-dt 0.10 \
-  --min-matches 50 \
-  --min-coverage 0.20 \
-  --max-rmse-m 10000.0 \
-  --max-mean-m 10000.0 \
-  --max-error-m 10000.0 \
-  --max-path-drift 100.0 \
-  || true   # don't bubble up strict-threshold failures here; we just want the JSON
+if [ "${REFERENCE_TUM}" != "__skip__" ]; then
+  python3 "${WORKSPACE}/scripts/trajectory_compare.py" \
+    --baseline "${REFERENCE_TUM}" \
+    --current "${TUM_PATH}" \
+    --align yaw \
+    --output "${REPORT_PATH}" \
+    --max-association-dt 0.10 \
+    --min-matches 50 \
+    --min-coverage 0.20 \
+    --max-rmse-m 10000.0 \
+    --max-mean-m 10000.0 \
+    --max-error-m 10000.0 \
+    --max-path-drift 100.0 \
+    || true   # don't bubble up strict-threshold failures here; we just want the JSON
 
-if [ ! -s "${REPORT_PATH}" ]; then
-  echo "continuous_time_native_reference_parity FAIL: report missing"
-  exit 1
+  if [ ! -s "${REPORT_PATH}" ]; then
+    echo "continuous_time_native_reference_parity FAIL: report missing"
+    exit 1
+  fi
+  echo "Wrote parity report: ${REPORT_PATH}"
+else
+  echo "Reference TUM skipped (REFERENCE_TUM=__skip__) — liveness-only mode"
+  REPORT_PATH=""
 fi
-
-echo "Wrote parity report: ${REPORT_PATH}"
 
 # Compose a `native_tracking_report.json` artifact consumable by
 # `scripts/check_strict_parity_matrix.py` (kind=native_tracking_report).
@@ -139,7 +145,7 @@ import os
 import re
 
 tum_path = "${TUM_PATH}"
-compare_path = "${REPORT_PATH}"
+compare_path = "${REPORT_PATH}"   # empty string when REFERENCE_TUM=__skip__
 logger_log = "${LOGGER_LOG}"
 native_report_path = "${NATIVE_REPORT_PATH}"
 
@@ -175,7 +181,7 @@ if os.path.isfile(logger_log):
 
 compare_payload = {}
 compare_ok = False
-if os.path.isfile(compare_path):
+if compare_path and os.path.isfile(compare_path):
     try:
         compare_payload = json.load(open(compare_path, "r", encoding="utf-8"))
         compare_ok = bool(compare_payload.get("ok", False))
