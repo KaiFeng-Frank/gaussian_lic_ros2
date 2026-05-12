@@ -165,6 +165,12 @@ controls (`enable_gaussian_snapshot_lidar_factor`,
 correspondences) and records them in the native report config. This closes the
 missing mapper-to-tracker Gaussian global-anchor plumbing, but it remains
 default-off until a full mapper-feedback run proves long-window RMSE parity.
+`run_native_tracking_bag_report.sh` now has a matching
+`--enable-gaussian-map-feedback` mode that starts `mapping_node` with Torch
+Gaussian initialization/extension and `GaussianArray` publication enabled, plus
+`--require-gaussian-snapshot` to fail reports when tracking did not receive a
+complete map snapshot. This turns mapper feedback from a rendered-image-only
+diagnostic into a reproducible Gaussian-map anchor experiment.
 
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and

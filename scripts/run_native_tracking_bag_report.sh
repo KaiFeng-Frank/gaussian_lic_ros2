@@ -58,6 +58,19 @@ REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
 MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.01
+ENABLE_GAUSSIAN_MAP_FEEDBACK=false
+REQUIRE_GAUSSIAN_SNAPSHOT=false
+MAPPER_FEEDBACK_RENDER_MODE=debug_input
+MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
+MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
+MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=false
+MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=false
+MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=false
+MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_OPTIMIZATION=false
+MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING=false
+MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_DENSIFICATION=false
+MAPPER_FEEDBACK_TORCH_DEVICE=cpu
+MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS=0
 VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
@@ -171,8 +184,17 @@ Options:
   --require-nondegenerate-ba   Require the last reported BA normal equation and state cadence to be non-degenerate.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
+  --enable-gaussian-map-feedback
+                               Launch mapping_node with Torch Gaussian init/extend and GaussianArray publication so tracking can consume map anchors.
+  --require-gaussian-snapshot  Require a complete GaussianArray snapshot in the tracking status report.
   --mapper-feedback-sync-tolerance-sec SEC
                                mapping_node frame sync tolerance for mapper feedback. Default: 0.01.
+  --mapper-feedback-torch-device DEV
+                               Torch device for mapper feedback Gaussian snapshots. Default: cpu; --enable-gaussian-map-feedback sets auto.
+  --mapper-feedback-torch-optimization-steps N
+                               Per-frame Torch optimization steps for mapper feedback Gaussian snapshots. Default: 0.
+  --mapper-feedback-enable-torch-optimization
+                               Enable mapper feedback Torch photometric optimization.
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
@@ -433,9 +455,37 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_FACTORS=true
       shift
       ;;
+    --enable-gaussian-map-feedback)
+      ENABLE_MAPPER_FEEDBACK=true
+      ENABLE_VISUAL_FACTORS=true
+      ENABLE_GAUSSIAN_MAP_FEEDBACK=true
+      MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=true
+      MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=true
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=true
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
+      MAPPER_FEEDBACK_TORCH_DEVICE=auto
+      REQUIRE_GAUSSIAN_SNAPSHOT=true
+      shift
+      ;;
+    --require-gaussian-snapshot)
+      REQUIRE_GAUSSIAN_SNAPSHOT=true
+      shift
+      ;;
     --mapper-feedback-sync-tolerance-sec)
       MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC="$2"
       shift 2
+      ;;
+    --mapper-feedback-torch-device)
+      MAPPER_FEEDBACK_TORCH_DEVICE="$2"
+      shift 2
+      ;;
+    --mapper-feedback-torch-optimization-steps)
+      MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS="$2"
+      shift 2
+      ;;
+    --mapper-feedback-enable-torch-optimization)
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_OPTIMIZATION=true
+      shift
       ;;
     --visual-factor-max-dt-ns)
       VISUAL_FACTOR_MAX_DT_NS="$2"
@@ -655,6 +705,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   pointcloud_imu_wait_queue_size:="${POINTCLOUD_IMU_WAIT_QUEUE_SIZE}" \
   imu_history_size:="${IMU_HISTORY_SIZE}" \
   imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
+  enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_MAP_FEEDBACK}" \
   tracking_max_pose_step_m:="${TRACKING_MAX_POSE_STEP_M}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:="${LIDAR_KEYFRAME_TRANSLATION_M}" \
@@ -694,17 +745,19 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     --ros-args \
     --params-file "${ROOT_DIR}/src/gaussian_lic_bringup/config/default.yaml" \
     -p use_sim_time:=true \
-    -p render_mode:=debug_input \
+    -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p sync_tolerance_sec:="${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
     -p require_depth_topic:=false \
-    -p publish_gaussian_map:=false \
-    -p enable_torch_camera_conversion:=false \
-    -p enable_torch_gaussian_init:=false \
-    -p enable_torch_gaussian_extend:=false \
-    -p enable_torch_gaussian_optimization:=false \
-    -p enable_torch_gaussian_pruning:=false \
-    -p enable_torch_gaussian_densification:=false \
-    -p torch_gaussian_device:=cpu \
+    -p publish_gaussian_map:="${MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP}" \
+    -p gaussian_map_chunk_size:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE}" \
+    -p enable_torch_camera_conversion:="${MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION}" \
+    -p enable_torch_gaussian_init:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT}" \
+    -p enable_torch_gaussian_extend:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND}" \
+    -p enable_torch_gaussian_optimization:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_OPTIMIZATION}" \
+    -p enable_torch_gaussian_pruning:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING}" \
+    -p enable_torch_gaussian_densification:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_DENSIFICATION}" \
+    -p torch_gaussian_device:="${MAPPER_FEEDBACK_TORCH_DEVICE}" \
+    -p torch_gaussian_optimization_steps:="${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS}" \
     >"${mapper_log}" 2>&1 &
   mapper_pid=$!
 fi
@@ -780,6 +833,8 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" \
   "${SE3_PHOTOMETRIC_COVERAGE_GRID_COLS}" "${SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS}" \
   "${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" "${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
+  "${ENABLE_GAUSSIAN_MAP_FEEDBACK}" "${REQUIRE_GAUSSIAN_SNAPSHOT}" \
+  "${MAPPER_FEEDBACK_TORCH_DEVICE}" "${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS}" \
   "${REFERENCE_TUM_PATH}" <<'PY'
 import json
 import os
@@ -810,7 +865,11 @@ se3_photometric_coverage_grid_cols = int(sys.argv[21])
 se3_photometric_coverage_grid_rows = int(sys.argv[22])
 se3_photometric_min_coverage_tiles = int(sys.argv[23])
 mapper_feedback_sync_tolerance_sec = float(sys.argv[24])
-reference_tum_path = Path(sys.argv[25]) if sys.argv[25] else None
+enable_gaussian_map_feedback = sys.argv[25].lower() == "true"
+require_gaussian_snapshot = sys.argv[26].lower() == "true"
+mapper_feedback_torch_device = sys.argv[27]
+mapper_feedback_torch_optimization_steps = int(sys.argv[28])
+reference_tum_path = Path(sys.argv[29]) if sys.argv[29] else None
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
@@ -887,6 +946,18 @@ if (
     and int(last.get("total_window_plane_correspondences", 0)) <= 0
 ):
     errors.append("LiDAR window factors and cumulative LiDAR correspondences are zero")
+if require_gaussian_snapshot:
+    if not bool(last.get("gaussian_snapshot_complete", False)):
+        errors.append("gaussian_snapshot_complete is false")
+    if int(last.get("gaussian_snapshot_points", 0)) <= 0:
+        errors.append("gaussian_snapshot_points is zero")
+    expected_chunks = int(last.get("gaussian_snapshot_expected_chunks", 0))
+    received_chunks = int(last.get("gaussian_snapshot_chunks_received", 0))
+    if expected_chunks <= 0:
+        errors.append("gaussian_snapshot_expected_chunks is zero")
+    elif received_chunks != expected_chunks:
+        errors.append(
+            f"gaussian snapshot chunks incomplete: {received_chunks}/{expected_chunks}")
 if int(last.get("sliding_window_smoothness_factors", 0)) <= 0:
     errors.append("sliding_window_smoothness_factors is zero")
 if require_ba_feedback and int(last.get("sliding_window_feedback_updates", 0)) <= 0:
@@ -1027,6 +1098,10 @@ report = {
         "external_reference_tum_poses": external_reference_pose_count,
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
+        "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
+        "require_gaussian_snapshot": require_gaussian_snapshot,
+        "mapper_feedback_torch_device": mapper_feedback_torch_device,
+        "mapper_feedback_torch_optimization_steps": mapper_feedback_torch_optimization_steps,
     },
     "metrics": metrics,
 }
