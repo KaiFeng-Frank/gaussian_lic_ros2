@@ -244,6 +244,8 @@ public:
       declare_parameter<bool>("enable_persistent_plane_map", true);
     enable_persistent_point_map_ =
       declare_parameter<bool>("enable_persistent_point_map", false);
+    persistent_map_update_requires_accepted_solve_ =
+      declare_parameter<bool>("persistent_map_update_requires_accepted_solve", false);
     persistent_point_map_nearest_distance_m_ =
       declare_parameter<double>("persistent_point_map_nearest_distance_m", 0.35);
     persistent_point_map_factor_weight_ =
@@ -572,11 +574,17 @@ private:
       const Eigen::Matrix3d R_b_w = q_b_w_at_scan.toRotationMatrix();
       const Eigen::Matrix3d R_w_l = R_b_w * R_l_b;
       const Eigen::Vector3d p_w_l = R_b_w * p_l_b + p_b_w_at_scan;
+      const auto & diagnostics = estimator_->diagnostics();
+      const bool persistent_map_update_allowed =
+        !persistent_map_update_requires_accepted_solve_ ||
+        diagnostics.steps_run == 0 ||
+        diagnostics.last_step_update_accepted;
 
       int accepted = 0;
       if (enable_persistent_point_map_ && have_scan_pose) {
         accepted += add_persistent_point_map_correspondences(
-          stamp_ns, points, R_w_l, p_w_l, extrinsics);
+          stamp_ns, points, R_w_l, p_w_l, extrinsics,
+          persistent_map_update_allowed);
       }
       for (const auto & plane : planes) {
         Eigen::Vector3d n_world = Eigen::Vector3d::Zero();
@@ -604,8 +612,12 @@ private:
             ++accepted;
             ++persistent_plane_map_matches_;
           }
-          if (persistent_plane_map_.add_or_update(centroid_world, n_world, d_world)) {
+          if (persistent_map_update_allowed &&
+            persistent_plane_map_.add_or_update(centroid_world, n_world, d_world))
+          {
             ++persistent_plane_map_updates_;
+          } else if (!persistent_map_update_allowed) {
+            ++persistent_plane_map_update_skips_;
           }
           continue;
         }
@@ -757,6 +769,7 @@ private:
     RCLCPP_INFO(
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
+      "accepted_steps=%zu "
       "last_imu_factors=%zu last_lidar_factors=%zu "
       "last_position_prior_factors=%zu last_orientation_prior_factors=%zu "
       "initial_cost=%.9g final_cost=%.9g initial_imu_cost=%.9g "
@@ -767,7 +780,8 @@ private:
       "position_prior_factors=%zu orientation_prior_factors=%zu "
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
-      "point_updates=%zu prior_seed=%zu prior_position_factors=%zu "
+      "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
+      "prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
       "delayed_pc_dropped=%zu delayed_pc_pending=%zu tum_lines=%zu "
@@ -776,6 +790,7 @@ private:
       diagnostics.steps_run,
       diagnostics.total_imu_factors,
       diagnostics.total_lidar_factors,
+      diagnostics.accepted_solver_steps,
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
       diagnostics.last_step_position_prior_factors,
@@ -801,8 +816,10 @@ private:
       accepted_pointcloud_correspondences_,
       persistent_plane_map_matches_,
       persistent_plane_map_updates_,
+      persistent_plane_map_update_skips_,
       persistent_point_map_matches_,
       persistent_point_map_updates_,
+      persistent_point_map_update_skips_,
       accepted_prior_count_,
       accepted_prior_position_factor_messages_,
       accepted_prior_orientation_factor_messages_,
@@ -847,7 +864,8 @@ private:
     const std::vector<Eigen::Vector3d> & points_lidar,
     const Eigen::Matrix3d & R_w_l,
     const Eigen::Vector3d & p_w_l,
-    const spline::LidarExtrinsics & extrinsics)
+    const spline::LidarExtrinsics & extrinsics,
+    bool allow_map_update)
   {
     if (!R_w_l.allFinite() || !p_w_l.allFinite()) {
       return 0;
@@ -889,7 +907,9 @@ private:
           break;
         }
       }
-      if (persistent_point_map_max_points_ <= 0 ||
+      if (!allow_map_update) {
+        ++persistent_point_map_update_skips_;
+      } else if (persistent_point_map_max_points_ <= 0 ||
         static_cast<int>(persistent_points_world_.size()) < persistent_point_map_max_points_)
       {
         persistent_points_world_.push_back(point_world);
@@ -1120,6 +1140,7 @@ private:
   double imu_linear_acceleration_scale_{1.0};
   bool enable_voxel_plane_extraction_{false};
   bool enable_persistent_plane_map_{true};
+  bool persistent_map_update_requires_accepted_solve_{false};
   bool enable_external_odometry_prior_{false};
   bool enable_external_odometry_position_factors_{false};
   bool enable_external_odometry_orientation_factors_{false};
@@ -1139,6 +1160,7 @@ private:
   spline::PersistentPlaneMap persistent_plane_map_{};
   std::size_t persistent_plane_map_matches_{0};
   std::size_t persistent_plane_map_updates_{0};
+  std::size_t persistent_plane_map_update_skips_{0};
   bool enable_persistent_point_map_{false};
   double persistent_point_map_nearest_distance_m_{0.35};
   double persistent_point_map_factor_weight_{0.05};
@@ -1148,6 +1170,7 @@ private:
   std::vector<Eigen::Vector3d> persistent_points_world_;
   std::size_t persistent_point_map_matches_{0};
   std::size_t persistent_point_map_updates_{0};
+  std::size_t persistent_point_map_update_skips_{0};
 
   double step_period_seconds_{0.10};
   int diagnostic_log_period_steps_{50};

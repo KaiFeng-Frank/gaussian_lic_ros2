@@ -127,6 +127,9 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("enable_voxel_plane_extraction", default_value="false"),
         DeclareLaunchArgument("enable_persistent_plane_map", default_value="true"),
         DeclareLaunchArgument("enable_persistent_point_map", default_value="false"),
+        DeclareLaunchArgument(
+            "persistent_map_update_requires_accepted_solve", default_value="false"
+        ),
         DeclareLaunchArgument("persistent_point_map_nearest_distance_m", default_value="0.35"),
         DeclareLaunchArgument("persistent_point_map_factor_weight", default_value="0.05"),
         DeclareLaunchArgument("persistent_point_map_subsample_stride", default_value="20"),
@@ -196,6 +199,9 @@ def generate_launch_description() -> LaunchDescription:
                 "enable_voxel_plane_extraction": LaunchConfiguration("enable_voxel_plane_extraction"),
                 "enable_persistent_plane_map": LaunchConfiguration("enable_persistent_plane_map"),
                 "enable_persistent_point_map": LaunchConfiguration("enable_persistent_point_map"),
+                "persistent_map_update_requires_accepted_solve": LaunchConfiguration(
+                    "persistent_map_update_requires_accepted_solve"
+                ),
                 "persistent_point_map_nearest_distance_m": LaunchConfiguration("persistent_point_map_nearest_distance_m"),
                 "persistent_point_map_factor_weight": LaunchConfiguration("persistent_point_map_factor_weight"),
                 "persistent_point_map_subsample_stride": LaunchConfiguration("persistent_point_map_subsample_stride"),

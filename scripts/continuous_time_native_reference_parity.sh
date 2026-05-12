@@ -53,6 +53,7 @@ APPLY_LIMITED_ROTATION_UPDATE="${APPLY_LIMITED_ROTATION_UPDATE:-false}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
 ENABLE_PERSISTENT_PLANE_MAP="${ENABLE_PERSISTENT_PLANE_MAP:-true}"
 ENABLE_PERSISTENT_POINT_MAP="${ENABLE_PERSISTENT_POINT_MAP:-false}"
+PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE="${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE:-false}"
 PERSISTENT_POINT_MAP_NEAREST_DISTANCE_M="${PERSISTENT_POINT_MAP_NEAREST_DISTANCE_M:-0.35}"
 PERSISTENT_POINT_MAP_FACTOR_WEIGHT="${PERSISTENT_POINT_MAP_FACTOR_WEIGHT:-0.05}"
 PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE="${PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE:-20}"
@@ -106,6 +107,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p enable_voxel_plane_extraction:="${ENABLE_VOXEL_PLANE_EXTRACTION}" \
   -p enable_persistent_plane_map:="${ENABLE_PERSISTENT_PLANE_MAP}" \
   -p enable_persistent_point_map:="${ENABLE_PERSISTENT_POINT_MAP}" \
+  -p persistent_map_update_requires_accepted_solve:="${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" \
   -p persistent_point_map_nearest_distance_m:="${PERSISTENT_POINT_MAP_NEAREST_DISTANCE_M}" \
   -p persistent_point_map_factor_weight:="${PERSISTENT_POINT_MAP_FACTOR_WEIGHT}" \
   -p persistent_point_map_subsample_stride:="${PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE}" \
@@ -318,6 +320,7 @@ native = {
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",
+    "persistent_map_update_requires_accepted_solve": "${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" == "true",
     "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
     "enable_external_odometry_orientation_factors": "${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" == "true",
     "external_odometry_position_factor_weight": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}"),

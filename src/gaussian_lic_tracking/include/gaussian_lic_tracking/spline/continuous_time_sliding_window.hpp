@@ -94,10 +94,14 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_position_prior_factors{0};
   std::size_t total_orientation_prior_factors{0};
   std::size_t total_marginalized_knots{0};
+  std::size_t accepted_solver_steps{0};
   std::size_t last_step_imu_factors{0};
   std::size_t last_step_lidar_factors{0};
   std::size_t last_step_position_prior_factors{0};
   std::size_t last_step_orientation_prior_factors{0};
+  bool last_step_update_accepted{false};
+  bool last_step_update_rejected{false};
+  bool last_step_rotation_limited{false};
   double last_step_initial_cost{0.0};
   double last_step_final_cost{0.0};
   double last_step_initial_imu_cost{0.0};
