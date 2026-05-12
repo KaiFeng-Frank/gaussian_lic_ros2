@@ -166,6 +166,18 @@ public:
       declare_parameter<bool>("enable_voxel_plane_extraction", false);
     enable_persistent_plane_map_ =
       declare_parameter<bool>("enable_persistent_plane_map", true);
+    enable_persistent_point_map_ =
+      declare_parameter<bool>("enable_persistent_point_map", false);
+    persistent_point_map_nearest_distance_m_ =
+      declare_parameter<double>("persistent_point_map_nearest_distance_m", 0.35);
+    persistent_point_map_factor_weight_ =
+      declare_parameter<double>("persistent_point_map_factor_weight", 0.05);
+    persistent_point_map_subsample_stride_ = static_cast<int>(
+      declare_parameter<int>("persistent_point_map_subsample_stride", 20));
+    persistent_point_map_max_points_ = static_cast<int>(
+      declare_parameter<int>("persistent_point_map_max_points", 20000));
+    persistent_point_map_max_correspondences_ = static_cast<int>(
+      declare_parameter<int>("persistent_point_map_max_correspondences", 64));
     spline::LidarPlaneExtractorOptions extractor_options;
     extractor_options.voxel_size_m =
       declare_parameter<double>("voxel_plane_size_m", 0.5);
@@ -395,6 +407,10 @@ private:
       const Eigen::Vector3d p_w_l = R_b_w * p_l_b + p_b_w_at_scan;
 
       int accepted = 0;
+      if (enable_persistent_point_map_ && have_scan_pose) {
+        accepted += add_persistent_point_map_correspondences(
+          stamp_ns, points, R_w_l, p_w_l, extrinsics);
+      }
       for (const auto & plane : planes) {
         Eigen::Vector3d n_world = Eigen::Vector3d::Zero();
         Eigen::Vector3d centroid_world = Eigen::Vector3d::Zero();
@@ -508,6 +524,86 @@ private:
         diagnostics.last_rejected_rotation_update_rad);
     }
     publish_latest_pose();
+  }
+
+  bool find_nearest_persistent_point(
+    const Eigen::Vector3d & point_world,
+    Eigen::Vector3d & nearest_world,
+    double & nearest_distance_sq) const
+  {
+    if (persistent_points_world_.empty() || !point_world.allFinite()) {
+      return false;
+    }
+    const double max_distance_sq =
+      persistent_point_map_nearest_distance_m_ * persistent_point_map_nearest_distance_m_;
+    nearest_distance_sq = max_distance_sq;
+    bool found = false;
+    for (const auto & candidate : persistent_points_world_) {
+      const double distance_sq = (candidate - point_world).squaredNorm();
+      if (distance_sq <= nearest_distance_sq) {
+        nearest_distance_sq = distance_sq;
+        nearest_world = candidate;
+        found = true;
+      }
+    }
+    return found;
+  }
+
+  int add_persistent_point_map_correspondences(
+    int64_t stamp_ns,
+    const std::vector<Eigen::Vector3d> & points_lidar,
+    const Eigen::Matrix3d & R_w_l,
+    const Eigen::Vector3d & p_w_l,
+    const spline::LidarExtrinsics & extrinsics)
+  {
+    if (!R_w_l.allFinite() || !p_w_l.allFinite()) {
+      return 0;
+    }
+    int accepted = 0;
+    int stride_counter = 0;
+    for (const auto & point_lidar : points_lidar) {
+      if (persistent_point_map_subsample_stride_ > 1 &&
+        stride_counter++ % persistent_point_map_subsample_stride_ != 0)
+      {
+        continue;
+      }
+      const double range = point_lidar.norm();
+      if (!std::isfinite(range) || range < pointcloud_min_range_m_ ||
+        range > pointcloud_max_range_m_)
+      {
+        continue;
+      }
+      const Eigen::Vector3d point_world = R_w_l * point_lidar + p_w_l;
+      Eigen::Vector3d nearest_world = Eigen::Vector3d::Zero();
+      double nearest_distance_sq = 0.0;
+      if (find_nearest_persistent_point(point_world, nearest_world, nearest_distance_sq)) {
+        for (int axis = 0; axis < 3; ++axis) {
+          spline::LidarPointCorrespondence pc;
+          pc.geometry = spline::LidarFeatureGeometry::kPlane;
+          pc.point_lidar = point_lidar;
+          pc.plane.setZero();
+          pc.plane[axis] = 1.0;
+          pc.plane[3] = -nearest_world[axis];
+          estimator_->add_lidar_correspondence(
+            stamp_ns, pc, extrinsics, persistent_point_map_factor_weight_,
+            lidar_huber_delta_m_);
+        }
+        ++accepted;
+        ++persistent_point_map_matches_;
+        if (persistent_point_map_max_correspondences_ > 0 &&
+          accepted >= persistent_point_map_max_correspondences_)
+        {
+          break;
+        }
+      }
+      if (persistent_point_map_max_points_ <= 0 ||
+        static_cast<int>(persistent_points_world_.size()) < persistent_point_map_max_points_)
+      {
+        persistent_points_world_.push_back(point_world);
+        ++persistent_point_map_updates_;
+      }
+    }
+    return accepted * 3;
   }
 
   void seed_window_from_buffer()
@@ -718,6 +814,15 @@ private:
   spline::PersistentPlaneMap persistent_plane_map_{};
   std::size_t persistent_plane_map_matches_{0};
   std::size_t persistent_plane_map_updates_{0};
+  bool enable_persistent_point_map_{false};
+  double persistent_point_map_nearest_distance_m_{0.35};
+  double persistent_point_map_factor_weight_{0.05};
+  int persistent_point_map_subsample_stride_{20};
+  int persistent_point_map_max_points_{20000};
+  int persistent_point_map_max_correspondences_{64};
+  std::vector<Eigen::Vector3d> persistent_points_world_;
+  std::size_t persistent_point_map_matches_{0};
+  std::size_t persistent_point_map_updates_{0};
 
   double step_period_seconds_{0.10};
   int64_t step_period_ns_{0};
