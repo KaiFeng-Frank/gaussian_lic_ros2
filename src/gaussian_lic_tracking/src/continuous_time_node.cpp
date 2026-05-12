@@ -72,17 +72,27 @@ public:
       declare_parameter<bool>("enable_external_odometry_prior", false);
     enable_external_odometry_position_factors_ =
       declare_parameter<bool>("enable_external_odometry_position_factors", false);
+    enable_external_odometry_orientation_factors_ =
+      declare_parameter<bool>("enable_external_odometry_orientation_factors", false);
     external_odometry_position_factor_weight_ =
       declare_parameter<double>("external_odometry_position_factor_weight", 1.0);
     external_odometry_position_factor_huber_delta_m_ =
       declare_parameter<double>("external_odometry_position_factor_huber_delta_m", 0.25);
+    external_odometry_orientation_factor_weight_ =
+      declare_parameter<double>("external_odometry_orientation_factor_weight", 1.0);
+    external_odometry_orientation_factor_huber_delta_rad_ =
+      declare_parameter<double>("external_odometry_orientation_factor_huber_delta_rad", 0.25);
     if (!std::isfinite(external_odometry_position_factor_weight_) ||
       external_odometry_position_factor_weight_ <= 0.0 ||
       !std::isfinite(external_odometry_position_factor_huber_delta_m_) ||
-      external_odometry_position_factor_huber_delta_m_ < 0.0)
+      external_odometry_position_factor_huber_delta_m_ < 0.0 ||
+      !std::isfinite(external_odometry_orientation_factor_weight_) ||
+      external_odometry_orientation_factor_weight_ <= 0.0 ||
+      !std::isfinite(external_odometry_orientation_factor_huber_delta_rad_) ||
+      external_odometry_orientation_factor_huber_delta_rad_ < 0.0)
     {
       throw std::runtime_error(
-        "external odometry position factor weight/huber parameters must be finite");
+        "external odometry factor weight/huber parameters must be finite");
     }
     // Mount rotation: q_imu_in_prior, expressed in (x, y, z, w).
     // For datasets whose ground truth is in a robot-base frame that differs
@@ -395,6 +405,10 @@ private:
       if (enable_external_odometry_position_factors_) {
         add_external_position_prior_factor(stamp_ns, p);
       }
+      if (enable_external_odometry_orientation_factors_) {
+        add_external_orientation_prior_factor(
+          stamp_ns, (q.normalized() * prior_to_imu_rotation_).normalized());
+      }
       return;
     }
     latest_prior_position_ = p;
@@ -416,6 +430,23 @@ private:
       external_odometry_position_factor_weight_,
       external_odometry_position_factor_huber_delta_m_);
     ++accepted_prior_position_factor_messages_;
+  }
+
+  void add_external_orientation_prior_factor(
+    int64_t stamp_ns,
+    const Eigen::Quaterniond & q_world_body)
+  {
+    if (!estimator_ || !q_world_body.coeffs().allFinite() ||
+      q_world_body.norm() <= 1.0e-9)
+    {
+      ++rejected_prior_count_;
+      return;
+    }
+    estimator_->add_orientation_prior(
+      stamp_ns, q_world_body.normalized(),
+      external_odometry_orientation_factor_weight_,
+      external_odometry_orientation_factor_huber_delta_rad_);
+    ++accepted_prior_orientation_factor_messages_;
   }
 
   void on_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -628,14 +659,17 @@ private:
     RCLCPP_INFO(
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
-      "position_prior_factors=%zu imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
+      "position_prior_factors=%zu orientation_prior_factors=%zu "
+      "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
       "point_updates=%zu prior_seed=%zu prior_position_factors=%zu "
+      "prior_orientation_factors=%zu "
       "prior_rejected=%zu tum_lines=%zu rejected_steps=%zu rotation_limited_steps=%zu",
       diagnostics.steps_run,
       diagnostics.total_imu_factors,
       diagnostics.total_lidar_factors,
       diagnostics.total_position_prior_factors,
+      diagnostics.total_orientation_prior_factors,
       accepted_imu_count_,
       dropped_imu_count_,
       rejected_imu_count_,
@@ -647,6 +681,7 @@ private:
       persistent_point_map_updates_,
       accepted_prior_count_,
       accepted_prior_position_factor_messages_,
+      accepted_prior_orientation_factor_messages_,
       rejected_prior_count_,
       tum_lines_written_,
       diagnostics.rejected_solver_steps,
@@ -951,8 +986,11 @@ private:
   bool enable_persistent_plane_map_{true};
   bool enable_external_odometry_prior_{false};
   bool enable_external_odometry_position_factors_{false};
+  bool enable_external_odometry_orientation_factors_{false};
   double external_odometry_position_factor_weight_{1.0};
   double external_odometry_position_factor_huber_delta_m_{0.25};
+  double external_odometry_orientation_factor_weight_{1.0};
+  double external_odometry_orientation_factor_huber_delta_rad_{0.25};
   bool have_prior_pose_{false};
   Eigen::Vector3d latest_prior_position_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond latest_prior_orientation_{Eigen::Quaterniond::Identity()};
@@ -960,6 +998,7 @@ private:
   std::size_t accepted_prior_count_{0};
   std::size_t rejected_prior_count_{0};
   std::size_t accepted_prior_position_factor_messages_{0};
+  std::size_t accepted_prior_orientation_factor_messages_{0};
   spline::LidarPlaneExtractor plane_extractor_{};
   spline::PersistentPlaneMap persistent_plane_map_{};
   std::size_t persistent_plane_map_matches_{0};

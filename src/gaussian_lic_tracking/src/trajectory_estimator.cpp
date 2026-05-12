@@ -5,6 +5,8 @@
 #include <ceres/ceres.h>
 #include <ceres/manifold.h>
 
+#include <gaussian_lic_tracking/spline/so3_ops.hpp>
+
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -182,6 +184,36 @@ struct PositionPriorAutoDiffFunctor
     const Eigen::Matrix<T, 3, 1> target = position_world.cast<T>();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
     r = T(weight) * (p_w_b - target);
+    return true;
+  }
+};
+
+struct OrientationPriorAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Quaterniond q_world_body{Eigen::Quaterniond::Identity()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(
+    const T * r0, const T * r1, const T * r2, const T * r3,
+    T * residuals) const
+  {
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(r0),
+      quaternion_from_coeffs_t<T>(r1),
+      quaternion_from_coeffs_t<T>(r2),
+      quaternion_from_coeffs_t<T>(r3)};
+
+    Eigen::Quaternion<T> q_w_b;
+    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+      rot_knots, T(u_normalized), T(inv_dt_s),
+      &q_w_b, nullptr, nullptr);
+    const Eigen::Quaternion<T> q_target = q_world_body.cast<T>().normalized();
+    const Eigen::Quaternion<T> error = q_target.conjugate() * q_w_b.normalized();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * quaternion_log_t<T>(error);
     return true;
   }
 };
@@ -428,6 +460,54 @@ bool TrajectoryEstimator::add_position_prior_factor(
   }
   impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   ++position_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_orientation_prior_factor(
+  double t_s,
+  const Eigen::Quaterniond & q_world_body,
+  double weight,
+  double huber_delta_rad)
+{
+  if (!q_world_body.coeffs().allFinite() || q_world_body.norm() <= 1.0e-9 ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_rad) || huber_delta_rad < 0.0)
+  {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  OrientationPriorAutoDiffFunctor functor;
+  functor.u_normalized = u;
+  functor.inv_dt_s = 1.0 / dt_s_;
+  functor.q_world_body = q_world_body.normalized();
+  functor.weight = weight;
+
+  auto * cost = new ceres::AutoDiffCostFunction<
+    OrientationPriorAutoDiffFunctor, 3,
+    4, 4, 4, 4>(new OrientationPriorAutoDiffFunctor(functor));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->rotation_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_rad > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_rad);
+  }
+  impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  ++orientation_prior_factor_count_;
   return true;
 }
 

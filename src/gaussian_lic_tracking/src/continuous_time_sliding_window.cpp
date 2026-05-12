@@ -37,6 +37,14 @@ struct BufferedPositionPrior
   double huber_delta_m{0.0};
 };
 
+struct BufferedOrientationPrior
+{
+  int64_t stamp_ns{0};
+  Eigen::Quaterniond q_world_body{Eigen::Quaterniond::Identity()};
+  double weight{1.0};
+  double huber_delta_rad{0.0};
+};
+
 bool quaternion_is_valid(const Eigen::Quaterniond & q)
 {
   return q.coeffs().allFinite() && std::isfinite(q.norm()) && q.norm() > 1.0e-9;
@@ -62,11 +70,13 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedImu> active_imu;
   std::deque<BufferedLidar> active_lidar;
   std::deque<BufferedPositionPrior> active_position_priors;
+  std::deque<BufferedOrientationPrior> active_orientation_priors;
 
   // Brand-new samples waiting for their first solve.
   std::deque<BufferedImu> pending_imu;
   std::deque<BufferedLidar> pending_lidar;
   std::deque<BufferedPositionPrior> pending_position_priors;
+  std::deque<BufferedOrientationPrior> pending_orientation_priors;
 
   ContinuousTimeSlidingWindowDiagnostics diagnostics;
 };
@@ -148,6 +158,18 @@ void ContinuousTimeSlidingWindowEstimator::add_position_prior(
     {stamp_ns, position_world, weight, effective_huber});
 }
 
+void ContinuousTimeSlidingWindowEstimator::add_orientation_prior(
+  int64_t stamp_ns,
+  const Eigen::Quaterniond & q_world_body,
+  double weight,
+  double huber_delta_rad)
+{
+  const double effective_huber =
+    huber_delta_rad >= 0.0 ? huber_delta_rad : impl_->options.lidar_huber_delta_m;
+  impl_->pending_orientation_priors.push_back(
+    {stamp_ns, q_world_body, weight, effective_huber});
+}
+
 bool ContinuousTimeSlidingWindowEstimator::step()
 {
   if (impl_->knot_stamps.size() < static_cast<std::size_t>(N)) {
@@ -218,6 +240,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
   impl_->pending_position_priors = position_prior_still_pending;
 
+  std::deque<BufferedOrientationPrior> orientation_prior_still_pending;
+  for (const auto & p : impl_->pending_orientation_priors) {
+    if (p.stamp_ns < interior_end_ns()) {
+      impl_->active_orientation_priors.push_back(p);
+    } else {
+      orientation_prior_still_pending.push_back(p);
+    }
+  }
+  impl_->pending_orientation_priors = orientation_prior_still_pending;
+
   // Marginalize oldest knots once the window exceeds the configured size.
   while (
     static_cast<int>(impl_->knot_stamps.size()) >
@@ -246,9 +278,15 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   {
     impl_->active_position_priors.pop_front();
   }
+  while (
+    !impl_->active_orientation_priors.empty() &&
+    impl_->active_orientation_priors.front().stamp_ns < interior_start_ns)
+  {
+    impl_->active_orientation_priors.pop_front();
+  }
 
   if (impl_->active_imu.empty() && impl_->active_lidar.empty() &&
-    impl_->active_position_priors.empty())
+    impl_->active_position_priors.empty() && impl_->active_orientation_priors.empty())
   {
     return false;
   }
@@ -289,9 +327,18 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       ++impl_->diagnostics.total_position_prior_factors;
     }
   }
+  for (const auto & active : impl_->active_orientation_priors) {
+    const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
+    if (estimator.add_orientation_prior_factor(
+        t_s, active.q_world_body, active.weight, active.huber_delta_rad))
+    {
+      ++impl_->diagnostics.total_orientation_prior_factors;
+    }
+  }
 
   if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
-    estimator.position_prior_factor_count() == 0)
+    estimator.position_prior_factor_count() == 0 &&
+    estimator.orientation_prior_factor_count() == 0)
   {
     return false;
   }

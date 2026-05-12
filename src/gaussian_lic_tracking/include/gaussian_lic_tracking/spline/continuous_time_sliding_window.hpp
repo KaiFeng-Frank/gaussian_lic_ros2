@@ -84,6 +84,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_imu_factors{0};
   std::size_t total_lidar_factors{0};
   std::size_t total_position_prior_factors{0};
+  std::size_t total_orientation_prior_factors{0};
   std::size_t total_marginalized_knots{0};
   double last_step_initial_cost{0.0};
   double last_step_final_cost{0.0};
@@ -134,6 +135,14 @@ public:
     const Eigen::Vector3d & position_world,
     double weight = 1.0,
     double huber_delta_m = -1.0);
+
+  // Adds a timestamped SO(3) orientation prior with the same buffering
+  // semantics as the position prior.
+  void add_orientation_prior(
+    int64_t stamp_ns,
+    const Eigen::Quaterniond & q_world_body,
+    double weight = 1.0,
+    double huber_delta_rad = -1.0);
 
   // Advances the window by one knot, absorbs all buffered samples that fit
   // inside the new window, optionally marginalizes the oldest knot(s), and

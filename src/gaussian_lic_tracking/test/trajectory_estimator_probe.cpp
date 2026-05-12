@@ -118,6 +118,21 @@ Eigen::Vector3d truth_position_at(const TruthSpline & truth, double t_s)
   return view.position_world();
 }
 
+Eigen::Quaterniond truth_orientation_at(const TruthSpline & truth, double t_s)
+{
+  const double inv_dt = 1.0 / truth.dt_s;
+  const int idx = static_cast<int>(std::floor(t_s / truth.dt_s));
+  const double u = (t_s - idx * truth.dt_s) / truth.dt_s;
+  std::array<Eigen::Quaterniond, 4> rot_knots;
+  std::array<Eigen::Vector3d, 4> pos_knots;
+  for (int i = 0; i < 4; ++i) {
+    rot_knots[i] = truth.rotation_knots[idx - 1 + i];
+    pos_knots[i] = truth.position_knots[idx - 1 + i];
+  }
+  SplitSplineView<4> view(rot_knots, pos_knots, u, inv_dt);
+  return view.rotation();
+}
+
 void check_zero_residual_when_seeded_with_truth()
 {
   const double dt = 0.05;
@@ -309,6 +324,48 @@ void check_position_prior_factor_pulls_position_without_synthetic_lidar()
   }
 }
 
+void check_orientation_prior_factor_pulls_rotation_without_imu()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+
+  auto perturbed_rotations = truth.rotation_knots;
+  const Eigen::Quaterniond offset(Eigen::AngleAxisd(0.20, Eigen::Vector3d::UnitY()));
+  for (auto & q : perturbed_rotations) {
+    q = (q * offset).normalized();
+  }
+  estimator.set_knots(perturbed_rotations, truth.position_knots);
+
+  for (double t = 0.06; t < 0.34; t += 0.005) {
+    estimator.add_orientation_prior_factor(t, truth_orientation_at(truth, t), 10.0, 0.0);
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 50;
+  options.hold_gyro_bias_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  if (estimator.orientation_prior_factor_count() == 0) {
+    std::fprintf(stderr, "orientation prior factors were not added\n");
+    std::exit(1);
+  }
+  if (summary.final_cost > summary.initial_cost) {
+    std::fprintf(stderr,
+      "orientation prior solve increased cost: initial=%.6g final=%.6g\n",
+      summary.initial_cost, summary.final_cost);
+    std::exit(1);
+  }
+  const double drift = estimator.rotation_knots()[3].angularDistance(truth.rotation_knots[3]);
+  if (drift > 0.02) {
+    std::fprintf(stderr,
+      "orientation prior failed to pull central knot: drift=%.6f (%s)\n",
+      drift, summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 void check_lidar_huber_loss_suppresses_plane_outlier()
 {
   const double dt = 0.05;
@@ -366,6 +423,7 @@ int main()
     check_zero_residual_when_seeded_with_truth();
     check_converges_from_position_perturbation();
     check_position_prior_factor_pulls_position_without_synthetic_lidar();
+    check_orientation_prior_factor_pulls_rotation_without_imu();
     check_lidar_plane_factor_pulls_position();
     check_lidar_huber_loss_suppresses_plane_outlier();
   } catch (const std::exception & exception) {

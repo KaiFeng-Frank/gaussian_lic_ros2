@@ -30,8 +30,11 @@ PRIOR_PUBLISH_DURATION="${PRIOR_PUBLISH_DURATION:-6}"
 PRIOR_PUBLISH_RATE_HZ="${PRIOR_PUBLISH_RATE_HZ:-20}"
 PRIOR_MAX_MESSAGES="${PRIOR_MAX_MESSAGES:-60}"
 ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS="${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS:-false}"
+ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS="${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS:-false}"
 EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT="${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT:-1.0}"
 EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M="${EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M:-0.25}"
+EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_WEIGHT="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_WEIGHT:-1.0}"
+EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_HUBER_DELTA_RAD="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_HUBER_DELTA_RAD:-0.25}"
 ENABLE_STARTUP_BIAS_AUTOCAL="${ENABLE_STARTUP_BIAS_AUTOCAL:-true}"
 # FAST-LIVO/FAST-LIVO2 frontend_raw bags store IMU linear_acceleration in
 # normalized-g units (~1.0 at rest). The continuous-time residuals operate in
@@ -113,8 +116,11 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
   -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \
   -p enable_external_odometry_position_factors:="${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" \
+  -p enable_external_odometry_orientation_factors:="${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" \
   -p external_odometry_position_factor_weight:="${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}" \
   -p external_odometry_position_factor_huber_delta_m:="${EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M}" \
+  -p external_odometry_orientation_factor_weight:="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_WEIGHT}" \
+  -p external_odometry_orientation_factor_huber_delta_rad:="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_HUBER_DELTA_RAD}" \
   -p external_odometry_prior_topic:=/external_odometry_prior \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
@@ -300,8 +306,11 @@ native = {
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
+    "enable_external_odometry_orientation_factors": "${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" == "true",
     "external_odometry_position_factor_weight": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}"),
     "external_odometry_position_factor_huber_delta_m": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M}"),
+    "external_odometry_orientation_factor_weight": float("${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_WEIGHT}"),
+    "external_odometry_orientation_factor_huber_delta_rad": float("${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_HUBER_DELTA_RAD}"),
     "metrics": {
         "captured_tum_lines": tum_lines,
         "finite_tum_positions": finite_positions,

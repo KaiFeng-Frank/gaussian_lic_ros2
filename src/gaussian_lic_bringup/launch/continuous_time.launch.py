@@ -19,11 +19,20 @@ def generate_launch_description() -> LaunchDescription:
     enable_external_odometry_position_factors = LaunchConfiguration(
         "enable_external_odometry_position_factors"
     )
+    enable_external_odometry_orientation_factors = LaunchConfiguration(
+        "enable_external_odometry_orientation_factors"
+    )
     external_odometry_position_factor_weight = LaunchConfiguration(
         "external_odometry_position_factor_weight"
     )
     external_odometry_position_factor_huber_delta_m = LaunchConfiguration(
         "external_odometry_position_factor_huber_delta_m"
+    )
+    external_odometry_orientation_factor_weight = LaunchConfiguration(
+        "external_odometry_orientation_factor_weight"
+    )
+    external_odometry_orientation_factor_huber_delta_rad = LaunchConfiguration(
+        "external_odometry_orientation_factor_huber_delta_rad"
     )
     odometry_topic = LaunchConfiguration("odometry_topic")
     path_topic = LaunchConfiguration("path_topic")
@@ -65,8 +74,11 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("external_odometry_prior_topic", default_value=""),
         DeclareLaunchArgument("enable_external_odometry_prior", default_value="false"),
         DeclareLaunchArgument("enable_external_odometry_position_factors", default_value="false"),
+        DeclareLaunchArgument("enable_external_odometry_orientation_factors", default_value="false"),
         DeclareLaunchArgument("external_odometry_position_factor_weight", default_value="1.0"),
         DeclareLaunchArgument("external_odometry_position_factor_huber_delta_m", default_value="0.25"),
+        DeclareLaunchArgument("external_odometry_orientation_factor_weight", default_value="1.0"),
+        DeclareLaunchArgument("external_odometry_orientation_factor_huber_delta_rad", default_value="0.25"),
         DeclareLaunchArgument(
             "odometry_topic",
             default_value="/gaussian_lic/continuous_time/odometry",
@@ -135,8 +147,11 @@ def generate_launch_description() -> LaunchDescription:
                 "external_odometry_prior_topic": external_odometry_prior_topic,
                 "enable_external_odometry_prior": enable_external_odometry_prior,
                 "enable_external_odometry_position_factors": enable_external_odometry_position_factors,
+                "enable_external_odometry_orientation_factors": enable_external_odometry_orientation_factors,
                 "external_odometry_position_factor_weight": external_odometry_position_factor_weight,
                 "external_odometry_position_factor_huber_delta_m": external_odometry_position_factor_huber_delta_m,
+                "external_odometry_orientation_factor_weight": external_odometry_orientation_factor_weight,
+                "external_odometry_orientation_factor_huber_delta_rad": external_odometry_orientation_factor_huber_delta_rad,
                 "odometry_topic": odometry_topic,
                 "path_topic": path_topic,
                 "knot_interval_seconds": knot_interval_seconds,
