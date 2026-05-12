@@ -650,6 +650,13 @@ public:
       declare_parameter<bool>("enable_persistent_point_map", false);
     persistent_map_update_requires_accepted_solve_ =
       declare_parameter<bool>("persistent_map_update_requires_accepted_solve", false);
+    defer_persistent_plane_map_updates_until_solved_ =
+      declare_parameter<bool>("defer_persistent_plane_map_updates_until_solved", false);
+    deferred_plane_map_update_max_queue_ = static_cast<int>(
+      declare_parameter<int>("deferred_plane_map_update_max_queue", 200));
+    if (deferred_plane_map_update_max_queue_ < 0) {
+      throw std::runtime_error("deferred_plane_map_update_max_queue must be >= 0");
+    }
     persistent_point_map_nearest_distance_m_ =
       declare_parameter<double>("persistent_point_map_nearest_distance_m", 0.35);
     persistent_point_map_factor_weight_ =
@@ -777,6 +784,13 @@ public:
   }
 
 private:
+  struct PendingPlaneMapUpdate
+  {
+    int64_t stamp_ns{0};
+    std::vector<spline::ExtractedPlane> planes;
+    spline::LidarExtrinsics extrinsics;
+  };
+
   void on_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
   {
     if (!msg) {
@@ -1460,6 +1474,114 @@ private:
     }
   }
 
+  bool transform_plane_to_world(
+    const spline::ExtractedPlane & plane,
+    const spline::LidarExtrinsics & extrinsics,
+    const Eigen::Quaterniond & q_w_i,
+    const Eigen::Vector3d & p_w_i,
+    Eigen::Vector3d & normal_world,
+    Eigen::Vector3d & centroid_world,
+    double & offset_world) const
+  {
+    if (!q_w_i.coeffs().allFinite() || !p_w_i.allFinite()) {
+      return false;
+    }
+    const Eigen::Matrix3d R_l_i = extrinsics.q_lidar_to_imu.toRotationMatrix();
+    const Eigen::Vector3d p_l_i = extrinsics.p_lidar_in_imu;
+    const Eigen::Matrix3d R_i_w = q_w_i.toRotationMatrix();
+    const Eigen::Matrix3d R_w_l = R_i_w * R_l_i;
+    const Eigen::Vector3d p_w_l = R_i_w * p_l_i + p_w_i;
+    normal_world = (R_w_l * plane.normal).normalized();
+    centroid_world = R_w_l * plane.centroid + p_w_l;
+    offset_world = plane.offset - normal_world.dot(p_w_l);
+    return normal_world.allFinite() && centroid_world.allFinite() &&
+           std::isfinite(offset_world);
+  }
+
+  bool add_persistent_plane_map_update(
+    const spline::ExtractedPlane & plane,
+    const spline::LidarExtrinsics & extrinsics,
+    const Eigen::Quaterniond & q_w_i,
+    const Eigen::Vector3d & p_w_i)
+  {
+    Eigen::Vector3d normal_world = Eigen::Vector3d::Zero();
+    Eigen::Vector3d centroid_world = Eigen::Vector3d::Zero();
+    double offset_world = 0.0;
+    if (!transform_plane_to_world(
+        plane, extrinsics, q_w_i, p_w_i,
+        normal_world, centroid_world, offset_world))
+    {
+      return false;
+    }
+    return persistent_plane_map_.add_or_update(
+      centroid_world, normal_world, offset_world).has_value();
+  }
+
+  void queue_deferred_plane_map_update(
+    int64_t stamp_ns,
+    const std::vector<spline::ExtractedPlane> & planes,
+    const spline::LidarExtrinsics & extrinsics)
+  {
+    if (!defer_persistent_plane_map_updates_until_solved_ || planes.empty()) {
+      return;
+    }
+    if (deferred_plane_map_update_max_queue_ == 0) {
+      ++deferred_plane_map_update_dropped_;
+      return;
+    }
+    while (
+      static_cast<int>(deferred_plane_map_updates_.size()) >=
+      deferred_plane_map_update_max_queue_)
+    {
+      deferred_plane_map_updates_.pop_front();
+      ++deferred_plane_map_update_dropped_;
+    }
+    PendingPlaneMapUpdate update;
+    update.stamp_ns = stamp_ns;
+    update.planes = planes;
+    update.extrinsics = extrinsics;
+    deferred_plane_map_updates_.push_back(std::move(update));
+    ++deferred_plane_map_update_enqueued_;
+  }
+
+  void apply_deferred_plane_map_updates_locked()
+  {
+    if (!estimator_ || deferred_plane_map_updates_.empty()) {
+      return;
+    }
+    const auto & diagnostics = estimator_->diagnostics();
+    const bool solve_update_allowed =
+      !persistent_map_update_requires_accepted_solve_ ||
+      diagnostics.steps_run == 0 ||
+      diagnostics.last_step_update_accepted;
+    if (!solve_update_allowed || diagnostics.last_step_update_rejected) {
+      return;
+    }
+
+    std::deque<PendingPlaneMapUpdate> still_waiting;
+    while (!deferred_plane_map_updates_.empty()) {
+      auto update = std::move(deferred_plane_map_updates_.front());
+      deferred_plane_map_updates_.pop_front();
+      if (estimator_ && update.stamp_ns < estimator_->oldest_active_knot_stamp_ns()) {
+        ++deferred_plane_map_update_dropped_;
+        continue;
+      }
+      Eigen::Quaterniond q_w_i;
+      Eigen::Vector3d p_w_i;
+      if (!estimator_->query_pose(update.stamp_ns, q_w_i, p_w_i)) {
+        still_waiting.push_back(std::move(update));
+        continue;
+      }
+      for (const auto & plane : update.planes) {
+        if (add_persistent_plane_map_update(plane, update.extrinsics, q_w_i, p_w_i)) {
+          ++persistent_plane_map_updates_;
+          ++deferred_plane_map_update_applied_;
+        }
+      }
+    }
+    deferred_plane_map_updates_ = std::move(still_waiting);
+  }
+
   void process_pointcloud_locked(
     const sensor_msgs::msg::PointCloud2::SharedPtr & msg,
     int64_t stamp_ns,
@@ -1523,6 +1645,13 @@ private:
         !persistent_map_update_requires_accepted_solve_ ||
         diagnostics.steps_run == 0 ||
         diagnostics.last_step_update_accepted;
+      const bool defer_plane_updates_for_scan =
+        defer_persistent_plane_map_updates_until_solved_ &&
+        persistent_plane_map_.size() > 0U;
+      std::vector<spline::ExtractedPlane> deferred_planes;
+      if (defer_plane_updates_for_scan) {
+        deferred_planes.reserve(planes.size());
+      }
 
       int accepted = 0;
       maybe_add_lidar_pose_prior_locked(
@@ -1540,11 +1669,9 @@ private:
         double d_world = 0.0;
         bool has_world_plane = false;
         if (have_scan_pose) {
-          n_world = (R_w_l * plane.normal).normalized();
-          centroid_world = R_w_l * plane.centroid + p_w_l;
-          d_world = plane.offset - n_world.dot(p_w_l);
-          has_world_plane = n_world.allFinite() && centroid_world.allFinite() &&
-            std::isfinite(d_world);
+          has_world_plane = transform_plane_to_world(
+            plane, extrinsics, q_b_w_at_scan, p_b_w_at_scan,
+            n_world, centroid_world, d_world);
         }
 
         spline::LidarPointCorrespondence pc;
@@ -1567,8 +1694,10 @@ private:
             ++accepted;
             ++persistent_plane_map_matches_;
           }
-          if (persistent_map_update_allowed &&
-            persistent_plane_map_.add_or_update(centroid_world, n_world, d_world))
+          if (defer_plane_updates_for_scan) {
+            deferred_planes.push_back(plane);
+          } else if (persistent_map_update_allowed &&
+            add_persistent_plane_map_update(plane, extrinsics, q_b_w_at_scan, p_b_w_at_scan))
           {
             ++persistent_plane_map_updates_;
           } else if (!persistent_map_update_allowed) {
@@ -1590,6 +1719,9 @@ private:
           stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
           lidar_huber_delta_m_);
         ++accepted;
+      }
+      if (!deferred_planes.empty()) {
+        queue_deferred_plane_map_update(stamp_ns, deferred_planes, extrinsics);
       }
       accepted_pointcloud_correspondences_ += static_cast<std::size_t>(accepted);
       ++pointcloud_messages_;
@@ -1705,6 +1837,7 @@ private:
     if (!stepped) {
       return;
     }
+    apply_deferred_plane_map_updates_locked();
     drain_delayed_pointclouds_locked();
     const auto & diagnostics = estimator_->diagnostics();
     if (diagnostics.rejected_solver_steps > last_logged_rejected_solver_steps_) {
@@ -1816,7 +1949,9 @@ private:
       "prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
-      "delayed_pc_dropped=%zu delayed_pc_pending=%zu tum_lines=%zu "
+      "delayed_pc_dropped=%zu delayed_pc_pending=%zu "
+      "deferred_plane_updates=%zu deferred_plane_applied=%zu "
+      "deferred_plane_dropped=%zu deferred_plane_pending=%zu tum_lines=%zu "
       "rejected_steps=%zu invalid_rejections=%zu position_rejections=%zu "
       "rotation_rejections=%zu rotation_limited_steps=%zu position_limited_steps=%zu",
       diagnostics.steps_run,
@@ -1924,6 +2059,10 @@ private:
       delayed_pointcloud_released_,
       delayed_pointcloud_dropped_,
       delayed_pointcloud_queue_.size(),
+      deferred_plane_map_update_enqueued_,
+      deferred_plane_map_update_applied_,
+      deferred_plane_map_update_dropped_,
+      deferred_plane_map_updates_.size(),
       tum_lines_written_,
       diagnostics.rejected_solver_steps,
       diagnostics.invalid_update_rejections,
@@ -2513,6 +2652,12 @@ private:
   std::size_t delayed_pointcloud_deferred_{0};
   std::size_t delayed_pointcloud_released_{0};
   std::size_t delayed_pointcloud_dropped_{0};
+  bool defer_persistent_plane_map_updates_until_solved_{false};
+  int deferred_plane_map_update_max_queue_{200};
+  std::deque<PendingPlaneMapUpdate> deferred_plane_map_updates_;
+  std::size_t deferred_plane_map_update_enqueued_{0};
+  std::size_t deferred_plane_map_update_applied_{0};
+  std::size_t deferred_plane_map_update_dropped_{0};
 
   Eigen::Vector4d lidar_plane_{0.0, 0.0, 1.0, 0.0};
   Eigen::Vector3d lidar_to_imu_translation_{Eigen::Vector3d::Zero()};

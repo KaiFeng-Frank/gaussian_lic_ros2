@@ -134,6 +134,8 @@ ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
 ENABLE_PERSISTENT_PLANE_MAP="${ENABLE_PERSISTENT_PLANE_MAP:-true}"
 ENABLE_PERSISTENT_POINT_MAP="${ENABLE_PERSISTENT_POINT_MAP:-false}"
 PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE="${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE:-false}"
+DEFER_PERSISTENT_PLANE_MAP_UPDATES_UNTIL_SOLVED="${DEFER_PERSISTENT_PLANE_MAP_UPDATES_UNTIL_SOLVED:-false}"
+DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE="${DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE:-200}"
 PERSISTENT_POINT_MAP_NEAREST_DISTANCE_M="${PERSISTENT_POINT_MAP_NEAREST_DISTANCE_M:-0.35}"
 PERSISTENT_POINT_MAP_FACTOR_WEIGHT="${PERSISTENT_POINT_MAP_FACTOR_WEIGHT:-0.05}"
 PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE="${PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE:-20}"
@@ -270,6 +272,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p enable_persistent_plane_map:="${ENABLE_PERSISTENT_PLANE_MAP}" \
   -p enable_persistent_point_map:="${ENABLE_PERSISTENT_POINT_MAP}" \
   -p persistent_map_update_requires_accepted_solve:="${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" \
+  -p defer_persistent_plane_map_updates_until_solved:="${DEFER_PERSISTENT_PLANE_MAP_UPDATES_UNTIL_SOLVED}" \
+  -p deferred_plane_map_update_max_queue:="${DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE}" \
   -p persistent_point_map_nearest_distance_m:="${PERSISTENT_POINT_MAP_NEAREST_DISTANCE_M}" \
   -p persistent_point_map_factor_weight:="${PERSISTENT_POINT_MAP_FACTOR_WEIGHT}" \
   -p persistent_point_map_subsample_stride:="${PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE}" \
@@ -571,6 +575,8 @@ native = {
     "apply_limited_position_update": "${APPLY_LIMITED_POSITION_UPDATE}" == "true",
     "scale_position_with_limited_rotation": "${SCALE_POSITION_WITH_LIMITED_ROTATION}" == "true",
     "persistent_map_update_requires_accepted_solve": "${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" == "true",
+    "defer_persistent_plane_map_updates_until_solved": "${DEFER_PERSISTENT_PLANE_MAP_UPDATES_UNTIL_SOLVED}" == "true",
+    "deferred_plane_map_update_max_queue": int("${DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE}"),
     "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
     "enable_external_odometry_orientation_factors": "${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" == "true",
     "external_odometry_position_factor_weight": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}"),
