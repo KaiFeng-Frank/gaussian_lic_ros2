@@ -227,6 +227,31 @@ int64_t nearest_point_stamp_ns(
   return best_stamp_ns;
 }
 
+int64_t pointcloud_required_pose_stamp_ns(
+  const sensor_msgs::msg::PointCloud2 & msg,
+  const int64_t cloud_stamp_ns,
+  const double max_abs_point_time_offset_s)
+{
+  const auto * time_field = find_point_time_field(msg);
+  if (time_field == nullptr) {
+    return cloud_stamp_ns;
+  }
+  int64_t required_stamp_ns = cloud_stamp_ns;
+  const size_t point_count = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
+  for (size_t point_index = 0U; point_index < point_count; ++point_index) {
+    const auto decoded_stamp = decode_point_stamp_ns(msg, time_field, point_index, cloud_stamp_ns);
+    if (!decoded_stamp.has_value()) {
+      continue;
+    }
+    const double abs_offset_s =
+      std::abs(static_cast<double>(decoded_stamp.value() - cloud_stamp_ns) * 1.0e-9);
+    if (abs_offset_s <= max_abs_point_time_offset_s) {
+      required_stamp_ns = std::max(required_stamp_ns, decoded_stamp.value());
+    }
+  }
+  return required_stamp_ns;
+}
+
 Eigen::Quaterniond quaternion_from_rotation_vector(const Eigen::Vector3d & rotation_vector)
 {
   if (!rotation_vector.allFinite()) {
@@ -695,12 +720,19 @@ public:
       declare_parameter<double>("pointcloud_max_range_m", 30.0);
     pointcloud_factor_weight_ =
       declare_parameter<double>("pointcloud_factor_weight", 0.1);
+    enable_lidar_point_deskew_ =
+      declare_parameter<bool>("enable_lidar_point_deskew", false);
     lidar_max_abs_point_time_offset_s_ =
       declare_parameter<double>("lidar_max_abs_point_time_offset_s", 0.25);
+    lidar_max_deskew_delta_m_ =
+      declare_parameter<double>("lidar_max_deskew_delta_m", 1.0);
     if (!std::isfinite(lidar_max_abs_point_time_offset_s_) ||
       lidar_max_abs_point_time_offset_s_ < 0.0)
     {
       throw std::runtime_error("lidar_max_abs_point_time_offset_s must be finite and non-negative");
+    }
+    if (!std::isfinite(lidar_max_deskew_delta_m_) || lidar_max_deskew_delta_m_ < 0.0) {
+      throw std::runtime_error("lidar_max_deskew_delta_m must be finite and non-negative");
     }
     enable_lidar_pose_prior_factor_ =
       declare_parameter<bool>("enable_lidar_pose_prior_factor", false);
@@ -1837,7 +1869,10 @@ private:
     if (!initialized_) {
       return;
     }
-    if (allow_delay && !pointcloud_pose_ready_locked(stamp_ns)) {
+    const int64_t required_pose_stamp_ns = (allow_delay && enable_lidar_point_deskew_) ?
+      pointcloud_required_pose_stamp_ns(*msg, stamp_ns, lidar_max_abs_point_time_offset_s_) :
+      stamp_ns;
+    if (allow_delay && !pointcloud_pose_ready_locked(required_pose_stamp_ns)) {
       enqueue_delayed_pointcloud_locked(msg);
       return;
     }
@@ -1928,9 +1963,11 @@ private:
 
       int accepted = 0;
       maybe_add_lidar_pose_prior_locked(
-        stamp_ns, points, q_b_w_at_scan, p_b_w_at_scan, extrinsics, have_scan_pose);
+        stamp_ns, points, point_stamps_ns, q_b_w_at_scan, p_b_w_at_scan,
+        extrinsics, have_scan_pose);
       maybe_add_lidar_scan_to_scan_prior_locked(
-        stamp_ns, points, q_b_w_at_scan, p_b_w_at_scan, extrinsics, have_scan_pose);
+        stamp_ns, points, point_stamps_ns, q_b_w_at_scan, p_b_w_at_scan,
+        extrinsics, have_scan_pose);
       if (enable_persistent_point_map_ && have_scan_pose) {
         accepted += add_persistent_point_map_correspondences(
           stamp_ns, points, R_w_l, p_w_l, extrinsics,
@@ -2083,15 +2120,16 @@ private:
       Eigen::Quaterniond q;
       Eigen::Vector3d p;
       const bool have_scan_pose = estimator_->query_pose(stamp_ns, q, p);
-      maybe_add_lidar_pose_prior_locked(stamp_ns, points, q, p, extrinsics, have_scan_pose);
+      maybe_add_lidar_pose_prior_locked(
+        stamp_ns, points, point_stamps_ns, q, p, extrinsics, have_scan_pose);
       maybe_add_lidar_scan_to_scan_prior_locked(
-        stamp_ns, points, q, p, extrinsics, have_scan_pose);
+        stamp_ns, points, point_stamps_ns, q, p, extrinsics, have_scan_pose);
     } else if (enable_lidar_scan_to_scan_prior_) {
       Eigen::Quaterniond q;
       Eigen::Vector3d p;
       const bool have_scan_pose = estimator_->query_pose(stamp_ns, q, p);
       maybe_add_lidar_scan_to_scan_prior_locked(
-        stamp_ns, points, q, p, extrinsics, have_scan_pose);
+        stamp_ns, points, point_stamps_ns, q, p, extrinsics, have_scan_pose);
     }
     cache_sparse_depth_frame_locked(stamp_ns, points, extrinsics);
     accepted_pointcloud_correspondences_ += static_cast<std::size_t>(accepted);
@@ -2116,12 +2154,15 @@ private:
         ++delayed_pointcloud_dropped_;
         continue;
       }
-      if (pointcloud_pose_ready_locked(stamp_ns)) {
+      const int64_t required_pose_stamp_ns = enable_lidar_point_deskew_ ?
+        pointcloud_required_pose_stamp_ns(*msg, stamp_ns, lidar_max_abs_point_time_offset_s_) :
+        stamp_ns;
+      if (pointcloud_pose_ready_locked(required_pose_stamp_ns)) {
         process_pointcloud_locked(msg, stamp_ns, false);
         ++delayed_pointcloud_released_;
         continue;
       }
-      if (estimator_ && stamp_ns < estimator_->oldest_active_knot_stamp_ns()) {
+      if (estimator_ && required_pose_stamp_ns < estimator_->oldest_active_knot_stamp_ns()) {
         ++delayed_pointcloud_dropped_;
         continue;
       }
@@ -2225,6 +2266,8 @@ private:
       "pointcloud_time_field_frames=%zu pointcloud_timed_points=%zu "
       "pointcloud_invalid_point_times=%zu pointcloud_out_of_range_point_times=%zu "
       "pointcloud_last_max_abs_point_time_offset_s=%.9g "
+      "pointcloud_deskewed_points=%zu pointcloud_deskew_fallback_points=%zu "
+      "pointcloud_last_max_deskew_m=%.9g "
       "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
       "plane_normal_factors=%zu "
       "visual_rotation_images=%zu visual_rotation_accepted=%zu "
@@ -2331,6 +2374,9 @@ private:
       pointcloud_invalid_point_times_,
       pointcloud_out_of_range_point_times_,
       pointcloud_last_max_abs_point_time_offset_s_,
+      pointcloud_deskewed_points_,
+      pointcloud_deskew_fallback_points_,
+      pointcloud_last_max_deskew_m_,
       persistent_plane_map_update_skips_,
       persistent_point_map_updates_,
       persistent_point_map_update_skips_,
@@ -2498,9 +2544,64 @@ private:
     return accepted * 3;
   }
 
+  std::vector<Eigen::Vector3d> make_deskewed_points_imu(
+    int64_t scan_stamp_ns,
+    const std::vector<Eigen::Vector3d> & points_lidar,
+    const std::vector<int64_t> & point_stamps_ns,
+    const Eigen::Quaterniond & q_w_i_scan,
+    const Eigen::Vector3d & p_w_i_scan,
+    const spline::LidarExtrinsics & extrinsics)
+  {
+    std::vector<Eigen::Vector3d> points_imu;
+    points_imu.reserve(points_lidar.size());
+    const Eigen::Quaterniond q_scan = q_w_i_scan.normalized();
+    const Eigen::Quaterniond q_scan_inv = q_scan.inverse();
+    for (size_t index = 0U; index < points_lidar.size(); ++index) {
+      const auto & point_lidar = points_lidar[index];
+      const double range = point_lidar.norm();
+      if (!point_lidar.allFinite() || !std::isfinite(range) ||
+        range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_)
+      {
+        continue;
+      }
+      const Eigen::Vector3d raw_point_imu =
+        extrinsics.q_lidar_to_imu * point_lidar + extrinsics.p_lidar_in_imu;
+      Eigen::Vector3d point_imu = raw_point_imu;
+      if (enable_lidar_point_deskew_ && index < point_stamps_ns.size() &&
+        point_stamps_ns[index] != scan_stamp_ns && estimator_ != nullptr)
+      {
+        Eigen::Quaterniond q_w_i_point;
+        Eigen::Vector3d p_w_i_point;
+        if (estimator_->query_pose(point_stamps_ns[index], q_w_i_point, p_w_i_point) &&
+          q_w_i_point.coeffs().allFinite() && p_w_i_point.allFinite())
+        {
+          const Eigen::Vector3d point_w =
+            q_w_i_point.normalized() * raw_point_imu + p_w_i_point;
+          point_imu = q_scan_inv * (point_w - p_w_i_scan);
+          const double deskew_delta_m = (point_imu - raw_point_imu).norm();
+          if (point_imu.allFinite() &&
+            (lidar_max_deskew_delta_m_ == 0.0 || deskew_delta_m <= lidar_max_deskew_delta_m_))
+          {
+            ++pointcloud_deskewed_points_;
+            pointcloud_last_max_deskew_m_ = std::max(
+              pointcloud_last_max_deskew_m_, deskew_delta_m);
+          } else {
+            point_imu = raw_point_imu;
+            ++pointcloud_deskew_fallback_points_;
+          }
+        } else {
+          ++pointcloud_deskew_fallback_points_;
+        }
+      }
+      points_imu.push_back(point_imu);
+    }
+    return points_imu;
+  }
+
   void maybe_add_lidar_scan_to_scan_prior_locked(
     int64_t stamp_ns,
     const std::vector<Eigen::Vector3d> & points_lidar,
+    const std::vector<int64_t> & point_stamps_ns,
     const Eigen::Quaterniond & q_w_i,
     const Eigen::Vector3d & p_w_i,
     const spline::LidarExtrinsics & extrinsics,
@@ -2515,17 +2616,9 @@ private:
     {
       return;
     }
-    std::vector<Eigen::Vector3d> points_imu;
-    points_imu.reserve(points_lidar.size());
-    for (const auto & point_lidar : points_lidar) {
-      const double range = point_lidar.norm();
-      if (!point_lidar.allFinite() || !std::isfinite(range) ||
-        range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_)
-      {
-        continue;
-      }
-      points_imu.push_back(extrinsics.q_lidar_to_imu * point_lidar + extrinsics.p_lidar_in_imu);
-    }
+    const std::vector<Eigen::Vector3d> points_imu =
+      make_deskewed_points_imu(
+      stamp_ns, points_lidar, point_stamps_ns, q_w_i, p_w_i, extrinsics);
     if (points_imu.empty()) {
       return;
     }
@@ -2734,6 +2827,7 @@ private:
   void maybe_add_lidar_pose_prior_locked(
     int64_t stamp_ns,
     const std::vector<Eigen::Vector3d> & points_lidar,
+    const std::vector<int64_t> & point_stamps_ns,
     const Eigen::Quaterniond & q_w_i,
     const Eigen::Vector3d & p_w_i,
     const spline::LidarExtrinsics & extrinsics,
@@ -2744,17 +2838,9 @@ private:
     {
       return;
     }
-    std::vector<Eigen::Vector3d> points_imu;
-    points_imu.reserve(points_lidar.size());
-    for (const auto & point_lidar : points_lidar) {
-      const double range = point_lidar.norm();
-      if (!point_lidar.allFinite() || !std::isfinite(range) ||
-        range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_)
-      {
-        continue;
-      }
-      points_imu.push_back(extrinsics.q_lidar_to_imu * point_lidar + extrinsics.p_lidar_in_imu);
-    }
+    const std::vector<Eigen::Vector3d> points_imu =
+      make_deskewed_points_imu(
+      stamp_ns, points_lidar, point_stamps_ns, q_w_i, p_w_i, extrinsics);
     if (points_imu.empty()) {
       return;
     }
@@ -3067,7 +3153,9 @@ private:
   double pointcloud_min_range_m_{0.3};
   double pointcloud_max_range_m_{30.0};
   double pointcloud_factor_weight_{0.1};
+  bool enable_lidar_point_deskew_{false};
   double lidar_max_abs_point_time_offset_s_{0.25};
+  double lidar_max_deskew_delta_m_{1.0};
   double lidar_huber_delta_m_{0.10};
   bool enable_lidar_pose_prior_factor_{false};
   double lidar_pose_prior_position_weight_{1.0};
@@ -3151,6 +3239,9 @@ private:
   std::size_t pointcloud_invalid_point_times_{0};
   std::size_t pointcloud_out_of_range_point_times_{0};
   double pointcloud_last_max_abs_point_time_offset_s_{0.0};
+  std::size_t pointcloud_deskewed_points_{0};
+  std::size_t pointcloud_deskew_fallback_points_{0};
+  double pointcloud_last_max_deskew_m_{0.0};
   std::deque<sensor_msgs::msg::PointCloud2::SharedPtr> delayed_pointcloud_queue_;
   std::size_t delayed_pointcloud_deferred_{0};
   std::size_t delayed_pointcloud_released_{0};
