@@ -20,51 +20,80 @@ namespace
 
 constexpr int N = TrajectoryEstimator::N;
 
-// NumericDiffCostFunction expects variadic operator() — one `const double*`
-// per parameter block plus a final `double*` for residuals. The functors
-// below mirror the Coco-LIC IMU/LiDAR knot layout: 4 rotation knots + 4
-// position knots (+ biases + gravity for IMU).
+// AutoDiff-compatible functors. The operator() is templated on Scalar so
+// Ceres can substitute `ceres::Jet<double, N>` and get exact analytic
+// Jacobians via dual numbers. The templated math lives in the cumulative
+// B-spline `_t` variants under `gaussian_lic_tracking/spline/`.
+//
+// Parameter block layout for IMU functor (4 rot + 4 pos + bg + ba + g):
+//   r0..r3 — rotation knot quaternions (x, y, z, w each)
+//   p0..p3 — position knots (x, y, z each)
+//   bg     — gyro bias (3)
+//   ba     — accel bias (3)
+//   g      — gravity world (3)
+// LiDAR functor layout: 4 rot + 4 pos.
 
-Eigen::Quaterniond quaternion_from_coeffs(const double * q)
+template <typename T>
+Eigen::Quaternion<T> quaternion_from_coeffs_t(const T * q)
 {
-  return Eigen::Quaterniond(q[3], q[0], q[1], q[2]).normalized();
+  return Eigen::Quaternion<T>(q[3], q[0], q[1], q[2]).normalized();
 }
 
-struct ImuCeresFunctor
+struct ImuAutoDiffFunctor
 {
   double u_normalized{0.0};
   double inv_dt_s{1.0};
   ImuSample measurement{};
   Eigen::Matrix<double, 6, 1> info_diag{Eigen::Matrix<double, 6, 1>::Ones()};
 
+  template <typename T>
   bool operator()(
-    const double * r0, const double * r1, const double * r2, const double * r3,
-    const double * p0, const double * p1, const double * p2, const double * p3,
-    const double * bg, const double * ba, const double * g,
-    double * residuals) const
+    const T * r0, const T * r1, const T * r2, const T * r3,
+    const T * p0, const T * p1, const T * p2, const T * p3,
+    const T * bg, const T * ba, const T * g,
+    T * residuals) const
   {
-    ImuFactorState state;
-    state.rotation_knots[0] = quaternion_from_coeffs(r0);
-    state.rotation_knots[1] = quaternion_from_coeffs(r1);
-    state.rotation_knots[2] = quaternion_from_coeffs(r2);
-    state.rotation_knots[3] = quaternion_from_coeffs(r3);
-    state.position_knots[0] = Eigen::Map<const Eigen::Vector3d>(p0);
-    state.position_knots[1] = Eigen::Map<const Eigen::Vector3d>(p1);
-    state.position_knots[2] = Eigen::Map<const Eigen::Vector3d>(p2);
-    state.position_knots[3] = Eigen::Map<const Eigen::Vector3d>(p3);
-    state.gyro_bias = Eigen::Map<const Eigen::Vector3d>(bg);
-    state.accel_bias = Eigen::Map<const Eigen::Vector3d>(ba);
-    state.gravity_world = Eigen::Map<const Eigen::Vector3d>(g);
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(r0),
+      quaternion_from_coeffs_t<T>(r1),
+      quaternion_from_coeffs_t<T>(r2),
+      quaternion_from_coeffs_t<T>(r3)};
+    std::array<Eigen::Matrix<T, 3, 1>, 4> pos_knots = {
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p0),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p1),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> gyro_bias(bg);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> accel_bias(ba);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> gravity_world(g);
 
-    ContinuousTimeImuFactor factor(u_normalized, inv_dt_s, measurement, info_diag);
-    const Eigen::Matrix<double, 6, 1> r = factor.residual(state);
-    Eigen::Map<Eigen::Matrix<double, 6, 1>> r_map(residuals);
-    r_map = r;
+    Eigen::Quaternion<T> q_w_b;
+    Eigen::Matrix<T, 3, 1> omega_b;
+    Eigen::Matrix<T, 3, 1> alpha_b;
+    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+      rot_knots, T(u_normalized), T(inv_dt_s),
+      &q_w_b, &omega_b, &alpha_b);
+    const Eigen::Matrix<T, 3, 1> a_w_b =
+      CeresSplineHelper<4>::template evaluate_rd_t<3, 2, T>(
+      pos_knots, T(u_normalized), T(inv_dt_s));
+
+    const Eigen::Matrix<T, 3, 1> meas_gyro_t = measurement.gyro.cast<T>();
+    const Eigen::Matrix<T, 3, 1> meas_accel_t = measurement.accel.cast<T>();
+
+    Eigen::Matrix<T, 6, 1> r;
+    r.template head<3>() = omega_b - (meas_gyro_t - gyro_bias);
+    const Eigen::Matrix<T, 3, 1> predicted_accel =
+      q_w_b.inverse() * (a_w_b - gravity_world);
+    r.template tail<3>() = predicted_accel - (meas_accel_t - accel_bias);
+
+    const Eigen::Matrix<T, 6, 1> info_diag_t = info_diag.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 6, 1>> r_map(residuals);
+    r_map = info_diag_t.asDiagonal() * r;
     return true;
   }
 };
 
-struct LidarCeresFunctor
+struct LidarAutoDiffFunctor
 {
   double u_normalized{0.0};
   double inv_dt_s{1.0};
@@ -72,24 +101,59 @@ struct LidarCeresFunctor
   LidarExtrinsics extrinsics{};
   double weight{1.0};
 
+  template <typename T>
   bool operator()(
-    const double * r0, const double * r1, const double * r2, const double * r3,
-    const double * p0, const double * p1, const double * p2, const double * p3,
-    double * residuals) const
+    const T * r0, const T * r1, const T * r2, const T * r3,
+    const T * p0, const T * p1, const T * p2, const T * p3,
+    T * residuals) const
   {
-    LidarFactorState state;
-    state.rotation_knots[0] = quaternion_from_coeffs(r0);
-    state.rotation_knots[1] = quaternion_from_coeffs(r1);
-    state.rotation_knots[2] = quaternion_from_coeffs(r2);
-    state.rotation_knots[3] = quaternion_from_coeffs(r3);
-    state.position_knots[0] = Eigen::Map<const Eigen::Vector3d>(p0);
-    state.position_knots[1] = Eigen::Map<const Eigen::Vector3d>(p1);
-    state.position_knots[2] = Eigen::Map<const Eigen::Vector3d>(p2);
-    state.position_knots[3] = Eigen::Map<const Eigen::Vector3d>(p3);
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(r0),
+      quaternion_from_coeffs_t<T>(r1),
+      quaternion_from_coeffs_t<T>(r2),
+      quaternion_from_coeffs_t<T>(r3)};
+    std::array<Eigen::Matrix<T, 3, 1>, 4> pos_knots = {
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p0),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p1),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
 
-    ContinuousTimeLidarFactor factor(
-      u_normalized, inv_dt_s, correspondence, extrinsics, weight);
-    residuals[0] = factor.residual(state);
+    Eigen::Quaternion<T> q_w_b;
+    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+      rot_knots, T(u_normalized), T(inv_dt_s),
+      &q_w_b, nullptr, nullptr);
+    const Eigen::Matrix<T, 3, 1> p_w_b =
+      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+      pos_knots, T(u_normalized), T(inv_dt_s));
+
+    const Eigen::Quaternion<T> q_lidar_to_imu_t =
+      extrinsics.q_lidar_to_imu.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_lidar_in_imu_t =
+      extrinsics.p_lidar_in_imu.cast<T>();
+    const Eigen::Quaternion<T> q_world_to_map_t =
+      extrinsics.q_world_to_map.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_world_in_map_t =
+      extrinsics.p_world_in_map.cast<T>();
+
+    const Eigen::Matrix<T, 3, 1> point_lidar_t =
+      correspondence.point_lidar.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_imu =
+      q_lidar_to_imu_t * point_lidar_t + p_lidar_in_imu_t;
+    const Eigen::Matrix<T, 3, 1> p_world = q_w_b * p_imu + p_w_b;
+    const Eigen::Matrix<T, 3, 1> p_map = q_world_to_map_t * p_world + p_world_in_map_t;
+
+    if (correspondence.geometry == LidarFeatureGeometry::kPlane) {
+      const Eigen::Matrix<T, 3, 1> plane_normal_t =
+        correspondence.plane.template head<3>().cast<T>();
+      const T plane_offset_t = T(correspondence.plane[3]);
+      residuals[0] = T(weight) * (plane_normal_t.dot(p_map) + plane_offset_t);
+    } else {
+      const Eigen::Matrix<T, 3, 1> edge_point_t = correspondence.edge_point.cast<T>();
+      const Eigen::Matrix<T, 3, 1> edge_normal_t = correspondence.edge_normal.cast<T>();
+      const Eigen::Matrix<T, 3, 1> diff = p_map - edge_point_t;
+      const Eigen::Matrix<T, 3, 1> cross_vec = diff.cross(edge_normal_t);
+      residuals[0] = T(weight) * cross_vec.norm();
+    }
     return true;
   }
 };
@@ -205,19 +269,19 @@ bool TrajectoryEstimator::add_imu_factor(
     rebuild_problem();
   }
 
-  ImuCeresFunctor functor;
+  ImuAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
   functor.measurement = sample;
   functor.info_diag = info_diag;
 
-  // NumericDiffCostFunction template:
-  //   <Functor, NumericDiffMethod, ResidualDim, ParamBlockSizes...>
-  auto * cost = new ceres::NumericDiffCostFunction<
-    ImuCeresFunctor, ceres::CENTRAL, 6,
+  // AutoDiffCostFunction template:
+  //   <Functor, ResidualDim, ParamBlockSizes...>
+  auto * cost = new ceres::AutoDiffCostFunction<
+    ImuAutoDiffFunctor, 6,
     4, 4, 4, 4,
     3, 3, 3, 3,
-    3, 3, 3>(new ImuCeresFunctor(functor));
+    3, 3, 3>(new ImuAutoDiffFunctor(functor));
 
   const int base_rot = segment_index - 1;
   const int base_pos = segment_index - 1;
@@ -254,17 +318,17 @@ bool TrajectoryEstimator::add_lidar_factor(
     rebuild_problem();
   }
 
-  LidarCeresFunctor functor;
+  LidarAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
   functor.correspondence = correspondence;
   functor.extrinsics = extrinsics;
   functor.weight = weight;
 
-  auto * cost = new ceres::NumericDiffCostFunction<
-    LidarCeresFunctor, ceres::CENTRAL, 1,
+  auto * cost = new ceres::AutoDiffCostFunction<
+    LidarAutoDiffFunctor, 1,
     4, 4, 4, 4,
-    3, 3, 3, 3>(new LidarCeresFunctor(functor));
+    3, 3, 3, 3>(new LidarAutoDiffFunctor(functor));
 
   const int base = segment_index - 1;
   std::vector<double *> parameter_blocks;

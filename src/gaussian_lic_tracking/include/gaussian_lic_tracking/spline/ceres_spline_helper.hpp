@@ -76,6 +76,20 @@ struct CeresSplineHelper
     }
   }
 
+  template <int Derivative, typename T>
+  static void base_coefficients_with_time_t(Eigen::Matrix<T, N_, 1> & result, T u)
+  {
+    result.setZero();
+    if constexpr (Derivative < N_) {
+      result[Derivative] = T(base_coefficients()(Derivative, Derivative));
+      T power = u;
+      for (int j = Derivative + 1; j < N_; ++j) {
+        result[j] = T(base_coefficients()(Derivative, j)) * power;
+        power *= u;
+      }
+    }
+  }
+
   // Evaluate a uniform Euclidean B-spline at normalized time u in [0, 1).
   // `knots` is an array of N pointers to the first scalar of an Eigen vector
   // of dimension DIM. `inv_dt` is 1/Δt where Δt is the spacing between knots
@@ -93,6 +107,26 @@ struct CeresSplineHelper
 
     Eigen::Matrix<double, DIM, 1> out;
     out.setZero();
+    for (int i = 0; i < N_; ++i) {
+      out += coeff[i] * knots[i];
+    }
+    return out;
+  }
+
+  template <int DIM, int DERIV, typename T>
+  static Eigen::Matrix<T, DIM, 1> evaluate_rd_t(
+    const std::array<Eigen::Matrix<T, DIM, 1>, N_> & knots,
+    T u,
+    T inv_dt)
+  {
+    using std::pow;
+    Eigen::Matrix<T, N_, 1> raw;
+    base_coefficients_with_time_t<DERIV, T>(raw, u);
+    const Eigen::Matrix<T, N_, 1> coeff =
+      pow(inv_dt, T(static_cast<double>(DERIV))) *
+      blending_matrix().template cast<T>() * raw;
+
+    Eigen::Matrix<T, DIM, 1> out = Eigen::Matrix<T, DIM, 1>::Zero();
     for (int i = 0; i < N_; ++i) {
       out += coeff[i] * knots[i];
     }
@@ -152,6 +186,72 @@ struct CeresSplineHelper
         if (need_acc) {
           rot_accel = A * rot_accel;
           rot_accel += ddcoeff[i + 1] * delta + lie_bracket(rot_vel, rot_vel_current);
+        }
+      }
+    }
+
+    if (rotation_out) {
+      *rotation_out = rotation;
+    }
+    if (angular_vel_out) {
+      *angular_vel_out = rot_vel;
+    }
+    if (angular_acc_out) {
+      *angular_acc_out = rot_accel;
+    }
+  }
+
+  template <typename T>
+  static void evaluate_lie_so3_t(
+    const std::array<Eigen::Quaternion<T>, N_> & knots,
+    T u,
+    T inv_dt,
+    Eigen::Quaternion<T> * rotation_out = nullptr,
+    Eigen::Matrix<T, 3, 1> * angular_vel_out = nullptr,
+    Eigen::Matrix<T, 3, 1> * angular_acc_out = nullptr)
+  {
+    Eigen::Matrix<T, N_, 1> raw;
+    base_coefficients_with_time_t<0, T>(raw, u);
+    Eigen::Matrix<T, N_, 1> coeff =
+      cumulative_blending_matrix().template cast<T>() * raw;
+
+    Eigen::Matrix<T, N_, 1> dcoeff = Eigen::Matrix<T, N_, 1>::Zero();
+    Eigen::Matrix<T, N_, 1> ddcoeff = Eigen::Matrix<T, N_, 1>::Zero();
+
+    const bool need_vel = angular_vel_out != nullptr || angular_acc_out != nullptr;
+    const bool need_acc = angular_acc_out != nullptr;
+
+    if (need_vel) {
+      base_coefficients_with_time_t<1, T>(raw, u);
+      dcoeff = inv_dt * cumulative_blending_matrix().template cast<T>() * raw;
+    }
+    if (need_acc) {
+      base_coefficients_with_time_t<2, T>(raw, u);
+      ddcoeff = inv_dt * inv_dt * cumulative_blending_matrix().template cast<T>() * raw;
+    }
+
+    Eigen::Quaternion<T> rotation = knots[0];
+    Eigen::Matrix<T, 3, 1> rot_vel = Eigen::Matrix<T, 3, 1>::Zero();
+    Eigen::Matrix<T, 3, 1> rot_accel = Eigen::Matrix<T, 3, 1>::Zero();
+
+    for (int i = 0; i < DEG; ++i) {
+      const Eigen::Quaternion<T> r01 =
+        (knots[i].normalized().inverse() * knots[i + 1].normalized()).normalized();
+      const Eigen::Matrix<T, 3, 1> delta = quaternion_log_t<T>(r01);
+
+      const Eigen::Quaternion<T> exp_kdelta = quaternion_exp_t<T>(delta * coeff[i + 1]);
+      rotation = (rotation * exp_kdelta).normalized();
+
+      if (need_vel) {
+        const Eigen::Matrix<T, 3, 3> A = adjoint_t<T>(exp_kdelta.inverse());
+        rot_vel = A * rot_vel;
+        const Eigen::Matrix<T, 3, 1> rot_vel_current = delta * dcoeff[i + 1];
+        rot_vel += rot_vel_current;
+
+        if (need_acc) {
+          rot_accel = A * rot_accel;
+          rot_accel +=
+            ddcoeff[i + 1] * delta + lie_bracket_t(rot_vel, rot_vel_current);
         }
       }
     }

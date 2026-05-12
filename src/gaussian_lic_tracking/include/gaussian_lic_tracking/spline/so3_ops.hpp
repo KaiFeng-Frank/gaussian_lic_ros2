@@ -4,6 +4,11 @@
 // continuous-time analytic factors. Mirrors the subset of Sophus used by
 // Coco-LIC's CeresSplineHelper::evaluate_lie without adding a Sophus runtime
 // dependency.
+//
+// Operations are templated on the scalar type so they compose with Ceres
+// AutoDiff (`ceres::Jet<double, N>`) in addition to plain `double`. The
+// `double` overloads are preserved for non-Ceres callers via type deduction
+// on `Eigen::Quaternion<T>` / `Eigen::Matrix<T, 3, 1>`.
 
 #pragma once
 
@@ -26,37 +31,89 @@ inline Eigen::Matrix3d skew(const Eigen::Vector3d & v)
   return m;
 }
 
-inline Eigen::Vector3d quaternion_log(Eigen::Quaterniond quaternion)
+template <typename Derived>
+auto skew_t(const Eigen::MatrixBase<Derived> & v)
+  -> Eigen::Matrix<typename Derived::Scalar, 3, 3>
+{
+  using T = typename Derived::Scalar;
+  Eigen::Matrix<T, 3, 3> m;
+  m <<
+    T(0.0), -v[2], v[1],
+    v[2], T(0.0), -v[0],
+    -v[1], v[0], T(0.0);
+  return m;
+}
+
+template <typename T>
+Eigen::Matrix<T, 3, 1> quaternion_log_t(Eigen::Quaternion<T> quaternion)
 {
   quaternion.normalize();
-  if (quaternion.w() < 0.0) {
-    quaternion.coeffs() *= -1.0;
+  if (quaternion.w() < T(0.0)) {
+    quaternion.coeffs() *= T(-1.0);
   }
-  const Eigen::Vector3d xyz = quaternion.vec();
-  const double xyz_norm = xyz.norm();
-  if (xyz_norm < 1.0e-12) {
-    return 2.0 * xyz;
+  const Eigen::Matrix<T, 3, 1> xyz = quaternion.vec();
+  const T xyz_norm = xyz.norm();
+  if (xyz_norm < T(1.0e-12)) {
+    return T(2.0) * xyz;
   }
-  const double angle = std::atan2(xyz_norm, quaternion.w());
-  return 2.0 * angle * xyz / xyz_norm;
+  using std::atan2;
+  const T angle = atan2(xyz_norm, quaternion.w());
+  return T(2.0) * angle * xyz / xyz_norm;
+}
+
+template <typename T>
+Eigen::Quaternion<T> quaternion_exp_t(const Eigen::Matrix<T, 3, 1> & tangent)
+{
+  const T theta = tangent.norm();
+  if (theta < T(1.0e-12)) {
+    Eigen::Quaternion<T> identity_plus(
+      T(1.0),
+      T(0.5) * tangent[0],
+      T(0.5) * tangent[1],
+      T(0.5) * tangent[2]);
+    return identity_plus.normalized();
+  }
+  using std::cos;
+  using std::sin;
+  const T half_theta = T(0.5) * theta;
+  const T sin_half = sin(half_theta);
+  const Eigen::Matrix<T, 3, 1> axis = tangent / theta;
+  return Eigen::Quaternion<T>(
+    cos(half_theta),
+    sin_half * axis[0],
+    sin_half * axis[1],
+    sin_half * axis[2]).normalized();
+}
+
+template <typename T>
+Eigen::Matrix<T, 3, 3> adjoint_t(const Eigen::Quaternion<T> & q)
+{
+  return q.normalized().toRotationMatrix();
+}
+
+template <typename Derived1, typename Derived2>
+auto lie_bracket_t(
+  const Eigen::MatrixBase<Derived1> & a,
+  const Eigen::MatrixBase<Derived2> & b)
+  -> Eigen::Matrix<typename Derived1::Scalar, 3, 1>
+{
+  return a.cross(b);
+}
+
+// Concrete-double overloads preserved for non-templated callers.
+inline Eigen::Vector3d quaternion_log(Eigen::Quaterniond quaternion)
+{
+  return quaternion_log_t<double>(quaternion);
 }
 
 inline Eigen::Quaterniond quaternion_exp(const Eigen::Vector3d & tangent)
 {
-  const double theta = tangent.norm();
-  if (theta < 1.0e-12) {
-    Eigen::Quaterniond identity_plus(1.0, 0.5 * tangent.x(), 0.5 * tangent.y(), 0.5 * tangent.z());
-    return identity_plus.normalized();
-  }
-  const double half_theta = 0.5 * theta;
-  const double sin_half = std::sin(half_theta);
-  const Eigen::Vector3d axis = tangent / theta;
-  return Eigen::Quaterniond(std::cos(half_theta), sin_half * axis.x(), sin_half * axis.y(), sin_half * axis.z()).normalized();
+  return quaternion_exp_t<double>(tangent);
 }
 
 inline Eigen::Matrix3d adjoint(const Eigen::Quaterniond & q)
 {
-  return q.normalized().toRotationMatrix();
+  return adjoint_t<double>(q);
 }
 
 inline Eigen::Vector3d lie_bracket(const Eigen::Vector3d & a, const Eigen::Vector3d & b)
