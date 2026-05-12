@@ -31,6 +31,16 @@ struct BufferedLidar
   double huber_delta_m{0.0};
 };
 
+struct BufferedLidarNormal
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d normal_lidar{Eigen::Vector3d::UnitZ()};
+  Eigen::Vector3d normal_world{Eigen::Vector3d::UnitZ()};
+  LidarExtrinsics extrinsics;
+  double weight{1.0};
+  double huber_delta_rad{0.0};
+};
+
 struct BufferedPositionPrior
 {
   int64_t stamp_ns{0};
@@ -71,12 +81,14 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   // window has marginalized past their stamp.
   std::deque<BufferedImu> active_imu;
   std::deque<BufferedLidar> active_lidar;
+  std::deque<BufferedLidarNormal> active_lidar_normals;
   std::deque<BufferedPositionPrior> active_position_priors;
   std::deque<BufferedOrientationPrior> active_orientation_priors;
 
   // Brand-new samples waiting for their first solve.
   std::deque<BufferedImu> pending_imu;
   std::deque<BufferedLidar> pending_lidar;
+  std::deque<BufferedLidarNormal> pending_lidar_normals;
   std::deque<BufferedPositionPrior> pending_position_priors;
   std::deque<BufferedOrientationPrior> pending_orientation_priors;
 
@@ -146,6 +158,20 @@ void ContinuousTimeSlidingWindowEstimator::add_lidar_correspondence(
     huber_delta_m >= 0.0 ? huber_delta_m : impl_->options.lidar_huber_delta_m;
   impl_->pending_lidar.push_back(
     {stamp_ns, correspondence, extrinsics, weight, effective_huber});
+}
+
+void ContinuousTimeSlidingWindowEstimator::add_lidar_plane_normal_correspondence(
+  int64_t stamp_ns,
+  const Eigen::Vector3d & normal_lidar,
+  const Eigen::Vector3d & normal_world,
+  const LidarExtrinsics & extrinsics,
+  double weight,
+  double huber_delta_rad)
+{
+  const double effective_huber =
+    huber_delta_rad >= 0.0 ? huber_delta_rad : impl_->options.lidar_huber_delta_m;
+  impl_->pending_lidar_normals.push_back(
+    {stamp_ns, normal_lidar, normal_world, extrinsics, weight, effective_huber});
 }
 
 void ContinuousTimeSlidingWindowEstimator::add_position_prior(
@@ -232,6 +258,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
   impl_->pending_lidar = lidar_still_pending;
 
+  std::deque<BufferedLidarNormal> lidar_normal_still_pending;
+  for (const auto & p : impl_->pending_lidar_normals) {
+    if (p.stamp_ns < interior_end_ns()) {
+      impl_->active_lidar_normals.push_back(p);
+    } else {
+      lidar_normal_still_pending.push_back(p);
+    }
+  }
+  impl_->pending_lidar_normals = lidar_normal_still_pending;
+
   std::deque<BufferedPositionPrior> position_prior_still_pending;
   for (const auto & p : impl_->pending_position_priors) {
     if (p.stamp_ns < interior_end_ns()) {
@@ -275,6 +311,12 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     impl_->active_lidar.pop_front();
   }
   while (
+    !impl_->active_lidar_normals.empty() &&
+    impl_->active_lidar_normals.front().stamp_ns < interior_start_ns)
+  {
+    impl_->active_lidar_normals.pop_front();
+  }
+  while (
     !impl_->active_position_priors.empty() &&
     impl_->active_position_priors.front().stamp_ns < interior_start_ns)
   {
@@ -288,6 +330,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
 
   if (impl_->active_imu.empty() && impl_->active_lidar.empty() &&
+    impl_->active_lidar_normals.empty() &&
     impl_->active_position_priors.empty() && impl_->active_orientation_priors.empty())
   {
     return false;
@@ -321,6 +364,15 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       ++impl_->diagnostics.total_lidar_factors;
     }
   }
+  for (const auto & active : impl_->active_lidar_normals) {
+    const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
+    if (estimator.add_lidar_plane_normal_factor(
+        t_s, active.normal_lidar, active.normal_world, active.extrinsics,
+        active.weight, active.huber_delta_rad))
+    {
+      ++impl_->diagnostics.total_lidar_normal_factors;
+    }
+  }
   for (const auto & active : impl_->active_position_priors) {
     const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
     if (estimator.add_position_prior_factor(
@@ -339,6 +391,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
 
   if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
+    estimator.lidar_normal_factor_count() == 0 &&
     estimator.position_prior_factor_count() == 0 &&
     estimator.orientation_prior_factor_count() == 0)
   {
@@ -346,6 +399,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
   impl_->diagnostics.last_step_imu_factors = estimator.imu_factor_count();
   impl_->diagnostics.last_step_lidar_factors = estimator.lidar_factor_count();
+  impl_->diagnostics.last_step_lidar_normal_factors =
+    estimator.lidar_normal_factor_count();
   impl_->diagnostics.last_step_position_prior_factors =
     estimator.position_prior_factor_count();
   impl_->diagnostics.last_step_orientation_prior_factors =
@@ -540,7 +595,8 @@ std::size_t ContinuousTimeSlidingWindowEstimator::buffered_imu_count() const
 
 std::size_t ContinuousTimeSlidingWindowEstimator::buffered_lidar_count() const
 {
-  return impl_->pending_lidar.size() + impl_->active_lidar.size();
+  return impl_->pending_lidar.size() + impl_->active_lidar.size() +
+         impl_->pending_lidar_normals.size() + impl_->active_lidar_normals.size();
 }
 
 const Eigen::Vector3d & ContinuousTimeSlidingWindowEstimator::gyro_bias() const

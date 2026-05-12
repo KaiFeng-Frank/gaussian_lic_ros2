@@ -231,6 +231,19 @@ public:
       declare_parameter<double>("pointcloud_max_range_m", 30.0);
     pointcloud_factor_weight_ =
       declare_parameter<double>("pointcloud_factor_weight", 0.1);
+    enable_lidar_plane_normal_factor_ =
+      declare_parameter<bool>("enable_lidar_plane_normal_factor", false);
+    lidar_plane_normal_factor_weight_ =
+      declare_parameter<double>("lidar_plane_normal_factor_weight", 0.1);
+    lidar_plane_normal_huber_delta_rad_ =
+      declare_parameter<double>("lidar_plane_normal_huber_delta_rad", 0.10);
+    if (!std::isfinite(lidar_plane_normal_factor_weight_) ||
+      lidar_plane_normal_factor_weight_ <= 0.0 ||
+      !std::isfinite(lidar_plane_normal_huber_delta_rad_) ||
+      lidar_plane_normal_huber_delta_rad_ < 0.0)
+    {
+      throw std::runtime_error("LiDAR plane-normal factor parameters are invalid");
+    }
 
     enable_imu_gravity_autocal_ =
       declare_parameter<bool>("enable_imu_gravity_autocal", true);
@@ -609,6 +622,13 @@ private:
             estimator_->add_lidar_correspondence(
               stamp_ns, pc, extrinsics, pointcloud_factor_weight_,
               lidar_huber_delta_m_);
+            if (enable_lidar_plane_normal_factor_) {
+              estimator_->add_lidar_plane_normal_correspondence(
+                stamp_ns, plane.normal, pc.plane.head<3>(), extrinsics,
+                lidar_plane_normal_factor_weight_,
+                lidar_plane_normal_huber_delta_rad_);
+              ++persistent_plane_normal_factors_;
+            }
             ++accepted;
             ++persistent_plane_map_matches_;
           }
@@ -769,8 +789,9 @@ private:
     RCLCPP_INFO(
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
+      "lidar_normal_factors=%zu "
       "accepted_steps=%zu "
-      "last_imu_factors=%zu last_lidar_factors=%zu "
+      "last_imu_factors=%zu last_lidar_factors=%zu last_lidar_normal_factors=%zu "
       "last_position_prior_factors=%zu last_orientation_prior_factors=%zu "
       "initial_cost=%.9g final_cost=%.9g initial_imu_cost=%.9g "
       "final_imu_cost=%.9g initial_lidar_cost=%.9g final_lidar_cost=%.9g "
@@ -781,6 +802,7 @@ private:
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
       "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
+      "plane_normal_factors=%zu "
       "prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
@@ -790,9 +812,11 @@ private:
       diagnostics.steps_run,
       diagnostics.total_imu_factors,
       diagnostics.total_lidar_factors,
+      diagnostics.total_lidar_normal_factors,
       diagnostics.accepted_solver_steps,
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
+      diagnostics.last_step_lidar_normal_factors,
       diagnostics.last_step_position_prior_factors,
       diagnostics.last_step_orientation_prior_factors,
       diagnostics.last_step_initial_cost,
@@ -820,6 +844,7 @@ private:
       persistent_point_map_matches_,
       persistent_point_map_updates_,
       persistent_point_map_update_skips_,
+      persistent_plane_normal_factors_,
       accepted_prior_count_,
       accepted_prior_position_factor_messages_,
       accepted_prior_orientation_factor_messages_,
@@ -1124,6 +1149,9 @@ private:
   double pointcloud_max_range_m_{30.0};
   double pointcloud_factor_weight_{0.1};
   double lidar_huber_delta_m_{0.10};
+  bool enable_lidar_plane_normal_factor_{false};
+  double lidar_plane_normal_factor_weight_{0.1};
+  double lidar_plane_normal_huber_delta_rad_{0.10};
   std::size_t accepted_pointcloud_correspondences_{0};
   std::size_t pointcloud_messages_{0};
   std::deque<sensor_msgs::msg::PointCloud2::SharedPtr> delayed_pointcloud_queue_;
@@ -1161,6 +1189,7 @@ private:
   std::size_t persistent_plane_map_matches_{0};
   std::size_t persistent_plane_map_updates_{0};
   std::size_t persistent_plane_map_update_skips_{0};
+  std::size_t persistent_plane_normal_factors_{0};
   bool enable_persistent_point_map_{false};
   double persistent_point_map_nearest_distance_m_{0.35};
   double persistent_point_map_factor_weight_{0.05};

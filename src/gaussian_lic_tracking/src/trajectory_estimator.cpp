@@ -160,6 +160,43 @@ struct LidarAutoDiffFunctor
   }
 };
 
+struct LidarPlaneNormalAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Vector3d normal_lidar{Eigen::Vector3d::UnitZ()};
+  Eigen::Vector3d normal_world{Eigen::Vector3d::UnitZ()};
+  LidarExtrinsics extrinsics{};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(
+    const T * r0, const T * r1, const T * r2, const T * r3,
+    T * residuals) const
+  {
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(r0),
+      quaternion_from_coeffs_t<T>(r1),
+      quaternion_from_coeffs_t<T>(r2),
+      quaternion_from_coeffs_t<T>(r3)};
+
+    Eigen::Quaternion<T> q_w_b;
+    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+      rot_knots, T(u_normalized), T(inv_dt_s),
+      &q_w_b, nullptr, nullptr);
+
+    const Eigen::Quaternion<T> q_lidar_to_imu_t =
+      extrinsics.q_lidar_to_imu.cast<T>();
+    const Eigen::Matrix<T, 3, 1> n_l = normal_lidar.cast<T>().normalized();
+    const Eigen::Matrix<T, 3, 1> n_w = normal_world.cast<T>().normalized();
+    const Eigen::Matrix<T, 3, 1> predicted =
+      (q_w_b * q_lidar_to_imu_t * n_l).normalized();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * predicted.cross(n_w);
+    return true;
+  }
+};
+
 struct PositionPriorAutoDiffFunctor
 {
   double u_normalized{0.0};
@@ -418,6 +455,60 @@ bool TrajectoryEstimator::add_lidar_factor(
   const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   impl_->lidar_residual_blocks.push_back(block);
   ++lidar_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_lidar_plane_normal_factor(
+  double t_s,
+  const Eigen::Vector3d & normal_lidar,
+  const Eigen::Vector3d & normal_world,
+  const LidarExtrinsics & extrinsics,
+  double weight,
+  double huber_delta_rad)
+{
+  if (!normal_lidar.allFinite() || normal_lidar.norm() <= 1.0e-9 ||
+    !normal_world.allFinite() || normal_world.norm() <= 1.0e-9 ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_rad) || huber_delta_rad < 0.0)
+  {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  LidarPlaneNormalAutoDiffFunctor functor;
+  functor.u_normalized = u;
+  functor.inv_dt_s = 1.0 / dt_s_;
+  functor.normal_lidar = normal_lidar.normalized();
+  functor.normal_world = normal_world.normalized();
+  functor.extrinsics = extrinsics;
+  functor.weight = weight;
+
+  auto * cost = new ceres::AutoDiffCostFunction<
+    LidarPlaneNormalAutoDiffFunctor, 3,
+    4, 4, 4, 4>(new LidarPlaneNormalAutoDiffFunctor(functor));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->rotation_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_rad > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_rad);
+  }
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->lidar_residual_blocks.push_back(block);
+  ++lidar_normal_factor_count_;
   return true;
 }
 

@@ -91,12 +91,14 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t steps_run{0};
   std::size_t total_imu_factors{0};
   std::size_t total_lidar_factors{0};
+  std::size_t total_lidar_normal_factors{0};
   std::size_t total_position_prior_factors{0};
   std::size_t total_orientation_prior_factors{0};
   std::size_t total_marginalized_knots{0};
   std::size_t accepted_solver_steps{0};
   std::size_t last_step_imu_factors{0};
   std::size_t last_step_lidar_factors{0};
+  std::size_t last_step_lidar_normal_factors{0};
   std::size_t last_step_position_prior_factors{0};
   std::size_t last_step_orientation_prior_factors{0};
   bool last_step_update_accepted{false};
@@ -155,6 +157,14 @@ public:
     const LidarExtrinsics & extrinsics,
     double weight = 1.0,
     double huber_delta_m = -1.0);
+
+  void add_lidar_plane_normal_correspondence(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & normal_lidar,
+    const Eigen::Vector3d & normal_world,
+    const LidarExtrinsics & extrinsics,
+    double weight = 1.0,
+    double huber_delta_rad = -1.0);
 
   // Adds a timestamped position-only prior. The prior uses the same
   // signed-nanosecond buffering and activation semantics as IMU/LiDAR

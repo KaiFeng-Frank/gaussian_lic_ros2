@@ -43,6 +43,9 @@ IMU_LINEAR_ACCELERATION_SCALE="${IMU_LINEAR_ACCELERATION_SCALE:-9.80665}"
 POINTCLOUD_ENABLE="${POINTCLOUD_ENABLE:-true}"
 POINTCLOUD_FACTOR_WEIGHT="${POINTCLOUD_FACTOR_WEIGHT:-0.1}"
 POINTCLOUD_WAIT_QUEUE_MAX_SIZE="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE:-100}"
+ENABLE_LIDAR_PLANE_NORMAL_FACTOR="${ENABLE_LIDAR_PLANE_NORMAL_FACTOR:-false}"
+LIDAR_PLANE_NORMAL_FACTOR_WEIGHT="${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT:-0.1}"
+LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD="${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD:-0.10}"
 MAX_ITERATIONS_PER_STEP="${MAX_ITERATIONS_PER_STEP:-1}"
 IMU_INFO_GYRO="${IMU_INFO_GYRO:-10.0}"
 IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-1.0}"
@@ -103,6 +106,9 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
   -p pointcloud_factor_weight:="${POINTCLOUD_FACTOR_WEIGHT}" \
   -p pointcloud_wait_queue_max_size:="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}" \
+  -p enable_lidar_plane_normal_factor:="${ENABLE_LIDAR_PLANE_NORMAL_FACTOR}" \
+  -p lidar_plane_normal_factor_weight:="${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT}" \
+  -p lidar_plane_normal_huber_delta_rad:="${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD}" \
   -p lidar_huber_delta_m:="${LIDAR_HUBER_DELTA_M}" \
   -p enable_voxel_plane_extraction:="${ENABLE_VOXEL_PLANE_EXTRACTION}" \
   -p enable_persistent_plane_map:="${ENABLE_PERSISTENT_PLANE_MAP}" \
@@ -317,6 +323,9 @@ native = {
     "ceres_initial_trust_region_radius": float("${CERES_INITIAL_TRUST_REGION_RADIUS}"),
     "ceres_max_trust_region_radius": float("${CERES_MAX_TRUST_REGION_RADIUS}"),
     "pointcloud_wait_queue_max_size": int("${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}"),
+    "enable_lidar_plane_normal_factor": "${ENABLE_LIDAR_PLANE_NORMAL_FACTOR}" == "true",
+    "lidar_plane_normal_factor_weight": float("${LIDAR_PLANE_NORMAL_FACTOR_WEIGHT}"),
+    "lidar_plane_normal_huber_delta_rad": float("${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",

@@ -112,6 +112,17 @@ public:
     double weight = 1.0,
     double huber_delta_m = 0.0);
 
+  // Add a plane-normal alignment factor. This complements point-to-plane
+  // distance factors by directly observing rotation when a LiDAR-frame plane
+  // has been associated to a persistent world-frame plane.
+  bool add_lidar_plane_normal_factor(
+    double t_s,
+    const Eigen::Vector3d & normal_lidar,
+    const Eigen::Vector3d & normal_world,
+    const LidarExtrinsics & extrinsics,
+    double weight = 1.0,
+    double huber_delta_rad = 0.0);
+
   // Add a position-only prior on the continuous-time body trajectory.
   // Returns false if the stamp is outside the optimizable interior.
   bool add_position_prior_factor(
@@ -130,6 +141,7 @@ public:
 
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
+  std::size_t lidar_normal_factor_count() const { return lidar_normal_factor_count_; }
   std::size_t position_prior_factor_count() const { return position_prior_factor_count_; }
   std::size_t orientation_prior_factor_count() const { return orientation_prior_factor_count_; }
 
@@ -153,6 +165,7 @@ private:
 
   std::size_t imu_factor_count_{0};
   std::size_t lidar_factor_count_{0};
+  std::size_t lidar_normal_factor_count_{0};
   std::size_t position_prior_factor_count_{0};
   std::size_t orientation_prior_factor_count_{0};
 };
