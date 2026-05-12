@@ -74,6 +74,32 @@ VISUAL_ROTATION_MAX_RMSE="${VISUAL_ROTATION_MAX_RMSE:-0.30}"
 VISUAL_ROTATION_PIXEL_TO_RAD_SCALE="${VISUAL_ROTATION_PIXEL_TO_RAD_SCALE:-1.0}"
 VISUAL_ROTATION_SIGN="${VISUAL_ROTATION_SIGN:-1.0}"
 CAMERA_TO_IMU_ROTATION_XYZW="${CAMERA_TO_IMU_ROTATION_XYZW:-[-0.4991948721, 0.5038197882, -0.4930665852, 0.5038406923]}"
+CAMERA_TO_IMU_TRANSLATION_M="${CAMERA_TO_IMU_TRANSLATION_M:-[0.0673699, 0.0412418, 0.0764217]}"
+ENABLE_VISUAL_SE3_PRIOR="${ENABLE_VISUAL_SE3_PRIOR:-false}"
+VISUAL_SE3_POSITION_WEIGHT="${VISUAL_SE3_POSITION_WEIGHT:-0.0}"
+VISUAL_SE3_ORIENTATION_WEIGHT="${VISUAL_SE3_ORIENTATION_WEIGHT:-0.0}"
+VISUAL_SE3_HUBER_DELTA_M="${VISUAL_SE3_HUBER_DELTA_M:-0.05}"
+VISUAL_SE3_HUBER_DELTA_RAD="${VISUAL_SE3_HUBER_DELTA_RAD:-0.05}"
+VISUAL_SE3_MAX_SAMPLES="${VISUAL_SE3_MAX_SAMPLES:-1000}"
+VISUAL_SE3_MIN_SAMPLES="${VISUAL_SE3_MIN_SAMPLES:-32}"
+VISUAL_SE3_MIN_GRADIENT="${VISUAL_SE3_MIN_GRADIENT:-0.0001}"
+VISUAL_SE3_MAX_ABS_RESIDUAL="${VISUAL_SE3_MAX_ABS_RESIDUAL:-0.5}"
+VISUAL_SE3_HUBER_DELTA_INTENSITY="${VISUAL_SE3_HUBER_DELTA_INTENSITY:-0.15}"
+VISUAL_SE3_MIN_DEPTH_M="${VISUAL_SE3_MIN_DEPTH_M:-0.05}"
+VISUAL_SE3_MAX_DEPTH_M="${VISUAL_SE3_MAX_DEPTH_M:-80.0}"
+VISUAL_SE3_DEPTH_DILATION_PX="${VISUAL_SE3_DEPTH_DILATION_PX:-2}"
+VISUAL_SE3_DEPTH_CACHE_SIZE="${VISUAL_SE3_DEPTH_CACHE_SIZE:-8}"
+VISUAL_SE3_MAX_DT_NS="${VISUAL_SE3_MAX_DT_NS:-100000000}"
+VISUAL_SE3_MIN_HESSIAN_RANK="${VISUAL_SE3_MIN_HESSIAN_RANK:-4}"
+VISUAL_SE3_MAX_HESSIAN_CONDITION="${VISUAL_SE3_MAX_HESSIAN_CONDITION:-1000000000000.0}"
+VISUAL_SE3_MIN_SAMPLE_INLIER_RATIO="${VISUAL_SE3_MIN_SAMPLE_INLIER_RATIO:-0.20}"
+VISUAL_SE3_COVERAGE_GRID_COLS="${VISUAL_SE3_COVERAGE_GRID_COLS:-4}"
+VISUAL_SE3_COVERAGE_GRID_ROWS="${VISUAL_SE3_COVERAGE_GRID_ROWS:-4}"
+VISUAL_SE3_MIN_COVERAGE_TILES="${VISUAL_SE3_MIN_COVERAGE_TILES:-4}"
+VISUAL_SE3_MAX_MEAN_ABS_RESIDUAL="${VISUAL_SE3_MAX_MEAN_ABS_RESIDUAL:-0.0}"
+VISUAL_SE3_MAX_TRANSLATION_STEP_M="${VISUAL_SE3_MAX_TRANSLATION_STEP_M:-0.25}"
+VISUAL_SE3_MAX_ROTATION_STEP_RAD="${VISUAL_SE3_MAX_ROTATION_STEP_RAD:-0.15}"
+VISUAL_SE3_DELTA_SIGN="${VISUAL_SE3_DELTA_SIGN:-1.0}"
 MAX_ITERATIONS_PER_STEP="${MAX_ITERATIONS_PER_STEP:-1}"
 IMU_INFO_GYRO="${IMU_INFO_GYRO:-10.0}"
 IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-1.0}"
@@ -181,6 +207,32 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p visual_rotation_pixel_to_rad_scale:="${VISUAL_ROTATION_PIXEL_TO_RAD_SCALE}" \
   -p visual_rotation_sign:="${VISUAL_ROTATION_SIGN}" \
   -p camera_to_imu_rotation_xyzw:="${CAMERA_TO_IMU_ROTATION_XYZW}" \
+  -p camera_to_imu_translation_m:="${CAMERA_TO_IMU_TRANSLATION_M}" \
+  -p enable_visual_se3_prior:="${ENABLE_VISUAL_SE3_PRIOR}" \
+  -p visual_se3_position_weight:="${VISUAL_SE3_POSITION_WEIGHT}" \
+  -p visual_se3_orientation_weight:="${VISUAL_SE3_ORIENTATION_WEIGHT}" \
+  -p visual_se3_huber_delta_m:="${VISUAL_SE3_HUBER_DELTA_M}" \
+  -p visual_se3_huber_delta_rad:="${VISUAL_SE3_HUBER_DELTA_RAD}" \
+  -p visual_se3_max_samples:="${VISUAL_SE3_MAX_SAMPLES}" \
+  -p visual_se3_min_samples:="${VISUAL_SE3_MIN_SAMPLES}" \
+  -p visual_se3_min_gradient:="${VISUAL_SE3_MIN_GRADIENT}" \
+  -p visual_se3_max_abs_residual:="${VISUAL_SE3_MAX_ABS_RESIDUAL}" \
+  -p visual_se3_huber_delta_intensity:="${VISUAL_SE3_HUBER_DELTA_INTENSITY}" \
+  -p visual_se3_min_depth_m:="${VISUAL_SE3_MIN_DEPTH_M}" \
+  -p visual_se3_max_depth_m:="${VISUAL_SE3_MAX_DEPTH_M}" \
+  -p visual_se3_depth_dilation_px:="${VISUAL_SE3_DEPTH_DILATION_PX}" \
+  -p visual_se3_depth_cache_size:="${VISUAL_SE3_DEPTH_CACHE_SIZE}" \
+  -p visual_se3_max_dt_ns:="${VISUAL_SE3_MAX_DT_NS}" \
+  -p visual_se3_min_hessian_rank:="${VISUAL_SE3_MIN_HESSIAN_RANK}" \
+  -p visual_se3_max_hessian_condition:="${VISUAL_SE3_MAX_HESSIAN_CONDITION}" \
+  -p visual_se3_min_sample_inlier_ratio:="${VISUAL_SE3_MIN_SAMPLE_INLIER_RATIO}" \
+  -p visual_se3_coverage_grid_cols:="${VISUAL_SE3_COVERAGE_GRID_COLS}" \
+  -p visual_se3_coverage_grid_rows:="${VISUAL_SE3_COVERAGE_GRID_ROWS}" \
+  -p visual_se3_min_coverage_tiles:="${VISUAL_SE3_MIN_COVERAGE_TILES}" \
+  -p visual_se3_max_mean_abs_residual:="${VISUAL_SE3_MAX_MEAN_ABS_RESIDUAL}" \
+  -p visual_se3_max_translation_step_m:="${VISUAL_SE3_MAX_TRANSLATION_STEP_M}" \
+  -p visual_se3_max_rotation_step_rad:="${VISUAL_SE3_MAX_ROTATION_STEP_RAD}" \
+  -p visual_se3_delta_sign:="${VISUAL_SE3_DELTA_SIGN}" \
   -p lidar_huber_delta_m:="${LIDAR_HUBER_DELTA_M}" \
   -p enable_voxel_plane_extraction:="${ENABLE_VOXEL_PLANE_EXTRACTION}" \
   -p enable_persistent_plane_map:="${ENABLE_PERSISTENT_PLANE_MAP}" \
@@ -435,6 +487,32 @@ native = {
     "visual_rotation_pixel_to_rad_scale": float("${VISUAL_ROTATION_PIXEL_TO_RAD_SCALE}"),
     "visual_rotation_sign": float("${VISUAL_ROTATION_SIGN}"),
     "camera_to_imu_rotation_xyzw": "${CAMERA_TO_IMU_ROTATION_XYZW}",
+    "camera_to_imu_translation_m": "${CAMERA_TO_IMU_TRANSLATION_M}",
+    "enable_visual_se3_prior": "${ENABLE_VISUAL_SE3_PRIOR}" == "true",
+    "visual_se3_position_weight": float("${VISUAL_SE3_POSITION_WEIGHT}"),
+    "visual_se3_orientation_weight": float("${VISUAL_SE3_ORIENTATION_WEIGHT}"),
+    "visual_se3_huber_delta_m": float("${VISUAL_SE3_HUBER_DELTA_M}"),
+    "visual_se3_huber_delta_rad": float("${VISUAL_SE3_HUBER_DELTA_RAD}"),
+    "visual_se3_max_samples": int("${VISUAL_SE3_MAX_SAMPLES}"),
+    "visual_se3_min_samples": int("${VISUAL_SE3_MIN_SAMPLES}"),
+    "visual_se3_min_gradient": float("${VISUAL_SE3_MIN_GRADIENT}"),
+    "visual_se3_max_abs_residual": float("${VISUAL_SE3_MAX_ABS_RESIDUAL}"),
+    "visual_se3_huber_delta_intensity": float("${VISUAL_SE3_HUBER_DELTA_INTENSITY}"),
+    "visual_se3_min_depth_m": float("${VISUAL_SE3_MIN_DEPTH_M}"),
+    "visual_se3_max_depth_m": float("${VISUAL_SE3_MAX_DEPTH_M}"),
+    "visual_se3_depth_dilation_px": int("${VISUAL_SE3_DEPTH_DILATION_PX}"),
+    "visual_se3_depth_cache_size": int("${VISUAL_SE3_DEPTH_CACHE_SIZE}"),
+    "visual_se3_max_dt_ns": int("${VISUAL_SE3_MAX_DT_NS}"),
+    "visual_se3_min_hessian_rank": int("${VISUAL_SE3_MIN_HESSIAN_RANK}"),
+    "visual_se3_max_hessian_condition": float("${VISUAL_SE3_MAX_HESSIAN_CONDITION}"),
+    "visual_se3_min_sample_inlier_ratio": float("${VISUAL_SE3_MIN_SAMPLE_INLIER_RATIO}"),
+    "visual_se3_coverage_grid_cols": int("${VISUAL_SE3_COVERAGE_GRID_COLS}"),
+    "visual_se3_coverage_grid_rows": int("${VISUAL_SE3_COVERAGE_GRID_ROWS}"),
+    "visual_se3_min_coverage_tiles": int("${VISUAL_SE3_MIN_COVERAGE_TILES}"),
+    "visual_se3_max_mean_abs_residual": float("${VISUAL_SE3_MAX_MEAN_ABS_RESIDUAL}"),
+    "visual_se3_max_translation_step_m": float("${VISUAL_SE3_MAX_TRANSLATION_STEP_M}"),
+    "visual_se3_max_rotation_step_rad": float("${VISUAL_SE3_MAX_ROTATION_STEP_RAD}"),
+    "visual_se3_delta_sign": float("${VISUAL_SE3_DELTA_SIGN}"),
     "update_gate_edge_knot_margin": int("${UPDATE_GATE_EDGE_KNOT_MARGIN}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",

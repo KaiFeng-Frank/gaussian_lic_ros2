@@ -11,10 +11,12 @@
 // 12/12 strict parity matrix.
 
 #include <chrono>
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <deque>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -202,6 +204,14 @@ public:
         camera_to_imu_param[1],
         camera_to_imu_param[2]).normalized();
     }
+    const auto camera_to_imu_translation_param = declare_parameter<std::vector<double>>(
+      "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
+    if (camera_to_imu_translation_param.size() == 3) {
+      camera_to_imu_translation_ = Eigen::Vector3d(
+        camera_to_imu_translation_param[0],
+        camera_to_imu_translation_param[1],
+        camera_to_imu_translation_param[2]);
+    }
     odometry_topic_ = declare_parameter<std::string>(
       "odometry_topic", "/gaussian_lic/continuous_time/odometry");
     path_topic_ = declare_parameter<std::string>(
@@ -335,6 +345,56 @@ public:
       declare_parameter<double>("visual_rotation_pixel_to_rad_scale", 1.0);
     visual_rotation_sign_ =
       declare_parameter<double>("visual_rotation_sign", 1.0);
+    enable_visual_se3_prior_ =
+      declare_parameter<bool>("enable_visual_se3_prior", false);
+    visual_se3_position_weight_ =
+      declare_parameter<double>("visual_se3_position_weight", 0.0);
+    visual_se3_orientation_weight_ =
+      declare_parameter<double>("visual_se3_orientation_weight", 0.0);
+    visual_se3_huber_delta_m_ =
+      declare_parameter<double>("visual_se3_huber_delta_m", 0.05);
+    visual_se3_huber_delta_rad_ =
+      declare_parameter<double>("visual_se3_huber_delta_rad", 0.05);
+    visual_se3_max_samples_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_max_samples", 1000));
+    visual_se3_min_samples_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_min_samples", 32));
+    visual_se3_min_gradient_ =
+      declare_parameter<double>("visual_se3_min_gradient", 1.0e-4);
+    visual_se3_max_abs_residual_ =
+      declare_parameter<double>("visual_se3_max_abs_residual", 0.5);
+    visual_se3_huber_delta_intensity_ =
+      declare_parameter<double>("visual_se3_huber_delta_intensity", 0.15);
+    visual_se3_min_depth_m_ =
+      declare_parameter<double>("visual_se3_min_depth_m", 0.05);
+    visual_se3_max_depth_m_ =
+      declare_parameter<double>("visual_se3_max_depth_m", 80.0);
+    visual_se3_depth_dilation_px_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_depth_dilation_px", 2));
+    visual_se3_depth_cache_size_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_depth_cache_size", 8));
+    visual_se3_max_dt_ns_ =
+      declare_parameter<int64_t>("visual_se3_max_dt_ns", 100000000LL);
+    visual_se3_min_hessian_rank_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_min_hessian_rank", 4));
+    visual_se3_max_hessian_condition_ =
+      declare_parameter<double>("visual_se3_max_hessian_condition", 1.0e12);
+    visual_se3_min_sample_inlier_ratio_ =
+      declare_parameter<double>("visual_se3_min_sample_inlier_ratio", 0.20);
+    visual_se3_coverage_grid_cols_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_coverage_grid_cols", 4));
+    visual_se3_coverage_grid_rows_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_coverage_grid_rows", 4));
+    visual_se3_min_coverage_tiles_ =
+      static_cast<int>(declare_parameter<int>("visual_se3_min_coverage_tiles", 4));
+    visual_se3_max_mean_abs_residual_ =
+      declare_parameter<double>("visual_se3_max_mean_abs_residual", 0.0);
+    visual_se3_max_translation_step_m_ =
+      declare_parameter<double>("visual_se3_max_translation_step_m", 0.25);
+    visual_se3_max_rotation_step_rad_ =
+      declare_parameter<double>("visual_se3_max_rotation_step_rad", 0.15);
+    visual_se3_delta_sign_ =
+      declare_parameter<double>("visual_se3_delta_sign", 1.0);
     if (!std::isfinite(visual_rotation_prior_weight_) ||
       visual_rotation_prior_weight_ < 0.0 ||
       !std::isfinite(visual_rotation_prior_huber_delta_rad_) ||
@@ -351,6 +411,55 @@ public:
       !std::isfinite(visual_rotation_sign_))
     {
       throw std::runtime_error("visual rotation prior parameters are invalid");
+    }
+    if (!camera_to_imu_translation_.allFinite() ||
+      !camera_to_imu_rotation_.coeffs().allFinite() ||
+      camera_to_imu_rotation_.norm() <= 1.0e-9 ||
+      !std::isfinite(visual_se3_position_weight_) ||
+      visual_se3_position_weight_ < 0.0 ||
+      !std::isfinite(visual_se3_orientation_weight_) ||
+      visual_se3_orientation_weight_ < 0.0 ||
+      !std::isfinite(visual_se3_huber_delta_m_) ||
+      visual_se3_huber_delta_m_ < 0.0 ||
+      !std::isfinite(visual_se3_huber_delta_rad_) ||
+      visual_se3_huber_delta_rad_ < 0.0 ||
+      visual_se3_max_samples_ <= 0 ||
+      visual_se3_min_samples_ <= 0 ||
+      visual_se3_max_samples_ < visual_se3_min_samples_ ||
+      !std::isfinite(visual_se3_min_gradient_) ||
+      visual_se3_min_gradient_ < 0.0 ||
+      !std::isfinite(visual_se3_max_abs_residual_) ||
+      visual_se3_max_abs_residual_ < 0.0 ||
+      !std::isfinite(visual_se3_huber_delta_intensity_) ||
+      visual_se3_huber_delta_intensity_ < 0.0 ||
+      !std::isfinite(visual_se3_min_depth_m_) ||
+      !std::isfinite(visual_se3_max_depth_m_) ||
+      visual_se3_min_depth_m_ <= 0.0 ||
+      visual_se3_max_depth_m_ <= visual_se3_min_depth_m_ ||
+      visual_se3_depth_dilation_px_ < 0 ||
+      visual_se3_depth_cache_size_ <= 0 ||
+      visual_se3_max_dt_ns_ < 0 ||
+      visual_se3_min_hessian_rank_ < 0 ||
+      visual_se3_min_hessian_rank_ > 6 ||
+      !std::isfinite(visual_se3_max_hessian_condition_) ||
+      visual_se3_max_hessian_condition_ < 0.0 ||
+      !std::isfinite(visual_se3_min_sample_inlier_ratio_) ||
+      visual_se3_min_sample_inlier_ratio_ < 0.0 ||
+      visual_se3_min_sample_inlier_ratio_ > 1.0 ||
+      visual_se3_coverage_grid_cols_ <= 0 ||
+      visual_se3_coverage_grid_rows_ <= 0 ||
+      visual_se3_min_coverage_tiles_ <= 0 ||
+      visual_se3_min_coverage_tiles_ >
+      visual_se3_coverage_grid_cols_ * visual_se3_coverage_grid_rows_ ||
+      !std::isfinite(visual_se3_max_mean_abs_residual_) ||
+      visual_se3_max_mean_abs_residual_ < 0.0 ||
+      !std::isfinite(visual_se3_max_translation_step_m_) ||
+      visual_se3_max_translation_step_m_ < 0.0 ||
+      !std::isfinite(visual_se3_max_rotation_step_rad_) ||
+      visual_se3_max_rotation_step_rad_ < 0.0 ||
+      !std::isfinite(visual_se3_delta_sign_))
+    {
+      throw std::runtime_error("visual SE3 prior parameters are invalid");
     }
     visual_factor_.set_max_pixels(static_cast<size_t>(visual_rotation_max_pixels_));
 
@@ -554,7 +663,7 @@ public:
         std::bind(&ContinuousTimeNode::on_pointcloud, this, std::placeholders::_1));
     }
 
-    if (enable_visual_rotation_prior_) {
+    if (enable_visual_rotation_prior_ || enable_visual_se3_prior_) {
       rclcpp::QoS camera_qos(rclcpp::KeepLast(20));
       camera_qos.best_effort();
       camera_info_subscription_ = create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -711,7 +820,7 @@ private:
 
   void on_camera_info(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
   {
-    if (!msg || !enable_visual_rotation_prior_) {
+    if (!msg || (!enable_visual_rotation_prior_ && !enable_visual_se3_prior_)) {
       return;
     }
     const double fx = msg->k[0];
@@ -735,7 +844,7 @@ private:
 
   void on_image(const sensor_msgs::msg::Image::SharedPtr msg)
   {
-    if (!msg || !enable_visual_rotation_prior_) {
+    if (!msg || (!enable_visual_rotation_prior_ && !enable_visual_se3_prior_)) {
       return;
     }
     VisualFrame frame;
@@ -746,21 +855,26 @@ private:
 
     std::lock_guard<std::mutex> lock(estimator_mutex_);
     ++visual_rotation_image_frames_;
-    if (
-      visual_rotation_frame_stride_ > 1 &&
-      visual_rotation_image_frames_ %
-        static_cast<size_t>(visual_rotation_frame_stride_) != 0U)
-    {
-      last_visual_frame_ = std::move(frame);
-      have_last_visual_frame_ = true;
-      return;
-    }
     if (!initialized_ || !estimator_ || !have_visual_intrinsics_) {
       last_visual_frame_ = std::move(frame);
       have_last_visual_frame_ = true;
       return;
     }
     if (!have_last_visual_frame_) {
+      last_visual_frame_ = std::move(frame);
+      have_last_visual_frame_ = true;
+      return;
+    }
+    maybe_add_visual_se3_prior_locked(frame);
+    if (!enable_visual_rotation_prior_) {
+      last_visual_frame_ = std::move(frame);
+      return;
+    }
+    if (
+      visual_rotation_frame_stride_ > 1 &&
+      visual_rotation_image_frames_ %
+        static_cast<size_t>(visual_rotation_frame_stride_) != 0U)
+    {
       last_visual_frame_ = std::move(frame);
       have_last_visual_frame_ = true;
       return;
@@ -841,6 +955,377 @@ private:
     last_visual_rotation_rmse_ = alignment.rmse;
     ++visual_rotation_accepted_frames_;
     last_visual_frame_ = std::move(frame);
+  }
+
+  struct SparseDepthFrame
+  {
+    int64_t stamp_ns{0};
+    size_t width{0};
+    size_t height{0};
+    std::vector<float> depth_m;
+  };
+
+  void cache_sparse_depth_frame_locked(
+    int64_t stamp_ns,
+    const std::vector<Eigen::Vector3d> & points_lidar,
+    const spline::LidarExtrinsics & extrinsics)
+  {
+    if (!enable_visual_se3_prior_ || !have_visual_intrinsics_ ||
+      last_visual_frame_.width == 0U || last_visual_frame_.height == 0U ||
+      points_lidar.empty())
+    {
+      return;
+    }
+    SparseDepthFrame frame;
+    frame.stamp_ns = stamp_ns;
+    frame.width = last_visual_frame_.width;
+    frame.height = last_visual_frame_.height;
+    frame.depth_m.assign(frame.width * frame.height, std::numeric_limits<float>::quiet_NaN());
+    const Eigen::Quaterniond q_imu_camera = camera_to_imu_rotation_.normalized();
+    const Eigen::Quaterniond q_camera_imu = q_imu_camera.inverse();
+    size_t projected = 0U;
+    for (const auto & point_lidar : points_lidar) {
+      if (!point_lidar.allFinite()) {
+        continue;
+      }
+      const double range = point_lidar.norm();
+      if (!std::isfinite(range) || range < pointcloud_min_range_m_ ||
+        range > pointcloud_max_range_m_)
+      {
+        continue;
+      }
+      const Eigen::Vector3d point_imu =
+        extrinsics.q_lidar_to_imu * point_lidar + extrinsics.p_lidar_in_imu;
+      const Eigen::Vector3d point_camera =
+        q_camera_imu * (point_imu - camera_to_imu_translation_);
+      const double z = point_camera.z();
+      if (!std::isfinite(z) || z < visual_se3_min_depth_m_ ||
+        z > visual_se3_max_depth_m_)
+      {
+        continue;
+      }
+      const double u_f = visual_intrinsics_.fx * point_camera.x() / z + visual_intrinsics_.cx;
+      const double v_f = visual_intrinsics_.fy * point_camera.y() / z + visual_intrinsics_.cy;
+      if (!std::isfinite(u_f) || !std::isfinite(v_f)) {
+        continue;
+      }
+      const auto u = static_cast<int64_t>(std::llround(u_f));
+      const auto v = static_cast<int64_t>(std::llround(v_f));
+      const int64_t dilation = static_cast<int64_t>(visual_se3_depth_dilation_px_);
+      for (int64_t dy = -dilation; dy <= dilation; ++dy) {
+        for (int64_t dx = -dilation; dx <= dilation; ++dx) {
+          if (dx * dx + dy * dy > dilation * dilation) {
+            continue;
+          }
+          const int64_t uu = u + dx;
+          const int64_t vv = v + dy;
+          if (uu < 0 || vv < 0 ||
+            uu >= static_cast<int64_t>(frame.width) ||
+            vv >= static_cast<int64_t>(frame.height))
+          {
+            continue;
+          }
+          const size_t index =
+            static_cast<size_t>(vv) * frame.width + static_cast<size_t>(uu);
+          const float depth = static_cast<float>(z);
+          if (!std::isfinite(frame.depth_m[index]) || depth < frame.depth_m[index]) {
+            if (!std::isfinite(frame.depth_m[index])) {
+              ++projected;
+            }
+            frame.depth_m[index] = depth;
+          }
+        }
+      }
+    }
+    if (projected < static_cast<size_t>(visual_se3_min_samples_)) {
+      ++visual_se3_depth_rejected_frames_;
+      return;
+    }
+    sparse_depth_cache_.push_back(std::move(frame));
+    while (static_cast<int>(sparse_depth_cache_.size()) > visual_se3_depth_cache_size_) {
+      sparse_depth_cache_.pop_front();
+    }
+    ++visual_se3_depth_frames_;
+  }
+
+  const SparseDepthFrame * select_sparse_depth_frame_locked(
+    int64_t stamp_ns,
+    size_t width,
+    size_t height,
+    int64_t & match_delta_ns) const
+  {
+    const SparseDepthFrame * best = nullptr;
+    int64_t best_delta = std::numeric_limits<int64_t>::max();
+    for (const auto & frame : sparse_depth_cache_) {
+      if (frame.width != width || frame.height != height) {
+        continue;
+      }
+      const int64_t delta =
+        frame.stamp_ns > stamp_ns ? frame.stamp_ns - stamp_ns : stamp_ns - frame.stamp_ns;
+      if (visual_se3_max_dt_ns_ > 0 && delta > visual_se3_max_dt_ns_) {
+        continue;
+      }
+      if (delta < best_delta) {
+        best_delta = delta;
+        best = &frame;
+      }
+    }
+    match_delta_ns = best == nullptr ? 0 : best_delta;
+    return best;
+  }
+
+  void maybe_add_visual_se3_prior_locked(const VisualFrame & current)
+  {
+    if (!enable_visual_se3_prior_ || !estimator_ || !have_last_visual_frame_ ||
+      !have_visual_intrinsics_ || current.width != last_visual_frame_.width ||
+      current.height != last_visual_frame_.height)
+    {
+      return;
+    }
+    int64_t depth_delta_ns = 0;
+    const SparseDepthFrame * depth_frame =
+      select_sparse_depth_frame_locked(
+      current.stamp_ns, current.width, current.height, depth_delta_ns);
+    if (depth_frame == nullptr) {
+      ++visual_se3_depth_miss_count_;
+      return;
+    }
+    const size_t pixel_count = current.width * current.height;
+    if (current.gray.size() != pixel_count ||
+      last_visual_frame_.gray.size() != pixel_count ||
+      depth_frame->depth_m.size() != pixel_count)
+    {
+      ++visual_se3_rejected_batches_;
+      return;
+    }
+
+    std::vector<VisualSe3PhotometricSample> samples;
+    samples.reserve(static_cast<size_t>(visual_se3_max_samples_));
+    size_t sampled_depth = 0U;
+    size_t rejected_gradient = 0U;
+    size_t rejected_residual = 0U;
+    const size_t coverage_cols = static_cast<size_t>(visual_se3_coverage_grid_cols_);
+    const size_t coverage_rows = static_cast<size_t>(visual_se3_coverage_grid_rows_);
+    const size_t coverage_total_tiles = coverage_cols * coverage_rows;
+    std::vector<bool> occupied_coverage_tiles(coverage_total_tiles, false);
+    std::vector<std::vector<size_t>> valid_depth_tiles(coverage_total_tiles);
+    const auto coverage_tile_for_pixel =
+      [coverage_cols, coverage_rows, &current](const size_t x, const size_t y) {
+        const size_t tile_x =
+          std::min(coverage_cols - 1U, (x * coverage_cols) / current.width);
+        const size_t tile_y =
+          std::min(coverage_rows - 1U, (y * coverage_rows) / current.height);
+        return tile_y * coverage_cols + tile_x;
+      };
+    size_t valid_depth_pixels = 0U;
+    for (size_t index = 0; index < pixel_count; ++index) {
+      const size_t x = index % current.width;
+      const size_t y = index / current.width;
+      if (x == 0U || y == 0U || x + 1U >= current.width || y + 1U >= current.height) {
+        continue;
+      }
+      const float depth = depth_frame->depth_m[index];
+      if (!std::isfinite(depth) ||
+        static_cast<double>(depth) < visual_se3_min_depth_m_ ||
+        static_cast<double>(depth) > visual_se3_max_depth_m_)
+      {
+        continue;
+      }
+      valid_depth_tiles[coverage_tile_for_pixel(x, y)].push_back(index);
+      ++valid_depth_pixels;
+    }
+    if (valid_depth_pixels == 0U) {
+      ++visual_se3_total_batches_;
+      ++visual_se3_rejected_batches_;
+      return;
+    }
+
+    std::vector<size_t> tile_quotas(valid_depth_tiles.size(), 0U);
+    size_t active_tiles = 0U;
+    for (const auto & tile_indices : valid_depth_tiles) {
+      if (!tile_indices.empty()) {
+        ++active_tiles;
+      }
+    }
+    size_t remaining_samples = std::min(
+      valid_depth_pixels, static_cast<size_t>(visual_se3_max_samples_));
+    while (remaining_samples > 0U && active_tiles > 0U) {
+      const size_t share = std::max<size_t>(1U, remaining_samples / active_tiles);
+      bool made_progress = false;
+      for (size_t tile = 0; tile < valid_depth_tiles.size() && remaining_samples > 0U; ++tile) {
+        const size_t tile_remaining = valid_depth_tiles[tile].size() - tile_quotas[tile];
+        if (tile_remaining == 0U) {
+          continue;
+        }
+        const size_t take = std::min(tile_remaining, share);
+        tile_quotas[tile] += take;
+        remaining_samples -= take;
+        made_progress = true;
+        if (tile_quotas[tile] == valid_depth_tiles[tile].size()) {
+          --active_tiles;
+        }
+      }
+      if (!made_progress) {
+        break;
+      }
+    }
+    std::vector<size_t> valid_depth_indices;
+    valid_depth_indices.reserve(
+      std::min(valid_depth_pixels, static_cast<size_t>(visual_se3_max_samples_)));
+    for (size_t tile = 0; tile < valid_depth_tiles.size(); ++tile) {
+      const auto & tile_indices = valid_depth_tiles[tile];
+      const size_t quota = tile_quotas[tile];
+      if (quota == 0U) {
+        continue;
+      }
+      if (quota >= tile_indices.size()) {
+        valid_depth_indices.insert(
+          valid_depth_indices.end(), tile_indices.begin(), tile_indices.end());
+        continue;
+      }
+      for (size_t i = 0; i < quota; ++i) {
+        valid_depth_indices.push_back(tile_indices[(i * tile_indices.size()) / quota]);
+      }
+    }
+
+    double abs_residual_sum = 0.0;
+    for (const size_t index : valid_depth_indices) {
+      const size_t x = index % current.width;
+      const size_t y = index / current.width;
+      const float depth = depth_frame->depth_m[index];
+      ++sampled_depth;
+      const auto at = [&current](const size_t px, const size_t py) {
+          return static_cast<double>(current.gray[py * current.width + px]);
+        };
+      VisualSe3PhotometricSample sample;
+      const double z = static_cast<double>(depth);
+      sample.point_camera = Eigen::Vector3d{
+        (static_cast<double>(x) - visual_intrinsics_.cx) * z / visual_intrinsics_.fx,
+        (static_cast<double>(y) - visual_intrinsics_.cy) * z / visual_intrinsics_.fy,
+        z};
+      sample.image_gradient = Eigen::Vector2d{
+        0.5 * (at(x + 1U, y) - at(x - 1U, y)),
+        0.5 * (at(x, y + 1U) - at(x, y - 1U))};
+      sample.residual =
+        static_cast<double>(current.gray[index] - last_visual_frame_.gray[index]);
+      const double gradient_norm = sample.image_gradient.norm();
+      if (!std::isfinite(gradient_norm) || gradient_norm < visual_se3_min_gradient_) {
+        ++rejected_gradient;
+        continue;
+      }
+      const double abs_residual = std::abs(sample.residual);
+      if (!std::isfinite(abs_residual) ||
+        (visual_se3_max_abs_residual_ > 0.0 && abs_residual > visual_se3_max_abs_residual_))
+      {
+        ++rejected_residual;
+        continue;
+      }
+      sample.weight = 1.0;
+      if (visual_se3_huber_delta_intensity_ > 0.0 &&
+        abs_residual > visual_se3_huber_delta_intensity_)
+      {
+        sample.weight = visual_se3_huber_delta_intensity_ / abs_residual;
+      }
+      occupied_coverage_tiles[coverage_tile_for_pixel(x, y)] = true;
+      abs_residual_sum += abs_residual;
+      samples.push_back(sample);
+      if (samples.size() >= static_cast<size_t>(visual_se3_max_samples_)) {
+        break;
+      }
+    }
+
+    const size_t coverage_tiles = static_cast<size_t>(
+      std::count(occupied_coverage_tiles.begin(), occupied_coverage_tiles.end(), true));
+    const double mean_abs_residual = samples.empty()
+      ? 0.0
+      : abs_residual_sum / static_cast<double>(samples.size());
+    ++visual_se3_total_batches_;
+    visual_se3_sampled_depth_pixels_ += sampled_depth;
+    visual_se3_rejected_gradient_pixels_ += rejected_gradient;
+    visual_se3_rejected_residual_pixels_ += rejected_residual;
+    last_visual_se3_coverage_tiles_ = coverage_tiles;
+    last_visual_se3_coverage_total_tiles_ = coverage_total_tiles;
+    last_visual_se3_mean_abs_residual_ = mean_abs_residual;
+    if (sampled_depth == 0U ||
+      samples.size() < static_cast<size_t>(visual_se3_min_samples_) ||
+      static_cast<double>(samples.size()) / static_cast<double>(sampled_depth) <
+      visual_se3_min_sample_inlier_ratio_ ||
+      coverage_tiles < static_cast<size_t>(visual_se3_min_coverage_tiles_) ||
+      (visual_se3_max_mean_abs_residual_ > 0.0 &&
+      mean_abs_residual > visual_se3_max_mean_abs_residual_))
+    {
+      ++visual_se3_rejected_batches_;
+      return;
+    }
+
+    const auto linearization =
+      linearize_se3_photometric_samples(visual_intrinsics_, samples);
+    if (!linearization.valid ||
+      linearization.sample_count < static_cast<size_t>(visual_se3_min_samples_) ||
+      linearization.hessian_rank < static_cast<size_t>(visual_se3_min_hessian_rank_) ||
+      (visual_se3_max_hessian_condition_ > 0.0 &&
+      (linearization.hessian_condition_number <= 0.0 ||
+      linearization.hessian_condition_number > visual_se3_max_hessian_condition_)))
+    {
+      ++visual_se3_degenerate_batches_;
+      return;
+    }
+
+    Eigen::Quaterniond q_prev;
+    Eigen::Vector3d p_prev;
+    if (!estimator_->query_pose(last_visual_frame_.stamp_ns, q_prev, p_prev)) {
+      ++visual_se3_rejected_batches_;
+      return;
+    }
+    Eigen::Matrix<double, 6, 1> camera_delta =
+      visual_se3_delta_sign_ * linearization.gauss_newton_step;
+    Eigen::Matrix<double, 6, 1> body_delta =
+      transform_camera_delta_to_body(
+      camera_to_imu_rotation_, camera_to_imu_translation_, camera_delta);
+    Eigen::Vector3d rotation_delta = body_delta.head<3>();
+    Eigen::Vector3d translation_delta = body_delta.tail<3>();
+    if (!rotation_delta.allFinite() || !translation_delta.allFinite()) {
+      ++visual_se3_rejected_batches_;
+      return;
+    }
+    const double rotation_norm = rotation_delta.norm();
+    const double translation_norm = translation_delta.norm();
+    if ((visual_se3_max_rotation_step_rad_ > 0.0 &&
+      rotation_norm > visual_se3_max_rotation_step_rad_) ||
+      (visual_se3_max_translation_step_m_ > 0.0 &&
+      translation_norm > visual_se3_max_translation_step_m_))
+    {
+      ++visual_se3_step_rejected_batches_;
+      last_visual_se3_rotation_step_rad_ = rotation_norm;
+      last_visual_se3_translation_step_m_ = translation_norm;
+      return;
+    }
+    const Eigen::Quaterniond target_q =
+      (q_prev * quaternion_from_rotation_vector(rotation_delta)).normalized();
+    const Eigen::Vector3d target_p = p_prev + q_prev * translation_delta;
+    if (!target_q.coeffs().allFinite() || !target_p.allFinite()) {
+      ++visual_se3_rejected_batches_;
+      return;
+    }
+    if (visual_se3_position_weight_ > 0.0) {
+      estimator_->add_position_prior(
+        current.stamp_ns, target_p,
+        visual_se3_position_weight_, visual_se3_huber_delta_m_);
+      ++visual_se3_position_priors_;
+    }
+    if (visual_se3_orientation_weight_ > 0.0) {
+      estimator_->add_orientation_prior(
+        current.stamp_ns, target_q,
+        visual_se3_orientation_weight_, visual_se3_huber_delta_rad_);
+      ++visual_se3_orientation_priors_;
+    }
+    ++visual_se3_valid_batches_;
+    last_visual_se3_depth_delta_ns_ = depth_delta_ns;
+    last_visual_se3_samples_ = linearization.sample_count;
+    last_visual_se3_hessian_rank_ = linearization.hessian_rank;
+    last_visual_se3_hessian_condition_ = linearization.hessian_condition_number;
+    last_visual_se3_rotation_step_rad_ = rotation_norm;
+    last_visual_se3_translation_step_m_ = translation_norm;
   }
 
   void on_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -926,6 +1411,7 @@ private:
           static_cast<double>(fz));
       }
       const auto planes = plane_extractor_.extract(points);
+      cache_sparse_depth_frame_locked(stamp_ns, points, extrinsics);
 
       // Transform each LiDAR-frame plane to world frame via the estimator's
       // current pose at the scan stamp. World-frame planes become stationary
@@ -1031,7 +1517,7 @@ private:
     int accepted = 0;
     int stride_counter = 0;
     std::vector<Eigen::Vector3d> points;
-    if (enable_lidar_pose_prior_factor_) {
+    if (enable_lidar_pose_prior_factor_ || enable_visual_se3_prior_) {
       points.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
     }
     sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
@@ -1054,7 +1540,7 @@ private:
       if (range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_) {
         continue;
       }
-      if (enable_lidar_pose_prior_factor_) {
+      if (enable_lidar_pose_prior_factor_ || enable_visual_se3_prior_) {
         points.emplace_back(rx, ry, rz);
       }
       pc.point_lidar = Eigen::Vector3d(rx, ry, rz);
@@ -1074,6 +1560,7 @@ private:
       const bool have_scan_pose = estimator_->query_pose(stamp_ns, q, p);
       maybe_add_lidar_pose_prior_locked(stamp_ns, points, q, p, extrinsics, have_scan_pose);
     }
+    cache_sparse_depth_frame_locked(stamp_ns, points, extrinsics);
     accepted_pointcloud_correspondences_ += static_cast<std::size_t>(accepted);
     ++pointcloud_messages_;
   }
@@ -1189,6 +1676,18 @@ private:
       "visual_rotation_rejected=%zu visual_rotation_priors=%zu "
       "visual_rotation_dx_px=%.9g visual_rotation_dy_px=%.9g "
       "visual_rotation_angle_rad=%.9g visual_rotation_rmse=%.9g "
+      "visual_se_depth_frames=%zu visual_se_depth_miss=%zu "
+      "visual_se_batches=%zu visual_se_valid=%zu visual_se_rejected=%zu "
+      "visual_se_degenerate=%zu visual_se_step_rejected=%zu "
+      "visual_se_position_priors=%zu visual_se_orientation_priors=%zu "
+      "visual_se_sampled_depth=%zu visual_se_rejected_gradient=%zu "
+      "visual_se_rejected_residual=%zu visual_se_last_samples=%zu "
+      "visual_se_last_rank=%zu visual_se_last_coverage_tiles=%zu "
+      "visual_se_last_coverage_total=%zu visual_se_last_condition=%.9g "
+      "visual_se_last_mean_abs_residual=%.9g "
+      "visual_se_last_translation_step_m=%.9g "
+      "visual_se_last_rotation_step_rad=%.9g "
+      "visual_se_last_depth_delta_ns=%ld "
       "lidar_pose_priors=%zu lidar_pose_velocity_priors=%zu "
       "lidar_pose_matches=%zu lidar_pose_keyframes=%zu "
       "lidar_pose_rejected=%zu lidar_pose_last_residual=%.9g "
@@ -1252,6 +1751,27 @@ private:
       last_visual_rotation_dy_px_,
       last_visual_rotation_angle_rad_,
       last_visual_rotation_rmse_,
+      visual_se3_depth_frames_,
+      visual_se3_depth_miss_count_,
+      visual_se3_total_batches_,
+      visual_se3_valid_batches_,
+      visual_se3_rejected_batches_,
+      visual_se3_degenerate_batches_,
+      visual_se3_step_rejected_batches_,
+      visual_se3_position_priors_,
+      visual_se3_orientation_priors_,
+      visual_se3_sampled_depth_pixels_,
+      visual_se3_rejected_gradient_pixels_,
+      visual_se3_rejected_residual_pixels_,
+      last_visual_se3_samples_,
+      last_visual_se3_hessian_rank_,
+      last_visual_se3_coverage_tiles_,
+      last_visual_se3_coverage_total_tiles_,
+      last_visual_se3_hessian_condition_,
+      last_visual_se3_mean_abs_residual_,
+      last_visual_se3_translation_step_m_,
+      last_visual_se3_rotation_step_rad_,
+      static_cast<long>(last_visual_se3_depth_delta_ns_),
       lidar_pose_prior_factors_,
       lidar_pose_prior_velocity_factors_,
       lidar_pose_prior_matches_,
@@ -1692,6 +2212,7 @@ private:
   Eigen::Vector3d lidar_to_imu_translation_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond lidar_to_imu_rotation_{Eigen::Quaterniond::Identity()};
   Eigen::Quaterniond camera_to_imu_rotation_{Eigen::Quaterniond::Identity()};
+  Eigen::Vector3d camera_to_imu_translation_{Eigen::Vector3d::Zero()};
 
   bool enable_visual_rotation_prior_{false};
   double visual_rotation_prior_weight_{0.1};
@@ -1719,6 +2240,55 @@ private:
   double last_visual_rotation_dy_px_{0.0};
   double last_visual_rotation_angle_rad_{0.0};
   double last_visual_rotation_rmse_{0.0};
+
+  bool enable_visual_se3_prior_{false};
+  double visual_se3_position_weight_{0.0};
+  double visual_se3_orientation_weight_{0.0};
+  double visual_se3_huber_delta_m_{0.05};
+  double visual_se3_huber_delta_rad_{0.05};
+  int visual_se3_max_samples_{1000};
+  int visual_se3_min_samples_{32};
+  double visual_se3_min_gradient_{1.0e-4};
+  double visual_se3_max_abs_residual_{0.5};
+  double visual_se3_huber_delta_intensity_{0.15};
+  double visual_se3_min_depth_m_{0.05};
+  double visual_se3_max_depth_m_{80.0};
+  int visual_se3_depth_dilation_px_{2};
+  int visual_se3_depth_cache_size_{8};
+  int64_t visual_se3_max_dt_ns_{100000000LL};
+  int visual_se3_min_hessian_rank_{4};
+  double visual_se3_max_hessian_condition_{1.0e12};
+  double visual_se3_min_sample_inlier_ratio_{0.20};
+  int visual_se3_coverage_grid_cols_{4};
+  int visual_se3_coverage_grid_rows_{4};
+  int visual_se3_min_coverage_tiles_{4};
+  double visual_se3_max_mean_abs_residual_{0.0};
+  double visual_se3_max_translation_step_m_{0.25};
+  double visual_se3_max_rotation_step_rad_{0.15};
+  double visual_se3_delta_sign_{1.0};
+  std::deque<SparseDepthFrame> sparse_depth_cache_;
+  std::size_t visual_se3_depth_frames_{0};
+  std::size_t visual_se3_depth_rejected_frames_{0};
+  std::size_t visual_se3_depth_miss_count_{0};
+  std::size_t visual_se3_total_batches_{0};
+  std::size_t visual_se3_valid_batches_{0};
+  std::size_t visual_se3_rejected_batches_{0};
+  std::size_t visual_se3_degenerate_batches_{0};
+  std::size_t visual_se3_step_rejected_batches_{0};
+  std::size_t visual_se3_position_priors_{0};
+  std::size_t visual_se3_orientation_priors_{0};
+  std::size_t visual_se3_sampled_depth_pixels_{0};
+  std::size_t visual_se3_rejected_gradient_pixels_{0};
+  std::size_t visual_se3_rejected_residual_pixels_{0};
+  std::size_t last_visual_se3_samples_{0};
+  std::size_t last_visual_se3_hessian_rank_{0};
+  std::size_t last_visual_se3_coverage_tiles_{0};
+  std::size_t last_visual_se3_coverage_total_tiles_{0};
+  double last_visual_se3_hessian_condition_{0.0};
+  double last_visual_se3_mean_abs_residual_{0.0};
+  double last_visual_se3_translation_step_m_{0.0};
+  double last_visual_se3_rotation_step_rad_{0.0};
+  int64_t last_visual_se3_depth_delta_ns_{0};
 
   bool enable_imu_gravity_autocal_{true};
   bool enable_startup_bias_autocal_{true};
