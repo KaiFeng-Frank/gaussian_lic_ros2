@@ -30,6 +30,7 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include <gaussian_lic_tracking/spline/continuous_time_sliding_window.hpp>
+#include <gaussian_lic_tracking/spline/lidar_plane_extractor.hpp>
 
 namespace gaussian_lic_tracking
 {
@@ -128,6 +129,23 @@ public:
       declare_parameter<double>("pointcloud_max_range_m", 30.0);
     pointcloud_factor_weight_ =
       declare_parameter<double>("pointcloud_factor_weight", 1.0);
+
+    enable_voxel_plane_extraction_ =
+      declare_parameter<bool>("enable_voxel_plane_extraction", true);
+    spline::LidarPlaneExtractorOptions extractor_options;
+    extractor_options.voxel_size_m =
+      declare_parameter<double>("voxel_plane_size_m", 0.5);
+    extractor_options.min_points_per_voxel = static_cast<int>(
+      declare_parameter<int>("voxel_plane_min_points", 8));
+    extractor_options.planar_eigenvalue_ratio =
+      declare_parameter<double>("voxel_plane_eigen_ratio", 0.05);
+    extractor_options.max_inlier_distance_m =
+      declare_parameter<double>("voxel_plane_max_inlier_m", 0.1);
+    extractor_options.max_correspondences = static_cast<int>(
+      declare_parameter<int>("voxel_plane_max_correspondences", 64));
+    extractor_options.min_range_m = pointcloud_min_range_m_;
+    extractor_options.max_range_m = pointcloud_max_range_m_;
+    plane_extractor_.set_options(extractor_options);
 
     const auto plane_param = declare_parameter<std::vector<double>>(
       "lidar_ground_plane", std::vector<double>{0.0, 0.0, 1.0, 0.0});
@@ -256,6 +274,37 @@ private:
     spline::LidarExtrinsics extrinsics;
     extrinsics.q_lidar_to_imu = lidar_to_imu_rotation_;
     extrinsics.p_lidar_in_imu = lidar_to_imu_translation_;
+
+    if (enable_voxel_plane_extraction_) {
+      std::vector<Eigen::Vector3d> points;
+      points.reserve(static_cast<std::size_t>(msg->width) * msg->height / 4);
+      sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
+      sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
+      sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
+      for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
+        const float fx = *iter_x;
+        const float fy = *iter_y;
+        const float fz = *iter_z;
+        if (!std::isfinite(fx) || !std::isfinite(fy) || !std::isfinite(fz)) {
+          continue;
+        }
+        points.emplace_back(
+          static_cast<double>(fx),
+          static_cast<double>(fy),
+          static_cast<double>(fz));
+      }
+      const auto planes = plane_extractor_.extract(points);
+      int accepted = 0;
+      for (const auto & plane : planes) {
+        const auto correspondence = spline::LidarPlaneExtractor::to_correspondence(plane);
+        estimator_->add_lidar_correspondence(
+          stamp_ns, correspondence, extrinsics, pointcloud_factor_weight_);
+        ++accepted;
+      }
+      accepted_pointcloud_correspondences_ += static_cast<std::size_t>(accepted);
+      ++pointcloud_messages_;
+      return;
+    }
 
     spline::LidarPointCorrespondence pc;
     pc.geometry = spline::LidarFeatureGeometry::kPlane;
@@ -427,6 +476,9 @@ private:
   Eigen::Vector4d lidar_plane_{0.0, 0.0, 1.0, 0.0};
   Eigen::Vector3d lidar_to_imu_translation_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond lidar_to_imu_rotation_{Eigen::Quaterniond::Identity()};
+
+  bool enable_voxel_plane_extraction_{true};
+  spline::LidarPlaneExtractor plane_extractor_{};
 
   double step_period_seconds_{0.10};
   int64_t step_period_ns_{0};
