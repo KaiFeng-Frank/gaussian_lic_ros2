@@ -1434,11 +1434,16 @@ private:
       return;
     }
     std::lock_guard<std::mutex> lock(estimator_mutex_);
+    const int64_t previous_complete_stamp_ns =
+      gaussian_snapshot_.complete() ? gaussian_snapshot_.stamp_ns() : 0;
     const bool accepted = gaussian_snapshot_.ingest(*msg);
     gaussian_snapshot_chunks_received_ = gaussian_snapshot_.received_chunk_count();
     gaussian_snapshot_expected_chunks_ = gaussian_snapshot_.expected_chunk_count();
     gaussian_snapshot_points_ = gaussian_snapshot_.point_count();
-    if (accepted && gaussian_snapshot_.complete()) {
+    if (
+      accepted && gaussian_snapshot_.complete() &&
+      gaussian_snapshot_.stamp_ns() != previous_complete_stamp_ns)
+    {
       ++gaussian_snapshot_updates_;
     }
     RCLCPP_DEBUG_THROTTLE(

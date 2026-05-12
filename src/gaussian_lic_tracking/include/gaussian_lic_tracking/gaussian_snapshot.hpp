@@ -82,6 +82,8 @@ private:
   };
 
   void reset_sequence(int64_t stamp_ns, uint32_t total_count, uint32_t chunk_count);
+  bool pending_complete() const;
+  void commit_pending_sequence();
   void invalidate_spatial_index();
   void ensure_spatial_index(double voxel_size_m, double min_opacity, int subsample_stride) const;
   VoxelKey voxel_key(const Eigen::Vector3d & point, double voxel_size_m) const;
@@ -92,6 +94,13 @@ private:
   size_t received_chunk_count_{0};
   std::vector<bool> received_chunks_;
   std::vector<GaussianSnapshotPoint> points_;
+
+  int64_t pending_stamp_ns_{0};
+  uint32_t pending_expected_total_count_{0};
+  uint32_t pending_expected_chunk_count_{0};
+  size_t pending_received_chunk_count_{0};
+  std::vector<bool> pending_received_chunks_;
+  std::vector<GaussianSnapshotPoint> pending_points_;
 
   mutable std::unordered_map<VoxelKey, std::vector<size_t>, VoxelKeyHash> spatial_index_;
   mutable double spatial_index_voxel_size_m_{0.0};

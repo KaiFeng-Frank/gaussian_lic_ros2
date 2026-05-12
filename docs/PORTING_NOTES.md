@@ -182,6 +182,15 @@ passes with `gaussian_snapshot_chunks_received=5/5`,
 `gaussian_snapshot_points=17716`, and 18 point-factor batches in the tracking
 window.
 
+Longer feedback runs can receive a new map sequence while the previous one is
+still the active tracker anchor. `GaussianSnapshot` therefore now stages chunks
+in a pending buffer and only swaps the committed map after the pending sequence
+is complete. The 20 s CBD probe at
+`results/fastlivo2/CBD_Building_01_gaussian_map_feedback_double_buffer_probe_20s/native_tracking_report.json`
+keeps `gaussian_snapshot_complete=true` despite a later in-flight map update,
+with `20861` committed Gaussians, `6/6` committed chunks, and 20 point-factor
+batches.
+
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and
 `ContinuousTimeSlidingWindow` promotes them with the same signed-nanosecond

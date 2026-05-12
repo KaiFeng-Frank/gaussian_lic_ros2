@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 namespace gaussian_lic_tracking
 {
@@ -18,6 +19,12 @@ void GaussianSnapshot::clear()
   received_chunk_count_ = 0U;
   received_chunks_.clear();
   points_.clear();
+  pending_stamp_ns_ = 0;
+  pending_expected_total_count_ = 0U;
+  pending_expected_chunk_count_ = 0U;
+  pending_received_chunk_count_ = 0U;
+  pending_received_chunks_.clear();
+  pending_points_.clear();
   invalidate_spatial_index();
 }
 
@@ -26,14 +33,13 @@ void GaussianSnapshot::reset_sequence(
   const uint32_t total_count,
   const uint32_t chunk_count)
 {
-  stamp_ns_ = stamp_ns;
-  expected_total_count_ = total_count;
-  expected_chunk_count_ = chunk_count;
-  received_chunk_count_ = 0U;
-  received_chunks_.assign(static_cast<size_t>(chunk_count), false);
-  points_.clear();
-  points_.reserve(total_count);
-  invalidate_spatial_index();
+  pending_stamp_ns_ = stamp_ns;
+  pending_expected_total_count_ = total_count;
+  pending_expected_chunk_count_ = chunk_count;
+  pending_received_chunk_count_ = 0U;
+  pending_received_chunks_.assign(static_cast<size_t>(chunk_count), false);
+  pending_points_.clear();
+  pending_points_.reserve(total_count);
 }
 
 bool GaussianSnapshot::ingest(const gaussian_lic_msgs::msg::GaussianArray & msg)
@@ -43,20 +49,20 @@ bool GaussianSnapshot::ingest(const gaussian_lic_msgs::msg::GaussianArray & msg)
   }
   const int64_t msg_stamp_ns = stamp_to_nanoseconds(msg.header.stamp);
   const bool same_sequence =
-    !received_chunks_.empty() &&
-    msg_stamp_ns == stamp_ns_ &&
-    msg.total_count == expected_total_count_ &&
-    msg.chunk_count == expected_chunk_count_;
+    !pending_received_chunks_.empty() &&
+    msg_stamp_ns == pending_stamp_ns_ &&
+    msg.total_count == pending_expected_total_count_ &&
+    msg.chunk_count == pending_expected_chunk_count_;
   if (!same_sequence) {
     reset_sequence(msg_stamp_ns, msg.total_count, msg.chunk_count);
   }
 
   const size_t chunk_index = static_cast<size_t>(msg.chunk_index);
-  if (received_chunks_[chunk_index]) {
+  if (pending_received_chunks_[chunk_index]) {
     return false;
   }
-  received_chunks_[chunk_index] = true;
-  ++received_chunk_count_;
+  pending_received_chunks_[chunk_index] = true;
+  ++pending_received_chunk_count_;
 
   for (const auto & gaussian : msg.gaussians) {
     GaussianSnapshotPoint point;
@@ -72,13 +78,37 @@ bool GaussianSnapshot::ingest(const gaussian_lic_msgs::msg::GaussianArray & msg)
     point.opacity = static_cast<double>(gaussian.opacity);
     point.confidence = static_cast<double>(gaussian.confidence);
     point.flags = gaussian.flags;
-    points_.push_back(point);
+    pending_points_.push_back(point);
   }
-  if (expected_total_count_ > 0U && points_.size() > expected_total_count_) {
-    points_.resize(expected_total_count_);
+  if (pending_expected_total_count_ > 0U &&
+    pending_points_.size() > pending_expected_total_count_)
+  {
+    pending_points_.resize(pending_expected_total_count_);
   }
-  invalidate_spatial_index();
+  if (pending_complete()) {
+    commit_pending_sequence();
+  }
   return true;
+}
+
+bool GaussianSnapshot::pending_complete() const
+{
+  return pending_expected_chunk_count_ > 0U &&
+    pending_received_chunk_count_ == static_cast<size_t>(pending_expected_chunk_count_) &&
+    (pending_expected_total_count_ == 0U ||
+    pending_points_.size() == static_cast<size_t>(pending_expected_total_count_));
+}
+
+void GaussianSnapshot::commit_pending_sequence()
+{
+  stamp_ns_ = pending_stamp_ns_;
+  expected_total_count_ = pending_expected_total_count_;
+  expected_chunk_count_ = pending_expected_chunk_count_;
+  received_chunk_count_ = pending_received_chunk_count_;
+  received_chunks_ = pending_received_chunks_;
+  points_ = std::move(pending_points_);
+  pending_points_.clear();
+  invalidate_spatial_index();
 }
 
 bool GaussianSnapshot::complete() const
