@@ -6,6 +6,8 @@
 #include <cmath>
 #include <stdexcept>
 
+#include <gaussian_lic_tracking/spline/so3_ops.hpp>
+
 namespace gaussian_lic_tracking
 {
 namespace spline
@@ -397,6 +399,25 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     return true;
   }
   if (rotation_update_too_large) {
+    if (impl_->options.apply_limited_rotation_update &&
+      impl_->options.max_rotation_update_rad > 0.0 &&
+      max_rotation_update > 1.0e-12)
+    {
+      const double rotation_scale =
+        std::clamp(impl_->options.max_rotation_update_rad / max_rotation_update, 0.0, 1.0);
+      for (std::size_t i = 0; i < rotation_out.size(); ++i) {
+        const Eigen::Quaterniond delta =
+          impl_->rotation_knots[i].inverse() * rotation_out[i];
+        impl_->rotation_knots[i] =
+          (impl_->rotation_knots[i] *
+          quaternion_exp(quaternion_log(delta) * rotation_scale)).normalized();
+        impl_->position_knots[i] = position_out[i];
+      }
+      ++impl_->diagnostics.rotation_limited_solver_steps;
+      impl_->diagnostics.last_rotation_limited_position_update_m = max_position_update;
+      impl_->diagnostics.last_rotation_limited_rotation_update_rad = max_rotation_update;
+      return true;
+    }
     if (!impl_->options.apply_position_update_on_rotation_reject) {
       ++impl_->diagnostics.rejected_solver_steps;
       impl_->diagnostics.last_rejected_position_update_m = max_position_update;

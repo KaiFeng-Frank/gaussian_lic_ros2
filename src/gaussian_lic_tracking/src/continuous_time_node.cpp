@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <deque>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -162,6 +163,8 @@ public:
     }
     options.apply_position_update_on_rotation_reject =
       declare_parameter<bool>("apply_position_update_on_rotation_reject", false);
+    options.apply_limited_rotation_update =
+      declare_parameter<bool>("apply_limited_rotation_update", false);
     enable_startup_bias_autocal_ =
       declare_parameter<bool>("enable_startup_bias_autocal", true);
     imu_linear_acceleration_scale_ =
@@ -206,6 +209,11 @@ public:
       static_cast<int>(declare_parameter<int>("pointcloud_subsample_stride", 50));
     pointcloud_max_points_per_msg_ =
       static_cast<int>(declare_parameter<int>("pointcloud_max_points_per_msg", 256));
+    pointcloud_wait_queue_max_size_ =
+      static_cast<int>(declare_parameter<int>("pointcloud_wait_queue_max_size", 100));
+    if (pointcloud_wait_queue_max_size_ < 0) {
+      throw std::runtime_error("pointcloud_wait_queue_max_size must be >= 0");
+    }
     pointcloud_min_range_m_ =
       declare_parameter<double>("pointcloud_min_range_m", 0.3);
     pointcloud_max_range_m_ =
@@ -459,7 +467,53 @@ private:
       return;
     }
     std::lock_guard<std::mutex> lock(estimator_mutex_);
+    process_pointcloud_locked(msg, stamp_ns, true);
+  }
+
+  bool pointcloud_needs_pose_delay() const
+  {
+    return enable_voxel_plane_extraction_ &&
+           (enable_persistent_plane_map_ || enable_persistent_point_map_);
+  }
+
+  bool pointcloud_pose_ready_locked(int64_t stamp_ns) const
+  {
+    if (!pointcloud_needs_pose_delay() || !estimator_) {
+      return true;
+    }
+    Eigen::Quaterniond q;
+    Eigen::Vector3d p;
+    return estimator_->query_pose(stamp_ns, q, p);
+  }
+
+  void enqueue_delayed_pointcloud_locked(
+    const sensor_msgs::msg::PointCloud2::SharedPtr & msg)
+  {
+    if (pointcloud_wait_queue_max_size_ <= 0) {
+      ++delayed_pointcloud_dropped_;
+      return;
+    }
+    delayed_pointcloud_queue_.push_back(msg);
+    ++delayed_pointcloud_deferred_;
+    while (
+      static_cast<int>(delayed_pointcloud_queue_.size()) >
+      pointcloud_wait_queue_max_size_)
+    {
+      delayed_pointcloud_queue_.pop_front();
+      ++delayed_pointcloud_dropped_;
+    }
+  }
+
+  void process_pointcloud_locked(
+    const sensor_msgs::msg::PointCloud2::SharedPtr & msg,
+    int64_t stamp_ns,
+    bool allow_delay)
+  {
     if (!initialized_) {
+      return;
+    }
+    if (allow_delay && !pointcloud_pose_ready_locked(stamp_ns)) {
+      enqueue_delayed_pointcloud_locked(msg);
       return;
     }
     spline::LidarExtrinsics extrinsics;
@@ -605,6 +659,38 @@ private:
     ++pointcloud_messages_;
   }
 
+  void drain_delayed_pointclouds_locked()
+  {
+    if (delayed_pointcloud_queue_.empty()) {
+      return;
+    }
+    std::deque<sensor_msgs::msg::PointCloud2::SharedPtr> still_waiting;
+    while (!delayed_pointcloud_queue_.empty()) {
+      auto msg = delayed_pointcloud_queue_.front();
+      delayed_pointcloud_queue_.pop_front();
+      if (!msg) {
+        ++delayed_pointcloud_dropped_;
+        continue;
+      }
+      const int64_t stamp_ns = to_signed_nanoseconds(msg->header.stamp);
+      if (stamp_ns <= 0) {
+        ++delayed_pointcloud_dropped_;
+        continue;
+      }
+      if (pointcloud_pose_ready_locked(stamp_ns)) {
+        process_pointcloud_locked(msg, stamp_ns, false);
+        ++delayed_pointcloud_released_;
+        continue;
+      }
+      if (estimator_ && stamp_ns < estimator_->oldest_active_knot_stamp_ns()) {
+        ++delayed_pointcloud_dropped_;
+        continue;
+      }
+      still_waiting.push_back(msg);
+    }
+    delayed_pointcloud_queue_ = std::move(still_waiting);
+  }
+
   void on_step_timer()
   {
     std::lock_guard<std::mutex> lock(estimator_mutex_);
@@ -615,6 +701,7 @@ private:
     if (!stepped) {
       return;
     }
+    drain_delayed_pointclouds_locked();
     const auto & diagnostics = estimator_->diagnostics();
     if (diagnostics.rejected_solver_steps > last_logged_rejected_solver_steps_) {
       last_logged_rejected_solver_steps_ = diagnostics.rejected_solver_steps;
@@ -664,7 +751,9 @@ private:
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
       "point_updates=%zu prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
-      "prior_rejected=%zu tum_lines=%zu rejected_steps=%zu rotation_limited_steps=%zu",
+      "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
+      "delayed_pc_dropped=%zu delayed_pc_pending=%zu tum_lines=%zu "
+      "rejected_steps=%zu rotation_limited_steps=%zu",
       diagnostics.steps_run,
       diagnostics.total_imu_factors,
       diagnostics.total_lidar_factors,
@@ -683,6 +772,10 @@ private:
       accepted_prior_position_factor_messages_,
       accepted_prior_orientation_factor_messages_,
       rejected_prior_count_,
+      delayed_pointcloud_deferred_,
+      delayed_pointcloud_released_,
+      delayed_pointcloud_dropped_,
+      delayed_pointcloud_queue_.size(),
       tum_lines_written_,
       diagnostics.rejected_solver_steps,
       diagnostics.rotation_limited_solver_steps);
@@ -968,12 +1061,17 @@ private:
   bool pointcloud_enable_{true};
   int pointcloud_subsample_stride_{50};
   int pointcloud_max_points_per_msg_{256};
+  int pointcloud_wait_queue_max_size_{100};
   double pointcloud_min_range_m_{0.3};
   double pointcloud_max_range_m_{30.0};
   double pointcloud_factor_weight_{0.1};
   double lidar_huber_delta_m_{0.10};
   std::size_t accepted_pointcloud_correspondences_{0};
   std::size_t pointcloud_messages_{0};
+  std::deque<sensor_msgs::msg::PointCloud2::SharedPtr> delayed_pointcloud_queue_;
+  std::size_t delayed_pointcloud_deferred_{0};
+  std::size_t delayed_pointcloud_released_{0};
+  std::size_t delayed_pointcloud_dropped_{0};
 
   Eigen::Vector4d lidar_plane_{0.0, 0.0, 1.0, 0.0};
   Eigen::Vector3d lidar_to_imu_translation_{Eigen::Vector3d::Zero()};

@@ -42,10 +42,12 @@ ENABLE_STARTUP_BIAS_AUTOCAL="${ENABLE_STARTUP_BIAS_AUTOCAL:-true}"
 IMU_LINEAR_ACCELERATION_SCALE="${IMU_LINEAR_ACCELERATION_SCALE:-9.80665}"
 POINTCLOUD_ENABLE="${POINTCLOUD_ENABLE:-true}"
 POINTCLOUD_FACTOR_WEIGHT="${POINTCLOUD_FACTOR_WEIGHT:-0.1}"
+POINTCLOUD_WAIT_QUEUE_MAX_SIZE="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE:-100}"
 MAX_ITERATIONS_PER_STEP="${MAX_ITERATIONS_PER_STEP:-1}"
 IMU_INFO_GYRO="${IMU_INFO_GYRO:-10.0}"
 IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-1.0}"
 APPLY_POSITION_UPDATE_ON_ROTATION_REJECT="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT:-false}"
+APPLY_LIMITED_ROTATION_UPDATE="${APPLY_LIMITED_ROTATION_UPDATE:-false}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
 ENABLE_PERSISTENT_PLANE_MAP="${ENABLE_PERSISTENT_PLANE_MAP:-true}"
 ENABLE_PERSISTENT_POINT_MAP="${ENABLE_PERSISTENT_POINT_MAP:-false}"
@@ -95,6 +97,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p diagnostic_log_period_steps:="${DIAGNOSTIC_LOG_PERIOD_STEPS}" \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
   -p pointcloud_factor_weight:="${POINTCLOUD_FACTOR_WEIGHT}" \
+  -p pointcloud_wait_queue_max_size:="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}" \
   -p lidar_huber_delta_m:="${LIDAR_HUBER_DELTA_M}" \
   -p enable_voxel_plane_extraction:="${ENABLE_VOXEL_PLANE_EXTRACTION}" \
   -p enable_persistent_plane_map:="${ENABLE_PERSISTENT_PLANE_MAP}" \
@@ -114,6 +117,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p max_rotation_update_rad:="${MAX_ROTATION_UPDATE_RAD}" \
   -p position_extrapolation_damping:="${POSITION_EXTRAPOLATION_DAMPING}" \
   -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
+  -p apply_limited_rotation_update:="${APPLY_LIMITED_ROTATION_UPDATE}" \
   -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \
   -p enable_external_odometry_position_factors:="${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" \
   -p enable_external_odometry_orientation_factors:="${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" \
@@ -303,8 +307,10 @@ native = {
     "max_iterations_per_step": int("${MAX_ITERATIONS_PER_STEP}"),
     "imu_info_gyro": float("${IMU_INFO_GYRO}"),
     "imu_info_accel": float("${IMU_INFO_ACCEL}"),
+    "pointcloud_wait_queue_max_size": int("${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
+    "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",
     "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
     "enable_external_odometry_orientation_factors": "${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" == "true",
     "external_odometry_position_factor_weight": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}"),

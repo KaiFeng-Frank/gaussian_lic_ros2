@@ -76,6 +76,10 @@ struct ContinuousTimeSlidingWindowOptions
   // feed the next window instead of turning the whole step into dead
   // reckoning.
   bool apply_position_update_on_rotation_reject{false};
+  // When the SO(3) proposal exceeds `max_rotation_update_rad`, apply a
+  // log-map scaled version of the rotation delta instead of rejecting the
+  // rotation entirely. This is an online trust-region guard for real bags.
+  bool apply_limited_rotation_update{false};
 };
 
 struct ContinuousTimeSlidingWindowDiagnostics

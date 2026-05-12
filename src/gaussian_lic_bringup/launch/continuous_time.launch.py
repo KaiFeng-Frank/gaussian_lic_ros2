@@ -57,9 +57,11 @@ def generate_launch_description() -> LaunchDescription:
     apply_position_update_on_rotation_reject = LaunchConfiguration(
         "apply_position_update_on_rotation_reject"
     )
+    apply_limited_rotation_update = LaunchConfiguration("apply_limited_rotation_update")
     pointcloud_enable = LaunchConfiguration("pointcloud_enable")
     pointcloud_subsample_stride = LaunchConfiguration("pointcloud_subsample_stride")
     pointcloud_max_points_per_msg = LaunchConfiguration("pointcloud_max_points_per_msg")
+    pointcloud_wait_queue_max_size = LaunchConfiguration("pointcloud_wait_queue_max_size")
     pointcloud_min_range_m = LaunchConfiguration("pointcloud_min_range_m")
     pointcloud_max_range_m = LaunchConfiguration("pointcloud_max_range_m")
     pointcloud_factor_weight = LaunchConfiguration("pointcloud_factor_weight")
@@ -108,9 +110,11 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument(
             "apply_position_update_on_rotation_reject", default_value="false"
         ),
+        DeclareLaunchArgument("apply_limited_rotation_update", default_value="false"),
         DeclareLaunchArgument("pointcloud_enable", default_value="true"),
         DeclareLaunchArgument("pointcloud_subsample_stride", default_value="50"),
         DeclareLaunchArgument("pointcloud_max_points_per_msg", default_value="256"),
+        DeclareLaunchArgument("pointcloud_wait_queue_max_size", default_value="100"),
         DeclareLaunchArgument("pointcloud_min_range_m", default_value="0.3"),
         DeclareLaunchArgument("pointcloud_max_range_m", default_value="30.0"),
         DeclareLaunchArgument("pointcloud_factor_weight", default_value="0.1"),
@@ -173,9 +177,11 @@ def generate_launch_description() -> LaunchDescription:
                 "max_rotation_update_rad": max_rotation_update_rad,
                 "position_extrapolation_damping": position_extrapolation_damping,
                 "apply_position_update_on_rotation_reject": apply_position_update_on_rotation_reject,
+                "apply_limited_rotation_update": apply_limited_rotation_update,
                 "pointcloud_enable": pointcloud_enable,
                 "pointcloud_subsample_stride": pointcloud_subsample_stride,
                 "pointcloud_max_points_per_msg": pointcloud_max_points_per_msg,
+                "pointcloud_wait_queue_max_size": pointcloud_wait_queue_max_size,
                 "pointcloud_min_range_m": pointcloud_min_range_m,
                 "pointcloud_max_range_m": pointcloud_max_range_m,
                 "pointcloud_factor_weight": pointcloud_factor_weight,
