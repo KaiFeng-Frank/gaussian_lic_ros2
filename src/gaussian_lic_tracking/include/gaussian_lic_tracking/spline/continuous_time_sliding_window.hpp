@@ -49,6 +49,12 @@ struct ContinuousTimeSlidingWindowOptions
   Eigen::Vector3d gravity_world{Eigen::Vector3d(0.0, 0.0, -9.81)};
   Eigen::Vector3d initial_gyro_bias{Eigen::Vector3d::Zero()};
   Eigen::Vector3d initial_accel_bias{Eigen::Vector3d::Zero()};
+  // Per-axis IMU information weights. Higher = tighter constraint.
+  // Defaults reflect realistic Coco-LIC / VINS-Mono settings for a
+  // commodity 200 Hz IMU: gyro variance ~1e-2 rad²/s² → info ~10²,
+  // accel variance ~1e-1 m²/s⁴ → info ~10¹.
+  double imu_info_gyro{100.0};
+  double imu_info_accel{10.0};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};
   bool hold_gravity_constant{true};

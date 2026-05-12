@@ -208,7 +208,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   estimator.set_accel_bias(impl_->accel_bias);
   estimator.set_gravity_world(impl_->gravity_world);
 
-  Eigen::Matrix<double, 6, 1> info_diag = Eigen::Matrix<double, 6, 1>::Ones();
+  Eigen::Matrix<double, 6, 1> info_diag;
+  info_diag <<
+    impl_->options.imu_info_gyro, impl_->options.imu_info_gyro, impl_->options.imu_info_gyro,
+    impl_->options.imu_info_accel, impl_->options.imu_info_accel, impl_->options.imu_info_accel;
   for (const auto & active : impl_->active_imu) {
     const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
     if (estimator.add_imu_factor(t_s, active.sample, info_diag)) {
