@@ -151,6 +151,21 @@ evidence still does not improve ATE (`0.143944-0.145313 m` RMSE and shortened
 path scale), so the open strict-parity blocker remains global trajectory-shape
 and visual/Gaussian-map coupling rather than point-map update timing.
 
+2026-05-13 Gaussian snapshot anchoring follow-up: the standalone
+`continuous_time_node` can now subscribe directly to chunked
+`gaussian_lic_msgs/GaussianArray` map snapshots on `gaussian_map_topic`,
+cache complete mapper snapshots, build a voxel nearest-neighbor index over
+opacity-gated Gaussians, and add robust LiDAR-to-Gaussian point-to-point
+residuals to the same continuous-time Ceres window used by IMU/LiDAR/visual
+factors. `continuous_time_native_reference_parity.sh` forwards the default-off
+controls (`enable_gaussian_snapshot_lidar_factor`,
+`gaussian_snapshot_lidar_factor_weight`,
+`gaussian_snapshot_lidar_nearest_distance_m`,
+`gaussian_snapshot_lidar_min_opacity`, frame/map subsampling, and max
+correspondences) and records them in the native report config. This closes the
+missing mapper-to-tracker Gaussian global-anchor plumbing, but it remains
+default-off until a full mapper-feedback run proves long-window RMSE parity.
+
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and
 `ContinuousTimeSlidingWindow` promotes them with the same signed-nanosecond

@@ -18,6 +18,7 @@ void GaussianSnapshot::clear()
   received_chunk_count_ = 0U;
   received_chunks_.clear();
   points_.clear();
+  invalidate_spatial_index();
 }
 
 void GaussianSnapshot::reset_sequence(
@@ -32,6 +33,7 @@ void GaussianSnapshot::reset_sequence(
   received_chunks_.assign(static_cast<size_t>(chunk_count), false);
   points_.clear();
   points_.reserve(total_count);
+  invalidate_spatial_index();
 }
 
 bool GaussianSnapshot::ingest(const gaussian_lic_msgs::msg::GaussianArray & msg)
@@ -75,6 +77,7 @@ bool GaussianSnapshot::ingest(const gaussian_lic_msgs::msg::GaussianArray & msg)
   if (expected_total_count_ > 0U && points_.size() > expected_total_count_) {
     points_.resize(expected_total_count_);
   }
+  invalidate_spatial_index();
   return true;
 }
 
@@ -109,6 +112,124 @@ double GaussianSnapshot::mean_opacity() const
   return sum / static_cast<double>(points_.size());
 }
 
+size_t GaussianSnapshot::VoxelKeyHash::operator()(const VoxelKey & key) const
+{
+  const auto mix = [](uint64_t value) {
+    value ^= value >> 30U;
+    value *= 0xbf58476d1ce4e5b9ULL;
+    value ^= value >> 27U;
+    value *= 0x94d049bb133111ebULL;
+    value ^= value >> 31U;
+    return value;
+  };
+  const uint64_t hx = mix(static_cast<uint64_t>(key.x) + 0x9e3779b97f4a7c15ULL);
+  const uint64_t hy = mix(static_cast<uint64_t>(key.y) + 0xbf58476d1ce4e5b9ULL);
+  const uint64_t hz = mix(static_cast<uint64_t>(key.z) + 0x94d049bb133111ebULL);
+  return static_cast<size_t>(hx ^ (hy << 1U) ^ (hz << 7U));
+}
+
+void GaussianSnapshot::invalidate_spatial_index()
+{
+  spatial_index_.clear();
+  spatial_index_voxel_size_m_ = 0.0;
+  spatial_index_min_opacity_ = -1.0;
+  spatial_index_subsample_stride_ = 0;
+  spatial_index_stamp_ns_ = 0;
+  spatial_index_point_count_ = 0U;
+}
+
+GaussianSnapshot::VoxelKey GaussianSnapshot::voxel_key(
+  const Eigen::Vector3d & point,
+  const double voxel_size_m) const
+{
+  return VoxelKey{
+    static_cast<int64_t>(std::floor(point.x() / voxel_size_m)),
+    static_cast<int64_t>(std::floor(point.y() / voxel_size_m)),
+    static_cast<int64_t>(std::floor(point.z() / voxel_size_m))};
+}
+
+void GaussianSnapshot::ensure_spatial_index(
+  const double voxel_size_m,
+  const double min_opacity,
+  const int subsample_stride) const
+{
+  const int stride = std::max(1, subsample_stride);
+  if (!complete() || !std::isfinite(voxel_size_m) || voxel_size_m <= 0.0) {
+    return;
+  }
+  if (!spatial_index_.empty() &&
+    spatial_index_voxel_size_m_ == voxel_size_m &&
+    spatial_index_min_opacity_ == min_opacity &&
+    spatial_index_subsample_stride_ == stride &&
+    spatial_index_stamp_ns_ == stamp_ns_ &&
+    spatial_index_point_count_ == points_.size())
+  {
+    return;
+  }
+
+  spatial_index_.clear();
+  for (size_t index = 0U; index < points_.size(); index += static_cast<size_t>(stride)) {
+    const auto & point = points_[index];
+    if (!point.xyz.allFinite() || point.opacity < min_opacity) {
+      continue;
+    }
+    spatial_index_[voxel_key(point.xyz, voxel_size_m)].push_back(index);
+  }
+  spatial_index_voxel_size_m_ = voxel_size_m;
+  spatial_index_min_opacity_ = min_opacity;
+  spatial_index_subsample_stride_ = stride;
+  spatial_index_stamp_ns_ = stamp_ns_;
+  spatial_index_point_count_ = points_.size();
+}
+
+GaussianSnapshotNearest GaussianSnapshot::find_nearest(
+  const Eigen::Vector3d & query,
+  const double max_distance_m,
+  const double min_opacity,
+  const int subsample_stride) const
+{
+  GaussianSnapshotNearest nearest;
+  if (!complete() || points_.empty() || !query.allFinite() ||
+    !std::isfinite(max_distance_m) || max_distance_m <= 0.0)
+  {
+    return nearest;
+  }
+
+  ensure_spatial_index(max_distance_m, min_opacity, subsample_stride);
+  if (spatial_index_.empty()) {
+    return nearest;
+  }
+
+  const VoxelKey center = voxel_key(query, max_distance_m);
+  double best_distance_sq = max_distance_m * max_distance_m;
+  for (int dx = -1; dx <= 1; ++dx) {
+    for (int dy = -1; dy <= 1; ++dy) {
+      for (int dz = -1; dz <= 1; ++dz) {
+        const VoxelKey key{center.x + dx, center.y + dy, center.z + dz};
+        const auto bucket_it = spatial_index_.find(key);
+        if (bucket_it == spatial_index_.end()) {
+          continue;
+        }
+        for (const size_t point_index : bucket_it->second) {
+          if (point_index >= points_.size()) {
+            continue;
+          }
+          const auto & gaussian = points_[point_index];
+          const double distance_sq = (gaussian.xyz - query).squaredNorm();
+          if (distance_sq <= best_distance_sq) {
+            best_distance_sq = distance_sq;
+            nearest.matched = true;
+            nearest.xyz = gaussian.xyz;
+            nearest.distance_sq = distance_sq;
+            nearest.point_index = point_index;
+          }
+        }
+      }
+    }
+  }
+  return nearest;
+}
+
 SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
   const std::vector<Eigen::Vector3d> & frame_points_i,
   const TrajectoryPose & predicted_pose,
@@ -135,22 +256,11 @@ SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
   for (size_t point_index = 0; point_index < frame_points_i.size(); point_index += stride) {
     const auto & point_i = frame_points_i[point_index];
     const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
-    double best_distance_sq = std::numeric_limits<double>::infinity();
-    Eigen::Vector3d best_point_w = Eigen::Vector3d::Zero();
-    for (const auto & gaussian : points_) {
-      if (gaussian.opacity < min_opacity) {
-        continue;
-      }
-      const double distance_sq = (gaussian.xyz - point_w).squaredNorm();
-      if (distance_sq < best_distance_sq) {
-        best_distance_sq = distance_sq;
-        best_point_w = gaussian.xyz;
-      }
-    }
-    if (best_distance_sq <= max_distance_sq) {
-      const double residual_norm = std::sqrt(best_distance_sq);
+    const auto nearest = find_nearest(point_w, nearest_distance_m, min_opacity, 1);
+    if (nearest.matched && nearest.distance_sq <= max_distance_sq) {
+      const double residual_norm = std::sqrt(nearest.distance_sq);
       factor.frame_points_i.push_back(point_i);
-      factor.target_points_w.push_back(best_point_w);
+      factor.target_points_w.push_back(nearest.xyz);
       factor.point_weights.push_back(std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12)));
     }
   }

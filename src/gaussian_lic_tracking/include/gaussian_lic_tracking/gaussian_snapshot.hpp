@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
@@ -25,6 +26,14 @@ struct GaussianSnapshotPoint
   uint8_t flags{0};
 };
 
+struct GaussianSnapshotNearest
+{
+  bool matched{false};
+  Eigen::Vector3d xyz{Eigen::Vector3d::Zero()};
+  double distance_sq{0.0};
+  size_t point_index{0U};
+};
+
 class GaussianSnapshot
 {
 public:
@@ -41,6 +50,11 @@ public:
 
   Eigen::Vector3d centroid() const;
   double mean_opacity() const;
+  GaussianSnapshotNearest find_nearest(
+    const Eigen::Vector3d & query,
+    double max_distance_m,
+    double min_opacity,
+    int subsample_stride) const;
   SlidingWindowPointToPointFactor build_point_to_point_factor(
     const std::vector<Eigen::Vector3d> & frame_points_i,
     const TrajectoryPose & predicted_pose,
@@ -50,7 +64,27 @@ public:
     double min_opacity) const;
 
 private:
+  struct VoxelKey
+  {
+    int64_t x{0};
+    int64_t y{0};
+    int64_t z{0};
+
+    bool operator==(const VoxelKey & other) const
+    {
+      return x == other.x && y == other.y && z == other.z;
+    }
+  };
+
+  struct VoxelKeyHash
+  {
+    size_t operator()(const VoxelKey & key) const;
+  };
+
   void reset_sequence(int64_t stamp_ns, uint32_t total_count, uint32_t chunk_count);
+  void invalidate_spatial_index();
+  void ensure_spatial_index(double voxel_size_m, double min_opacity, int subsample_stride) const;
+  VoxelKey voxel_key(const Eigen::Vector3d & point, double voxel_size_m) const;
 
   int64_t stamp_ns_{0};
   uint32_t expected_total_count_{0};
@@ -58,6 +92,13 @@ private:
   size_t received_chunk_count_{0};
   std::vector<bool> received_chunks_;
   std::vector<GaussianSnapshotPoint> points_;
+
+  mutable std::unordered_map<VoxelKey, std::vector<size_t>, VoxelKeyHash> spatial_index_;
+  mutable double spatial_index_voxel_size_m_{0.0};
+  mutable double spatial_index_min_opacity_{-1.0};
+  mutable int spatial_index_subsample_stride_{0};
+  mutable int64_t spatial_index_stamp_ns_{0};
+  mutable size_t spatial_index_point_count_{0U};
 };
 
 }  // namespace gaussian_lic_tracking

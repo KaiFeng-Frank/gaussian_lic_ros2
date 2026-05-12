@@ -419,6 +419,7 @@ target_link_libraries(continuous_time_node
   Eigen3::Eigen
 )
 ament_target_dependencies(continuous_time_node
+  gaussian_lic_msgs
   geometry_msgs
   nav_msgs
   rclcpp

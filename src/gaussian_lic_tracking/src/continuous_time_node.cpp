@@ -38,6 +38,8 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
+#include <gaussian_lic_msgs/msg/gaussian_array.hpp>
+#include <gaussian_lic_tracking/gaussian_snapshot.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
@@ -404,6 +406,8 @@ public:
       "odometry_topic", "/gaussian_lic/continuous_time/odometry");
     path_topic_ = declare_parameter<std::string>(
       "path_topic", "/gaussian_lic/continuous_time/path");
+    gaussian_map_topic_ = declare_parameter<std::string>(
+      "gaussian_map_topic", "/gaussian_lic/gaussian_map");
     body_frame_id_ = declare_parameter<std::string>("body_frame_id", "imu_link");
     world_frame_id_ = declare_parameter<std::string>("world_frame_id", "map");
 
@@ -950,6 +954,8 @@ public:
       declare_parameter<bool>("enable_persistent_plane_map", true);
     enable_persistent_point_map_ =
       declare_parameter<bool>("enable_persistent_point_map", false);
+    enable_gaussian_snapshot_lidar_factor_ =
+      declare_parameter<bool>("enable_gaussian_snapshot_lidar_factor", false);
     persistent_map_update_requires_accepted_solve_ =
       declare_parameter<bool>("persistent_map_update_requires_accepted_solve", false);
     defer_persistent_plane_map_updates_until_solved_ =
@@ -975,6 +981,18 @@ public:
       declare_parameter<int>("persistent_point_map_max_correspondences", 64));
     persistent_point_map_min_observations_for_match_ = static_cast<int>(
       declare_parameter<int>("persistent_point_map_min_observations_for_match", 3));
+    gaussian_snapshot_lidar_factor_weight_ =
+      declare_parameter<double>("gaussian_snapshot_lidar_factor_weight", 0.05);
+    gaussian_snapshot_lidar_nearest_distance_m_ =
+      declare_parameter<double>("gaussian_snapshot_lidar_nearest_distance_m", 0.35);
+    gaussian_snapshot_lidar_min_opacity_ =
+      declare_parameter<double>("gaussian_snapshot_lidar_min_opacity", 0.01);
+    gaussian_snapshot_lidar_subsample_stride_ = static_cast<int>(
+      declare_parameter<int>("gaussian_snapshot_lidar_subsample_stride", 20));
+    gaussian_snapshot_map_subsample_stride_ = static_cast<int>(
+      declare_parameter<int>("gaussian_snapshot_map_subsample_stride", 1));
+    gaussian_snapshot_lidar_max_correspondences_ = static_cast<int>(
+      declare_parameter<int>("gaussian_snapshot_lidar_max_correspondences", 64));
     if (!std::isfinite(persistent_point_map_nearest_distance_m_) ||
       persistent_point_map_nearest_distance_m_ <= 0.0 ||
       !std::isfinite(persistent_point_map_merge_distance_m_) ||
@@ -988,6 +1006,18 @@ public:
       persistent_point_map_min_observations_for_match_ < 1)
     {
       throw std::runtime_error("Persistent point-map parameters are invalid");
+    }
+    if (!std::isfinite(gaussian_snapshot_lidar_factor_weight_) ||
+      gaussian_snapshot_lidar_factor_weight_ <= 0.0 ||
+      !std::isfinite(gaussian_snapshot_lidar_nearest_distance_m_) ||
+      gaussian_snapshot_lidar_nearest_distance_m_ <= 0.0 ||
+      !std::isfinite(gaussian_snapshot_lidar_min_opacity_) ||
+      gaussian_snapshot_lidar_min_opacity_ < 0.0 ||
+      gaussian_snapshot_lidar_subsample_stride_ < 1 ||
+      gaussian_snapshot_map_subsample_stride_ < 1 ||
+      gaussian_snapshot_lidar_max_correspondences_ < 0)
+    {
+      throw std::runtime_error("Gaussian snapshot LiDAR factor parameters are invalid");
     }
     spline::LidarPlaneExtractorOptions extractor_options;
     extractor_options.voxel_size_m =
@@ -1068,6 +1098,16 @@ public:
       image_subscription_ = create_subscription<sensor_msgs::msg::Image>(
         raw_image_topic_, camera_qos,
         std::bind(&ContinuousTimeNode::on_image, this, std::placeholders::_1));
+    }
+
+    if (enable_gaussian_snapshot_lidar_factor_) {
+      rclcpp::QoS gaussian_qos(rclcpp::KeepLast(10));
+      gaussian_qos.reliable();
+      gaussian_qos.transient_local();
+      gaussian_map_subscription_ =
+        create_subscription<gaussian_lic_msgs::msg::GaussianArray>(
+        gaussian_map_topic_, gaussian_qos,
+        std::bind(&ContinuousTimeNode::on_gaussian_map, this, std::placeholders::_1));
     }
 
     if (enable_external_odometry_prior_ && !external_odometry_prior_topic_.empty()) {
@@ -1382,6 +1422,31 @@ private:
     last_visual_rotation_rmse_ = alignment.rmse;
     ++visual_rotation_accepted_frames_;
     last_visual_frame_ = std::move(frame);
+  }
+
+  void on_gaussian_map(const gaussian_lic_msgs::msg::GaussianArray::SharedPtr msg)
+  {
+    if (!msg || !enable_gaussian_snapshot_lidar_factor_) {
+      return;
+    }
+    std::lock_guard<std::mutex> lock(estimator_mutex_);
+    const bool accepted = gaussian_snapshot_.ingest(*msg);
+    gaussian_snapshot_chunks_received_ = gaussian_snapshot_.received_chunk_count();
+    gaussian_snapshot_expected_chunks_ = gaussian_snapshot_.expected_chunk_count();
+    gaussian_snapshot_points_ = gaussian_snapshot_.point_count();
+    if (accepted && gaussian_snapshot_.complete()) {
+      ++gaussian_snapshot_updates_;
+    }
+    RCLCPP_DEBUG_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "continuous-time Gaussian snapshot chunk %u/%u total=%u accepted=%s complete=%s cached=%zu mean_opacity=%.4f",
+      msg->chunk_index + 1U,
+      msg->chunk_count,
+      msg->total_count,
+      accepted ? "true" : "false",
+      gaussian_snapshot_.complete() ? "true" : "false",
+      gaussian_snapshot_.point_count(),
+      gaussian_snapshot_.mean_opacity());
   }
 
   struct SparseDepthFrame
@@ -2058,6 +2123,10 @@ private:
           stamp_ns, points, R_w_l, p_w_l, extrinsics,
           persistent_map_update_allowed);
       }
+      if (enable_gaussian_snapshot_lidar_factor_ && have_scan_pose) {
+        accepted += add_gaussian_snapshot_correspondences(
+          stamp_ns, points, q_b_w_at_scan, p_b_w_at_scan, extrinsics);
+      }
       for (const auto & plane : planes) {
         Eigen::Vector3d n_world = Eigen::Vector3d::Zero();
         Eigen::Vector3d centroid_world = Eigen::Vector3d::Zero();
@@ -2379,6 +2448,12 @@ private:
       "pointcloud_deskewed_points=%zu pointcloud_deskew_fallback_points=%zu "
       "pointcloud_last_max_deskew_m=%.9g "
       "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
+      "gaussian_snapshot_points=%zu "
+      "gaussian_snapshot_chunks_received=%zu "
+      "gaussian_snapshot_expected_chunks=%u "
+      "gaussian_snapshot_updates=%zu "
+      "gaussian_snapshot_matches=%zu "
+      "gaussian_snapshot_factor_skips=%zu "
       "plane_normal_factors=%zu "
       "visual_rotation_images=%zu visual_rotation_accepted=%zu "
       "visual_rotation_rejected=%zu visual_rotation_priors=%zu "
@@ -2501,6 +2576,12 @@ private:
       persistent_plane_map_update_skips_,
       persistent_point_map_updates_,
       persistent_point_map_update_skips_,
+      gaussian_snapshot_points_,
+      gaussian_snapshot_chunks_received_,
+      gaussian_snapshot_expected_chunks_,
+      gaussian_snapshot_updates_,
+      gaussian_snapshot_lidar_matches_,
+      gaussian_snapshot_lidar_factor_skips_,
       persistent_plane_normal_factors_,
       visual_rotation_image_frames_,
       visual_rotation_accepted_frames_,
@@ -2818,6 +2899,83 @@ private:
     }
     persistent_point_map_updates_ +=
       commit_persistent_point_map_updates(stamp_ns, pending_point_updates);
+    return accepted;
+  }
+
+  int add_gaussian_snapshot_correspondences(
+    int64_t stamp_ns,
+    const std::vector<Eigen::Vector3d> & points_lidar,
+    const Eigen::Quaterniond & q_w_i,
+    const Eigen::Vector3d & p_w_i,
+    const spline::LidarExtrinsics & extrinsics)
+  {
+    if (!gaussian_snapshot_.complete() || points_lidar.empty() ||
+      !q_w_i.coeffs().allFinite() || !p_w_i.allFinite())
+    {
+      ++gaussian_snapshot_lidar_factor_skips_;
+      return 0;
+    }
+
+    if (gaussian_snapshot_.point_count() == 0U) {
+      ++gaussian_snapshot_lidar_factor_skips_;
+      return 0;
+    }
+
+    int accepted = 0;
+    int stride_counter = 0;
+    const double max_distance_sq =
+      gaussian_snapshot_lidar_nearest_distance_m_ *
+      gaussian_snapshot_lidar_nearest_distance_m_;
+    for (const auto & point_lidar : points_lidar) {
+      if (gaussian_snapshot_lidar_subsample_stride_ > 1 &&
+        stride_counter++ % gaussian_snapshot_lidar_subsample_stride_ != 0)
+      {
+        continue;
+      }
+      const double range = point_lidar.norm();
+      if (!point_lidar.allFinite() || !std::isfinite(range) ||
+        range < pointcloud_min_range_m_ || range > pointcloud_max_range_m_)
+      {
+        continue;
+      }
+
+      const Eigen::Vector3d point_imu =
+        extrinsics.q_lidar_to_imu * point_lidar + extrinsics.p_lidar_in_imu;
+      const Eigen::Vector3d point_world = q_w_i * point_imu + p_w_i;
+      const Eigen::Vector3d point_map =
+        extrinsics.q_world_to_map * point_world + extrinsics.p_world_in_map;
+      if (!point_map.allFinite()) {
+        continue;
+      }
+
+      const auto nearest = gaussian_snapshot_.find_nearest(
+        point_map,
+        gaussian_snapshot_lidar_nearest_distance_m_,
+        gaussian_snapshot_lidar_min_opacity_,
+        gaussian_snapshot_map_subsample_stride_);
+      if (!nearest.matched || nearest.distance_sq > max_distance_sq) {
+        continue;
+      }
+
+      const double feature_scale =
+        lidar_surface_feature_scale(std::sqrt(nearest.distance_sq), range);
+      if (!lidar_feature_scale_is_accepted(feature_scale)) {
+        continue;
+      }
+      estimator_->add_lidar_point_to_point_correspondence(
+        stamp_ns, point_lidar, nearest.xyz, extrinsics,
+        gaussian_snapshot_lidar_factor_weight_, lidar_huber_delta_m_, feature_scale);
+      ++accepted;
+      ++gaussian_snapshot_lidar_matches_;
+      if (gaussian_snapshot_lidar_max_correspondences_ > 0 &&
+        accepted >= gaussian_snapshot_lidar_max_correspondences_)
+      {
+        break;
+      }
+    }
+    if (accepted == 0) {
+      ++gaussian_snapshot_lidar_factor_skips_;
+    }
     return accepted;
   }
 
@@ -3452,6 +3610,7 @@ private:
   std::string external_odometry_prior_topic_;
   std::string odometry_topic_;
   std::string path_topic_;
+  std::string gaussian_map_topic_;
   std::string body_frame_id_;
   std::string world_frame_id_;
 
@@ -3461,6 +3620,8 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_subscription_;
+  rclcpp::Subscription<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr
+    gaussian_map_subscription_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr external_odometry_subscription_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher_;
@@ -3579,6 +3740,20 @@ private:
   std::size_t lidar_scan_to_scan_small_translation_targets_{0};
   std::size_t lidar_scan_to_scan_prediction_translation_fallbacks_{0};
   std::size_t lidar_scan_to_scan_translation_priors_skipped_{0};
+  bool enable_gaussian_snapshot_lidar_factor_{false};
+  double gaussian_snapshot_lidar_factor_weight_{0.05};
+  double gaussian_snapshot_lidar_nearest_distance_m_{0.35};
+  double gaussian_snapshot_lidar_min_opacity_{0.01};
+  int gaussian_snapshot_lidar_subsample_stride_{20};
+  int gaussian_snapshot_map_subsample_stride_{1};
+  int gaussian_snapshot_lidar_max_correspondences_{64};
+  gaussian_lic_tracking::GaussianSnapshot gaussian_snapshot_;
+  std::size_t gaussian_snapshot_points_{0};
+  std::size_t gaussian_snapshot_chunks_received_{0};
+  uint32_t gaussian_snapshot_expected_chunks_{0};
+  std::size_t gaussian_snapshot_updates_{0};
+  std::size_t gaussian_snapshot_lidar_matches_{0};
+  std::size_t gaussian_snapshot_lidar_factor_skips_{0};
   bool enable_lidar_plane_normal_factor_{false};
   double lidar_plane_normal_factor_weight_{0.1};
   double lidar_plane_normal_huber_delta_rad_{0.10};

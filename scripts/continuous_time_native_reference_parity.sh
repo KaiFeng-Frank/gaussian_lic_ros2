@@ -180,6 +180,14 @@ PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE="${PERSISTENT_POINT_MAP_SUBSAMPLE_STRIDE:-
 PERSISTENT_POINT_MAP_MAX_POINTS="${PERSISTENT_POINT_MAP_MAX_POINTS:-20000}"
 PERSISTENT_POINT_MAP_MAX_CORRESPONDENCES="${PERSISTENT_POINT_MAP_MAX_CORRESPONDENCES:-64}"
 PERSISTENT_POINT_MAP_MIN_OBSERVATIONS="${PERSISTENT_POINT_MAP_MIN_OBSERVATIONS:-3}"
+ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR:-false}"
+GAUSSIAN_MAP_TOPIC="${GAUSSIAN_MAP_TOPIC:-/gaussian_lic/gaussian_map}"
+GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT:-0.05}"
+GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M:-0.35}"
+GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY="${GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY:-0.01}"
+GAUSSIAN_SNAPSHOT_LIDAR_SUBSAMPLE_STRIDE="${GAUSSIAN_SNAPSHOT_LIDAR_SUBSAMPLE_STRIDE:-20}"
+GAUSSIAN_SNAPSHOT_MAP_SUBSAMPLE_STRIDE="${GAUSSIAN_SNAPSHOT_MAP_SUBSAMPLE_STRIDE:-1}"
+GAUSSIAN_SNAPSHOT_LIDAR_MAX_CORRESPONDENCES="${GAUSSIAN_SNAPSHOT_LIDAR_MAX_CORRESPONDENCES:-64}"
 LIDAR_HUBER_DELTA_M="${LIDAR_HUBER_DELTA_M:-0.10}"
 VOXEL_PLANE_SIZE_M="${VOXEL_PLANE_SIZE_M:-0.8}"
 VOXEL_PLANE_MIN_POINTS="${VOXEL_PLANE_MIN_POINTS:-6}"
@@ -358,6 +366,14 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p persistent_point_map_max_points:="${PERSISTENT_POINT_MAP_MAX_POINTS}" \
   -p persistent_point_map_max_correspondences:="${PERSISTENT_POINT_MAP_MAX_CORRESPONDENCES}" \
   -p persistent_point_map_min_observations_for_match:="${PERSISTENT_POINT_MAP_MIN_OBSERVATIONS}" \
+  -p enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR}" \
+  -p gaussian_map_topic:="${GAUSSIAN_MAP_TOPIC}" \
+  -p gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
+  -p gaussian_snapshot_lidar_nearest_distance_m:="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}" \
+  -p gaussian_snapshot_lidar_min_opacity:="${GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY}" \
+  -p gaussian_snapshot_lidar_subsample_stride:="${GAUSSIAN_SNAPSHOT_LIDAR_SUBSAMPLE_STRIDE}" \
+  -p gaussian_snapshot_map_subsample_stride:="${GAUSSIAN_SNAPSHOT_MAP_SUBSAMPLE_STRIDE}" \
+  -p gaussian_snapshot_lidar_max_correspondences:="${GAUSSIAN_SNAPSHOT_LIDAR_MAX_CORRESPONDENCES}" \
   -p voxel_plane_size_m:="${VOXEL_PLANE_SIZE_M}" \
   -p voxel_plane_min_points:="${VOXEL_PLANE_MIN_POINTS}" \
   -p voxel_plane_eigen_ratio:="${VOXEL_PLANE_EIGEN_RATIO}" \
@@ -698,6 +714,14 @@ native = {
     "persistent_map_update_requires_accepted_solve": "${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" == "true",
     "defer_persistent_plane_map_updates_until_solved": "${DEFER_PERSISTENT_PLANE_MAP_UPDATES_UNTIL_SOLVED}" == "true",
     "deferred_plane_map_update_max_queue": int("${DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE}"),
+    "enable_gaussian_snapshot_lidar_factor": "${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR}" == "true",
+    "gaussian_map_topic": "${GAUSSIAN_MAP_TOPIC}",
+    "gaussian_snapshot_lidar_factor_weight": float("${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}"),
+    "gaussian_snapshot_lidar_nearest_distance_m": float("${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}"),
+    "gaussian_snapshot_lidar_min_opacity": float("${GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY}"),
+    "gaussian_snapshot_lidar_subsample_stride": int("${GAUSSIAN_SNAPSHOT_LIDAR_SUBSAMPLE_STRIDE}"),
+    "gaussian_snapshot_map_subsample_stride": int("${GAUSSIAN_SNAPSHOT_MAP_SUBSAMPLE_STRIDE}"),
+    "gaussian_snapshot_lidar_max_correspondences": int("${GAUSSIAN_SNAPSHOT_LIDAR_MAX_CORRESPONDENCES}"),
     "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
     "enable_external_odometry_orientation_factors": "${ENABLE_EXTERNAL_ODOMETRY_ORIENTATION_FACTORS}" == "true",
     "external_odometry_position_factor_weight": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}"),
