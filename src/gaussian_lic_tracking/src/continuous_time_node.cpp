@@ -131,6 +131,8 @@ public:
     pointcloud_factor_weight_ =
       declare_parameter<double>("pointcloud_factor_weight", 1.0);
 
+    enable_imu_gravity_autocal_ =
+      declare_parameter<bool>("enable_imu_gravity_autocal", true);
     enable_voxel_plane_extraction_ =
       declare_parameter<bool>("enable_voxel_plane_extraction", true);
     spline::LidarPlaneExtractorOptions extractor_options;
@@ -366,9 +368,46 @@ private:
       return;
     }
     const int64_t start_stamp = seed_imu_buffer_.front().first;
+
+    // Gravity autocalibration: assume the seed window is static, average
+    // accelerometer samples to recover the gravity direction in body frame,
+    // then derive a roll/pitch rotation that aligns body z with -gravity_world.
+    // Yaw stays 0 (not observable from gravity alone). Mirrors the upstream
+    // Coco-LIC / `tracking_node` `enable_imu_gravity_autocalibration` default.
+    Eigen::Quaterniond seed_orientation = Eigen::Quaterniond::Identity();
+    if (enable_imu_gravity_autocal_) {
+      Eigen::Vector3d accel_sum = Eigen::Vector3d::Zero();
+      for (const auto & sample : seed_imu_buffer_) {
+        accel_sum += sample.second.accel;
+      }
+      const Eigen::Vector3d accel_mean =
+        accel_sum / static_cast<double>(seed_imu_buffer_.size());
+      const double accel_mean_norm = accel_mean.norm();
+      if (accel_mean_norm > 1.0e-3) {
+        const Eigen::Vector3d gravity_world = estimator_->gravity_world();
+        const double gravity_world_norm = gravity_world.norm();
+        if (gravity_world_norm > 1.0e-3) {
+          // Stationary accel reads `R_b_w^T * (-g_w)` (no motion + zero bias
+          // initially). So `R_b_w^T * (-g_w) = accel_mean` → we need a
+          // rotation that maps `-g_w/|g_w|` (body z when level) onto the
+          // measured direction `accel_mean/|accel_mean|`.
+          const Eigen::Vector3d gravity_dir = (-gravity_world / gravity_world_norm);
+          const Eigen::Vector3d accel_dir = accel_mean / accel_mean_norm;
+          seed_orientation = Eigen::Quaterniond::FromTwoVectors(
+            gravity_dir, accel_dir).inverse().normalized();
+        }
+      }
+      RCLCPP_INFO(
+        get_logger(),
+        "gravity autocal: accel_mean=(%.3f, %.3f, %.3f) -> q_w_b=(%.3f, %.3f, %.3f, %.3f)",
+        accel_mean.x(), accel_mean.y(), accel_mean.z(),
+        seed_orientation.w(), seed_orientation.x(),
+        seed_orientation.y(), seed_orientation.z());
+    }
+
     std::vector<Eigen::Quaterniond> rot_knots(
       static_cast<std::size_t>(estimator_->N + 4),
-      Eigen::Quaterniond::Identity());
+      seed_orientation);
     std::vector<Eigen::Vector3d> pos_knots(
       rot_knots.size(), Eigen::Vector3d::Zero());
     estimator_->initialize(start_stamp, rot_knots, pos_knots);
@@ -496,6 +535,7 @@ private:
   Eigen::Vector3d lidar_to_imu_translation_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond lidar_to_imu_rotation_{Eigen::Quaterniond::Identity()};
 
+  bool enable_imu_gravity_autocal_{true};
   bool enable_voxel_plane_extraction_{true};
   spline::LidarPlaneExtractor plane_extractor_{};
 
