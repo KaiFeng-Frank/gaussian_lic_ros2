@@ -154,6 +154,10 @@ UPDATE_GATE_EDGE_KNOT_MARGIN="${UPDATE_GATE_EDGE_KNOT_MARGIN:-0}"
 POSITION_EXTRAPOLATION_DAMPING="${POSITION_EXTRAPOLATION_DAMPING:-0.0}"
 STEP_PERIOD_SECONDS="${STEP_PERIOD_SECONDS:-0.20}"
 POSE_OUTPUT_PERIOD_SECONDS="${POSE_OUTPUT_PERIOD_SECONDS:-0.0}"
+TIME_OFFSET_SWEEP_MIN="${TIME_OFFSET_SWEEP_MIN:--12.0}"
+TIME_OFFSET_SWEEP_MAX="${TIME_OFFSET_SWEEP_MAX:-12.0}"
+TIME_OFFSET_SWEEP_STEP="${TIME_OFFSET_SWEEP_STEP:-0.1}"
+TIME_OFFSET_SWEEP_MIN_MATCHES="${TIME_OFFSET_SWEEP_MIN_MATCHES:-50}"
 
 source "${SOURCE_SETUP}"
 source "${WORKSPACE}/install/setup.bash"
@@ -388,6 +392,10 @@ if [ "${REFERENCE_TUM}" != "__skip__" ]; then
     --max-mean-m 10000.0 \
     --max-error-m 10000.0 \
     --max-path-drift 100.0 \
+    --time-offset-sweep-min "${TIME_OFFSET_SWEEP_MIN}" \
+    --time-offset-sweep-max "${TIME_OFFSET_SWEEP_MAX}" \
+    --time-offset-sweep-step "${TIME_OFFSET_SWEEP_STEP}" \
+    --time-offset-sweep-min-matches "${TIME_OFFSET_SWEEP_MIN_MATCHES}" \
     || true   # don't bubble up strict-threshold failures here; we just want the JSON
 
   if [ ! -s "${REPORT_PATH}" ]; then
@@ -570,6 +578,10 @@ native = {
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "step_period_seconds": float("${STEP_PERIOD_SECONDS}"),
     "pose_output_period_seconds": float("${POSE_OUTPUT_PERIOD_SECONDS}"),
+    "time_offset_sweep_min": float("${TIME_OFFSET_SWEEP_MIN}"),
+    "time_offset_sweep_max": float("${TIME_OFFSET_SWEEP_MAX}"),
+    "time_offset_sweep_step": float("${TIME_OFFSET_SWEEP_STEP}"),
+    "time_offset_sweep_min_matches": int("${TIME_OFFSET_SWEEP_MIN_MATCHES}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
     "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",
     "apply_limited_position_update": "${APPLY_LIMITED_POSITION_UPDATE}" == "true",
