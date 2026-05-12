@@ -70,6 +70,20 @@ public:
       "external_odometry_prior_topic", "");
     enable_external_odometry_prior_ =
       declare_parameter<bool>("enable_external_odometry_prior", false);
+    // Mount rotation: q_imu_in_prior, expressed in (x, y, z, w).
+    // For datasets whose ground truth is in a robot-base frame that differs
+    // from the IMU sensor frame (e.g. M2DGR uses a base frame rotated ~180°
+    // about x relative to the IMU), this rotation gets right-multiplied
+    // into the prior's pose before it becomes the seed orientation.
+    const auto prior_to_imu_param = declare_parameter<std::vector<double>>(
+      "prior_to_imu_rotation_xyzw", std::vector<double>{0.0, 0.0, 0.0, 1.0});
+    if (prior_to_imu_param.size() == 4) {
+      prior_to_imu_rotation_ = Eigen::Quaterniond(
+        prior_to_imu_param[3],
+        prior_to_imu_param[0],
+        prior_to_imu_param[1],
+        prior_to_imu_param[2]).normalized();
+    }
     odometry_topic_ = declare_parameter<std::string>(
       "odometry_topic", "/gaussian_lic/continuous_time/odometry");
     path_topic_ = declare_parameter<std::string>(
@@ -417,13 +431,16 @@ private:
     // External pose prior takes precedence over gravity autocal — if a
     // ground-truth or external SLAM frontend has been publishing on
     // `external_odometry_prior_topic`, use the most recent pose as the
-    // seed instead of identity.
+    // seed instead of identity. The prior is composed with the configured
+    // IMU mount rotation so the resulting orientation expresses the IMU
+    // body in the world frame the estimator works in.
     if (enable_external_odometry_prior_ && have_prior_pose_) {
-      seed_orientation = latest_prior_orientation_;
+      seed_orientation =
+        (latest_prior_orientation_ * prior_to_imu_rotation_).normalized();
       seed_position = latest_prior_position_;
       RCLCPP_INFO(
         get_logger(),
-        "seed from external prior: p=(%.3f, %.3f, %.3f) q=(%.3f, %.3f, %.3f, %.3f)",
+        "seed from external prior + mount: p=(%.3f, %.3f, %.3f) q=(%.3f, %.3f, %.3f, %.3f)",
         seed_position.x(), seed_position.y(), seed_position.z(),
         seed_orientation.w(), seed_orientation.x(),
         seed_orientation.y(), seed_orientation.z());
@@ -595,6 +612,7 @@ private:
   bool have_prior_pose_{false};
   Eigen::Vector3d latest_prior_position_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond latest_prior_orientation_{Eigen::Quaterniond::Identity()};
+  Eigen::Quaterniond prior_to_imu_rotation_{Eigen::Quaterniond::Identity()};
   std::size_t accepted_prior_count_{0};
   std::size_t rejected_prior_count_{0};
   spline::LidarPlaneExtractor plane_extractor_{};
