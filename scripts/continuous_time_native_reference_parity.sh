@@ -182,6 +182,7 @@ PERSISTENT_POINT_MAP_MAX_CORRESPONDENCES="${PERSISTENT_POINT_MAP_MAX_CORRESPONDE
 PERSISTENT_POINT_MAP_MIN_OBSERVATIONS="${PERSISTENT_POINT_MAP_MIN_OBSERVATIONS:-3}"
 ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR:-false}"
 GAUSSIAN_MAP_TOPIC="${GAUSSIAN_MAP_TOPIC:-/gaussian_lic/gaussian_map}"
+GAUSSIAN_SNAPSHOT_QOS_DEPTH="${GAUSSIAN_SNAPSHOT_QOS_DEPTH:-128}"
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT:-0.05}"
 GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M:-0.35}"
 GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY="${GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY:-0.01}"
@@ -368,6 +369,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p persistent_point_map_min_observations_for_match:="${PERSISTENT_POINT_MAP_MIN_OBSERVATIONS}" \
   -p enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR}" \
   -p gaussian_map_topic:="${GAUSSIAN_MAP_TOPIC}" \
+  -p gaussian_snapshot_qos_depth:="${GAUSSIAN_SNAPSHOT_QOS_DEPTH}" \
   -p gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
   -p gaussian_snapshot_lidar_nearest_distance_m:="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}" \
   -p gaussian_snapshot_lidar_min_opacity:="${GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY}" \
@@ -716,6 +718,7 @@ native = {
     "deferred_plane_map_update_max_queue": int("${DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE}"),
     "enable_gaussian_snapshot_lidar_factor": "${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_FACTOR}" == "true",
     "gaussian_map_topic": "${GAUSSIAN_MAP_TOPIC}",
+    "gaussian_snapshot_qos_depth": int("${GAUSSIAN_SNAPSHOT_QOS_DEPTH}"),
     "gaussian_snapshot_lidar_factor_weight": float("${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}"),
     "gaussian_snapshot_lidar_nearest_distance_m": float("${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}"),
     "gaussian_snapshot_lidar_min_opacity": float("${GAUSSIAN_SNAPSHOT_LIDAR_MIN_OPACITY}"),

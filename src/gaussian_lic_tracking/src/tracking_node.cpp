@@ -100,6 +100,10 @@ public:
       "tracking_status_topic", "/gaussian_lic/frontend/status");
     rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
+    gaussian_snapshot_qos_depth_ = integer_parameter_at_least(
+      "gaussian_snapshot_qos_depth",
+      declare_parameter<int>("gaussian_snapshot_qos_depth", 64),
+      1);
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
     child_frame_ = declare_parameter<std::string>("child_frame", "base_link");
     publish_tf_ = declare_parameter<bool>("publish_tf", false);
@@ -529,7 +533,8 @@ public:
       });
     if (enable_gaussian_snapshot_) {
       gaussian_map_sub_ = create_subscription<gaussian_lic_msgs::msg::GaussianArray>(
-        gaussian_map_topic_, rclcpp::QoS(1).transient_local().reliable(),
+        gaussian_map_topic_,
+        rclcpp::QoS(static_cast<size_t>(gaussian_snapshot_qos_depth_)).transient_local().reliable(),
         [this](gaussian_lic_msgs::msg::GaussianArray::ConstSharedPtr msg) {
           run_serialized_callback([this, msg]() {
             handle_gaussian_snapshot(*msg);
@@ -3508,6 +3513,7 @@ private:
   std::string tracking_status_topic_;
   std::string rendered_image_topic_;
   std::string gaussian_map_topic_;
+  int gaussian_snapshot_qos_depth_{64};
   std::string world_frame_;
   std::string child_frame_;
   bool publish_tf_{false};

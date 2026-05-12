@@ -172,6 +172,16 @@ Gaussian initialization/extension and `GaussianArray` publication enabled, plus
 complete map snapshot. This turns mapper feedback from a rendered-image-only
 diagnostic into a reproducible Gaussian-map anchor experiment.
 
+The first CBD probe exposed a ROS2 QoS bug specific to chunked map transport:
+`GaussianArray` publisher/subscribers used transient-local reliable QoS with
+depth 1, so a five-chunk map could arrive as only the last chunk. The mapper
+now exposes `gaussian_map_qos_depth`, tracking and continuous-time nodes expose
+`gaussian_snapshot_qos_depth`, and the report scripts use depth 128 for
+feedback runs. `results/fastlivo2/CBD_Building_01_gaussian_map_feedback_qos128_probe_6s/native_tracking_report.json`
+passes with `gaussian_snapshot_chunks_received=5/5`,
+`gaussian_snapshot_points=17716`, and 18 point-factor batches in the tracking
+window.
+
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and
 `ContinuousTimeSlidingWindow` promotes them with the same signed-nanosecond

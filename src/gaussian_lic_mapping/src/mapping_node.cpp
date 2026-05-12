@@ -196,6 +196,7 @@ public:
       declare_parameter<double>("torch_gaussian_opacity_reset_value", 0.01);
     torch_gaussian_device_name_ = declare_parameter<std::string>("torch_gaussian_device", "cpu");
     gaussian_map_chunk_size_ = declare_parameter<int>("gaussian_map_chunk_size", 1024);
+    gaussian_map_qos_depth_ = declare_parameter<int>("gaussian_map_qos_depth", 64);
     max_path_length_ = declare_parameter<int>("max_path_length", 5000);
     max_map_points_ = declare_parameter<int>("max_map_points", 200000);
     publish_gaussian_map_ = declare_parameter<bool>("publish_gaussian_map", true);
@@ -292,7 +293,9 @@ public:
     rendered_image_pub_ = create_publisher<sensor_msgs::msg::Image>(
       rendered_image_topic_, rclcpp::QoS(1).transient_local().reliable());
     gaussian_map_pub_ = create_publisher<gaussian_lic_msgs::msg::GaussianArray>(
-      gaussian_map_topic_, rclcpp::QoS(1).transient_local().reliable());
+      gaussian_map_topic_,
+      rclcpp::QoS(static_cast<size_t>(std::max(gaussian_map_qos_depth_, 1)))
+      .transient_local().reliable());
     save_map_srv_ = create_service<gaussian_lic_msgs::srv::SaveMap>(
       save_map_service_,
       [this](
@@ -2181,6 +2184,7 @@ private:
   std::mt19937 torch_optimization_rng_;
   std::string torch_gaussian_device_name_{"cpu"};
   int gaussian_map_chunk_size_{1024};
+  int gaussian_map_qos_depth_{64};
   int max_path_length_{5000};
   int max_map_points_{200000};
 

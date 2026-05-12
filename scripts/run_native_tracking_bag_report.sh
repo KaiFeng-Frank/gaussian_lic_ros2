@@ -63,6 +63,9 @@ REQUIRE_GAUSSIAN_SNAPSHOT=false
 MAPPER_FEEDBACK_RENDER_MODE=debug_input
 MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
 MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
+MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH=128
+GAUSSIAN_SNAPSHOT_QOS_DEPTH=128
+MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=8
 MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=false
@@ -185,7 +188,7 @@ Options:
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
-                               Launch mapping_node with Torch Gaussian init/extend and GaussianArray publication so tracking can consume map anchors.
+                               Launch mapping_node with Torch Gaussian init/extend and GaussianArray publication so tracking can consume map anchors. This does not require visual factors unless --enable-visual-factors is also set.
   --require-gaussian-snapshot  Require a complete GaussianArray snapshot in the tracking status report.
   --mapper-feedback-sync-tolerance-sec SEC
                                mapping_node frame sync tolerance for mapper feedback. Default: 0.01.
@@ -457,13 +460,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     --enable-gaussian-map-feedback)
       ENABLE_MAPPER_FEEDBACK=true
-      ENABLE_VISUAL_FACTORS=true
       ENABLE_GAUSSIAN_MAP_FEEDBACK=true
       MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=true
       MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=true
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=true
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
+      MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
       REQUIRE_GAUSSIAN_SNAPSHOT=true
       shift
       ;;
@@ -706,6 +709,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   imu_history_size:="${IMU_HISTORY_SIZE}" \
   imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
   enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_MAP_FEEDBACK}" \
+  gaussian_snapshot_qos_depth:="${GAUSSIAN_SNAPSHOT_QOS_DEPTH}" \
   tracking_max_pose_step_m:="${TRACKING_MAX_POSE_STEP_M}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:="${LIDAR_KEYFRAME_TRANSLATION_M}" \
@@ -747,9 +751,11 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p use_sim_time:=true \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p sync_tolerance_sec:="${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
+    -p select_every_k_frame:="${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME}" \
     -p require_depth_topic:=false \
     -p publish_gaussian_map:="${MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP}" \
     -p gaussian_map_chunk_size:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE}" \
+    -p gaussian_map_qos_depth:="${MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH}" \
     -p enable_torch_camera_conversion:="${MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION}" \
     -p enable_torch_gaussian_init:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT}" \
     -p enable_torch_gaussian_extend:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND}" \

@@ -408,6 +408,8 @@ public:
       "path_topic", "/gaussian_lic/continuous_time/path");
     gaussian_map_topic_ = declare_parameter<std::string>(
       "gaussian_map_topic", "/gaussian_lic/gaussian_map");
+    gaussian_snapshot_qos_depth_ = static_cast<int>(
+      declare_parameter<int>("gaussian_snapshot_qos_depth", 64));
     body_frame_id_ = declare_parameter<std::string>("body_frame_id", "imu_link");
     world_frame_id_ = declare_parameter<std::string>("world_frame_id", "map");
 
@@ -1015,6 +1017,7 @@ public:
       gaussian_snapshot_lidar_min_opacity_ < 0.0 ||
       gaussian_snapshot_lidar_subsample_stride_ < 1 ||
       gaussian_snapshot_map_subsample_stride_ < 1 ||
+      gaussian_snapshot_qos_depth_ < 1 ||
       gaussian_snapshot_lidar_max_correspondences_ < 0)
     {
       throw std::runtime_error("Gaussian snapshot LiDAR factor parameters are invalid");
@@ -1101,7 +1104,8 @@ public:
     }
 
     if (enable_gaussian_snapshot_lidar_factor_) {
-      rclcpp::QoS gaussian_qos(rclcpp::KeepLast(10));
+      rclcpp::QoS gaussian_qos(
+        rclcpp::KeepLast(static_cast<size_t>(gaussian_snapshot_qos_depth_)));
       gaussian_qos.reliable();
       gaussian_qos.transient_local();
       gaussian_map_subscription_ =
@@ -3611,6 +3615,7 @@ private:
   std::string odometry_topic_;
   std::string path_topic_;
   std::string gaussian_map_topic_;
+  int gaussian_snapshot_qos_depth_{64};
   std::string body_frame_id_;
   std::string world_frame_id_;
 
