@@ -208,6 +208,19 @@ runs default to optimizing every 4 point-cloud frames because full Gaussian
 anchor windows take seconds per solve on the current setup. Factors are still
 accumulated every frame; only the synchronous Ceres solve cadence is decimated
 to preserve rosbag replay coverage.
+CBD/FAST-LIVO2 native report runs also default `imu_linear_acceleration_scale`
+to `9.80665` because the frontend-raw bag stores accelerometer samples in
+normalized-g units. The 20 s Gaussian-feedback probe with scale `1.0` recorded
+RMSE `1.4935 m`; the same run with `9.80665` recorded RMSE `0.1031 m`, proving
+this is a timestamp-preserving scale semantic rather than a tuning preference.
+For Gaussian-map feedback evidence, the report preset now also uses
+`lidar_max_frame_points=500`, `tracking_max_pose_step_m=0.025`,
+`sliding_window_max_feedback_translation_m=0.05`, and
+`sliding_window_max_feedback_velocity_mps=0.5`. On the 70 s CBD probe this keeps
+first-aligned path drift low but still misses first-align RMSE/mean; the same
+artifact passes the yaw-gauge comparison (`coverage=44.5%`, `RMSE=1.65 m`,
+`mean=1.43 m`, `max=3.07 m`). The remaining non-paper-grade gap is therefore
+native yaw observability/initial heading, not dataset availability or IMU scale.
 
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and

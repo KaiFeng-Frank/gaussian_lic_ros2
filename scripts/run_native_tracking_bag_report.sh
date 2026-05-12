@@ -31,7 +31,7 @@ RAW_POINTCLOUD_QOS_RELIABILITY=reliable
 RAW_POINTCLOUD_QOS_DEPTH=256
 POINTCLOUD_IMU_WAIT_QUEUE_SIZE=512
 IMU_HISTORY_SIZE=12000
-IMU_LINEAR_ACCELERATION_SCALE=1.0
+IMU_LINEAR_ACCELERATION_SCALE=9.80665
 TRACKING_MAX_POSE_STEP_M=0.25
 LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
 LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
@@ -42,6 +42,9 @@ SLIDING_WINDOW_MAX_ITERATIONS=3
 SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
 SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
 SLIDING_WINDOW_MAX_TRANSLATION_STEP_M=1.0
+SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M=1.0
+SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD=0.5
+SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS=5.0
 SLIDING_WINDOW_IMU_WEIGHT=1.0
 SLIDING_WINDOW_IMU_ROTATION_WEIGHT=1.0
 SLIDING_WINDOW_IMU_VELOCITY_WEIGHT=1.0
@@ -150,7 +153,7 @@ Options:
                                Point-cloud queue while waiting for IMU catch-up. Default: 512.
   --imu-history-size N         IMU propagation history for delayed point-cloud timestamp queries. Default: 12000.
   --imu-linear-acceleration-scale S
-                               Scale applied to incoming IMU linear_acceleration before propagation. Use 9.80665 for FAST-LIVO/FAST-LIVO2 normalized-g bags.
+                               Scale applied to incoming IMU linear_acceleration before propagation. Default: 9.80665 for FAST-LIVO/FAST-LIVO2 normalized-g bags; use 1.0 for SI m/s^2 bags.
   --tracking-max-pose-step-m M Max accepted native tracking pose step per point-cloud frame. Default: 0.25.
   --require-deskew             Require nonzero trajectory deskew queries and hits in the report.
   --lidar-to-imu-translation V  YAML vector for LiDAR->IMU translation. Default: FAST-LIVO2.
@@ -167,6 +170,12 @@ Options:
                                Max normal-equation condition before BA is marked degenerate. Default: 1e13.
   --sliding-window-max-translation-step-m M
                                Max LM translation increment per state. Default: 1.0.
+  --sliding-window-max-feedback-translation-m M
+                               Max optimized-state translation feedback applied back to online tracking. Default: 1.0.
+  --sliding-window-max-feedback-rotation-rad R
+                               Max optimized-state rotation feedback applied back to online tracking. Default: 0.5.
+  --sliding-window-max-feedback-velocity-mps V
+                               Max optimized-state velocity feedback applied back to online tracking. Default: 5.0.
   --sliding-window-imu-weight W
                                IMU residual weight. Default: 1.0.
   --sliding-window-imu-rotation-weight W
@@ -413,6 +422,18 @@ while [[ $# -gt 0 ]]; do
       SLIDING_WINDOW_MAX_TRANSLATION_STEP_M="$2"
       shift 2
       ;;
+    --sliding-window-max-feedback-translation-m)
+      SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M="$2"
+      shift 2
+      ;;
+    --sliding-window-max-feedback-rotation-rad)
+      SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD="$2"
+      shift 2
+      ;;
+    --sliding-window-max-feedback-velocity-mps)
+      SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS="$2"
+      shift 2
+      ;;
     --sliding-window-imu-weight)
       SLIDING_WINDOW_IMU_WEIGHT="$2"
       shift 2
@@ -483,7 +504,11 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
       MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
+      LIDAR_MAX_FRAME_POINTS=500
+      TRACKING_MAX_POSE_STEP_M=0.025
       SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=4
+      SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M=0.05
+      SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS=0.5
       REQUIRE_GAUSSIAN_SNAPSHOT=true
       shift
       ;;
@@ -761,6 +786,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_max_state_gap_s:="${SLIDING_WINDOW_MAX_STATE_GAP_S}" \
   sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
   sliding_window_max_translation_step_m:="${SLIDING_WINDOW_MAX_TRANSLATION_STEP_M}" \
+  sliding_window_max_feedback_translation_m:="${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
+  sliding_window_max_feedback_rotation_rad:="${SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD}" \
+  sliding_window_max_feedback_velocity_mps:="${SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS}" \
   sliding_window_imu_weight:="${SLIDING_WINDOW_IMU_WEIGHT}" \
   sliding_window_imu_rotation_weight:="${SLIDING_WINDOW_IMU_ROTATION_WEIGHT}" \
   sliding_window_imu_velocity_weight:="${SLIDING_WINDOW_IMU_VELOCITY_WEIGHT}" \
@@ -877,6 +905,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC}" \
   "${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND}" \
   "${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
+  "${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
+  "${SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD}" \
+  "${SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS}" \
   "${REFERENCE_TUM_PATH}" <<'PY'
 import json
 import os
@@ -914,7 +945,10 @@ mapper_feedback_torch_optimization_steps = int(sys.argv[28])
 mapper_feedback_gaussian_map_publish_min_interval_sec = float(sys.argv[29])
 mapper_feedback_gaussian_map_publish_on_empty_extend = sys.argv[30].lower() == "true"
 sliding_window_optimize_every_n_frames = int(sys.argv[31])
-reference_tum_path = Path(sys.argv[32]) if sys.argv[32] else None
+sliding_window_max_feedback_translation_m = float(sys.argv[32])
+sliding_window_max_feedback_rotation_rad = float(sys.argv[33])
+sliding_window_max_feedback_velocity_mps = float(sys.argv[34])
+reference_tum_path = Path(sys.argv[35]) if sys.argv[35] else None
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
@@ -1154,6 +1188,9 @@ report = {
             mapper_feedback_gaussian_map_publish_on_empty_extend
         ),
         "sliding_window_optimize_every_n_frames": sliding_window_optimize_every_n_frames,
+        "sliding_window_max_feedback_translation_m": sliding_window_max_feedback_translation_m,
+        "sliding_window_max_feedback_rotation_rad": sliding_window_max_feedback_rotation_rad,
+        "sliding_window_max_feedback_velocity_mps": sliding_window_max_feedback_velocity_mps,
     },
     "metrics": metrics,
 }
