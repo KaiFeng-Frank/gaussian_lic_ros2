@@ -129,6 +129,8 @@ public:
   const Eigen::Vector3d & gyro_bias() const;
   const Eigen::Vector3d & accel_bias() const;
   const Eigen::Vector3d & gravity_world() const;
+  void set_gyro_bias(const Eigen::Vector3d & gyro_bias);
+  void set_accel_bias(const Eigen::Vector3d & accel_bias);
 
   const ContinuousTimeSlidingWindowDiagnostics & diagnostics() const;
 

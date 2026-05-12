@@ -25,6 +25,7 @@ PRIOR_TUM="${PRIOR_TUM:-}"
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
 PLAYBACK_RATE="${PLAYBACK_RATE:-0.5}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
+ENABLE_STARTUP_BIAS_AUTOCAL="${ENABLE_STARTUP_BIAS_AUTOCAL:-true}"
 POINTCLOUD_ENABLE="${POINTCLOUD_ENABLE:-true}"
 POINTCLOUD_FACTOR_WEIGHT="${POINTCLOUD_FACTOR_WEIGHT:-0.1}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
@@ -66,6 +67,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p window_knot_count:=10 \
   -p marginalize_oldest_count:=1 \
   -p seed_min_imu_count:=30 \
+  -p enable_startup_bias_autocal:="${ENABLE_STARTUP_BIAS_AUTOCAL}" \
   -p step_period_seconds:=0.20 \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
   -p pointcloud_factor_weight:="${POINTCLOUD_FACTOR_WEIGHT}" \

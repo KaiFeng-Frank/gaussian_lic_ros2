@@ -26,6 +26,7 @@ def generate_launch_description() -> LaunchDescription:
     hold_gravity_constant = LaunchConfiguration("hold_gravity_constant")
     hold_accel_bias_constant = LaunchConfiguration("hold_accel_bias_constant")
     hold_gyro_bias_constant = LaunchConfiguration("hold_gyro_bias_constant")
+    enable_startup_bias_autocal = LaunchConfiguration("enable_startup_bias_autocal")
     max_position_update_m = LaunchConfiguration("max_position_update_m")
     max_rotation_update_rad = LaunchConfiguration("max_rotation_update_rad")
     pointcloud_enable = LaunchConfiguration("pointcloud_enable")
@@ -60,6 +61,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("hold_gravity_constant", default_value="true"),
         DeclareLaunchArgument("hold_accel_bias_constant", default_value="false"),
         DeclareLaunchArgument("hold_gyro_bias_constant", default_value="false"),
+        DeclareLaunchArgument("enable_startup_bias_autocal", default_value="true"),
         DeclareLaunchArgument("max_position_update_m", default_value="2.0"),
         DeclareLaunchArgument("max_rotation_update_rad", default_value="0.50"),
         DeclareLaunchArgument("pointcloud_enable", default_value="true"),
@@ -110,6 +112,7 @@ def generate_launch_description() -> LaunchDescription:
                 "hold_gravity_constant": hold_gravity_constant,
                 "hold_accel_bias_constant": hold_accel_bias_constant,
                 "hold_gyro_bias_constant": hold_gyro_bias_constant,
+                "enable_startup_bias_autocal": enable_startup_bias_autocal,
                 "max_position_update_m": max_position_update_m,
                 "max_rotation_update_rad": max_rotation_update_rad,
                 "pointcloud_enable": pointcloud_enable,

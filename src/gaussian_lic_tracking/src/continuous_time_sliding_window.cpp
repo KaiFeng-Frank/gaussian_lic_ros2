@@ -380,6 +380,20 @@ const Eigen::Vector3d & ContinuousTimeSlidingWindowEstimator::accel_bias() const
   return impl_->accel_bias;
 }
 
+void ContinuousTimeSlidingWindowEstimator::set_gyro_bias(const Eigen::Vector3d & gyro_bias)
+{
+  if (gyro_bias.allFinite()) {
+    impl_->gyro_bias = gyro_bias;
+  }
+}
+
+void ContinuousTimeSlidingWindowEstimator::set_accel_bias(const Eigen::Vector3d & accel_bias)
+{
+  if (accel_bias.allFinite()) {
+    impl_->accel_bias = accel_bias;
+  }
+}
+
 const Eigen::Vector3d & ContinuousTimeSlidingWindowEstimator::gravity_world() const
 {
   return impl_->gravity_world;

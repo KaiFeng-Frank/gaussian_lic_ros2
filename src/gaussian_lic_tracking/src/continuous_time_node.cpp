@@ -119,6 +119,8 @@ public:
       declare_parameter<double>("max_position_update_m", 2.0);
     options.max_rotation_update_rad =
       declare_parameter<double>("max_rotation_update_rad", 0.50);
+    enable_startup_bias_autocal_ =
+      declare_parameter<bool>("enable_startup_bias_autocal", true);
 
     step_period_seconds_ =
       declare_parameter<double>("step_period_seconds", 0.10);
@@ -620,6 +622,15 @@ private:
     // Coco-LIC / `tracking_node` `enable_imu_gravity_autocalibration` default.
     Eigen::Quaterniond seed_orientation = Eigen::Quaterniond::Identity();
     Eigen::Vector3d seed_position = Eigen::Vector3d::Zero();
+    Eigen::Vector3d accel_mean = Eigen::Vector3d::Zero();
+    Eigen::Vector3d gyro_mean = Eigen::Vector3d::Zero();
+    for (const auto & sample : seed_imu_buffer_) {
+      gyro_mean += sample.second.gyro;
+      accel_mean += sample.second.accel;
+    }
+    const double inv_seed_count = 1.0 / static_cast<double>(seed_imu_buffer_.size());
+    gyro_mean *= inv_seed_count;
+    accel_mean *= inv_seed_count;
 
     // External pose prior takes precedence over gravity autocal — if a
     // ground-truth or external SLAM frontend has been publishing on
@@ -638,12 +649,6 @@ private:
         seed_orientation.w(), seed_orientation.x(),
         seed_orientation.y(), seed_orientation.z());
     } else if (enable_imu_gravity_autocal_) {
-      Eigen::Vector3d accel_sum = Eigen::Vector3d::Zero();
-      for (const auto & sample : seed_imu_buffer_) {
-        accel_sum += sample.second.accel;
-      }
-      const Eigen::Vector3d accel_mean =
-        accel_sum / static_cast<double>(seed_imu_buffer_.size());
       const double accel_mean_norm = accel_mean.norm();
       if (accel_mean_norm > 1.0e-3) {
         const Eigen::Vector3d gravity_world = estimator_->gravity_world();
@@ -665,6 +670,20 @@ private:
         accel_mean.x(), accel_mean.y(), accel_mean.z(),
         seed_orientation.w(), seed_orientation.x(),
         seed_orientation.y(), seed_orientation.z());
+    }
+
+    if (enable_startup_bias_autocal_) {
+      const Eigen::Vector3d predicted_stationary_accel =
+        seed_orientation.inverse() * (-estimator_->gravity_world());
+      const Eigen::Vector3d startup_accel_bias = accel_mean - predicted_stationary_accel;
+      const Eigen::Vector3d startup_gyro_bias = gyro_mean;
+      estimator_->set_accel_bias(startup_accel_bias);
+      estimator_->set_gyro_bias(startup_gyro_bias);
+      RCLCPP_INFO(
+        get_logger(),
+        "startup bias autocal: gyro=(%.5f, %.5f, %.5f) accel=(%.5f, %.5f, %.5f)",
+        startup_gyro_bias.x(), startup_gyro_bias.y(), startup_gyro_bias.z(),
+        startup_accel_bias.x(), startup_accel_bias.y(), startup_accel_bias.z());
     }
 
     std::vector<Eigen::Quaterniond> rot_knots(
@@ -801,6 +820,7 @@ private:
   Eigen::Quaterniond lidar_to_imu_rotation_{Eigen::Quaterniond::Identity()};
 
   bool enable_imu_gravity_autocal_{true};
+  bool enable_startup_bias_autocal_{true};
   bool enable_voxel_plane_extraction_{false};
   bool enable_persistent_plane_map_{true};
   bool enable_external_odometry_prior_{false};
