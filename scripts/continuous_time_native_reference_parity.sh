@@ -96,6 +96,11 @@ VISUAL_ROTATION_PIXEL_TO_RAD_SCALE="${VISUAL_ROTATION_PIXEL_TO_RAD_SCALE:-1.0}"
 VISUAL_ROTATION_SIGN="${VISUAL_ROTATION_SIGN:-1.0}"
 CAMERA_TO_IMU_ROTATION_XYZW="${CAMERA_TO_IMU_ROTATION_XYZW:-[-0.4991948721, 0.5038197882, -0.4930665852, 0.5038406923]}"
 CAMERA_TO_IMU_TRANSLATION_M="${CAMERA_TO_IMU_TRANSLATION_M:-[0.0673699, 0.0412418, 0.0764217]}"
+# FAST-LIVO2 frontend_raw keeps Livox points in the raw LiDAR frame. Pass the
+# upstream Coco-LIC2 LiDAR->IMU mount into the continuous-time factors rather
+# than silently relying on the node's identity fallback.
+LIDAR_TO_IMU_ROTATION_XYZW="${LIDAR_TO_IMU_ROTATION_XYZW:-[0.0, 0.0, 0.0, 1.0]}"
+LIDAR_TO_IMU_TRANSLATION_M="${LIDAR_TO_IMU_TRANSLATION_M:-[0.04165, 0.02326, -0.0284]}"
 ENABLE_VISUAL_SE3_PRIOR="${ENABLE_VISUAL_SE3_PRIOR:-false}"
 VISUAL_SE3_POSITION_WEIGHT="${VISUAL_SE3_POSITION_WEIGHT:-0.0}"
 VISUAL_SE3_ORIENTATION_WEIGHT="${VISUAL_SE3_ORIENTATION_WEIGHT:-0.0}"
@@ -270,6 +275,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p visual_rotation_sign:="${VISUAL_ROTATION_SIGN}" \
   -p camera_to_imu_rotation_xyzw:="${CAMERA_TO_IMU_ROTATION_XYZW}" \
   -p camera_to_imu_translation_m:="${CAMERA_TO_IMU_TRANSLATION_M}" \
+  -p lidar_to_imu_rotation_xyzw:="${LIDAR_TO_IMU_ROTATION_XYZW}" \
+  -p lidar_to_imu_translation:="${LIDAR_TO_IMU_TRANSLATION_M}" \
   -p enable_visual_se3_prior:="${ENABLE_VISUAL_SE3_PRIOR}" \
   -p visual_se3_position_weight:="${VISUAL_SE3_POSITION_WEIGHT}" \
   -p visual_se3_orientation_weight:="${VISUAL_SE3_ORIENTATION_WEIGHT}" \
@@ -582,6 +589,8 @@ native = {
     "visual_rotation_sign": float("${VISUAL_ROTATION_SIGN}"),
     "camera_to_imu_rotation_xyzw": "${CAMERA_TO_IMU_ROTATION_XYZW}",
     "camera_to_imu_translation_m": "${CAMERA_TO_IMU_TRANSLATION_M}",
+    "lidar_to_imu_rotation_xyzw": "${LIDAR_TO_IMU_ROTATION_XYZW}",
+    "lidar_to_imu_translation_m": "${LIDAR_TO_IMU_TRANSLATION_M}",
     "enable_visual_se3_prior": "${ENABLE_VISUAL_SE3_PRIOR}" == "true",
     "visual_se3_position_weight": float("${VISUAL_SE3_POSITION_WEIGHT}"),
     "visual_se3_orientation_weight": float("${VISUAL_SE3_ORIENTATION_WEIGHT}"),
