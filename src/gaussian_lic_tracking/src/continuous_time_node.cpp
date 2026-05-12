@@ -37,6 +37,7 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include <gaussian_lic_tracking/lidar_factor.hpp>
+#include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
 #include <gaussian_lic_tracking/spline/continuous_time_sliding_window.hpp>
 #include <gaussian_lic_tracking/spline/lidar_plane_extractor.hpp>
@@ -47,23 +48,6 @@ namespace gaussian_lic_tracking
 
 namespace
 {
-
-int64_t to_signed_nanoseconds(const builtin_interfaces::msg::Time & stamp)
-{
-  return static_cast<int64_t>(stamp.sec) * 1'000'000'000LL +
-         static_cast<int64_t>(stamp.nanosec);
-}
-
-builtin_interfaces::msg::Time to_ros_time(int64_t stamp_ns)
-{
-  builtin_interfaces::msg::Time t;
-  if (stamp_ns < 0) {
-    stamp_ns = 0;
-  }
-  t.sec = static_cast<int32_t>(stamp_ns / 1'000'000'000LL);
-  t.nanosec = static_cast<uint32_t>(stamp_ns % 1'000'000'000LL);
-  return t;
-}
 
 Eigen::Quaterniond quaternion_from_rotation_vector(const Eigen::Vector3d & rotation_vector)
 {
@@ -85,7 +69,7 @@ bool decode_image_gray(const sensor_msgs::msg::Image & msg, VisualFrame & frame)
   const auto width = static_cast<size_t>(msg.width);
   const auto height = static_cast<size_t>(msg.height);
   const auto pixel_count = width * height;
-  frame.stamp_ns = to_signed_nanoseconds(msg.header.stamp);
+  frame.stamp_ns = stamp_to_nanoseconds(msg.header.stamp);
   frame.width = width;
   frame.height = height;
   frame.gray.assign(pixel_count, 0.0F);
@@ -796,7 +780,7 @@ private:
     if (!msg) {
       return;
     }
-    const int64_t stamp_ns = to_signed_nanoseconds(msg->header.stamp);
+    const int64_t stamp_ns = stamp_to_nanoseconds(msg->header.stamp);
     if (stamp_ns <= 0) {
       return;
     }
@@ -841,7 +825,7 @@ private:
     if (!msg) {
       return;
     }
-    const int64_t stamp_ns = to_signed_nanoseconds(msg->header.stamp);
+    const int64_t stamp_ns = stamp_to_nanoseconds(msg->header.stamp);
     if (stamp_ns <= 0) {
       ++rejected_prior_count_;
       return;
@@ -1431,7 +1415,7 @@ private:
     if (!msg || !pointcloud_enable_) {
       return;
     }
-    const int64_t stamp_ns = to_signed_nanoseconds(msg->header.stamp);
+    const int64_t stamp_ns = stamp_to_nanoseconds(msg->header.stamp);
     if (stamp_ns <= 0) {
       return;
     }
@@ -1808,7 +1792,7 @@ private:
         ++delayed_pointcloud_dropped_;
         continue;
       }
-      const int64_t stamp_ns = to_signed_nanoseconds(msg->header.stamp);
+      const int64_t stamp_ns = stamp_to_nanoseconds(msg->header.stamp);
       if (stamp_ns <= 0) {
         ++delayed_pointcloud_dropped_;
         continue;
@@ -2510,7 +2494,7 @@ private:
     }
     last_published_query_ns_ = query_ns;
     nav_msgs::msg::Odometry odom;
-    odom.header.stamp = to_ros_time(query_ns);
+    odom.header.stamp = nanoseconds_to_stamp(query_ns);
     odom.header.frame_id = world_frame_id_;
     odom.child_frame_id = body_frame_id_;
     odom.pose.pose.position.x = p.x();
