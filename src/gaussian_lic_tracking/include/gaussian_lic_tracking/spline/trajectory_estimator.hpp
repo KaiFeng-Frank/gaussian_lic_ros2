@@ -143,6 +143,14 @@ public:
     double weight = 1.0,
     double huber_delta_mps = 0.0);
 
+  // Add an angular-velocity prior in body coordinates. This constrains the
+  // local SO(3) spline derivative without anchoring absolute yaw/roll/pitch.
+  bool add_angular_velocity_prior_factor(
+    double t_s,
+    const Eigen::Vector3d & angular_velocity_body,
+    double weight = 1.0,
+    double huber_delta_radps = 0.0);
+
   // Add an orientation-only prior on the continuous-time body trajectory.
   // The residual is the SO(3) log-map between target and spline orientation.
   bool add_orientation_prior_factor(
@@ -166,6 +174,10 @@ public:
   std::size_t lidar_normal_factor_count() const { return lidar_normal_factor_count_; }
   std::size_t position_prior_factor_count() const { return position_prior_factor_count_; }
   std::size_t velocity_prior_factor_count() const { return velocity_prior_factor_count_; }
+  std::size_t angular_velocity_prior_factor_count() const
+  {
+    return angular_velocity_prior_factor_count_;
+  }
   std::size_t orientation_prior_factor_count() const { return orientation_prior_factor_count_; }
   std::size_t position_smoothness_factor_count() const { return position_smoothness_factor_count_; }
   std::size_t rotation_smoothness_factor_count() const { return rotation_smoothness_factor_count_; }
@@ -193,6 +205,7 @@ private:
   std::size_t lidar_normal_factor_count_{0};
   std::size_t position_prior_factor_count_{0};
   std::size_t velocity_prior_factor_count_{0};
+  std::size_t angular_velocity_prior_factor_count_{0};
   std::size_t orientation_prior_factor_count_{0};
   std::size_t position_smoothness_factor_count_{0};
   std::size_t rotation_smoothness_factor_count_{0};

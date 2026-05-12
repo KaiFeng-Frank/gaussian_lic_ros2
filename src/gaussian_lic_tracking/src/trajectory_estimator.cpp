@@ -283,6 +283,35 @@ struct OrientationPriorAutoDiffFunctor
   }
 };
 
+struct AngularVelocityPriorAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Vector3d angular_velocity_body{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(
+    const T * r0, const T * r1, const T * r2, const T * r3,
+    T * residuals) const
+  {
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(r0),
+      quaternion_from_coeffs_t<T>(r1),
+      quaternion_from_coeffs_t<T>(r2),
+      quaternion_from_coeffs_t<T>(r3)};
+
+    Eigen::Matrix<T, 3, 1> omega_b;
+    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+      rot_knots, T(u_normalized), T(inv_dt_s),
+      nullptr, &omega_b, nullptr);
+    const Eigen::Matrix<T, 3, 1> target = angular_velocity_body.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * (omega_b - target);
+    return true;
+  }
+};
+
 struct PositionSmoothnessAutoDiffFunctor
 {
   double weight{1.0};
@@ -672,6 +701,55 @@ bool TrajectoryEstimator::add_velocity_prior_factor(
   const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   impl_->velocity_prior_residual_blocks.push_back(block);
   ++velocity_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_angular_velocity_prior_factor(
+  double t_s,
+  const Eigen::Vector3d & angular_velocity_body,
+  double weight,
+  double huber_delta_radps)
+{
+  if (!angular_velocity_body.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_radps) || huber_delta_radps < 0.0)
+  {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  AngularVelocityPriorAutoDiffFunctor functor;
+  functor.u_normalized = u;
+  functor.inv_dt_s = 1.0 / dt_s_;
+  functor.angular_velocity_body = angular_velocity_body;
+  functor.weight = weight;
+
+  auto * cost = new ceres::AutoDiffCostFunction<
+    AngularVelocityPriorAutoDiffFunctor, 3,
+    4, 4, 4, 4>(new AngularVelocityPriorAutoDiffFunctor(functor));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->rotation_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_radps > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_radps);
+  }
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->orientation_prior_residual_blocks.push_back(block);
+  ++angular_velocity_prior_factor_count_;
   return true;
 }
 

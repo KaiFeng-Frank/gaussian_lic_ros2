@@ -106,6 +106,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_lidar_normal_factors{0};
   std::size_t total_position_prior_factors{0};
   std::size_t total_velocity_prior_factors{0};
+  std::size_t total_angular_velocity_prior_factors{0};
   std::size_t total_orientation_prior_factors{0};
   std::size_t total_position_smoothness_factors{0};
   std::size_t total_rotation_smoothness_factors{0};
@@ -116,6 +117,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t last_step_lidar_normal_factors{0};
   std::size_t last_step_position_prior_factors{0};
   std::size_t last_step_velocity_prior_factors{0};
+  std::size_t last_step_angular_velocity_prior_factors{0};
   std::size_t last_step_orientation_prior_factors{0};
   std::size_t last_step_position_smoothness_factors{0};
   std::size_t last_step_rotation_smoothness_factors{0};
@@ -204,6 +206,12 @@ public:
     const Eigen::Vector3d & velocity_world,
     double weight = 1.0,
     double huber_delta_mps = -1.0);
+
+  void add_angular_velocity_prior(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & angular_velocity_body,
+    double weight = 1.0,
+    double huber_delta_radps = -1.0);
 
   // Adds a timestamped SO(3) orientation prior with the same buffering
   // semantics as the position prior.
