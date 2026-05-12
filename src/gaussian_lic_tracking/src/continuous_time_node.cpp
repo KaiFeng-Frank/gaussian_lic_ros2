@@ -151,16 +151,14 @@ public:
 
     enable_imu_gravity_autocal_ =
       declare_parameter<bool>("enable_imu_gravity_autocal", true);
-    // Default off: the current single-frame voxel-plane factor cannot
-    // pull the trajectory in a stable way without an accumulating
-    // world-frame plane map (the plane equation is derived from points
-    // viewed through the same trajectory it would constrain — see notes
-    // in `on_pointcloud`). Local M2DGR experiment shows this factor
-    // actively hurts RMSE (~39 km → ~250 km on 8 s slice with GT prior).
-    // Reactivate with `enable_voxel_plane_extraction:=true` once the
-    // persistent-map upgrade lands.
+    // Default off for launches: voxel-plane factors are useful only when the
+    // persistent world-frame plane map has enough observations to avoid the
+    // old same-frame identity constraint. Parity scripts enable this path
+    // explicitly while the tracker is still being RMSE-tuned.
     enable_voxel_plane_extraction_ =
       declare_parameter<bool>("enable_voxel_plane_extraction", false);
+    enable_persistent_plane_map_ =
+      declare_parameter<bool>("enable_persistent_plane_map", true);
     spline::LidarPlaneExtractorOptions extractor_options;
     extractor_options.voxel_size_m =
       declare_parameter<double>("voxel_plane_size_m", 0.5);
@@ -175,6 +173,14 @@ public:
     extractor_options.min_range_m = pointcloud_min_range_m_;
     extractor_options.max_range_m = pointcloud_max_range_m_;
     plane_extractor_.set_options(extractor_options);
+    spline::PersistentPlaneMapOptions plane_map_options;
+    plane_map_options.max_planes = static_cast<int>(
+      declare_parameter<int>("persistent_plane_map_max_planes", 512));
+    plane_map_options.max_point_to_plane_distance_m =
+      declare_parameter<double>("persistent_plane_map_match_distance_m", 0.25);
+    plane_map_options.min_normal_dot =
+      declare_parameter<double>("persistent_plane_map_min_normal_dot", 0.95);
+    persistent_plane_map_.set_options(plane_map_options);
 
     const auto plane_param = declare_parameter<std::vector<double>>(
       "lidar_ground_plane", std::vector<double>{0.0, 0.0, 1.0, 0.0});
@@ -381,12 +387,36 @@ private:
 
       int accepted = 0;
       for (const auto & plane : planes) {
+        Eigen::Vector3d n_world = Eigen::Vector3d::Zero();
+        Eigen::Vector3d centroid_world = Eigen::Vector3d::Zero();
+        double d_world = 0.0;
+        bool has_world_plane = false;
+        if (have_scan_pose) {
+          n_world = (R_w_l * plane.normal).normalized();
+          centroid_world = R_w_l * plane.centroid + p_w_l;
+          d_world = plane.offset - n_world.dot(p_w_l);
+          has_world_plane = n_world.allFinite() && centroid_world.allFinite() &&
+            std::isfinite(d_world);
+        }
+
         spline::LidarPointCorrespondence pc;
         pc.geometry = spline::LidarFeatureGeometry::kPlane;
         pc.point_lidar = plane.sample_point;
-        if (have_scan_pose) {
-          const Eigen::Vector3d n_world = R_w_l * plane.normal;
-          const double d_world = plane.offset - n_world.dot(p_w_l);
+        if (enable_persistent_plane_map_ && has_world_plane) {
+          const auto match = persistent_plane_map_.match(centroid_world, n_world);
+          if (match) {
+            pc.plane = match->plane;
+            estimator_->add_lidar_correspondence(
+              stamp_ns, pc, extrinsics, pointcloud_factor_weight_);
+            ++accepted;
+            ++persistent_plane_map_matches_;
+          }
+          if (persistent_plane_map_.add_or_update(centroid_world, n_world, d_world)) {
+            ++persistent_plane_map_updates_;
+          }
+          continue;
+        }
+        if (has_world_plane) {
           pc.plane.head<3>() = n_world;
           pc.plane[3] = d_world;
         } else {
@@ -652,7 +682,8 @@ private:
   Eigen::Quaterniond lidar_to_imu_rotation_{Eigen::Quaterniond::Identity()};
 
   bool enable_imu_gravity_autocal_{true};
-  bool enable_voxel_plane_extraction_{true};
+  bool enable_voxel_plane_extraction_{false};
+  bool enable_persistent_plane_map_{true};
   bool enable_external_odometry_prior_{false};
   bool have_prior_pose_{false};
   Eigen::Vector3d latest_prior_position_{Eigen::Vector3d::Zero()};
@@ -661,6 +692,9 @@ private:
   std::size_t accepted_prior_count_{0};
   std::size_t rejected_prior_count_{0};
   spline::LidarPlaneExtractor plane_extractor_{};
+  spline::PersistentPlaneMap persistent_plane_map_{};
+  std::size_t persistent_plane_map_matches_{0};
+  std::size_t persistent_plane_map_updates_{0};
 
   double step_period_seconds_{0.10};
   int64_t step_period_ns_{0};

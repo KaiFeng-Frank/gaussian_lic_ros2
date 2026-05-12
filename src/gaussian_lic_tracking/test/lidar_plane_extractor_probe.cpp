@@ -16,6 +16,8 @@
 using gaussian_lic_tracking::spline::ExtractedPlane;
 using gaussian_lic_tracking::spline::LidarPlaneExtractor;
 using gaussian_lic_tracking::spline::LidarPlaneExtractorOptions;
+using gaussian_lic_tracking::spline::PersistentPlaneMap;
+using gaussian_lic_tracking::spline::PersistentPlaneMapOptions;
 
 namespace
 {
@@ -129,6 +131,54 @@ void check_rejects_random_noise()
   }
 }
 
+void check_persistent_plane_map_matches_and_updates()
+{
+  PersistentPlaneMapOptions options;
+  options.max_planes = 4;
+  options.max_point_to_plane_distance_m = 0.20;
+  options.min_normal_dot = 0.95;
+  PersistentPlaneMap map(options);
+
+  const auto first_index = map.add_or_update(
+    Eigen::Vector3d(0.0, 0.0, 0.0),
+    Eigen::Vector3d(0.0, 0.0, 1.0),
+    0.0);
+  if (!first_index || *first_index != 0 || map.size() != 1) {
+    std::fprintf(stderr, "persistent plane map failed to insert first plane\n");
+    std::exit(1);
+  }
+
+  const auto match = map.match(
+    Eigen::Vector3d(1.0, -0.5, 0.05),
+    Eigen::Vector3d(0.0, 0.0, 1.0));
+  if (!match || match->index != 0 || match->point_to_plane_distance_m > 0.051) {
+    std::fprintf(stderr, "persistent plane map failed near-plane match\n");
+    std::exit(1);
+  }
+
+  const auto opposite_update = map.add_or_update(
+    Eigen::Vector3d(1.0, 0.0, 0.02),
+    Eigen::Vector3d(0.0, 0.0, -1.0),
+    0.02);
+  if (!opposite_update || *opposite_update != 0 || map.size() != 1) {
+    std::fprintf(stderr, "persistent plane map failed opposite-normal update\n");
+    std::exit(1);
+  }
+  const auto & updated = map.planes().front();
+  if (updated.observations != 2 || std::abs(updated.normal_world.z()) < 0.99) {
+    std::fprintf(stderr, "persistent plane map update produced bad plane\n");
+    std::exit(1);
+  }
+
+  const auto far_match = map.match(
+    Eigen::Vector3d(0.0, 0.0, 1.0),
+    Eigen::Vector3d(0.0, 0.0, 1.0));
+  if (far_match) {
+    std::fprintf(stderr, "persistent plane map matched a far centroid\n");
+    std::exit(1);
+  }
+}
+
 }  // namespace
 
 int main()
@@ -137,6 +187,7 @@ int main()
     check_ground_plane_recovery();
     check_two_orthogonal_planes();
     check_rejects_random_noise();
+    check_persistent_plane_map_matches_and_updates();
   } catch (const std::exception & exception) {
     std::fprintf(stderr,
       "lidar_plane_extractor_probe exception: %s\n", exception.what());

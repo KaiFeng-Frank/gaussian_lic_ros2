@@ -8,7 +8,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -71,6 +74,140 @@ struct ExtractedPlane
   Eigen::Vector3d sample_point{Eigen::Vector3d::Zero()};
   int support_points{0};
   double eigenvalue_ratio{0.0};
+};
+
+struct PersistentPlaneMapOptions
+{
+  int max_planes{512};
+  double max_point_to_plane_distance_m{0.25};
+  double min_normal_dot{0.95};
+};
+
+struct PersistentPlane
+{
+  Eigen::Vector3d centroid_world{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d normal_world{Eigen::Vector3d::UnitZ()};
+  double offset_world{0.0};
+  int observations{0};
+};
+
+struct PersistentPlaneMatch
+{
+  int index{-1};
+  Eigen::Vector4d plane{Eigen::Vector4d::Zero()};
+  double point_to_plane_distance_m{0.0};
+  double normal_dot{0.0};
+};
+
+class PersistentPlaneMap
+{
+public:
+  explicit PersistentPlaneMap(const PersistentPlaneMapOptions & options = {})
+  : options_(options)
+  {
+  }
+
+  void set_options(const PersistentPlaneMapOptions & options) { options_ = options; }
+  const PersistentPlaneMapOptions & options() const { return options_; }
+  const std::vector<PersistentPlane> & planes() const { return planes_; }
+  std::size_t size() const { return planes_.size(); }
+
+  std::optional<PersistentPlaneMatch> match(
+    const Eigen::Vector3d & centroid_world,
+    const Eigen::Vector3d & normal_world) const
+  {
+    if (!centroid_world.allFinite() || !normal_world.allFinite()) {
+      return std::nullopt;
+    }
+    const double normal_norm = normal_world.norm();
+    if (normal_norm < 1.0e-9) {
+      return std::nullopt;
+    }
+    const Eigen::Vector3d n = normal_world / normal_norm;
+
+    std::optional<PersistentPlaneMatch> best;
+    double best_distance = options_.max_point_to_plane_distance_m;
+    for (std::size_t i = 0; i < planes_.size(); ++i) {
+      const auto & plane = planes_[i];
+      const double signed_normal_dot = plane.normal_world.dot(n);
+      const double normal_dot = std::abs(signed_normal_dot);
+      if (normal_dot < options_.min_normal_dot) {
+        continue;
+      }
+      const double distance =
+        std::abs(plane.normal_world.dot(centroid_world) + plane.offset_world);
+      if (distance > best_distance) {
+        continue;
+      }
+      Eigen::Vector4d plane_coeffs;
+      plane_coeffs.head<3>() = plane.normal_world;
+      plane_coeffs[3] = plane.offset_world;
+      if (signed_normal_dot < 0.0) {
+        plane_coeffs = -plane_coeffs;
+      }
+      PersistentPlaneMatch match;
+      match.index = static_cast<int>(i);
+      match.plane = plane_coeffs;
+      match.point_to_plane_distance_m = distance;
+      match.normal_dot = normal_dot;
+      best = match;
+      best_distance = distance;
+    }
+    return best;
+  }
+
+  std::optional<int> add_or_update(
+    const Eigen::Vector3d & centroid_world,
+    const Eigen::Vector3d & normal_world,
+    double offset_world)
+  {
+    if (!centroid_world.allFinite() || !normal_world.allFinite() ||
+      !std::isfinite(offset_world))
+    {
+      return std::nullopt;
+    }
+    const double normal_norm = normal_world.norm();
+    if (normal_norm < 1.0e-9) {
+      return std::nullopt;
+    }
+    Eigen::Vector3d n = normal_world / normal_norm;
+    double d = offset_world / normal_norm;
+
+    const auto existing = match(centroid_world, n);
+    if (existing) {
+      auto & plane = planes_[static_cast<std::size_t>(existing->index)];
+      if (plane.normal_world.dot(n) < 0.0) {
+        n = -n;
+        d = -d;
+      }
+      const double old_weight = static_cast<double>(std::max(1, plane.observations));
+      plane.centroid_world =
+        (old_weight * plane.centroid_world + centroid_world) / (old_weight + 1.0);
+      plane.normal_world = (old_weight * plane.normal_world + n).normalized();
+      // Keep the plane passing through the averaged centroid. This is more
+      // stable than averaging signed offsets when normal signs were flipped.
+      plane.offset_world = -plane.normal_world.dot(plane.centroid_world);
+      plane.observations += 1;
+      return existing->index;
+    }
+
+    if (options_.max_planes > 0 &&
+      static_cast<int>(planes_.size()) >= options_.max_planes)
+    {
+      return std::nullopt;
+    }
+    PersistentPlane plane;
+    plane.centroid_world = centroid_world;
+    plane.normal_world = n;
+    plane.offset_world = d;
+    plane.observations = 1;
+    planes_.push_back(plane);
+    return static_cast<int>(planes_.size() - 1);
+  }
+
+private:
+  PersistentPlaneMapOptions options_;
+  std::vector<PersistentPlane> planes_;
 };
 
 class LidarPlaneExtractor
