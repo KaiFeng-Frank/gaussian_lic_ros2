@@ -946,6 +946,10 @@ public:
     }
     persistent_point_map_nearest_distance_m_ =
       declare_parameter<double>("persistent_point_map_nearest_distance_m", 0.35);
+    persistent_point_map_merge_distance_m_ =
+      declare_parameter<double>("persistent_point_map_merge_distance_m", 0.10);
+    persistent_point_map_min_match_age_s_ =
+      declare_parameter<double>("persistent_point_map_min_match_age_s", 0.25);
     persistent_point_map_factor_weight_ =
       declare_parameter<double>("persistent_point_map_factor_weight", 0.05);
     persistent_point_map_subsample_stride_ = static_cast<int>(
@@ -954,6 +958,22 @@ public:
       declare_parameter<int>("persistent_point_map_max_points", 20000));
     persistent_point_map_max_correspondences_ = static_cast<int>(
       declare_parameter<int>("persistent_point_map_max_correspondences", 64));
+    persistent_point_map_min_observations_for_match_ = static_cast<int>(
+      declare_parameter<int>("persistent_point_map_min_observations_for_match", 3));
+    if (!std::isfinite(persistent_point_map_nearest_distance_m_) ||
+      persistent_point_map_nearest_distance_m_ <= 0.0 ||
+      !std::isfinite(persistent_point_map_merge_distance_m_) ||
+      persistent_point_map_merge_distance_m_ < 0.0 ||
+      !std::isfinite(persistent_point_map_min_match_age_s_) ||
+      persistent_point_map_min_match_age_s_ < 0.0 ||
+      !std::isfinite(persistent_point_map_factor_weight_) ||
+      persistent_point_map_factor_weight_ <= 0.0 ||
+      persistent_point_map_subsample_stride_ < 1 ||
+      persistent_point_map_max_correspondences_ < 0 ||
+      persistent_point_map_min_observations_for_match_ < 1)
+    {
+      throw std::runtime_error("Persistent point-map parameters are invalid");
+    }
     spline::LidarPlaneExtractorOptions extractor_options;
     extractor_options.voxel_size_m =
       declare_parameter<double>("voxel_plane_size_m", 0.5);
@@ -1076,6 +1096,16 @@ private:
     int64_t stamp_ns{0};
     std::vector<spline::ExtractedPlane> planes;
     spline::LidarExtrinsics extrinsics;
+  };
+
+  struct PersistentPointMapEntry
+  {
+    Eigen::Vector3d point_world{Eigen::Vector3d::Zero()};
+    Eigen::Vector3d last_stamp_mean_world{Eigen::Vector3d::Zero()};
+    int observations{1};
+    int last_stamp_sample_count{1};
+    int64_t first_stamp_ns{0};
+    int64_t last_stamp_ns{0};
   };
 
   void on_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -2533,6 +2563,7 @@ private:
   }
 
   bool find_nearest_persistent_point(
+    int64_t stamp_ns,
     const Eigen::Vector3d & point_world,
     Eigen::Vector3d & nearest_world,
     double & nearest_distance_sq) const
@@ -2545,14 +2576,133 @@ private:
     nearest_distance_sq = max_distance_sq;
     bool found = false;
     for (const auto & candidate : persistent_points_world_) {
-      const double distance_sq = (candidate - point_world).squaredNorm();
+      if (!persistent_point_is_match_ready(candidate, stamp_ns)) {
+        continue;
+      }
+      const double distance_sq = (candidate.point_world - point_world).squaredNorm();
       if (distance_sq <= nearest_distance_sq) {
         nearest_distance_sq = distance_sq;
-        nearest_world = candidate;
+        nearest_world = candidate.point_world;
         found = true;
       }
     }
     return found;
+  }
+
+  bool persistent_point_is_match_ready(
+    const PersistentPointMapEntry & candidate,
+    int64_t stamp_ns) const
+  {
+    if (!candidate.point_world.allFinite() ||
+      candidate.observations < persistent_point_map_min_observations_for_match_)
+    {
+      return false;
+    }
+    if (candidate.last_stamp_ns == stamp_ns) {
+      return false;
+    }
+    if (persistent_point_map_min_match_age_s_ <= 0.0) {
+      return true;
+    }
+    if (stamp_ns <= candidate.first_stamp_ns) {
+      return false;
+    }
+    const double age_s =
+      static_cast<double>(stamp_ns - candidate.first_stamp_ns) * 1.0e-9;
+    return std::isfinite(age_s) && age_s >= persistent_point_map_min_match_age_s_;
+  }
+
+  std::optional<std::size_t> find_persistent_point_update_target(
+    const Eigen::Vector3d & point_world) const
+  {
+    if (persistent_points_world_.empty() || !point_world.allFinite() ||
+      persistent_point_map_merge_distance_m_ <= 0.0)
+    {
+      return std::nullopt;
+    }
+    const double max_distance_sq =
+      persistent_point_map_merge_distance_m_ * persistent_point_map_merge_distance_m_;
+    double nearest_distance_sq = max_distance_sq;
+    std::optional<std::size_t> nearest_index;
+    for (std::size_t index = 0; index < persistent_points_world_.size(); ++index) {
+      const auto & candidate = persistent_points_world_[index];
+      if (!candidate.point_world.allFinite()) {
+        continue;
+      }
+      const double distance_sq = (candidate.point_world - point_world).squaredNorm();
+      if (distance_sq <= nearest_distance_sq) {
+        nearest_distance_sq = distance_sq;
+        nearest_index = index;
+      }
+    }
+    return nearest_index;
+  }
+
+  bool update_persistent_point_map(int64_t stamp_ns, const Eigen::Vector3d & point_world)
+  {
+    if (!point_world.allFinite()) {
+      return false;
+    }
+    if (const auto target_index = find_persistent_point_update_target(point_world)) {
+      auto & target = persistent_points_world_[*target_index];
+      const bool new_observation_stamp = target.last_stamp_ns != stamp_ns;
+      if (new_observation_stamp) {
+        const int previous_observations = std::max(target.observations, 1);
+        const int next_observations = previous_observations + 1;
+        target.point_world =
+          (target.point_world * static_cast<double>(previous_observations) + point_world) /
+          static_cast<double>(next_observations);
+        target.observations = next_observations;
+        target.last_stamp_mean_world = point_world;
+        target.last_stamp_sample_count = 1;
+      } else {
+        const int observations = std::max(target.observations, 1);
+        const int previous_stamp_samples = std::max(target.last_stamp_sample_count, 1);
+        const Eigen::Vector3d previous_stamp_mean = target.last_stamp_mean_world.allFinite() ?
+          target.last_stamp_mean_world :
+          point_world;
+        const Eigen::Vector3d next_stamp_mean =
+          (previous_stamp_mean * static_cast<double>(previous_stamp_samples) + point_world) /
+          static_cast<double>(previous_stamp_samples + 1);
+        target.point_world =
+          (target.point_world * static_cast<double>(observations) -
+          previous_stamp_mean + next_stamp_mean) /
+          static_cast<double>(observations);
+        target.last_stamp_mean_world = next_stamp_mean;
+        target.last_stamp_sample_count = previous_stamp_samples + 1;
+      }
+      target.last_stamp_ns = stamp_ns;
+      return true;
+    }
+    if (persistent_point_map_max_points_ > 0 &&
+      static_cast<int>(persistent_points_world_.size()) >= persistent_point_map_max_points_)
+    {
+      return false;
+    }
+    PersistentPointMapEntry entry;
+    entry.point_world = point_world;
+    entry.last_stamp_mean_world = point_world;
+    entry.observations = 1;
+    entry.last_stamp_sample_count = 1;
+    entry.first_stamp_ns = stamp_ns;
+    entry.last_stamp_ns = stamp_ns;
+    persistent_points_world_.push_back(entry);
+    return true;
+  }
+
+  std::size_t commit_persistent_point_map_updates(
+    int64_t stamp_ns,
+    const std::vector<Eigen::Vector3d> & pending_point_updates)
+  {
+    std::size_t applied = 0U;
+    for (const auto & point_world : pending_point_updates) {
+      if (update_persistent_point_map(stamp_ns, point_world)) {
+        ++applied;
+      } else {
+        ++persistent_point_map_update_skips_;
+      }
+    }
+    return applied;
   }
 
   double lidar_surface_feature_scale(double abs_point_to_plane_m, double range_m) const
@@ -2610,7 +2760,9 @@ private:
       const Eigen::Vector3d point_world = R_w_l * point_lidar + p_w_l;
       Eigen::Vector3d nearest_world = Eigen::Vector3d::Zero();
       double nearest_distance_sq = 0.0;
-      if (find_nearest_persistent_point(point_world, nearest_world, nearest_distance_sq)) {
+      if (find_nearest_persistent_point(
+          stamp_ns, point_world, nearest_world, nearest_distance_sq))
+      {
         const double feature_scale =
           lidar_surface_feature_scale(std::sqrt(nearest_distance_sq), range);
         if (!lidar_feature_scale_is_accepted(feature_scale)) {
@@ -2631,9 +2783,7 @@ private:
       }
       if (!allow_map_update) {
         ++persistent_point_map_update_skips_;
-      } else if (persistent_point_map_max_points_ <= 0 ||
-        static_cast<int>(persistent_points_world_.size() + pending_point_updates.size()) <
-        persistent_point_map_max_points_)
+      } else
       {
         // Same-scan self matches collapse motion. Keep associations
         // history-based by publishing this scan's map updates only after all
@@ -2641,10 +2791,8 @@ private:
         pending_point_updates.push_back(point_world);
       }
     }
-    persistent_points_world_.insert(
-      persistent_points_world_.end(),
-      pending_point_updates.begin(), pending_point_updates.end());
-    persistent_point_map_updates_ += pending_point_updates.size();
+    persistent_point_map_updates_ +=
+      commit_persistent_point_map_updates(stamp_ns, pending_point_updates);
     return accepted;
   }
 
@@ -3482,11 +3630,14 @@ private:
   std::size_t persistent_plane_normal_factors_{0};
   bool enable_persistent_point_map_{false};
   double persistent_point_map_nearest_distance_m_{0.35};
+  double persistent_point_map_merge_distance_m_{0.10};
+  double persistent_point_map_min_match_age_s_{0.25};
   double persistent_point_map_factor_weight_{0.05};
   int persistent_point_map_subsample_stride_{20};
   int persistent_point_map_max_points_{20000};
   int persistent_point_map_max_correspondences_{64};
-  std::vector<Eigen::Vector3d> persistent_points_world_;
+  int persistent_point_map_min_observations_for_match_{3};
+  std::vector<PersistentPointMapEntry> persistent_points_world_;
   std::size_t persistent_point_map_matches_{0};
   std::size_t persistent_point_map_updates_{0};
   std::size_t persistent_point_map_update_skips_{0};

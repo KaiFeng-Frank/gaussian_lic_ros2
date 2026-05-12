@@ -140,6 +140,17 @@ short (`0.47 m` current vs `0.92 m` reference, RMSE `0.144 m`), so Gaussian-map
 point anchors still need covariance/visibility filtering before they can become
 parity defaults.
 
+2026-05-13 follow-up: persistent point-map entries now store first/last
+signed-nanosecond stamps, per-stamp observation counts, and same-stamp sample
+means. Matches are gated on minimum age and minimum cross-stamp observations,
+with `persistent_point_map_merge_distance_m`,
+`persistent_point_map_min_match_age_s`, and
+`persistent_point_map_min_observations_for_match` forwarded by the parity
+script. This removes the remaining same-scan target ambiguity, but CBD 12 s
+evidence still does not improve ATE (`0.143944-0.145313 m` RMSE and shortened
+path scale), so the open strict-parity blocker remains global trajectory-shape
+and visual/Gaussian-map coupling rather than point-map update timing.
+
 ## Dataset Profiles
 
 `gaussian_lic_bringup/config` includes ROS2 mapping profiles derived from the upstream Gaussian-LIC YAML files:
