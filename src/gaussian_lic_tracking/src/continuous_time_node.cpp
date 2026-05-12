@@ -545,10 +545,18 @@ public:
       declare_parameter<double>("lidar_scan_to_scan_velocity_weight", 0.0);
     lidar_scan_to_scan_angular_velocity_weight_ =
       declare_parameter<double>("lidar_scan_to_scan_angular_velocity_weight", 0.0);
+    lidar_scan_to_scan_position_weight_ =
+      declare_parameter<double>("lidar_scan_to_scan_position_weight", 0.0);
+    lidar_scan_to_scan_orientation_weight_ =
+      declare_parameter<double>("lidar_scan_to_scan_orientation_weight", 0.0);
     lidar_scan_to_scan_velocity_huber_delta_mps_ =
       declare_parameter<double>("lidar_scan_to_scan_velocity_huber_delta_mps", 0.25);
     lidar_scan_to_scan_angular_velocity_huber_delta_radps_ =
       declare_parameter<double>("lidar_scan_to_scan_angular_velocity_huber_delta_radps", 0.25);
+    lidar_scan_to_scan_position_huber_delta_m_ =
+      declare_parameter<double>("lidar_scan_to_scan_position_huber_delta_m", 0.25);
+    lidar_scan_to_scan_orientation_huber_delta_rad_ =
+      declare_parameter<double>("lidar_scan_to_scan_orientation_huber_delta_rad", 0.25);
     if (!std::isfinite(lidar_pose_prior_position_weight_) ||
       lidar_pose_prior_position_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_velocity_weight_) ||
@@ -569,10 +577,18 @@ public:
       lidar_scan_to_scan_velocity_weight_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_angular_velocity_weight_) ||
       lidar_scan_to_scan_angular_velocity_weight_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_position_weight_) ||
+      lidar_scan_to_scan_position_weight_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_orientation_weight_) ||
+      lidar_scan_to_scan_orientation_weight_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_velocity_huber_delta_mps_) ||
       lidar_scan_to_scan_velocity_huber_delta_mps_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_angular_velocity_huber_delta_radps_) ||
       lidar_scan_to_scan_angular_velocity_huber_delta_radps_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_position_huber_delta_m_) ||
+      lidar_scan_to_scan_position_huber_delta_m_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_orientation_huber_delta_rad_) ||
+      lidar_scan_to_scan_orientation_huber_delta_rad_ < 0.0 ||
       lidar_pose_factor_keyframe_stride_ <= 0 ||
       lidar_pose_factor_iterations_ <= 0)
     {
@@ -1928,6 +1944,8 @@ private:
       "lidar_pose_rejected=%zu lidar_pose_last_residual=%.9g "
       "lidar_scan_to_scan_priors=%zu lidar_scan_to_scan_velocity_priors=%zu "
       "lidar_scan_to_scan_angular_velocity_priors=%zu "
+      "lidar_scan_to_scan_position_priors=%zu "
+      "lidar_scan_to_scan_orientation_priors=%zu "
       "lidar_scan_to_scan_matches=%zu lidar_scan_to_scan_rejected=%zu "
       "lidar_scan_to_scan_last_residual=%.9g "
       "prior_seed=%zu prior_position_factors=%zu "
@@ -2032,6 +2050,8 @@ private:
       lidar_scan_to_scan_priors_,
       lidar_scan_to_scan_velocity_priors_,
       lidar_scan_to_scan_angular_velocity_priors_,
+      lidar_scan_to_scan_position_priors_,
+      lidar_scan_to_scan_orientation_priors_,
       lidar_scan_to_scan_matches_,
       lidar_scan_to_scan_rejected_,
       lidar_scan_to_scan_last_residual_m_,
@@ -2150,7 +2170,9 @@ private:
     if (!enable_lidar_scan_to_scan_prior_ || !have_scan_pose ||
       !q_w_i.coeffs().allFinite() || !p_w_i.allFinite() ||
       (lidar_scan_to_scan_velocity_weight_ <= 0.0 &&
-      lidar_scan_to_scan_angular_velocity_weight_ <= 0.0))
+      lidar_scan_to_scan_angular_velocity_weight_ <= 0.0 &&
+      lidar_scan_to_scan_position_weight_ <= 0.0 &&
+      lidar_scan_to_scan_orientation_weight_ <= 0.0))
     {
       return;
     }
@@ -2221,6 +2243,18 @@ private:
       last_lidar_scan_to_scan_pose_.p_w_i +
       last_lidar_scan_to_scan_pose_.q_w_i * target_relative_p;
 
+    if (lidar_scan_to_scan_position_weight_ > 0.0) {
+      estimator_->add_position_prior(
+        stamp_ns, target_p, lidar_scan_to_scan_position_weight_,
+        lidar_scan_to_scan_position_huber_delta_m_);
+      ++lidar_scan_to_scan_position_priors_;
+    }
+    if (lidar_scan_to_scan_orientation_weight_ > 0.0) {
+      estimator_->add_orientation_prior(
+        stamp_ns, target_q, lidar_scan_to_scan_orientation_weight_,
+        lidar_scan_to_scan_orientation_huber_delta_rad_);
+      ++lidar_scan_to_scan_orientation_priors_;
+    }
     if (lidar_scan_to_scan_velocity_weight_ > 0.0) {
       const Eigen::Vector3d target_velocity =
         (target_p - last_lidar_scan_to_scan_pose_.p_w_i) / dt_s;
@@ -2600,10 +2634,14 @@ private:
   int lidar_pose_factor_keyframe_stride_{5};
   int lidar_pose_factor_iterations_{1};
   bool enable_lidar_scan_to_scan_prior_{false};
+  double lidar_scan_to_scan_position_weight_{0.0};
   double lidar_scan_to_scan_velocity_weight_{0.0};
   double lidar_scan_to_scan_angular_velocity_weight_{0.0};
+  double lidar_scan_to_scan_orientation_weight_{0.0};
+  double lidar_scan_to_scan_position_huber_delta_m_{0.25};
   double lidar_scan_to_scan_velocity_huber_delta_mps_{0.25};
   double lidar_scan_to_scan_angular_velocity_huber_delta_radps_{0.25};
+  double lidar_scan_to_scan_orientation_huber_delta_rad_{0.25};
   LidarFactor lidar_pose_factor_;
   bool lidar_pose_factor_has_keyframe_{false};
   std::size_t lidar_pose_factor_seen_frames_{0};
@@ -2622,8 +2660,10 @@ private:
   std::vector<Eigen::Vector3d> last_lidar_scan_to_scan_points_imu_;
   TrajectoryPose last_lidar_scan_to_scan_pose_;
   std::size_t lidar_scan_to_scan_priors_{0};
+  std::size_t lidar_scan_to_scan_position_priors_{0};
   std::size_t lidar_scan_to_scan_velocity_priors_{0};
   std::size_t lidar_scan_to_scan_angular_velocity_priors_{0};
+  std::size_t lidar_scan_to_scan_orientation_priors_{0};
   std::size_t lidar_scan_to_scan_matches_{0};
   std::size_t lidar_scan_to_scan_rejected_{0};
   double lidar_scan_to_scan_last_residual_m_{0.0};
