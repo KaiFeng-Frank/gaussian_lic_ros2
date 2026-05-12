@@ -1123,6 +1123,17 @@ Current readiness gate:
 ./scripts/baseline_readiness.py --dataset-root /home/frank/data/fast_livo --sequence CBD_Building_01
 ```
 
+Latest native-tracker status (2026-05-13): data and reference trajectories are
+available, and the remaining blocker is long-window continuous-time BA quality.
+The best recent CBD 60 s native run is still about `1.8 m` RMSE against the
+trusted Coco-LIC reference. New retained-knot prior hooks and scan-to-scan
+position-prior ablations are implemented and tested, but the 12 s probes showed
+they are diagnostic only: direct scan-to-scan position priors over-scale path
+length, retained-knot soft anchors also over-scale, and velocity-only scan
+priors do not beat the current stable configuration. They therefore remain
+default-off until the full marginalization/global visual-map coupling closes the
+strict parity gap.
+
 See [docs/BASELINE_DATA.md](docs/BASELINE_DATA.md), [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Docker

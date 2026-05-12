@@ -446,6 +446,9 @@ void check_marginalization_keeps_window_bounded()
   options.max_iterations_per_step = 30;
   options.max_position_update_m = 0.0;
   options.max_rotation_update_rad = 0.0;
+  options.retained_knot_prior_count = 4;
+  options.retained_knot_position_prior_weight = 5.0;
+  options.retained_knot_orientation_prior_weight = 5.0;
 
   ContinuousTimeSlidingWindowEstimator estimator(options);
   std::vector<Eigen::Quaterniond> initial_rot(
@@ -480,6 +483,15 @@ void check_marginalization_keeps_window_bounded()
   }
   if (estimator.diagnostics().total_marginalized_knots == 0) {
     std::fprintf(stderr, "no knots ever marginalized despite enabled policy\n");
+    std::exit(1);
+  }
+  if (estimator.diagnostics().total_retained_knot_position_prior_factors == 0 ||
+    estimator.diagnostics().total_retained_knot_orientation_prior_factors == 0)
+  {
+    std::fprintf(stderr,
+      "retained knot priors were not injected: pos=%zu rot=%zu\n",
+      estimator.diagnostics().total_retained_knot_position_prior_factors,
+      estimator.diagnostics().total_retained_knot_orientation_prior_factors);
     std::exit(1);
   }
 }

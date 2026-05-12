@@ -63,6 +63,14 @@ struct ContinuousTimeSlidingWindowOptions
   double position_smoothness_huber_delta_m{0.0};
   double rotation_smoothness_weight{0.0};
   double rotation_smoothness_huber_delta_rad{0.0};
+  // Soft priors on the first N retained knots in each local solve. This
+  // approximates Coco-LIC's marginalized fixed-prefix anchor without forcing a
+  // hard SetFixedIndex path in experiments where the dense prior is incomplete.
+  int retained_knot_prior_count{0};
+  double retained_knot_position_prior_weight{0.0};
+  double retained_knot_position_prior_huber_delta_m{0.0};
+  double retained_knot_orientation_prior_weight{0.0};
+  double retained_knot_orientation_prior_huber_delta_rad{0.0};
   // Soft random-walk priors on the IMU biases. Each online solve is biased
   // toward the accepted bias from the previous solve, but Ceres can still
   // move the bias when IMU evidence is strong enough.
@@ -129,6 +137,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_accel_bias_prior_factors{0};
   std::size_t total_position_smoothness_factors{0};
   std::size_t total_rotation_smoothness_factors{0};
+  std::size_t total_retained_knot_position_prior_factors{0};
+  std::size_t total_retained_knot_orientation_prior_factors{0};
   std::size_t total_marginalized_knots{0};
   std::size_t accepted_solver_steps{0};
   std::size_t last_step_imu_factors{0};
@@ -142,6 +152,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t last_step_accel_bias_prior_factors{0};
   std::size_t last_step_position_smoothness_factors{0};
   std::size_t last_step_rotation_smoothness_factors{0};
+  std::size_t last_step_retained_knot_position_prior_factors{0};
+  std::size_t last_step_retained_knot_orientation_prior_factors{0};
   bool last_step_update_accepted{false};
   bool last_step_update_rejected{false};
   bool last_step_rotation_limited{false};

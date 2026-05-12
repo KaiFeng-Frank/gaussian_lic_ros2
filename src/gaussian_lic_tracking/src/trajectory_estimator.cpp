@@ -365,6 +365,39 @@ struct PositionSmoothnessAutoDiffFunctor
   }
 };
 
+struct KnotPositionPriorAutoDiffFunctor
+{
+  Eigen::Vector3d position_world{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(const T * p, T * residuals) const
+  {
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_w_b(p);
+    const Eigen::Matrix<T, 3, 1> target = position_world.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * (p_w_b - target);
+    return true;
+  }
+};
+
+struct KnotOrientationPriorAutoDiffFunctor
+{
+  Eigen::Quaterniond q_world_body{Eigen::Quaterniond::Identity()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(const T * q, T * residuals) const
+  {
+    const Eigen::Quaternion<T> q_w_b = quaternion_from_coeffs_t<T>(q);
+    const Eigen::Quaternion<T> q_target = q_world_body.cast<T>().normalized();
+    const Eigen::Quaternion<T> error = q_target.conjugate() * q_w_b.normalized();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * quaternion_log_t<T>(error);
+    return true;
+  }
+};
+
 struct RotationSmoothnessAutoDiffFunctor
 {
   double weight{1.0};
@@ -942,6 +975,69 @@ bool TrajectoryEstimator::add_rotation_smoothness_factor(
     impl_->rotation_storage[first_knot_index + 2].data());
   impl_->smoothness_residual_blocks.push_back(block);
   ++rotation_smoothness_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_knot_position_prior_factor(
+  std::size_t knot_index,
+  const Eigen::Vector3d & position_world,
+  double weight,
+  double huber_delta_m)
+{
+  if (knot_index >= position_knots_.size() || !position_world.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_m) || huber_delta_m < 0.0)
+  {
+    return false;
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  KnotPositionPriorAutoDiffFunctor functor;
+  functor.position_world = position_world;
+  functor.weight = weight;
+  auto * cost = new ceres::AutoDiffCostFunction<
+    KnotPositionPriorAutoDiffFunctor, 3, 3>(
+    new KnotPositionPriorAutoDiffFunctor(functor));
+
+  ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_m, weight);
+  const auto block = impl_->problem->AddResidualBlock(
+    cost, loss, impl_->position_storage[knot_index].data());
+  impl_->position_prior_residual_blocks.push_back(block);
+  ++position_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_knot_orientation_prior_factor(
+  std::size_t knot_index,
+  const Eigen::Quaterniond & q_world_body,
+  double weight,
+  double huber_delta_rad)
+{
+  if (knot_index >= rotation_knots_.size() || !q_world_body.coeffs().allFinite() ||
+    q_world_body.norm() <= 1.0e-9 ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_rad) || huber_delta_rad < 0.0)
+  {
+    return false;
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  KnotOrientationPriorAutoDiffFunctor functor;
+  functor.q_world_body = q_world_body.normalized();
+  functor.weight = weight;
+  auto * cost = new ceres::AutoDiffCostFunction<
+    KnotOrientationPriorAutoDiffFunctor, 3, 4>(
+    new KnotOrientationPriorAutoDiffFunctor(functor));
+
+  ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_rad, weight);
+  const auto block = impl_->problem->AddResidualBlock(
+    cost, loss, impl_->rotation_storage[knot_index].data());
+  impl_->orientation_prior_residual_blocks.push_back(block);
+  ++orientation_prior_factor_count_;
   return true;
 }
 

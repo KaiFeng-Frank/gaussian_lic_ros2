@@ -443,6 +443,16 @@ public:
       declare_parameter<double>("rotation_smoothness_weight", 0.0);
     options.rotation_smoothness_huber_delta_rad =
       declare_parameter<double>("rotation_smoothness_huber_delta_rad", 0.0);
+    options.retained_knot_prior_count =
+      declare_parameter<int>("retained_knot_prior_count", 0);
+    options.retained_knot_position_prior_weight =
+      declare_parameter<double>("retained_knot_position_prior_weight", 0.0);
+    options.retained_knot_position_prior_huber_delta_m =
+      declare_parameter<double>("retained_knot_position_prior_huber_delta_m", 0.0);
+    options.retained_knot_orientation_prior_weight =
+      declare_parameter<double>("retained_knot_orientation_prior_weight", 0.0);
+    options.retained_knot_orientation_prior_huber_delta_rad =
+      declare_parameter<double>("retained_knot_orientation_prior_huber_delta_rad", 0.0);
     options.gyro_bias_prior_weight =
       declare_parameter<double>("gyro_bias_prior_weight", 0.0);
     options.gyro_bias_prior_huber_delta_radps =
@@ -458,9 +468,19 @@ public:
       !std::isfinite(options.rotation_smoothness_weight) ||
       options.rotation_smoothness_weight < 0.0 ||
       !std::isfinite(options.rotation_smoothness_huber_delta_rad) ||
-      options.rotation_smoothness_huber_delta_rad < 0.0)
+      options.rotation_smoothness_huber_delta_rad < 0.0 ||
+      options.retained_knot_prior_count < 0 ||
+      !std::isfinite(options.retained_knot_position_prior_weight) ||
+      options.retained_knot_position_prior_weight < 0.0 ||
+      !std::isfinite(options.retained_knot_position_prior_huber_delta_m) ||
+      options.retained_knot_position_prior_huber_delta_m < 0.0 ||
+      !std::isfinite(options.retained_knot_orientation_prior_weight) ||
+      options.retained_knot_orientation_prior_weight < 0.0 ||
+      !std::isfinite(options.retained_knot_orientation_prior_huber_delta_rad) ||
+      options.retained_knot_orientation_prior_huber_delta_rad < 0.0)
     {
-      throw std::runtime_error("smoothness parameters must be finite and non-negative");
+      throw std::runtime_error(
+              "smoothness and retained knot prior parameters must be finite and non-negative");
     }
     if (!std::isfinite(options.gyro_bias_prior_weight) ||
       options.gyro_bias_prior_weight < 0.0 ||
@@ -2279,9 +2299,12 @@ private:
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
       "lidar_normal_factors=%zu "
       "position_smoothness_factors=%zu rotation_smoothness_factors=%zu "
+      "retained_knot_position_priors=%zu retained_knot_orientation_priors=%zu "
       "accepted_steps=%zu "
       "last_imu_factors=%zu last_lidar_factors=%zu last_lidar_normal_factors=%zu "
       "last_position_smoothness_factors=%zu last_rotation_smoothness_factors=%zu "
+      "last_retained_knot_position_priors=%zu "
+      "last_retained_knot_orientation_priors=%zu "
       "last_position_prior_factors=%zu last_velocity_prior_factors=%zu "
       "last_angular_velocity_prior_factors=%zu "
       "last_orientation_prior_factors=%zu "
@@ -2362,12 +2385,16 @@ private:
       diagnostics.total_lidar_normal_factors,
       diagnostics.total_position_smoothness_factors,
       diagnostics.total_rotation_smoothness_factors,
+      diagnostics.total_retained_knot_position_prior_factors,
+      diagnostics.total_retained_knot_orientation_prior_factors,
       diagnostics.accepted_solver_steps,
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
       diagnostics.last_step_lidar_normal_factors,
       diagnostics.last_step_position_smoothness_factors,
       diagnostics.last_step_rotation_smoothness_factors,
+      diagnostics.last_step_retained_knot_position_prior_factors,
+      diagnostics.last_step_retained_knot_orientation_prior_factors,
       diagnostics.last_step_position_prior_factors,
       diagnostics.last_step_velocity_prior_factors,
       diagnostics.last_step_angular_velocity_prior_factors,

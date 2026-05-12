@@ -185,6 +185,22 @@ public:
     double weight = 1.0,
     double huber_delta_rad = 0.0);
 
+  // Direct priors on control knots. These are the retained-window counterpart
+  // of Coco-LIC's marginalization prior: the sliding-window driver can keep a
+  // prefix of already-estimated knots softly anchored while newer knots absorb
+  // the current scan.
+  bool add_knot_position_prior_factor(
+    std::size_t knot_index,
+    const Eigen::Vector3d & position_world,
+    double weight = 1.0,
+    double huber_delta_m = 0.0);
+
+  bool add_knot_orientation_prior_factor(
+    std::size_t knot_index,
+    const Eigen::Quaterniond & q_world_body,
+    double weight = 1.0,
+    double huber_delta_rad = 0.0);
+
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
   std::size_t lidar_normal_factor_count() const { return lidar_normal_factor_count_; }

@@ -589,6 +589,51 @@ void check_fixed_control_point_prefix_stays_constant()
   }
 }
 
+void check_direct_knot_priors_anchor_control_point()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+
+  auto perturbed_positions = truth.position_knots;
+  auto perturbed_rotations = truth.rotation_knots;
+  perturbed_positions[2] += Eigen::Vector3d(0.30, -0.20, 0.10);
+  perturbed_rotations[2] =
+    (perturbed_rotations[2] *
+    Eigen::Quaterniond(Eigen::AngleAxisd(0.25, Eigen::Vector3d::UnitY()))).normalized();
+  estimator.set_knots(perturbed_rotations, perturbed_positions);
+
+  if (!estimator.add_knot_position_prior_factor(2, truth.position_knots[2], 25.0, 0.0) ||
+    !estimator.add_knot_orientation_prior_factor(2, truth.rotation_knots[2], 25.0, 0.0))
+  {
+    std::fprintf(stderr, "direct knot prior factors were not added\n");
+    std::exit(1);
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 50;
+  options.hold_gyro_bias_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  const auto positions = estimator.position_knots();
+  const auto rotations = estimator.rotation_knots();
+  if ((positions[2] - truth.position_knots[2]).norm() > 1.0e-8 ||
+    rotations[2].angularDistance(truth.rotation_knots[2]) > 1.0e-8 ||
+    summary.final_position_prior_cost > 1.0e-10 ||
+    summary.final_orientation_prior_cost > 1.0e-10)
+  {
+    std::fprintf(stderr,
+      "direct knot prior failed: p_err=%.9g r_err=%.9g pos_cost=%.9g rot_cost=%.9g (%s)\n",
+      (positions[2] - truth.position_knots[2]).norm(),
+      rotations[2].angularDistance(truth.rotation_knots[2]),
+      summary.final_position_prior_cost,
+      summary.final_orientation_prior_cost,
+      summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 }  // namespace
 
 int main()
@@ -604,6 +649,7 @@ int main()
     check_lidar_plane_factor_pulls_position();
     check_lidar_huber_loss_suppresses_plane_outlier();
     check_fixed_control_point_prefix_stays_constant();
+    check_direct_knot_priors_anchor_control_point();
   } catch (const std::exception & exception) {
     std::fprintf(stderr, "trajectory_estimator_probe exception: %s\n", exception.what());
     return 1;

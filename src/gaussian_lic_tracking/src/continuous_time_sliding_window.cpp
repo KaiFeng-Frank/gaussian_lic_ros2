@@ -135,6 +135,18 @@ ContinuousTimeSlidingWindowEstimator::ContinuousTimeSlidingWindowEstimator(
   {
     throw std::runtime_error("rotation smoothness parameters must be finite and non-negative");
   }
+  if (options.retained_knot_prior_count < 0 ||
+    !std::isfinite(options.retained_knot_position_prior_weight) ||
+    options.retained_knot_position_prior_weight < 0.0 ||
+    !std::isfinite(options.retained_knot_position_prior_huber_delta_m) ||
+    options.retained_knot_position_prior_huber_delta_m < 0.0 ||
+    !std::isfinite(options.retained_knot_orientation_prior_weight) ||
+    options.retained_knot_orientation_prior_weight < 0.0 ||
+    !std::isfinite(options.retained_knot_orientation_prior_huber_delta_rad) ||
+    options.retained_knot_orientation_prior_huber_delta_rad < 0.0)
+  {
+    throw std::runtime_error("retained knot prior parameters must be finite and non-negative");
+  }
   if (!std::isfinite(options.gyro_bias_prior_weight) ||
     options.gyro_bias_prior_weight < 0.0 ||
     !std::isfinite(options.gyro_bias_prior_huber_delta_radps) ||
@@ -491,6 +503,39 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   estimator.set_accel_bias(impl_->accel_bias);
   estimator.set_gravity_world(impl_->gravity_world);
 
+  std::size_t step_retained_position_priors = 0U;
+  std::size_t step_retained_orientation_priors = 0U;
+  if (impl_->options.retained_knot_prior_count > 0 &&
+    (impl_->options.retained_knot_position_prior_weight > 0.0 ||
+    impl_->options.retained_knot_orientation_prior_weight > 0.0))
+  {
+    const std::size_t retained_count = std::min<std::size_t>(
+      static_cast<std::size_t>(impl_->options.retained_knot_prior_count),
+      estimator.knot_count());
+    for (std::size_t i = 0; i < retained_count; ++i) {
+      if (impl_->options.retained_knot_position_prior_weight > 0.0 &&
+        estimator.add_knot_position_prior_factor(
+          i, impl_->position_knots[i],
+          impl_->options.retained_knot_position_prior_weight,
+          impl_->options.retained_knot_position_prior_huber_delta_m))
+      {
+        ++step_retained_position_priors;
+      }
+      if (impl_->options.retained_knot_orientation_prior_weight > 0.0 &&
+        estimator.add_knot_orientation_prior_factor(
+          i, impl_->rotation_knots[i],
+          impl_->options.retained_knot_orientation_prior_weight,
+          impl_->options.retained_knot_orientation_prior_huber_delta_rad))
+      {
+        ++step_retained_orientation_priors;
+      }
+    }
+  }
+  impl_->diagnostics.total_retained_knot_position_prior_factors +=
+    step_retained_position_priors;
+  impl_->diagnostics.total_retained_knot_orientation_prior_factors +=
+    step_retained_orientation_priors;
+
   Eigen::Matrix<double, 6, 1> info_diag;
   info_diag <<
     impl_->options.imu_info_gyro, impl_->options.imu_info_gyro, impl_->options.imu_info_gyro,
@@ -619,6 +664,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.position_smoothness_factor_count();
   impl_->diagnostics.last_step_rotation_smoothness_factors =
     estimator.rotation_smoothness_factor_count();
+  impl_->diagnostics.last_step_retained_knot_position_prior_factors =
+    step_retained_position_priors;
+  impl_->diagnostics.last_step_retained_knot_orientation_prior_factors =
+    step_retained_orientation_priors;
 
   TrajectoryEstimatorOptions solve_options;
   solve_options.max_num_iterations = impl_->options.max_iterations_per_step;

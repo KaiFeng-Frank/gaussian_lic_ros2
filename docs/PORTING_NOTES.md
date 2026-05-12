@@ -167,6 +167,19 @@ The optional torch backend can be built with:
 GAUSSIAN_LIC_ENABLE_TORCH=ON ./scripts/build_ros2.sh --packages-select gaussian_lic_mapping
 ```
 
+2026-05-13 continuous-time BA note: direct control-point position/orientation
+priors are now available in `TrajectoryEstimator`, and
+`ContinuousTimeSlidingWindow` can inject default-off retained-knot soft anchors
+through `retained_knot_*` parameters. This makes the Coco-LIC fixed-prefix /
+marginalization behavior executable as an ablation instead of a hard-coded
+assumption. CBD 12 s probes show the hook is not yet a parity setting by itself:
+retained-knot soft anchors (`retained_knot_prior_count=4`, weight `10`) record
+RMSE `0.174 m` and path `8.53 m` against a `0.91 m` reference path; direct
+scan-to-scan position priors record RMSE `0.170 m` and path `5.77 m`; velocity
+only records RMSE `0.184 m`. The stable short-window configuration remains the
+safer default while full Schur marginalization/global visual-map coupling is
+completed.
+
 It currently provides:
 
 ```text
