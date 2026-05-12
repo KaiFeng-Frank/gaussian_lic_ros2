@@ -112,6 +112,10 @@ public:
       declare_parameter<bool>("hold_accel_bias_constant", false);
     options.hold_gyro_bias_constant =
       declare_parameter<bool>("hold_gyro_bias_constant", false);
+    options.max_position_update_m =
+      declare_parameter<double>("max_position_update_m", 2.0);
+    options.max_rotation_update_rad =
+      declare_parameter<double>("max_rotation_update_rad", 0.50);
 
     step_period_seconds_ =
       declare_parameter<double>("step_period_seconds", 0.10);

@@ -25,6 +25,8 @@ def generate_launch_description() -> LaunchDescription:
     hold_gravity_constant = LaunchConfiguration("hold_gravity_constant")
     hold_accel_bias_constant = LaunchConfiguration("hold_accel_bias_constant")
     hold_gyro_bias_constant = LaunchConfiguration("hold_gyro_bias_constant")
+    max_position_update_m = LaunchConfiguration("max_position_update_m")
+    max_rotation_update_rad = LaunchConfiguration("max_rotation_update_rad")
     pointcloud_enable = LaunchConfiguration("pointcloud_enable")
     pointcloud_subsample_stride = LaunchConfiguration("pointcloud_subsample_stride")
     pointcloud_max_points_per_msg = LaunchConfiguration("pointcloud_max_points_per_msg")
@@ -56,6 +58,8 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("hold_gravity_constant", default_value="true"),
         DeclareLaunchArgument("hold_accel_bias_constant", default_value="false"),
         DeclareLaunchArgument("hold_gyro_bias_constant", default_value="false"),
+        DeclareLaunchArgument("max_position_update_m", default_value="2.0"),
+        DeclareLaunchArgument("max_rotation_update_rad", default_value="0.50"),
         DeclareLaunchArgument("pointcloud_enable", default_value="true"),
         DeclareLaunchArgument("pointcloud_subsample_stride", default_value="50"),
         DeclareLaunchArgument("pointcloud_max_points_per_msg", default_value="256"),
@@ -96,6 +100,8 @@ def generate_launch_description() -> LaunchDescription:
                 "hold_gravity_constant": hold_gravity_constant,
                 "hold_accel_bias_constant": hold_accel_bias_constant,
                 "hold_gyro_bias_constant": hold_gyro_bias_constant,
+                "max_position_update_m": max_position_update_m,
+                "max_rotation_update_rad": max_rotation_update_rad,
                 "pointcloud_enable": pointcloud_enable,
                 "pointcloud_subsample_stride": pointcloud_subsample_stride,
                 "pointcloud_max_points_per_msg": pointcloud_max_points_per_msg,

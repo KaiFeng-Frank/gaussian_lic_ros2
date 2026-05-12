@@ -58,6 +58,12 @@ struct ContinuousTimeSlidingWindowOptions
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};
   bool hold_gravity_constant{true};
+  // Reject a Ceres update instead of publishing / carrying it forward when
+  // the online solve proposes an implausibly large single-step knot change.
+  // This is a production guard for real rosbag replay: bad initialization or
+  // a malformed geometric factor should drop that solve, not explode odometry.
+  double max_position_update_m{2.0};
+  double max_rotation_update_rad{0.50};
 };
 
 struct ContinuousTimeSlidingWindowDiagnostics
@@ -68,6 +74,9 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_marginalized_knots{0};
   double last_step_initial_cost{0.0};
   double last_step_final_cost{0.0};
+  std::size_t rejected_solver_steps{0};
+  double last_rejected_position_update_m{0.0};
+  double last_rejected_rotation_update_rad{0.0};
 };
 
 class ContinuousTimeSlidingWindowEstimator

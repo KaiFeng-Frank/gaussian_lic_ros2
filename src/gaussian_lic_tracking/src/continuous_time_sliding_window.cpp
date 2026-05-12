@@ -28,6 +28,11 @@ struct BufferedLidar
   double weight{1.0};
 };
 
+bool quaternion_is_valid(const Eigen::Quaterniond & q)
+{
+  return q.coeffs().allFinite() && std::isfinite(q.norm()) && q.norm() > 1.0e-9;
+}
+
 }  // namespace
 
 struct ContinuousTimeSlidingWindowEstimator::Impl
@@ -241,9 +246,54 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   impl_->diagnostics.last_step_final_cost = summary.final_cost;
   ++impl_->diagnostics.steps_run;
 
-  // Pull optimized knots back.
+  // Pull optimized knots back only when the solve produced a physically
+  // plausible online update. Ceres can otherwise turn a bad geometric
+  // correspondence set into hundreds of kilometers of odometry in one step.
   const auto rotation_out = estimator.rotation_knots();
   const auto position_out = estimator.position_knots();
+  bool reject_update = false;
+  double max_position_update = 0.0;
+  double max_rotation_update = 0.0;
+  if (rotation_out.size() != impl_->rotation_knots.size() ||
+    position_out.size() != impl_->position_knots.size())
+  {
+    reject_update = true;
+  } else {
+    for (std::size_t i = 0; i < rotation_out.size(); ++i) {
+      if (!quaternion_is_valid(rotation_out[i]) || !position_out[i].allFinite()) {
+        reject_update = true;
+        break;
+      }
+      max_position_update = std::max(
+        max_position_update,
+        (position_out[i] - impl_->position_knots[i]).norm());
+      max_rotation_update = std::max(
+        max_rotation_update,
+        rotation_out[i].angularDistance(impl_->rotation_knots[i]));
+    }
+  }
+  if (!estimator.gyro_bias().allFinite() || !estimator.accel_bias().allFinite() ||
+    !estimator.gravity_world().allFinite())
+  {
+    reject_update = true;
+  }
+  if (impl_->options.max_position_update_m > 0.0 &&
+    max_position_update > impl_->options.max_position_update_m)
+  {
+    reject_update = true;
+  }
+  if (impl_->options.max_rotation_update_rad > 0.0 &&
+    max_rotation_update > impl_->options.max_rotation_update_rad)
+  {
+    reject_update = true;
+  }
+  if (reject_update) {
+    ++impl_->diagnostics.rejected_solver_steps;
+    impl_->diagnostics.last_rejected_position_update_m = max_position_update;
+    impl_->diagnostics.last_rejected_rotation_update_rad = max_rotation_update;
+    return true;
+  }
+
   for (std::size_t i = 0; i < rotation_out.size(); ++i) {
     impl_->rotation_knots[i] = rotation_out[i];
     impl_->position_knots[i] = position_out[i];
