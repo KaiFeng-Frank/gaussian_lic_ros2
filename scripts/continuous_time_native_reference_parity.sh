@@ -55,6 +55,9 @@ LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD="${LIDAR_PLANE_NORMAL_HUBER_DELTA_RAD:-0.10}"
 MAX_ITERATIONS_PER_STEP="${MAX_ITERATIONS_PER_STEP:-1}"
 IMU_INFO_GYRO="${IMU_INFO_GYRO:-10.0}"
 IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-1.0}"
+HOLD_GYRO_BIAS_CONSTANT="${HOLD_GYRO_BIAS_CONSTANT:-false}"
+HOLD_ACCEL_BIAS_CONSTANT="${HOLD_ACCEL_BIAS_CONSTANT:-false}"
+HOLD_GRAVITY_CONSTANT="${HOLD_GRAVITY_CONSTANT:-true}"
 CERES_INITIAL_TRUST_REGION_RADIUS="${CERES_INITIAL_TRUST_REGION_RADIUS:-0.0}"
 CERES_MAX_TRUST_REGION_RADIUS="${CERES_MAX_TRUST_REGION_RADIUS:-0.0}"
 POSITION_SMOOTHNESS_WEIGHT="${POSITION_SMOOTHNESS_WEIGHT:-0.0}"
@@ -104,6 +107,9 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p max_iterations_per_step:="${MAX_ITERATIONS_PER_STEP}" \
   -p imu_info_gyro:="${IMU_INFO_GYRO}" \
   -p imu_info_accel:="${IMU_INFO_ACCEL}" \
+  -p hold_gyro_bias_constant:="${HOLD_GYRO_BIAS_CONSTANT}" \
+  -p hold_accel_bias_constant:="${HOLD_ACCEL_BIAS_CONSTANT}" \
+  -p hold_gravity_constant:="${HOLD_GRAVITY_CONSTANT}" \
   -p ceres_initial_trust_region_radius:="${CERES_INITIAL_TRUST_REGION_RADIUS}" \
   -p ceres_max_trust_region_radius:="${CERES_MAX_TRUST_REGION_RADIUS}" \
   -p position_smoothness_weight:="${POSITION_SMOOTHNESS_WEIGHT}" \
@@ -336,6 +342,9 @@ native = {
     "max_iterations_per_step": int("${MAX_ITERATIONS_PER_STEP}"),
     "imu_info_gyro": float("${IMU_INFO_GYRO}"),
     "imu_info_accel": float("${IMU_INFO_ACCEL}"),
+    "hold_gyro_bias_constant": "${HOLD_GYRO_BIAS_CONSTANT}" == "true",
+    "hold_accel_bias_constant": "${HOLD_ACCEL_BIAS_CONSTANT}" == "true",
+    "hold_gravity_constant": "${HOLD_GRAVITY_CONSTANT}" == "true",
     "ceres_initial_trust_region_radius": float("${CERES_INITIAL_TRUST_REGION_RADIUS}"),
     "ceres_max_trust_region_radius": float("${CERES_MAX_TRUST_REGION_RADIUS}"),
     "position_smoothness_weight": float("${POSITION_SMOOTHNESS_WEIGHT}"),

@@ -256,9 +256,9 @@ public:
     lidar_pose_factor_keyframe_stride_ =
       static_cast<int>(declare_parameter<int>("lidar_pose_factor_keyframe_stride", 5));
     if (!std::isfinite(lidar_pose_prior_position_weight_) ||
-      lidar_pose_prior_position_weight_ <= 0.0 ||
+      lidar_pose_prior_position_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_weight_) ||
-      lidar_pose_prior_orientation_weight_ <= 0.0 ||
+      lidar_pose_prior_orientation_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_position_huber_delta_m_) ||
       lidar_pose_prior_position_huber_delta_m_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_huber_delta_rad_) ||
@@ -1082,12 +1082,16 @@ private:
     const Eigen::Vector3d target_position = predicted_pose.p_w_i + correction.delta_p_w;
     const Eigen::Quaterniond target_orientation =
       (correction.delta_q * predicted_pose.q_w_i).normalized();
-    estimator_->add_position_prior(
-      stamp_ns, target_position, lidar_pose_prior_position_weight_,
-      lidar_pose_prior_position_huber_delta_m_);
-    estimator_->add_orientation_prior(
-      stamp_ns, target_orientation, lidar_pose_prior_orientation_weight_,
-      lidar_pose_prior_orientation_huber_delta_rad_);
+    if (lidar_pose_prior_position_weight_ > 0.0) {
+      estimator_->add_position_prior(
+        stamp_ns, target_position, lidar_pose_prior_position_weight_,
+        lidar_pose_prior_position_huber_delta_m_);
+    }
+    if (lidar_pose_prior_orientation_weight_ > 0.0) {
+      estimator_->add_orientation_prior(
+        stamp_ns, target_orientation, lidar_pose_prior_orientation_weight_,
+        lidar_pose_prior_orientation_huber_delta_rad_);
+    }
     ++lidar_pose_prior_factors_;
     lidar_pose_prior_matches_ += correction.matched_points;
     lidar_pose_prior_last_mean_residual_m_ = correction.mean_residual_m;
