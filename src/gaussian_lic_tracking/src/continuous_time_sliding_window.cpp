@@ -263,6 +263,50 @@ void ContinuousTimeSlidingWindowEstimator::add_orientation_prior(
     {stamp_ns, q_world_body, weight, effective_huber});
 }
 
+bool ContinuousTimeSlidingWindowEstimator::apply_pose_hint(
+  int64_t stamp_ns,
+  const Eigen::Quaterniond & q_world_body,
+  const Eigen::Vector3d & position_world,
+  double position_gain,
+  double rotation_gain)
+{
+  if (!position_world.allFinite() || !quaternion_is_valid(q_world_body) ||
+    !std::isfinite(position_gain) || !std::isfinite(rotation_gain))
+  {
+    return false;
+  }
+  Eigen::Quaterniond q_current;
+  Eigen::Vector3d p_current;
+  if (!query_pose(stamp_ns, q_current, p_current)) {
+    return false;
+  }
+  const double clamped_position_gain = std::clamp(position_gain, 0.0, 1.0);
+  const double clamped_rotation_gain = std::clamp(rotation_gain, 0.0, 1.0);
+  const Eigen::Vector3d position_delta =
+    clamped_position_gain * (position_world - p_current);
+  const Eigen::Quaterniond rotation_delta =
+    (q_world_body.normalized() * q_current.inverse()).normalized();
+  const Eigen::Quaterniond scaled_rotation_delta =
+    quaternion_exp(quaternion_log(rotation_delta) * clamped_rotation_gain);
+  if (!position_delta.allFinite() || !quaternion_is_valid(scaled_rotation_delta)) {
+    return false;
+  }
+  const int64_t window_start = impl_->knot_stamps.front();
+  const double span_ns = static_cast<double>(stamp_ns - window_start);
+  for (std::size_t i = 0; i < impl_->position_knots.size(); ++i) {
+    double temporal_weight = 1.0;
+    if (span_ns > 1.0) {
+      temporal_weight =
+        std::clamp(static_cast<double>(impl_->knot_stamps[i] - window_start) / span_ns, 0.0, 1.0);
+    }
+    impl_->position_knots[i] += temporal_weight * position_delta;
+    const Eigen::Quaterniond knot_rotation_delta =
+      quaternion_exp(quaternion_log(scaled_rotation_delta) * temporal_weight);
+    impl_->rotation_knots[i] = (knot_rotation_delta * impl_->rotation_knots[i]).normalized();
+  }
+  return true;
+}
+
 bool ContinuousTimeSlidingWindowEstimator::step()
 {
   if (impl_->knot_stamps.size() < static_cast<std::size_t>(N)) {

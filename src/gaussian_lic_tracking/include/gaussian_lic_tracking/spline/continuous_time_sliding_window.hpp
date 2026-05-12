@@ -243,6 +243,18 @@ public:
     double weight = 1.0,
     double huber_delta_rad = -1.0);
 
+  // Applies a bounded, time-tapered SE(3) pose hint to the active spline
+  // window so frontend odometry can seed the next online solve without
+  // rigidly dragging older knots. Gains are clamped to [0, 1]. Returns false
+  // when the stamp is outside the queryable window or the target pose is
+  // invalid.
+  bool apply_pose_hint(
+    int64_t stamp_ns,
+    const Eigen::Quaterniond & q_world_body,
+    const Eigen::Vector3d & position_world,
+    double position_gain = 1.0,
+    double rotation_gain = 1.0);
+
   // Advances the window by one knot, absorbs all buffered samples that fit
   // inside the new window, optionally marginalizes the oldest knot(s), and
   // runs Ceres on the active window. Returns false when the window cannot
