@@ -105,6 +105,13 @@ ContinuousTimeSlidingWindowEstimator::ContinuousTimeSlidingWindowEstimator(
   if (options.update_gate_edge_knot_margin < 0) {
     throw std::runtime_error("update_gate_edge_knot_margin must be non-negative");
   }
+  if (!std::isfinite(options.rotation_smoothness_weight) ||
+    options.rotation_smoothness_weight < 0.0 ||
+    !std::isfinite(options.rotation_smoothness_huber_delta_rad) ||
+    options.rotation_smoothness_huber_delta_rad < 0.0)
+  {
+    throw std::runtime_error("rotation smoothness parameters must be finite and non-negative");
+  }
   if (options.window_knot_count < N + 2) {
     throw std::runtime_error("window must hold at least N+2 knots to expose interior samples");
   }
@@ -402,12 +409,23 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       }
     }
   }
+  if (impl_->options.rotation_smoothness_weight > 0.0) {
+    for (std::size_t i = 0; i + 2 < estimator.knot_count(); ++i) {
+      if (estimator.add_rotation_smoothness_factor(
+          i, impl_->options.rotation_smoothness_weight,
+          impl_->options.rotation_smoothness_huber_delta_rad))
+      {
+        ++impl_->diagnostics.total_rotation_smoothness_factors;
+      }
+    }
+  }
 
   if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
     estimator.lidar_normal_factor_count() == 0 &&
     estimator.position_prior_factor_count() == 0 &&
     estimator.orientation_prior_factor_count() == 0 &&
-    estimator.position_smoothness_factor_count() == 0)
+    estimator.position_smoothness_factor_count() == 0 &&
+    estimator.rotation_smoothness_factor_count() == 0)
   {
     return false;
   }
@@ -421,6 +439,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.orientation_prior_factor_count();
   impl_->diagnostics.last_step_position_smoothness_factors =
     estimator.position_smoothness_factor_count();
+  impl_->diagnostics.last_step_rotation_smoothness_factors =
+    estimator.rotation_smoothness_factor_count();
 
   TrajectoryEstimatorOptions solve_options;
   solve_options.max_num_iterations = impl_->options.max_iterations_per_step;
@@ -446,6 +466,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     summary.initial_orientation_prior_cost;
   impl_->diagnostics.last_step_final_orientation_prior_cost =
     summary.final_orientation_prior_cost;
+  impl_->diagnostics.last_step_initial_smoothness_cost = summary.initial_smoothness_cost;
+  impl_->diagnostics.last_step_final_smoothness_cost = summary.final_smoothness_cost;
   impl_->diagnostics.last_step_update_accepted = false;
   impl_->diagnostics.last_step_update_rejected = false;
   impl_->diagnostics.last_step_rotation_limited = false;

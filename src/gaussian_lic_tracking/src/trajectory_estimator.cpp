@@ -271,6 +271,25 @@ struct PositionSmoothnessAutoDiffFunctor
   }
 };
 
+struct RotationSmoothnessAutoDiffFunctor
+{
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(const T * r0, const T * r1, const T * r2, T * residuals) const
+  {
+    const Eigen::Quaternion<T> q0 = quaternion_from_coeffs_t<T>(r0);
+    const Eigen::Quaternion<T> q1 = quaternion_from_coeffs_t<T>(r1);
+    const Eigen::Quaternion<T> q2 = quaternion_from_coeffs_t<T>(r2);
+    const Eigen::Quaternion<T> delta01 = (q0.conjugate() * q1).normalized();
+    const Eigen::Quaternion<T> delta12 = (q1.conjugate() * q2).normalized();
+    const Eigen::Quaternion<T> second_delta = (delta01.conjugate() * delta12).normalized();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * quaternion_log_t<T>(second_delta);
+    return true;
+  }
+};
+
 }  // namespace
 
 struct TrajectoryEstimator::Impl
@@ -289,6 +308,7 @@ struct TrajectoryEstimator::Impl
   std::vector<ceres::ResidualBlockId> lidar_residual_blocks;
   std::vector<ceres::ResidualBlockId> position_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> orientation_prior_residual_blocks;
+  std::vector<ceres::ResidualBlockId> smoothness_residual_blocks;
 };
 
 TrajectoryEstimator::TrajectoryEstimator(double dt_s)
@@ -651,12 +671,48 @@ bool TrajectoryEstimator::add_position_smoothness_factor(
   if (huber_delta_m > 0.0) {
     loss = new ceres::HuberLoss(huber_delta_m);
   }
-  impl_->problem->AddResidualBlock(
+  const auto block = impl_->problem->AddResidualBlock(
     cost, loss,
     impl_->position_storage[first_knot_index].data(),
     impl_->position_storage[first_knot_index + 1].data(),
     impl_->position_storage[first_knot_index + 2].data());
+  impl_->smoothness_residual_blocks.push_back(block);
   ++position_smoothness_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_rotation_smoothness_factor(
+  std::size_t first_knot_index,
+  double weight,
+  double huber_delta_rad)
+{
+  if (first_knot_index + 2 >= rotation_knots_.size() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_rad) || huber_delta_rad < 0.0)
+  {
+    return false;
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  RotationSmoothnessAutoDiffFunctor functor;
+  functor.weight = weight;
+  auto * cost = new ceres::AutoDiffCostFunction<
+    RotationSmoothnessAutoDiffFunctor, 3,
+    4, 4, 4>(new RotationSmoothnessAutoDiffFunctor(functor));
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_rad > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_rad);
+  }
+  const auto block = impl_->problem->AddResidualBlock(
+    cost, loss,
+    impl_->rotation_storage[first_knot_index].data(),
+    impl_->rotation_storage[first_knot_index + 1].data(),
+    impl_->rotation_storage[first_knot_index + 2].data());
+  impl_->smoothness_residual_blocks.push_back(block);
+  ++rotation_smoothness_factor_count_;
   return true;
 }
 
@@ -672,6 +728,7 @@ void TrajectoryEstimator::rebuild_problem()
   impl_->lidar_residual_blocks.clear();
   impl_->position_prior_residual_blocks.clear();
   impl_->orientation_prior_residual_blocks.clear();
+  impl_->smoothness_residual_blocks.clear();
 
   for (auto & rot : impl_->rotation_storage) {
     impl_->problem->AddParameterBlock(rot.data(), 4, new ceres::EigenQuaternionManifold());
@@ -757,6 +814,7 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     evaluate_cost(impl_->position_prior_residual_blocks);
   summary.initial_orientation_prior_cost =
     evaluate_cost(impl_->orientation_prior_residual_blocks);
+  summary.initial_smoothness_cost = evaluate_cost(impl_->smoothness_residual_blocks);
 
   ceres::Solver::Options solver_options;
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
@@ -790,6 +848,7 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     evaluate_cost(impl_->position_prior_residual_blocks);
   summary.final_orientation_prior_cost =
     evaluate_cost(impl_->orientation_prior_residual_blocks);
+  summary.final_smoothness_cost = evaluate_cost(impl_->smoothness_residual_blocks);
   summary.iterations = static_cast<int>(ceres_summary.iterations.size());
   summary.brief_report = ceres_summary.BriefReport();
   summary.success =

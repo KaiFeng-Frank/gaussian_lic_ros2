@@ -149,12 +149,20 @@ public:
       declare_parameter<double>("position_smoothness_weight", 0.0);
     options.position_smoothness_huber_delta_m =
       declare_parameter<double>("position_smoothness_huber_delta_m", 0.0);
+    options.rotation_smoothness_weight =
+      declare_parameter<double>("rotation_smoothness_weight", 0.0);
+    options.rotation_smoothness_huber_delta_rad =
+      declare_parameter<double>("rotation_smoothness_huber_delta_rad", 0.0);
     if (!std::isfinite(options.position_smoothness_weight) ||
       options.position_smoothness_weight < 0.0 ||
       !std::isfinite(options.position_smoothness_huber_delta_m) ||
-      options.position_smoothness_huber_delta_m < 0.0)
+      options.position_smoothness_huber_delta_m < 0.0 ||
+      !std::isfinite(options.rotation_smoothness_weight) ||
+      options.rotation_smoothness_weight < 0.0 ||
+      !std::isfinite(options.rotation_smoothness_huber_delta_rad) ||
+      options.rotation_smoothness_huber_delta_rad < 0.0)
     {
-      throw std::runtime_error("position smoothness parameters must be finite and non-negative");
+      throw std::runtime_error("smoothness parameters must be finite and non-negative");
     }
     options.lidar_huber_delta_m =
       declare_parameter<double>("lidar_huber_delta_m", 0.10);
@@ -873,15 +881,16 @@ private:
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
       "lidar_normal_factors=%zu "
-      "position_smoothness_factors=%zu "
+      "position_smoothness_factors=%zu rotation_smoothness_factors=%zu "
       "accepted_steps=%zu "
       "last_imu_factors=%zu last_lidar_factors=%zu last_lidar_normal_factors=%zu "
-      "last_position_smoothness_factors=%zu "
+      "last_position_smoothness_factors=%zu last_rotation_smoothness_factors=%zu "
       "last_position_prior_factors=%zu last_orientation_prior_factors=%zu "
       "initial_cost=%.9g final_cost=%.9g initial_imu_cost=%.9g "
       "final_imu_cost=%.9g initial_lidar_cost=%.9g final_lidar_cost=%.9g "
       "initial_position_prior_cost=%.9g final_position_prior_cost=%.9g "
       "initial_orientation_prior_cost=%.9g final_orientation_prior_cost=%.9g "
+      "initial_smoothness_cost=%.9g final_smoothness_cost=%.9g "
       "max_position_update_m=%.9g max_rotation_update_rad=%.9g "
       "position_prior_factors=%zu orientation_prior_factors=%zu "
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
@@ -901,11 +910,13 @@ private:
       diagnostics.total_lidar_factors,
       diagnostics.total_lidar_normal_factors,
       diagnostics.total_position_smoothness_factors,
+      diagnostics.total_rotation_smoothness_factors,
       diagnostics.accepted_solver_steps,
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
       diagnostics.last_step_lidar_normal_factors,
       diagnostics.last_step_position_smoothness_factors,
+      diagnostics.last_step_rotation_smoothness_factors,
       diagnostics.last_step_position_prior_factors,
       diagnostics.last_step_orientation_prior_factors,
       diagnostics.last_step_initial_cost,
@@ -918,6 +929,8 @@ private:
       diagnostics.last_step_final_position_prior_cost,
       diagnostics.last_step_initial_orientation_prior_cost,
       diagnostics.last_step_final_orientation_prior_cost,
+      diagnostics.last_step_initial_smoothness_cost,
+      diagnostics.last_step_final_smoothness_cost,
       diagnostics.last_step_max_position_update_m,
       diagnostics.last_step_max_rotation_update_rad,
       diagnostics.total_position_prior_factors,

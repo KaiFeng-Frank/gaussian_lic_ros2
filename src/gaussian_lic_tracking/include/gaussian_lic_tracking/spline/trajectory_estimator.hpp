@@ -56,6 +56,8 @@ struct TrajectoryEstimatorSummary
   double final_position_prior_cost{0.0};
   double initial_orientation_prior_cost{0.0};
   double final_orientation_prior_cost{0.0};
+  double initial_smoothness_cost{0.0};
+  double final_smoothness_cost{0.0};
   int iterations{0};
   std::string brief_report;
 };
@@ -144,12 +146,18 @@ public:
     double weight = 1.0,
     double huber_delta_m = 0.0);
 
+  bool add_rotation_smoothness_factor(
+    std::size_t first_knot_index,
+    double weight = 1.0,
+    double huber_delta_rad = 0.0);
+
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
   std::size_t lidar_normal_factor_count() const { return lidar_normal_factor_count_; }
   std::size_t position_prior_factor_count() const { return position_prior_factor_count_; }
   std::size_t orientation_prior_factor_count() const { return orientation_prior_factor_count_; }
   std::size_t position_smoothness_factor_count() const { return position_smoothness_factor_count_; }
+  std::size_t rotation_smoothness_factor_count() const { return rotation_smoothness_factor_count_; }
 
   TrajectoryEstimatorSummary solve(const TrajectoryEstimatorOptions & options);
 
@@ -175,6 +183,7 @@ private:
   std::size_t position_prior_factor_count_{0};
   std::size_t orientation_prior_factor_count_{0};
   std::size_t position_smoothness_factor_count_{0};
+  std::size_t rotation_smoothness_factor_count_{0};
 };
 
 }  // namespace spline

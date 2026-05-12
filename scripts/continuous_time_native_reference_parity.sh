@@ -62,6 +62,8 @@ CERES_INITIAL_TRUST_REGION_RADIUS="${CERES_INITIAL_TRUST_REGION_RADIUS:-0.0}"
 CERES_MAX_TRUST_REGION_RADIUS="${CERES_MAX_TRUST_REGION_RADIUS:-0.0}"
 POSITION_SMOOTHNESS_WEIGHT="${POSITION_SMOOTHNESS_WEIGHT:-0.0}"
 POSITION_SMOOTHNESS_HUBER_DELTA_M="${POSITION_SMOOTHNESS_HUBER_DELTA_M:-0.0}"
+ROTATION_SMOOTHNESS_WEIGHT="${ROTATION_SMOOTHNESS_WEIGHT:-0.0}"
+ROTATION_SMOOTHNESS_HUBER_DELTA_RAD="${ROTATION_SMOOTHNESS_HUBER_DELTA_RAD:-0.0}"
 APPLY_POSITION_UPDATE_ON_ROTATION_REJECT="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT:-false}"
 APPLY_LIMITED_ROTATION_UPDATE="${APPLY_LIMITED_ROTATION_UPDATE:-false}"
 SCALE_POSITION_WITH_LIMITED_ROTATION="${SCALE_POSITION_WITH_LIMITED_ROTATION:-true}"
@@ -116,6 +118,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p ceres_max_trust_region_radius:="${CERES_MAX_TRUST_REGION_RADIUS}" \
   -p position_smoothness_weight:="${POSITION_SMOOTHNESS_WEIGHT}" \
   -p position_smoothness_huber_delta_m:="${POSITION_SMOOTHNESS_HUBER_DELTA_M}" \
+  -p rotation_smoothness_weight:="${ROTATION_SMOOTHNESS_WEIGHT}" \
+  -p rotation_smoothness_huber_delta_rad:="${ROTATION_SMOOTHNESS_HUBER_DELTA_RAD}" \
   -p seed_min_imu_count:=30 \
   -p enable_startup_bias_autocal:="${ENABLE_STARTUP_BIAS_AUTOCAL}" \
   -p imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
@@ -353,6 +357,8 @@ native = {
     "ceres_max_trust_region_radius": float("${CERES_MAX_TRUST_REGION_RADIUS}"),
     "position_smoothness_weight": float("${POSITION_SMOOTHNESS_WEIGHT}"),
     "position_smoothness_huber_delta_m": float("${POSITION_SMOOTHNESS_HUBER_DELTA_M}"),
+    "rotation_smoothness_weight": float("${ROTATION_SMOOTHNESS_WEIGHT}"),
+    "rotation_smoothness_huber_delta_rad": float("${ROTATION_SMOOTHNESS_HUBER_DELTA_RAD}"),
     "pointcloud_wait_queue_max_size": int("${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}"),
     "enable_lidar_pose_prior_factor": "${ENABLE_LIDAR_POSE_PRIOR_FACTOR}" == "true",
     "lidar_pose_prior_position_weight": float("${LIDAR_POSE_PRIOR_POSITION_WEIGHT}"),

@@ -366,6 +366,43 @@ void check_orientation_prior_factor_pulls_rotation_without_imu()
   }
 }
 
+void check_rotation_smoothness_regularizes_orientation_shape()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+
+  auto perturbed_rotations = truth.rotation_knots;
+  perturbed_rotations[3] =
+    (perturbed_rotations[3] *
+    Eigen::Quaterniond(Eigen::AngleAxisd(0.18, Eigen::Vector3d::UnitX()))).normalized();
+  estimator.set_knots(perturbed_rotations, truth.position_knots);
+
+  for (std::size_t i = 0; i + 2 < perturbed_rotations.size(); ++i) {
+    estimator.add_rotation_smoothness_factor(i, 10.0, 0.0);
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 60;
+  options.hold_gyro_bias_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  if (estimator.rotation_smoothness_factor_count() == 0) {
+    std::fprintf(stderr, "rotation smoothness factors were not added\n");
+    std::exit(1);
+  }
+  if (!(summary.initial_smoothness_cost > 1.0e-8 &&
+    summary.final_smoothness_cost < 0.10 * summary.initial_smoothness_cost))
+  {
+    std::fprintf(stderr,
+      "rotation smoothness did not reduce shape cost: initial=%.6g final=%.6g (%s)\n",
+      summary.initial_smoothness_cost, summary.final_smoothness_cost,
+      summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 void check_lidar_huber_loss_suppresses_plane_outlier()
 {
   const double dt = 0.05;
@@ -424,6 +461,7 @@ int main()
     check_converges_from_position_perturbation();
     check_position_prior_factor_pulls_position_without_synthetic_lidar();
     check_orientation_prior_factor_pulls_rotation_without_imu();
+    check_rotation_smoothness_regularizes_orientation_shape();
     check_lidar_plane_factor_pulls_position();
     check_lidar_huber_loss_suppresses_plane_outlier();
   } catch (const std::exception & exception) {
