@@ -209,9 +209,16 @@ Current ROS2 implementation status:
   numeric; once it is ported, the entire `TrajectoryEstimator` can switch
   from `NumericDiffCostFunction` to `SizedCostFunction` with these helpers
   filling the easy parameter blocks.
+- `scripts/continuous_time_node_bag_smoke.sh` runs the continuous-time
+  node against a real `frontend_raw` rosbag2 (default FAST-LIVO2
+  `CBD_Building_01`), counts emitted Odometry messages over a 15 s slice,
+  and reports liveness. Local run records 285 odometry messages with the
+  LiDAR factor disabled and 484 with it enabled at stride-200 subsampling
+  — the first end-to-end demonstration that the ported stack ingests real
+  IMU + LiDAR streams without crashing.
 - Remaining work: port the SO(3) rotation-knot Jacobian (upstream
-  `So3SplineView::JacobianStruct`); subscribe the continuous-time node to
-  PointCloud2 / Livox custom messages and assemble plane / edge
-  correspondences inside it; publish reference-trajectory parity reports
+  `So3SplineView::JacobianStruct`); replace the configurable single-plane
+  prior with per-frame plane / edge feature extraction so LiDAR factors
+  carry real-scene geometry; publish reference-trajectory parity reports
   comparing the continuous-time tracker against upstream Coco-LIC on the
   existing 12/12 strict matrix.
