@@ -810,6 +810,8 @@ public:
       declare_parameter<double>("lidar_scan_to_scan_max_velocity_mps", 0.0);
     lidar_scan_to_scan_max_angular_velocity_radps_ =
       declare_parameter<double>("lidar_scan_to_scan_max_angular_velocity_radps", 0.0);
+    lidar_scan_to_scan_relative_translation_gain_ =
+      declare_parameter<double>("lidar_scan_to_scan_relative_translation_gain", 1.0);
     lidar_scan_to_scan_position_huber_delta_m_ =
       declare_parameter<double>("lidar_scan_to_scan_position_huber_delta_m", 0.25);
     lidar_scan_to_scan_orientation_huber_delta_rad_ =
@@ -862,6 +864,8 @@ public:
       lidar_scan_to_scan_max_velocity_mps_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_max_angular_velocity_radps_) ||
       lidar_scan_to_scan_max_angular_velocity_radps_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_relative_translation_gain_) ||
+      lidar_scan_to_scan_relative_translation_gain_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_position_huber_delta_m_) ||
       lidar_scan_to_scan_position_huber_delta_m_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_orientation_huber_delta_rad_) ||
@@ -2818,6 +2822,7 @@ private:
       : predicted_relative.q_w_i;
     Eigen::Vector3d target_relative_p =
       predicted_relative.p_w_i + correction.delta_p_w;
+    target_relative_p *= lidar_scan_to_scan_relative_translation_gain_;
     Eigen::Vector3d target_relative_velocity = target_relative_p / dt_s;
     Eigen::Vector3d target_angular_velocity =
       spline::quaternion_log(target_relative_q) / dt_s;
@@ -3278,6 +3283,7 @@ private:
   double lidar_scan_to_scan_orientation_huber_delta_rad_{0.25};
   double lidar_scan_to_scan_max_velocity_mps_{0.0};
   double lidar_scan_to_scan_max_angular_velocity_radps_{0.0};
+  double lidar_scan_to_scan_relative_translation_gain_{1.0};
   bool lidar_scan_to_scan_use_odometry_prediction_{false};
   bool lidar_scan_to_scan_use_point_to_plane_correction_{false};
   bool lidar_scan_to_scan_dead_reckon_on_reject_{false};

@@ -1133,6 +1133,10 @@ length, retained-knot soft anchors also over-scale, and velocity-only scan
 priors do not beat the current stable configuration. They therefore remain
 default-off until the full marginalization/global visual-map coupling closes the
 strict parity gap.
+`lidar_scan_to_scan_relative_translation_gain` is available for controlled
+gain sweeps when scan-to-scan priors are enabled; its default is `1.0`. A CBD
+12 s gain `0.15` position-prior probe still over-scaled the path (`5.97 m`) and
+recorded RMSE `0.185 m`, so it is also diagnostic rather than a release default.
 
 See [docs/BASELINE_DATA.md](docs/BASELINE_DATA.md), [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 

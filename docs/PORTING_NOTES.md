@@ -179,6 +179,12 @@ scan-to-scan position priors record RMSE `0.170 m` and path `5.77 m`; velocity
 only records RMSE `0.184 m`. The stable short-window configuration remains the
 safer default while full Schur marginalization/global visual-map coupling is
 completed.
+`lidar_scan_to_scan_relative_translation_gain` now scales the relative
+translation before both position and velocity priors are formed, so future sweeps
+can damp ICP translation scale without forking the node. A CBD 12 s gain `0.15`
+probe reduced cumulative scan-target path to `1.24 m` but still produced a
+`5.97 m` optimized path and RMSE `0.185 m`, so the blocker is the coupled
+optimization surface rather than only raw ICP translation magnitude.
 
 It currently provides:
 
