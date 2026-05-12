@@ -256,6 +256,14 @@ public:
       declare_parameter<double>("rotation_smoothness_weight", 0.0);
     options.rotation_smoothness_huber_delta_rad =
       declare_parameter<double>("rotation_smoothness_huber_delta_rad", 0.0);
+    options.gyro_bias_prior_weight =
+      declare_parameter<double>("gyro_bias_prior_weight", 0.0);
+    options.gyro_bias_prior_huber_delta_radps =
+      declare_parameter<double>("gyro_bias_prior_huber_delta_radps", 0.0);
+    options.accel_bias_prior_weight =
+      declare_parameter<double>("accel_bias_prior_weight", 0.0);
+    options.accel_bias_prior_huber_delta_mps2 =
+      declare_parameter<double>("accel_bias_prior_huber_delta_mps2", 0.0);
     if (!std::isfinite(options.position_smoothness_weight) ||
       options.position_smoothness_weight < 0.0 ||
       !std::isfinite(options.position_smoothness_huber_delta_m) ||
@@ -266,6 +274,17 @@ public:
       options.rotation_smoothness_huber_delta_rad < 0.0)
     {
       throw std::runtime_error("smoothness parameters must be finite and non-negative");
+    }
+    if (!std::isfinite(options.gyro_bias_prior_weight) ||
+      options.gyro_bias_prior_weight < 0.0 ||
+      !std::isfinite(options.gyro_bias_prior_huber_delta_radps) ||
+      options.gyro_bias_prior_huber_delta_radps < 0.0 ||
+      !std::isfinite(options.accel_bias_prior_weight) ||
+      options.accel_bias_prior_weight < 0.0 ||
+      !std::isfinite(options.accel_bias_prior_huber_delta_mps2) ||
+      options.accel_bias_prior_huber_delta_mps2 < 0.0)
+    {
+      throw std::runtime_error("bias prior parameters must be finite and non-negative");
     }
     options.lidar_huber_delta_m =
       declare_parameter<double>("lidar_huber_delta_m", 0.10);
@@ -1701,16 +1720,19 @@ private:
       "last_position_prior_factors=%zu last_velocity_prior_factors=%zu "
       "last_angular_velocity_prior_factors=%zu "
       "last_orientation_prior_factors=%zu "
+      "last_gyro_bias_prior_factors=%zu last_accel_bias_prior_factors=%zu "
       "initial_cost=%.9g final_cost=%.9g initial_imu_cost=%.9g "
       "final_imu_cost=%.9g initial_lidar_cost=%.9g final_lidar_cost=%.9g "
       "initial_position_prior_cost=%.9g final_position_prior_cost=%.9g "
       "initial_velocity_prior_cost=%.9g final_velocity_prior_cost=%.9g "
       "initial_orientation_prior_cost=%.9g final_orientation_prior_cost=%.9g "
+      "initial_bias_prior_cost=%.9g final_bias_prior_cost=%.9g "
       "initial_smoothness_cost=%.9g final_smoothness_cost=%.9g "
       "max_position_update_m=%.9g max_rotation_update_rad=%.9g "
       "position_prior_factors=%zu velocity_prior_factors=%zu "
       "angular_velocity_prior_factors=%zu "
       "orientation_prior_factors=%zu "
+      "gyro_bias_prior_factors=%zu accel_bias_prior_factors=%zu "
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
       "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
@@ -1758,6 +1780,8 @@ private:
       diagnostics.last_step_velocity_prior_factors,
       diagnostics.last_step_angular_velocity_prior_factors,
       diagnostics.last_step_orientation_prior_factors,
+      diagnostics.last_step_gyro_bias_prior_factors,
+      diagnostics.last_step_accel_bias_prior_factors,
       diagnostics.last_step_initial_cost,
       diagnostics.last_step_final_cost,
       diagnostics.last_step_initial_imu_cost,
@@ -1770,6 +1794,8 @@ private:
       diagnostics.last_step_final_velocity_prior_cost,
       diagnostics.last_step_initial_orientation_prior_cost,
       diagnostics.last_step_final_orientation_prior_cost,
+      diagnostics.last_step_initial_bias_prior_cost,
+      diagnostics.last_step_final_bias_prior_cost,
       diagnostics.last_step_initial_smoothness_cost,
       diagnostics.last_step_final_smoothness_cost,
       diagnostics.last_step_max_position_update_m,
@@ -1778,6 +1804,8 @@ private:
       diagnostics.total_velocity_prior_factors,
       diagnostics.total_angular_velocity_prior_factors,
       diagnostics.total_orientation_prior_factors,
+      diagnostics.total_gyro_bias_prior_factors,
+      diagnostics.total_accel_bias_prior_factors,
       accepted_imu_count_,
       dropped_imu_count_,
       rejected_imu_count_,

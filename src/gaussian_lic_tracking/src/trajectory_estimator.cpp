@@ -312,6 +312,22 @@ struct AngularVelocityPriorAutoDiffFunctor
   }
 };
 
+struct BiasPriorAutoDiffFunctor
+{
+  Eigen::Vector3d target{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(const T * bias, T * residuals) const
+  {
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> b(bias);
+    const Eigen::Matrix<T, 3, 1> target_t = target.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * (b - target_t);
+    return true;
+  }
+};
+
 struct PositionSmoothnessAutoDiffFunctor
 {
   double weight{1.0};
@@ -366,6 +382,7 @@ struct TrajectoryEstimator::Impl
   std::vector<ceres::ResidualBlockId> position_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> velocity_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> orientation_prior_residual_blocks;
+  std::vector<ceres::ResidualBlockId> bias_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> smoothness_residual_blocks;
 };
 
@@ -802,6 +819,70 @@ bool TrajectoryEstimator::add_orientation_prior_factor(
   return true;
 }
 
+bool TrajectoryEstimator::add_gyro_bias_prior_factor(
+  const Eigen::Vector3d & gyro_bias,
+  double weight,
+  double huber_delta_radps)
+{
+  if (!gyro_bias.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_radps) || huber_delta_radps < 0.0)
+  {
+    return false;
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  BiasPriorAutoDiffFunctor functor;
+  functor.target = gyro_bias;
+  functor.weight = weight;
+  auto * cost = new ceres::AutoDiffCostFunction<
+    BiasPriorAutoDiffFunctor, 3, 3>(new BiasPriorAutoDiffFunctor(functor));
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_radps > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_radps);
+  }
+  const auto block = impl_->problem->AddResidualBlock(
+    cost, loss, impl_->gyro_bias_storage.data());
+  impl_->bias_prior_residual_blocks.push_back(block);
+  ++gyro_bias_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_accel_bias_prior_factor(
+  const Eigen::Vector3d & accel_bias,
+  double weight,
+  double huber_delta_mps2)
+{
+  if (!accel_bias.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_mps2) || huber_delta_mps2 < 0.0)
+  {
+    return false;
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  BiasPriorAutoDiffFunctor functor;
+  functor.target = accel_bias;
+  functor.weight = weight;
+  auto * cost = new ceres::AutoDiffCostFunction<
+    BiasPriorAutoDiffFunctor, 3, 3>(new BiasPriorAutoDiffFunctor(functor));
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_mps2 > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_mps2);
+  }
+  const auto block = impl_->problem->AddResidualBlock(
+    cost, loss, impl_->accel_bias_storage.data());
+  impl_->bias_prior_residual_blocks.push_back(block);
+  ++accel_bias_prior_factor_count_;
+  return true;
+}
+
 bool TrajectoryEstimator::add_position_smoothness_factor(
   std::size_t first_knot_index,
   double weight,
@@ -885,6 +966,7 @@ void TrajectoryEstimator::rebuild_problem()
   impl_->position_prior_residual_blocks.clear();
   impl_->velocity_prior_residual_blocks.clear();
   impl_->orientation_prior_residual_blocks.clear();
+  impl_->bias_prior_residual_blocks.clear();
   impl_->smoothness_residual_blocks.clear();
 
   for (auto & rot : impl_->rotation_storage) {
@@ -973,6 +1055,7 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     evaluate_cost(impl_->velocity_prior_residual_blocks);
   summary.initial_orientation_prior_cost =
     evaluate_cost(impl_->orientation_prior_residual_blocks);
+  summary.initial_bias_prior_cost = evaluate_cost(impl_->bias_prior_residual_blocks);
   summary.initial_smoothness_cost = evaluate_cost(impl_->smoothness_residual_blocks);
 
   ceres::Solver::Options solver_options;
@@ -1009,6 +1092,7 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     evaluate_cost(impl_->velocity_prior_residual_blocks);
   summary.final_orientation_prior_cost =
     evaluate_cost(impl_->orientation_prior_residual_blocks);
+  summary.final_bias_prior_cost = evaluate_cost(impl_->bias_prior_residual_blocks);
   summary.final_smoothness_cost = evaluate_cost(impl_->smoothness_residual_blocks);
   summary.iterations = static_cast<int>(ceres_summary.iterations.size());
   summary.brief_report = ceres_summary.BriefReport();

@@ -63,6 +63,13 @@ struct ContinuousTimeSlidingWindowOptions
   double position_smoothness_huber_delta_m{0.0};
   double rotation_smoothness_weight{0.0};
   double rotation_smoothness_huber_delta_rad{0.0};
+  // Soft random-walk priors on the IMU biases. Each online solve is biased
+  // toward the accepted bias from the previous solve, but Ceres can still
+  // move the bias when IMU evidence is strong enough.
+  double gyro_bias_prior_weight{0.0};
+  double gyro_bias_prior_huber_delta_radps{0.0};
+  double accel_bias_prior_weight{0.0};
+  double accel_bias_prior_huber_delta_mps2{0.0};
   double lidar_huber_delta_m{0.10};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};
@@ -108,6 +115,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_velocity_prior_factors{0};
   std::size_t total_angular_velocity_prior_factors{0};
   std::size_t total_orientation_prior_factors{0};
+  std::size_t total_gyro_bias_prior_factors{0};
+  std::size_t total_accel_bias_prior_factors{0};
   std::size_t total_position_smoothness_factors{0};
   std::size_t total_rotation_smoothness_factors{0};
   std::size_t total_marginalized_knots{0};
@@ -119,6 +128,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t last_step_velocity_prior_factors{0};
   std::size_t last_step_angular_velocity_prior_factors{0};
   std::size_t last_step_orientation_prior_factors{0};
+  std::size_t last_step_gyro_bias_prior_factors{0};
+  std::size_t last_step_accel_bias_prior_factors{0};
   std::size_t last_step_position_smoothness_factors{0};
   std::size_t last_step_rotation_smoothness_factors{0};
   bool last_step_update_accepted{false};
@@ -136,6 +147,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   double last_step_final_velocity_prior_cost{0.0};
   double last_step_initial_orientation_prior_cost{0.0};
   double last_step_final_orientation_prior_cost{0.0};
+  double last_step_initial_bias_prior_cost{0.0};
+  double last_step_final_bias_prior_cost{0.0};
   double last_step_initial_smoothness_cost{0.0};
   double last_step_final_smoothness_cost{0.0};
   std::size_t rejected_solver_steps{0};

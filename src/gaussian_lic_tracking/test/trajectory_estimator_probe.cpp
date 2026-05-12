@@ -433,6 +433,46 @@ void check_orientation_prior_factor_pulls_rotation_without_imu()
   }
 }
 
+void check_bias_prior_factors_regularize_imu_bias()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+  estimator.set_knots(truth.rotation_knots, truth.position_knots);
+  estimator.set_gyro_bias(Eigen::Vector3d(0.04, -0.02, 0.03));
+  estimator.set_accel_bias(Eigen::Vector3d(0.2, -0.1, 0.05));
+
+  if (!estimator.add_gyro_bias_prior_factor(Eigen::Vector3d::Zero(), 10.0, 0.0) ||
+    !estimator.add_accel_bias_prior_factor(Eigen::Vector3d::Zero(), 10.0, 0.0))
+  {
+    std::fprintf(stderr, "bias prior factors were not added\n");
+    std::exit(1);
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 20;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  if (estimator.gyro_bias_prior_factor_count() != 1 ||
+    estimator.accel_bias_prior_factor_count() != 1)
+  {
+    std::fprintf(stderr, "bias prior counters are wrong\n");
+    std::exit(1);
+  }
+  if (summary.final_bias_prior_cost > 1.0e-12 ||
+    estimator.gyro_bias().norm() > 1.0e-8 ||
+    estimator.accel_bias().norm() > 1.0e-8)
+  {
+    std::fprintf(stderr,
+      "bias prior failed to regularize biases: final_cost=%.6g gyro=%.6g accel=%.6g (%s)\n",
+      summary.final_bias_prior_cost,
+      estimator.gyro_bias().norm(),
+      estimator.accel_bias().norm(),
+      summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 void check_rotation_smoothness_regularizes_orientation_shape()
 {
   const double dt = 0.05;
@@ -529,6 +569,7 @@ int main()
     check_position_prior_factor_pulls_position_without_synthetic_lidar();
     check_velocity_prior_factor_pulls_motion_scale_without_position_anchor();
     check_orientation_prior_factor_pulls_rotation_without_imu();
+    check_bias_prior_factors_regularize_imu_bias();
     check_rotation_smoothness_regularizes_orientation_shape();
     check_lidar_plane_factor_pulls_position();
     check_lidar_huber_loss_suppresses_plane_outlier();

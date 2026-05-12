@@ -58,6 +58,8 @@ struct TrajectoryEstimatorSummary
   double final_velocity_prior_cost{0.0};
   double initial_orientation_prior_cost{0.0};
   double final_orientation_prior_cost{0.0};
+  double initial_bias_prior_cost{0.0};
+  double final_bias_prior_cost{0.0};
   double initial_smoothness_cost{0.0};
   double final_smoothness_cost{0.0};
   int iterations{0};
@@ -159,6 +161,16 @@ public:
     double weight = 1.0,
     double huber_delta_rad = 0.0);
 
+  bool add_gyro_bias_prior_factor(
+    const Eigen::Vector3d & gyro_bias,
+    double weight = 1.0,
+    double huber_delta_radps = 0.0);
+
+  bool add_accel_bias_prior_factor(
+    const Eigen::Vector3d & accel_bias,
+    double weight = 1.0,
+    double huber_delta_mps2 = 0.0);
+
   bool add_position_smoothness_factor(
     std::size_t first_knot_index,
     double weight = 1.0,
@@ -179,6 +191,8 @@ public:
     return angular_velocity_prior_factor_count_;
   }
   std::size_t orientation_prior_factor_count() const { return orientation_prior_factor_count_; }
+  std::size_t gyro_bias_prior_factor_count() const { return gyro_bias_prior_factor_count_; }
+  std::size_t accel_bias_prior_factor_count() const { return accel_bias_prior_factor_count_; }
   std::size_t position_smoothness_factor_count() const { return position_smoothness_factor_count_; }
   std::size_t rotation_smoothness_factor_count() const { return rotation_smoothness_factor_count_; }
 
@@ -207,6 +221,8 @@ private:
   std::size_t velocity_prior_factor_count_{0};
   std::size_t angular_velocity_prior_factor_count_{0};
   std::size_t orientation_prior_factor_count_{0};
+  std::size_t gyro_bias_prior_factor_count_{0};
+  std::size_t accel_bias_prior_factor_count_{0};
   std::size_t position_smoothness_factor_count_{0};
   std::size_t rotation_smoothness_factor_count_{0};
 };

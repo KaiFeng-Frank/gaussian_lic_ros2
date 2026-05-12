@@ -132,6 +132,17 @@ ContinuousTimeSlidingWindowEstimator::ContinuousTimeSlidingWindowEstimator(
   {
     throw std::runtime_error("rotation smoothness parameters must be finite and non-negative");
   }
+  if (!std::isfinite(options.gyro_bias_prior_weight) ||
+    options.gyro_bias_prior_weight < 0.0 ||
+    !std::isfinite(options.gyro_bias_prior_huber_delta_radps) ||
+    options.gyro_bias_prior_huber_delta_radps < 0.0 ||
+    !std::isfinite(options.accel_bias_prior_weight) ||
+    options.accel_bias_prior_weight < 0.0 ||
+    !std::isfinite(options.accel_bias_prior_huber_delta_mps2) ||
+    options.accel_bias_prior_huber_delta_mps2 < 0.0)
+  {
+    throw std::runtime_error("bias prior parameters must be finite and non-negative");
+  }
   if (options.window_knot_count < N + 2) {
     throw std::runtime_error("window must hold at least N+2 knots to expose interior samples");
   }
@@ -513,6 +524,20 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       }
     }
   }
+  if (impl_->options.gyro_bias_prior_weight > 0.0 &&
+    estimator.add_gyro_bias_prior_factor(
+      impl_->gyro_bias, impl_->options.gyro_bias_prior_weight,
+      impl_->options.gyro_bias_prior_huber_delta_radps))
+  {
+    ++impl_->diagnostics.total_gyro_bias_prior_factors;
+  }
+  if (impl_->options.accel_bias_prior_weight > 0.0 &&
+    estimator.add_accel_bias_prior_factor(
+      impl_->accel_bias, impl_->options.accel_bias_prior_weight,
+      impl_->options.accel_bias_prior_huber_delta_mps2))
+  {
+    ++impl_->diagnostics.total_accel_bias_prior_factors;
+  }
 
   if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
     estimator.lidar_normal_factor_count() == 0 &&
@@ -520,6 +545,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.velocity_prior_factor_count() == 0 &&
     estimator.angular_velocity_prior_factor_count() == 0 &&
     estimator.orientation_prior_factor_count() == 0 &&
+    estimator.gyro_bias_prior_factor_count() == 0 &&
+    estimator.accel_bias_prior_factor_count() == 0 &&
     estimator.position_smoothness_factor_count() == 0 &&
     estimator.rotation_smoothness_factor_count() == 0)
   {
@@ -537,6 +564,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.angular_velocity_prior_factor_count();
   impl_->diagnostics.last_step_orientation_prior_factors =
     estimator.orientation_prior_factor_count();
+  impl_->diagnostics.last_step_gyro_bias_prior_factors =
+    estimator.gyro_bias_prior_factor_count();
+  impl_->diagnostics.last_step_accel_bias_prior_factors =
+    estimator.accel_bias_prior_factor_count();
   impl_->diagnostics.last_step_position_smoothness_factors =
     estimator.position_smoothness_factor_count();
   impl_->diagnostics.last_step_rotation_smoothness_factors =
@@ -570,6 +601,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     summary.initial_orientation_prior_cost;
   impl_->diagnostics.last_step_final_orientation_prior_cost =
     summary.final_orientation_prior_cost;
+  impl_->diagnostics.last_step_initial_bias_prior_cost =
+    summary.initial_bias_prior_cost;
+  impl_->diagnostics.last_step_final_bias_prior_cost =
+    summary.final_bias_prior_cost;
   impl_->diagnostics.last_step_initial_smoothness_cost = summary.initial_smoothness_cost;
   impl_->diagnostics.last_step_final_smoothness_cost = summary.final_smoothness_cost;
   impl_->diagnostics.last_step_update_accepted = false;
