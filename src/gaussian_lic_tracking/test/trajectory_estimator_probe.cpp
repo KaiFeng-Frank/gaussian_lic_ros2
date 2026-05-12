@@ -118,6 +118,30 @@ Eigen::Vector3d truth_position_at(const TruthSpline & truth, double t_s)
   return view.position_world();
 }
 
+Eigen::Vector3d velocity_at(
+  const std::vector<Eigen::Quaterniond> & rotation_knots,
+  const std::vector<Eigen::Vector3d> & position_knots,
+  double dt_s,
+  double t_s)
+{
+  const double inv_dt = 1.0 / dt_s;
+  const int idx = static_cast<int>(std::floor(t_s / dt_s));
+  const double u = (t_s - idx * dt_s) / dt_s;
+  std::array<Eigen::Quaterniond, 4> rot_knots;
+  std::array<Eigen::Vector3d, 4> pos_knots;
+  for (int i = 0; i < 4; ++i) {
+    rot_knots[i] = rotation_knots[idx - 1 + i];
+    pos_knots[i] = position_knots[idx - 1 + i];
+  }
+  SplitSplineView<4> view(rot_knots, pos_knots, u, inv_dt);
+  return view.velocity_world();
+}
+
+Eigen::Vector3d truth_velocity_at(const TruthSpline & truth, double t_s)
+{
+  return velocity_at(truth.rotation_knots, truth.position_knots, truth.dt_s, t_s);
+}
+
 Eigen::Quaterniond truth_orientation_at(const TruthSpline & truth, double t_s)
 {
   const double inv_dt = 1.0 / truth.dt_s;
@@ -324,6 +348,49 @@ void check_position_prior_factor_pulls_position_without_synthetic_lidar()
   }
 }
 
+void check_velocity_prior_factor_pulls_motion_scale_without_position_anchor()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+
+  auto perturbed_positions = truth.position_knots;
+  for (auto & p : perturbed_positions) {
+    p.x() *= 0.5;
+  }
+  estimator.set_knots(truth.rotation_knots, perturbed_positions);
+
+  for (double t = 0.06; t < 0.34; t += 0.005) {
+    estimator.add_velocity_prior_factor(t, truth_velocity_at(truth, t), 10.0, 0.0);
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 50;
+  options.hold_gyro_bias_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  if (estimator.velocity_prior_factor_count() == 0) {
+    std::fprintf(stderr, "velocity prior factors were not added\n");
+    std::exit(1);
+  }
+  if (summary.final_velocity_prior_cost > summary.initial_velocity_prior_cost) {
+    std::fprintf(stderr,
+      "velocity prior solve increased cost: initial=%.6g final=%.6g\n",
+      summary.initial_velocity_prior_cost, summary.final_velocity_prior_cost);
+    std::exit(1);
+  }
+  const double velocity_error =
+    (velocity_at(truth.rotation_knots, estimator.position_knots(), dt, 0.22) -
+    truth_velocity_at(truth, 0.22)).norm();
+  if (velocity_error > 0.02) {
+    std::fprintf(stderr,
+      "velocity prior failed to recover local motion scale: error=%.6f (%s)\n",
+      velocity_error, summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 void check_orientation_prior_factor_pulls_rotation_without_imu()
 {
   const double dt = 0.05;
@@ -460,6 +527,7 @@ int main()
     check_zero_residual_when_seeded_with_truth();
     check_converges_from_position_perturbation();
     check_position_prior_factor_pulls_position_without_synthetic_lidar();
+    check_velocity_prior_factor_pulls_motion_scale_without_position_anchor();
     check_orientation_prior_factor_pulls_rotation_without_imu();
     check_rotation_smoothness_regularizes_orientation_shape();
     check_lidar_plane_factor_pulls_position();

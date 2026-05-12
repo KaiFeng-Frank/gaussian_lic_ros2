@@ -85,11 +85,17 @@ def generate_launch_description() -> LaunchDescription:
     lidar_pose_prior_position_weight = LaunchConfiguration(
         "lidar_pose_prior_position_weight"
     )
+    lidar_pose_prior_velocity_weight = LaunchConfiguration(
+        "lidar_pose_prior_velocity_weight"
+    )
     lidar_pose_prior_orientation_weight = LaunchConfiguration(
         "lidar_pose_prior_orientation_weight"
     )
     lidar_pose_prior_position_huber_delta_m = LaunchConfiguration(
         "lidar_pose_prior_position_huber_delta_m"
+    )
+    lidar_pose_prior_velocity_huber_delta_mps = LaunchConfiguration(
+        "lidar_pose_prior_velocity_huber_delta_mps"
     )
     lidar_pose_prior_orientation_huber_delta_rad = LaunchConfiguration(
         "lidar_pose_prior_orientation_huber_delta_rad"
@@ -160,8 +166,10 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("pointcloud_factor_weight", default_value="0.1"),
         DeclareLaunchArgument("enable_lidar_pose_prior_factor", default_value="false"),
         DeclareLaunchArgument("lidar_pose_prior_position_weight", default_value="1.0"),
+        DeclareLaunchArgument("lidar_pose_prior_velocity_weight", default_value="0.0"),
         DeclareLaunchArgument("lidar_pose_prior_orientation_weight", default_value="1.0"),
         DeclareLaunchArgument("lidar_pose_prior_position_huber_delta_m", default_value="0.25"),
+        DeclareLaunchArgument("lidar_pose_prior_velocity_huber_delta_mps", default_value="0.25"),
         DeclareLaunchArgument("lidar_pose_prior_orientation_huber_delta_rad", default_value="0.25"),
         DeclareLaunchArgument("lidar_pose_factor_keyframe_stride", default_value="5"),
         DeclareLaunchArgument("lidar_pose_factor_min_points", default_value="32"),
@@ -255,8 +263,10 @@ def generate_launch_description() -> LaunchDescription:
                 "pointcloud_factor_weight": pointcloud_factor_weight,
                 "enable_lidar_pose_prior_factor": enable_lidar_pose_prior_factor,
                 "lidar_pose_prior_position_weight": lidar_pose_prior_position_weight,
+                "lidar_pose_prior_velocity_weight": lidar_pose_prior_velocity_weight,
                 "lidar_pose_prior_orientation_weight": lidar_pose_prior_orientation_weight,
                 "lidar_pose_prior_position_huber_delta_m": lidar_pose_prior_position_huber_delta_m,
+                "lidar_pose_prior_velocity_huber_delta_mps": lidar_pose_prior_velocity_huber_delta_mps,
                 "lidar_pose_prior_orientation_huber_delta_rad": lidar_pose_prior_orientation_huber_delta_rad,
                 "lidar_pose_factor_keyframe_stride": lidar_pose_factor_keyframe_stride,
                 "lidar_pose_factor_min_points": LaunchConfiguration("lidar_pose_factor_min_points"),

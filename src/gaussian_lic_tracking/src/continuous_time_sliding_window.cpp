@@ -49,6 +49,14 @@ struct BufferedPositionPrior
   double huber_delta_m{0.0};
 };
 
+struct BufferedVelocityPrior
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d velocity_world{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+  double huber_delta_mps{0.0};
+};
+
 struct BufferedOrientationPrior
 {
   int64_t stamp_ns{0};
@@ -83,6 +91,7 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedLidar> active_lidar;
   std::deque<BufferedLidarNormal> active_lidar_normals;
   std::deque<BufferedPositionPrior> active_position_priors;
+  std::deque<BufferedVelocityPrior> active_velocity_priors;
   std::deque<BufferedOrientationPrior> active_orientation_priors;
 
   // Brand-new samples waiting for their first solve.
@@ -90,6 +99,7 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedLidar> pending_lidar;
   std::deque<BufferedLidarNormal> pending_lidar_normals;
   std::deque<BufferedPositionPrior> pending_position_priors;
+  std::deque<BufferedVelocityPrior> pending_velocity_priors;
   std::deque<BufferedOrientationPrior> pending_orientation_priors;
 
   ContinuousTimeSlidingWindowDiagnostics diagnostics;
@@ -196,6 +206,18 @@ void ContinuousTimeSlidingWindowEstimator::add_position_prior(
     {stamp_ns, position_world, weight, effective_huber});
 }
 
+void ContinuousTimeSlidingWindowEstimator::add_velocity_prior(
+  int64_t stamp_ns,
+  const Eigen::Vector3d & velocity_world,
+  double weight,
+  double huber_delta_mps)
+{
+  const double effective_huber =
+    huber_delta_mps >= 0.0 ? huber_delta_mps : impl_->options.lidar_huber_delta_m;
+  impl_->pending_velocity_priors.push_back(
+    {stamp_ns, velocity_world, weight, effective_huber});
+}
+
 void ContinuousTimeSlidingWindowEstimator::add_orientation_prior(
   int64_t stamp_ns,
   const Eigen::Quaterniond & q_world_body,
@@ -288,6 +310,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
   impl_->pending_position_priors = position_prior_still_pending;
 
+  std::deque<BufferedVelocityPrior> velocity_prior_still_pending;
+  for (const auto & p : impl_->pending_velocity_priors) {
+    if (p.stamp_ns < interior_end_ns()) {
+      impl_->active_velocity_priors.push_back(p);
+    } else {
+      velocity_prior_still_pending.push_back(p);
+    }
+  }
+  impl_->pending_velocity_priors = velocity_prior_still_pending;
+
   std::deque<BufferedOrientationPrior> orientation_prior_still_pending;
   for (const auto & p : impl_->pending_orientation_priors) {
     if (p.stamp_ns < interior_end_ns()) {
@@ -333,6 +365,12 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     impl_->active_position_priors.pop_front();
   }
   while (
+    !impl_->active_velocity_priors.empty() &&
+    impl_->active_velocity_priors.front().stamp_ns < interior_start_ns)
+  {
+    impl_->active_velocity_priors.pop_front();
+  }
+  while (
     !impl_->active_orientation_priors.empty() &&
     impl_->active_orientation_priors.front().stamp_ns < interior_start_ns)
   {
@@ -341,7 +379,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
 
   if (impl_->active_imu.empty() && impl_->active_lidar.empty() &&
     impl_->active_lidar_normals.empty() &&
-    impl_->active_position_priors.empty() && impl_->active_orientation_priors.empty())
+    impl_->active_position_priors.empty() && impl_->active_velocity_priors.empty() &&
+    impl_->active_orientation_priors.empty())
   {
     return false;
   }
@@ -391,6 +430,14 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       ++impl_->diagnostics.total_position_prior_factors;
     }
   }
+  for (const auto & active : impl_->active_velocity_priors) {
+    const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
+    if (estimator.add_velocity_prior_factor(
+        t_s, active.velocity_world, active.weight, active.huber_delta_mps))
+    {
+      ++impl_->diagnostics.total_velocity_prior_factors;
+    }
+  }
   for (const auto & active : impl_->active_orientation_priors) {
     const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
     if (estimator.add_orientation_prior_factor(
@@ -423,6 +470,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
     estimator.lidar_normal_factor_count() == 0 &&
     estimator.position_prior_factor_count() == 0 &&
+    estimator.velocity_prior_factor_count() == 0 &&
     estimator.orientation_prior_factor_count() == 0 &&
     estimator.position_smoothness_factor_count() == 0 &&
     estimator.rotation_smoothness_factor_count() == 0)
@@ -435,6 +483,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.lidar_normal_factor_count();
   impl_->diagnostics.last_step_position_prior_factors =
     estimator.position_prior_factor_count();
+  impl_->diagnostics.last_step_velocity_prior_factors =
+    estimator.velocity_prior_factor_count();
   impl_->diagnostics.last_step_orientation_prior_factors =
     estimator.orientation_prior_factor_count();
   impl_->diagnostics.last_step_position_smoothness_factors =
@@ -462,6 +512,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     summary.initial_position_prior_cost;
   impl_->diagnostics.last_step_final_position_prior_cost =
     summary.final_position_prior_cost;
+  impl_->diagnostics.last_step_initial_velocity_prior_cost =
+    summary.initial_velocity_prior_cost;
+  impl_->diagnostics.last_step_final_velocity_prior_cost =
+    summary.final_velocity_prior_cost;
   impl_->diagnostics.last_step_initial_orientation_prior_cost =
     summary.initial_orientation_prior_cost;
   impl_->diagnostics.last_step_final_orientation_prior_cost =

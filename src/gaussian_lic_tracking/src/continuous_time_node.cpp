@@ -259,20 +259,28 @@ public:
       declare_parameter<bool>("enable_lidar_pose_prior_factor", false);
     lidar_pose_prior_position_weight_ =
       declare_parameter<double>("lidar_pose_prior_position_weight", 1.0);
+    lidar_pose_prior_velocity_weight_ =
+      declare_parameter<double>("lidar_pose_prior_velocity_weight", 0.0);
     lidar_pose_prior_orientation_weight_ =
       declare_parameter<double>("lidar_pose_prior_orientation_weight", 1.0);
     lidar_pose_prior_position_huber_delta_m_ =
       declare_parameter<double>("lidar_pose_prior_position_huber_delta_m", 0.25);
+    lidar_pose_prior_velocity_huber_delta_mps_ =
+      declare_parameter<double>("lidar_pose_prior_velocity_huber_delta_mps", 0.25);
     lidar_pose_prior_orientation_huber_delta_rad_ =
       declare_parameter<double>("lidar_pose_prior_orientation_huber_delta_rad", 0.25);
     lidar_pose_factor_keyframe_stride_ =
       static_cast<int>(declare_parameter<int>("lidar_pose_factor_keyframe_stride", 5));
     if (!std::isfinite(lidar_pose_prior_position_weight_) ||
       lidar_pose_prior_position_weight_ < 0.0 ||
+      !std::isfinite(lidar_pose_prior_velocity_weight_) ||
+      lidar_pose_prior_velocity_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_weight_) ||
       lidar_pose_prior_orientation_weight_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_position_huber_delta_m_) ||
       lidar_pose_prior_position_huber_delta_m_ < 0.0 ||
+      !std::isfinite(lidar_pose_prior_velocity_huber_delta_mps_) ||
+      lidar_pose_prior_velocity_huber_delta_mps_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_huber_delta_rad_) ||
       lidar_pose_prior_orientation_huber_delta_rad_ < 0.0 ||
       lidar_pose_factor_keyframe_stride_ <= 0)
@@ -885,19 +893,23 @@ private:
       "accepted_steps=%zu "
       "last_imu_factors=%zu last_lidar_factors=%zu last_lidar_normal_factors=%zu "
       "last_position_smoothness_factors=%zu last_rotation_smoothness_factors=%zu "
-      "last_position_prior_factors=%zu last_orientation_prior_factors=%zu "
+      "last_position_prior_factors=%zu last_velocity_prior_factors=%zu "
+      "last_orientation_prior_factors=%zu "
       "initial_cost=%.9g final_cost=%.9g initial_imu_cost=%.9g "
       "final_imu_cost=%.9g initial_lidar_cost=%.9g final_lidar_cost=%.9g "
       "initial_position_prior_cost=%.9g final_position_prior_cost=%.9g "
+      "initial_velocity_prior_cost=%.9g final_velocity_prior_cost=%.9g "
       "initial_orientation_prior_cost=%.9g final_orientation_prior_cost=%.9g "
       "initial_smoothness_cost=%.9g final_smoothness_cost=%.9g "
       "max_position_update_m=%.9g max_rotation_update_rad=%.9g "
-      "position_prior_factors=%zu orientation_prior_factors=%zu "
+      "position_prior_factors=%zu velocity_prior_factors=%zu "
+      "orientation_prior_factors=%zu "
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
       "plane_update_skips=%zu point_updates=%zu point_update_skips=%zu "
       "plane_normal_factors=%zu "
-      "lidar_pose_priors=%zu lidar_pose_matches=%zu lidar_pose_keyframes=%zu "
+      "lidar_pose_priors=%zu lidar_pose_velocity_priors=%zu "
+      "lidar_pose_matches=%zu lidar_pose_keyframes=%zu "
       "lidar_pose_rejected=%zu lidar_pose_last_residual=%.9g "
       "prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
@@ -918,6 +930,7 @@ private:
       diagnostics.last_step_position_smoothness_factors,
       diagnostics.last_step_rotation_smoothness_factors,
       diagnostics.last_step_position_prior_factors,
+      diagnostics.last_step_velocity_prior_factors,
       diagnostics.last_step_orientation_prior_factors,
       diagnostics.last_step_initial_cost,
       diagnostics.last_step_final_cost,
@@ -927,6 +940,8 @@ private:
       diagnostics.last_step_final_lidar_cost,
       diagnostics.last_step_initial_position_prior_cost,
       diagnostics.last_step_final_position_prior_cost,
+      diagnostics.last_step_initial_velocity_prior_cost,
+      diagnostics.last_step_final_velocity_prior_cost,
       diagnostics.last_step_initial_orientation_prior_cost,
       diagnostics.last_step_final_orientation_prior_cost,
       diagnostics.last_step_initial_smoothness_cost,
@@ -934,6 +949,7 @@ private:
       diagnostics.last_step_max_position_update_m,
       diagnostics.last_step_max_rotation_update_rad,
       diagnostics.total_position_prior_factors,
+      diagnostics.total_velocity_prior_factors,
       diagnostics.total_orientation_prior_factors,
       accepted_imu_count_,
       dropped_imu_count_,
@@ -948,6 +964,7 @@ private:
       persistent_point_map_update_skips_,
       persistent_plane_normal_factors_,
       lidar_pose_prior_factors_,
+      lidar_pose_prior_velocity_factors_,
       lidar_pose_prior_matches_,
       lidar_pose_factor_keyframes_,
       lidar_pose_prior_rejected_,
@@ -1104,11 +1121,28 @@ private:
         stamp_ns, target_position, lidar_pose_prior_position_weight_,
         lidar_pose_prior_position_huber_delta_m_);
     }
+    if (lidar_pose_prior_velocity_weight_ > 0.0 && have_last_lidar_pose_prior_) {
+      const double dt_s =
+        static_cast<double>(stamp_ns - last_lidar_pose_prior_stamp_ns_) * 1.0e-9;
+      if (std::isfinite(dt_s) && dt_s > 1.0e-6) {
+        const Eigen::Vector3d target_velocity =
+          (target_position - last_lidar_pose_prior_position_) / dt_s;
+        if (target_velocity.allFinite()) {
+          estimator_->add_velocity_prior(
+            stamp_ns, target_velocity, lidar_pose_prior_velocity_weight_,
+            lidar_pose_prior_velocity_huber_delta_mps_);
+          ++lidar_pose_prior_velocity_factors_;
+        }
+      }
+    }
     if (lidar_pose_prior_orientation_weight_ > 0.0) {
       estimator_->add_orientation_prior(
         stamp_ns, target_orientation, lidar_pose_prior_orientation_weight_,
         lidar_pose_prior_orientation_huber_delta_rad_);
     }
+    last_lidar_pose_prior_stamp_ns_ = stamp_ns;
+    last_lidar_pose_prior_position_ = target_position;
+    have_last_lidar_pose_prior_ = true;
     ++lidar_pose_prior_factors_;
     lidar_pose_prior_matches_ += correction.matched_points;
     lidar_pose_prior_last_mean_residual_m_ = correction.mean_residual_m;
@@ -1333,8 +1367,10 @@ private:
   double lidar_huber_delta_m_{0.10};
   bool enable_lidar_pose_prior_factor_{false};
   double lidar_pose_prior_position_weight_{1.0};
+  double lidar_pose_prior_velocity_weight_{0.0};
   double lidar_pose_prior_orientation_weight_{1.0};
   double lidar_pose_prior_position_huber_delta_m_{0.25};
+  double lidar_pose_prior_velocity_huber_delta_mps_{0.25};
   double lidar_pose_prior_orientation_huber_delta_rad_{0.25};
   int lidar_pose_factor_keyframe_stride_{5};
   LidarFactor lidar_pose_factor_;
@@ -1342,9 +1378,13 @@ private:
   std::size_t lidar_pose_factor_seen_frames_{0};
   std::size_t lidar_pose_factor_keyframes_{0};
   std::size_t lidar_pose_prior_factors_{0};
+  std::size_t lidar_pose_prior_velocity_factors_{0};
   std::size_t lidar_pose_prior_matches_{0};
   std::size_t lidar_pose_prior_rejected_{0};
   double lidar_pose_prior_last_mean_residual_m_{0.0};
+  bool have_last_lidar_pose_prior_{false};
+  int64_t last_lidar_pose_prior_stamp_ns_{0};
+  Eigen::Vector3d last_lidar_pose_prior_position_{Eigen::Vector3d::Zero()};
   bool enable_lidar_plane_normal_factor_{false};
   double lidar_plane_normal_factor_weight_{0.1};
   double lidar_plane_normal_huber_delta_rad_{0.10};
