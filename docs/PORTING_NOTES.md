@@ -124,6 +124,14 @@ The CUDA rasterizer, fused SSIM loss, visibility-masked SparseGaussianAdam, dens
 
 2026-05-13 tracker parity ablations added three upstream-alignment hooks without marking the long-window gate complete: limited-update branches now feed accepted IMU bias/gravity deltas, scan-to-scan physical clamps now bound the stored target pose as well as velocity/angular priors, and `fixed_control_point_index` can reproduce Coco-LIC's `SetFixedIndex(3)` gauge anchor for experiments. The fixed-index default remains disabled until the matching marginalization prior is fully active, because the standalone anchor worsened the current CBD 12s ablation.
 
+2026-05-13 continuous-time map anchoring added a native 3D LiDAR
+point-to-point residual to `TrajectoryEstimator` and the online
+`ContinuousTimeSlidingWindowEstimator`. Persistent point-map correspondences now
+enter Ceres as one coupled SE(3) residual with one robust loss instead of three
+independent axis-aligned plane residuals. This is required for future
+Gaussian-map/global-anchor BA, but it is still a default-off parity path until
+the next long-window CBD run proves RMSE improvement.
+
 ## Dataset Profiles
 
 `gaussian_lic_bringup/config` includes ROS2 mapping profiles derived from the upstream Gaussian-LIC YAML files:

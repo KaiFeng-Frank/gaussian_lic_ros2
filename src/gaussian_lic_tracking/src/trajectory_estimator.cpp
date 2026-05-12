@@ -181,6 +181,63 @@ struct LidarAutoDiffFunctor
   }
 };
 
+struct LidarPointToPointAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Vector3d point_lidar{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d target_point_map{Eigen::Vector3d::Zero()};
+  LidarExtrinsics extrinsics{};
+  double weight{1.0};
+  double scale{1.0};
+
+  template <typename T>
+  bool operator()(
+    const T * r0, const T * r1, const T * r2, const T * r3,
+    const T * p0, const T * p1, const T * p2, const T * p3,
+    T * residuals) const
+  {
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(r0),
+      quaternion_from_coeffs_t<T>(r1),
+      quaternion_from_coeffs_t<T>(r2),
+      quaternion_from_coeffs_t<T>(r3)};
+    std::array<Eigen::Matrix<T, 3, 1>, 4> pos_knots = {
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p0),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p1),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
+
+    Eigen::Quaternion<T> q_w_b;
+    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+      rot_knots, T(u_normalized), T(inv_dt_s),
+      &q_w_b, nullptr, nullptr);
+    const Eigen::Matrix<T, 3, 1> p_w_b =
+      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+      pos_knots, T(u_normalized), T(inv_dt_s));
+
+    const Eigen::Quaternion<T> q_lidar_to_imu_t =
+      extrinsics.q_lidar_to_imu.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_lidar_in_imu_t =
+      extrinsics.p_lidar_in_imu.cast<T>();
+    const Eigen::Quaternion<T> q_world_to_map_t =
+      extrinsics.q_world_to_map.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_world_in_map_t =
+      extrinsics.p_world_in_map.cast<T>();
+
+    const Eigen::Matrix<T, 3, 1> point_lidar_t = point_lidar.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_imu =
+      q_lidar_to_imu_t * point_lidar_t + p_lidar_in_imu_t;
+    const Eigen::Matrix<T, 3, 1> p_world = q_w_b * p_imu + p_w_b;
+    const Eigen::Matrix<T, 3, 1> p_map = q_world_to_map_t * p_world + p_world_in_map_t;
+    const Eigen::Matrix<T, 3, 1> target = target_point_map.cast<T>();
+
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * T(positive_or_one(scale)) * (p_map - target);
+    return true;
+  }
+};
+
 struct LidarPlaneNormalAutoDiffFunctor
 {
   double u_normalized{0.0};
@@ -433,6 +490,7 @@ struct TrajectoryEstimator::Impl
   std::unique_ptr<ceres::Problem> problem;
   std::vector<ceres::ResidualBlockId> imu_residual_blocks;
   std::vector<ceres::ResidualBlockId> lidar_residual_blocks;
+  std::vector<ceres::ResidualBlockId> lidar_point_residual_blocks;
   std::vector<ceres::ResidualBlockId> position_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> velocity_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> orientation_prior_residual_blocks;
@@ -669,6 +727,63 @@ bool TrajectoryEstimator::add_lidar_plane_normal_factor(
   const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   impl_->lidar_residual_blocks.push_back(block);
   ++lidar_normal_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_lidar_point_to_point_factor(
+  double t_s,
+  const Eigen::Vector3d & point_lidar,
+  const Eigen::Vector3d & target_point_map,
+  const LidarExtrinsics & extrinsics,
+  double weight,
+  double huber_delta_m,
+  double scale)
+{
+  if (!point_lidar.allFinite() || !target_point_map.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_m) || huber_delta_m < 0.0 ||
+    !std::isfinite(scale) || scale <= 0.0)
+  {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  LidarPointToPointAutoDiffFunctor functor;
+  functor.u_normalized = u;
+  functor.inv_dt_s = 1.0 / dt_s_;
+  functor.point_lidar = point_lidar;
+  functor.target_point_map = target_point_map;
+  functor.extrinsics = extrinsics;
+  functor.weight = weight;
+  functor.scale = scale;
+
+  auto * cost = new ceres::AutoDiffCostFunction<
+    LidarPointToPointAutoDiffFunctor, 3,
+    4, 4, 4, 4,
+    3, 3, 3, 3>(new LidarPointToPointAutoDiffFunctor(functor));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(2 * N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->rotation_storage[base + i].data());
+  }
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->position_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_m, weight * scale);
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->lidar_point_residual_blocks.push_back(block);
+  ++lidar_point_factor_count_;
   return true;
 }
 
@@ -1051,6 +1166,7 @@ void TrajectoryEstimator::rebuild_problem()
   impl_->problem = std::make_unique<ceres::Problem>();
   impl_->imu_residual_blocks.clear();
   impl_->lidar_residual_blocks.clear();
+  impl_->lidar_point_residual_blocks.clear();
   impl_->position_prior_residual_blocks.clear();
   impl_->velocity_prior_residual_blocks.clear();
   impl_->orientation_prior_residual_blocks.clear();
@@ -1146,6 +1262,7 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
 
   summary.initial_imu_cost = evaluate_cost(impl_->imu_residual_blocks);
   summary.initial_lidar_cost = evaluate_cost(impl_->lidar_residual_blocks);
+  summary.initial_lidar_cost += evaluate_cost(impl_->lidar_point_residual_blocks);
   summary.initial_position_prior_cost =
     evaluate_cost(impl_->position_prior_residual_blocks);
   summary.initial_velocity_prior_cost =
@@ -1183,6 +1300,7 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
   summary.final_cost = ceres_summary.final_cost;
   summary.final_imu_cost = evaluate_cost(impl_->imu_residual_blocks);
   summary.final_lidar_cost = evaluate_cost(impl_->lidar_residual_blocks);
+  summary.final_lidar_cost += evaluate_cost(impl_->lidar_point_residual_blocks);
   summary.final_position_prior_cost =
     evaluate_cost(impl_->position_prior_residual_blocks);
   summary.final_velocity_prior_cost =

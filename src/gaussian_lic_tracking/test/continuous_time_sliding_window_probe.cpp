@@ -80,6 +80,26 @@ ImuSample synthesize_imu(
   return sample;
 }
 
+void truth_pose_at(
+  const TruthTrajectory & truth,
+  int64_t stamp_ns,
+  Eigen::Quaterniond & q_w_b,
+  Eigen::Vector3d & p_w_b)
+{
+  const int idx = static_cast<int>(stamp_ns / truth.dt_ns);
+  const double u =
+    static_cast<double>(stamp_ns - idx * truth.dt_ns) / static_cast<double>(truth.dt_ns);
+  std::array<Eigen::Quaterniond, N> rot;
+  std::array<Eigen::Vector3d, N> pos;
+  for (int i = 0; i < N; ++i) {
+    rot[i] = truth.rotation_knots[idx - 1 + i];
+    pos[i] = truth.position_knots[idx - 1 + i];
+  }
+  SplitSplineView<N> view(rot, pos, u, 1.0 / truth.dt_s);
+  q_w_b = view.rotation();
+  p_w_b = view.position_world();
+}
+
 double max_window_position_drift(
   const ContinuousTimeSlidingWindowEstimator & estimator,
   const TruthTrajectory & truth)
@@ -366,6 +386,72 @@ void check_limited_update_carries_auxiliary_state()
   }
 }
 
+void check_point_to_point_map_factor_pulls_streaming_window()
+{
+  const double dt_s = 0.05;
+  const Eigen::Vector3d gravity(0.0, 0.0, -9.81);
+  const auto truth = build_truth(dt_s, 12);
+
+  ContinuousTimeSlidingWindowOptions options;
+  options.dt_s = dt_s;
+  options.window_knot_count = 12;
+  options.marginalize_oldest_count = 0;
+  options.gravity_world = gravity;
+  options.hold_gravity_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gyro_bias_constant = true;
+  options.max_iterations_per_step = 80;
+  options.max_position_update_m = 0.0;
+  options.max_rotation_update_rad = 0.0;
+
+  ContinuousTimeSlidingWindowEstimator estimator(options);
+  auto initial_rot = truth.rotation_knots;
+  auto initial_pos = truth.position_knots;
+  const Eigen::Vector3d offset(0.16, -0.10, 0.06);
+  for (auto & p : initial_pos) {
+    p += offset;
+  }
+  estimator.initialize(0, initial_rot, initial_pos);
+
+  LidarExtrinsics extrinsics;
+  const std::vector<Eigen::Vector3d> points_lidar{
+    Eigen::Vector3d(0.2, -0.2, 1.0),
+    Eigen::Vector3d(-0.3, 0.1, 0.7),
+    Eigen::Vector3d(0.1, 0.3, 1.1)};
+  const int64_t sample_period_ns = static_cast<int64_t>(std::llround(dt_s * 1.0e9 / 5.0));
+  const int64_t last_interior_ns =
+    static_cast<int64_t>(truth.rotation_knots.size() - 3) * truth.dt_ns;
+  for (int64_t t = truth.dt_ns; t < last_interior_ns; t += sample_period_ns) {
+    Eigen::Quaterniond q_truth;
+    Eigen::Vector3d p_truth;
+    truth_pose_at(truth, t, q_truth, p_truth);
+    for (const auto & point_lidar : points_lidar) {
+      estimator.add_lidar_point_to_point_correspondence(
+        t, point_lidar, q_truth * point_lidar + p_truth, extrinsics, 10.0, 0.0, 1.0);
+    }
+  }
+
+  if (!estimator.step()) {
+    std::fprintf(stderr, "point-to-point map solve refused to run\n");
+    std::exit(1);
+  }
+  const auto & diag = estimator.diagnostics();
+  if (diag.total_lidar_point_factors == 0 || diag.last_step_lidar_point_factors == 0) {
+    std::fprintf(stderr,
+      "point-to-point map factors were not consumed: total=%zu last=%zu\n",
+      diag.total_lidar_point_factors,
+      diag.last_step_lidar_point_factors);
+    std::exit(1);
+  }
+  const double drift = max_window_position_drift(estimator, truth);
+  if (drift > 0.015) {
+    std::fprintf(stderr,
+      "point-to-point map factors failed to pull streaming window: drift=%.6f\n",
+      drift);
+    std::exit(1);
+  }
+}
+
 void check_sliding_window_recovers_streamed_trajectory()
 {
   // Streaming mode: the seed only spans the first window; the estimator
@@ -505,6 +591,7 @@ int main()
     check_solver_step_rejection_keeps_window_finite();
     check_limited_position_update_clamps_without_rejecting();
     check_limited_update_carries_auxiliary_state();
+    check_point_to_point_map_factor_pulls_streaming_window();
     check_sliding_window_recovers_streamed_trajectory();
     check_marginalization_keeps_window_bounded();
   } catch (const std::exception & exception) {

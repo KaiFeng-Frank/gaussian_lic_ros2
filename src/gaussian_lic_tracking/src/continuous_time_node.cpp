@@ -2301,11 +2301,12 @@ private:
     RCLCPP_INFO(
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
-      "lidar_normal_factors=%zu "
+      "lidar_point_factors=%zu lidar_normal_factors=%zu "
       "position_smoothness_factors=%zu rotation_smoothness_factors=%zu "
       "retained_knot_position_priors=%zu retained_knot_orientation_priors=%zu "
       "accepted_steps=%zu "
-      "last_imu_factors=%zu last_lidar_factors=%zu last_lidar_normal_factors=%zu "
+      "last_imu_factors=%zu last_lidar_factors=%zu "
+      "last_lidar_point_factors=%zu last_lidar_normal_factors=%zu "
       "last_position_smoothness_factors=%zu last_rotation_smoothness_factors=%zu "
       "last_retained_knot_position_priors=%zu "
       "last_retained_knot_orientation_priors=%zu "
@@ -2386,6 +2387,7 @@ private:
       diagnostics.steps_run,
       diagnostics.total_imu_factors,
       diagnostics.total_lidar_factors,
+      diagnostics.total_lidar_point_factors,
       diagnostics.total_lidar_normal_factors,
       diagnostics.total_position_smoothness_factors,
       diagnostics.total_rotation_smoothness_factors,
@@ -2394,6 +2396,7 @@ private:
       diagnostics.accepted_solver_steps,
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
+      diagnostics.last_step_lidar_point_factors,
       diagnostics.last_step_lidar_normal_factors,
       diagnostics.last_step_position_smoothness_factors,
       diagnostics.last_step_rotation_smoothness_factors,
@@ -2609,18 +2612,11 @@ private:
         if (!lidar_feature_scale_is_accepted(feature_scale)) {
           continue;
         }
-        for (int axis = 0; axis < 3; ++axis) {
-          spline::LidarPointCorrespondence pc;
-          pc.geometry = spline::LidarFeatureGeometry::kPlane;
-          pc.scale = feature_scale;
-          pc.point_lidar = point_lidar;
-          pc.plane.setZero();
-          pc.plane[axis] = 1.0;
-          pc.plane[3] = -nearest_world[axis];
-          estimator_->add_lidar_correspondence(
-            stamp_ns, pc, extrinsics, persistent_point_map_factor_weight_,
-            lidar_huber_delta_m_);
-        }
+        const Eigen::Vector3d nearest_map =
+          extrinsics.q_world_to_map * nearest_world + extrinsics.p_world_in_map;
+        estimator_->add_lidar_point_to_point_correspondence(
+          stamp_ns, point_lidar, nearest_map, extrinsics,
+          persistent_point_map_factor_weight_, lidar_huber_delta_m_, feature_scale);
         ++accepted;
         ++persistent_point_map_matches_;
         if (persistent_point_map_max_correspondences_ > 0 &&
@@ -2638,7 +2634,7 @@ private:
         ++persistent_point_map_updates_;
       }
     }
-    return accepted * 3;
+    return accepted;
   }
 
   std::vector<Eigen::Vector3d> make_deskewed_points_imu(

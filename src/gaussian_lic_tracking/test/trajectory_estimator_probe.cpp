@@ -303,6 +303,65 @@ void check_lidar_plane_factor_pulls_position()
   }
 }
 
+void check_lidar_point_to_point_factor_pulls_map_alignment()
+{
+  // Persistent Gaussian/map anchors need a true 3D residual, not three
+  // independent axis planes. A global translation offset is unobservable to IMU
+  // acceleration, so point-to-point factors must pull it back.
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+
+  auto perturbed_positions = truth.position_knots;
+  const Eigen::Vector3d offset(0.20, -0.12, 0.08);
+  for (auto & p : perturbed_positions) {
+    p += offset;
+  }
+  estimator.set_knots(truth.rotation_knots, perturbed_positions);
+
+  LidarExtrinsics extrinsics;
+  const std::vector<Eigen::Vector3d> points_lidar{
+    Eigen::Vector3d(0.3, -0.2, 1.0),
+    Eigen::Vector3d(-0.4, 0.1, 0.8),
+    Eigen::Vector3d(0.2, 0.3, 1.2)};
+  for (double t = 0.06; t < 0.34; t += 0.005) {
+    const Eigen::Quaterniond q_truth = truth_orientation_at(truth, t);
+    const Eigen::Vector3d p_truth = truth_position_at(truth, t);
+    for (const auto & point_lidar : points_lidar) {
+      const Eigen::Vector3d target_map = q_truth * point_lidar + p_truth;
+      estimator.add_lidar_point_to_point_factor(
+        t, point_lidar, target_map, extrinsics, 10.0, 0.0, 1.0);
+    }
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 80;
+  options.function_tolerance = 1.0e-12;
+  options.parameter_tolerance = 1.0e-12;
+  options.hold_gyro_bias_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  if (estimator.lidar_point_factor_count() == 0) {
+    std::fprintf(stderr, "LiDAR point-to-point factors were not added\n");
+    std::exit(1);
+  }
+  if (summary.final_lidar_cost > 1.0e-8) {
+    std::fprintf(stderr,
+      "point-to-point residual did not converge: initial=%.6g final=%.6g (%s)\n",
+      summary.initial_lidar_cost, summary.final_lidar_cost,
+      summary.brief_report.c_str());
+    std::exit(1);
+  }
+  const double drift = (estimator.position_knots()[3] - truth.position_knots[3]).norm();
+  if (drift > 1.0e-4) {
+    std::fprintf(stderr,
+      "point-to-point factor failed to recover map alignment: drift=%.9f (%s)\n",
+      drift, summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 void check_position_prior_factor_pulls_position_without_synthetic_lidar()
 {
   // A global position offset is invisible to IMU acceleration residuals.
@@ -647,6 +706,7 @@ int main()
     check_bias_prior_factors_regularize_imu_bias();
     check_rotation_smoothness_regularizes_orientation_shape();
     check_lidar_plane_factor_pulls_position();
+    check_lidar_point_to_point_factor_pulls_map_alignment();
     check_lidar_huber_loss_suppresses_plane_outlier();
     check_fixed_control_point_prefix_stays_constant();
     check_direct_knot_priors_anchor_control_point();

@@ -128,6 +128,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t steps_run{0};
   std::size_t total_imu_factors{0};
   std::size_t total_lidar_factors{0};
+  std::size_t total_lidar_point_factors{0};
   std::size_t total_lidar_normal_factors{0};
   std::size_t total_position_prior_factors{0};
   std::size_t total_velocity_prior_factors{0};
@@ -143,6 +144,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t accepted_solver_steps{0};
   std::size_t last_step_imu_factors{0};
   std::size_t last_step_lidar_factors{0};
+  std::size_t last_step_lidar_point_factors{0};
   std::size_t last_step_lidar_normal_factors{0};
   std::size_t last_step_position_prior_factors{0};
   std::size_t last_step_velocity_prior_factors{0};
@@ -220,6 +222,15 @@ public:
     const LidarExtrinsics & extrinsics,
     double weight = 1.0,
     double huber_delta_m = -1.0);
+
+  void add_lidar_point_to_point_correspondence(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & point_lidar,
+    const Eigen::Vector3d & target_point_map,
+    const LidarExtrinsics & extrinsics,
+    double weight = 1.0,
+    double huber_delta_m = -1.0,
+    double scale = 1.0);
 
   void add_lidar_plane_normal_correspondence(
     int64_t stamp_ns,

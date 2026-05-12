@@ -122,6 +122,19 @@ public:
     double weight = 1.0,
     double huber_delta_m = 0.0);
 
+  // Add a continuous-time 3D point-to-point LiDAR factor. This is used by the
+  // persistent/Gaussian map frontend when a LiDAR-frame point is associated to
+  // a map-frame Gaussian/map point. Unlike three independent axis-aligned plane
+  // residuals, this keeps the SE(3) residual coupled under one robust loss.
+  bool add_lidar_point_to_point_factor(
+    double t_s,
+    const Eigen::Vector3d & point_lidar,
+    const Eigen::Vector3d & target_point_map,
+    const LidarExtrinsics & extrinsics,
+    double weight = 1.0,
+    double huber_delta_m = 0.0,
+    double scale = 1.0);
+
   // Add a plane-normal alignment factor. This complements point-to-plane
   // distance factors by directly observing rotation when a LiDAR-frame plane
   // has been associated to a persistent world-frame plane.
@@ -203,6 +216,7 @@ public:
 
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
+  std::size_t lidar_point_factor_count() const { return lidar_point_factor_count_; }
   std::size_t lidar_normal_factor_count() const { return lidar_normal_factor_count_; }
   std::size_t position_prior_factor_count() const { return position_prior_factor_count_; }
   std::size_t velocity_prior_factor_count() const { return velocity_prior_factor_count_; }
@@ -236,6 +250,7 @@ private:
 
   std::size_t imu_factor_count_{0};
   std::size_t lidar_factor_count_{0};
+  std::size_t lidar_point_factor_count_{0};
   std::size_t lidar_normal_factor_count_{0};
   std::size_t position_prior_factor_count_{0};
   std::size_t velocity_prior_factor_count_{0};
