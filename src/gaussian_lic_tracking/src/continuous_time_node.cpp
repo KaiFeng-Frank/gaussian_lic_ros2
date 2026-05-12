@@ -822,6 +822,14 @@ public:
       declare_parameter<bool>("lidar_scan_to_scan_use_point_to_plane_correction", false);
     lidar_scan_to_scan_use_relative_pose_factor_ =
       declare_parameter<bool>("lidar_scan_to_scan_use_relative_pose_factor", false);
+    lidar_scan_to_scan_min_target_prediction_ratio_ =
+      declare_parameter<double>("lidar_scan_to_scan_min_target_prediction_ratio", 0.0);
+    lidar_scan_to_scan_min_target_translation_m_ =
+      declare_parameter<double>("lidar_scan_to_scan_min_target_translation_m", 0.0);
+    lidar_scan_to_scan_use_prediction_on_small_target_ =
+      declare_parameter<bool>("lidar_scan_to_scan_use_prediction_on_small_target", false);
+    lidar_scan_to_scan_skip_translation_priors_on_small_target_ =
+      declare_parameter<bool>("lidar_scan_to_scan_skip_translation_priors_on_small_target", false);
     lidar_scan_to_scan_dead_reckon_on_reject_ =
       declare_parameter<bool>("lidar_scan_to_scan_dead_reckon_on_reject", false);
     lidar_scan_to_scan_apply_pose_seed_ =
@@ -868,6 +876,11 @@ public:
       lidar_scan_to_scan_max_angular_velocity_radps_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_relative_translation_gain_) ||
       lidar_scan_to_scan_relative_translation_gain_ < 0.0 ||
+      !std::isfinite(lidar_scan_to_scan_min_target_prediction_ratio_) ||
+      lidar_scan_to_scan_min_target_prediction_ratio_ < 0.0 ||
+      lidar_scan_to_scan_min_target_prediction_ratio_ > 1.0 ||
+      !std::isfinite(lidar_scan_to_scan_min_target_translation_m_) ||
+      lidar_scan_to_scan_min_target_translation_m_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_position_huber_delta_m_) ||
       lidar_scan_to_scan_position_huber_delta_m_ < 0.0 ||
       !std::isfinite(lidar_scan_to_scan_orientation_huber_delta_rad_) ||
@@ -2404,10 +2417,15 @@ private:
       "lidar_scan_to_scan_predicted_rel_m=%.9g "
       "lidar_scan_to_scan_correction_m=%.9g "
       "lidar_scan_to_scan_correction_rot_rad=%.9g "
+      "lidar_scan_to_scan_raw_target_rel_m=%.9g "
       "lidar_scan_to_scan_target_rel_m=%.9g "
+      "lidar_scan_to_scan_target_prediction_ratio=%.9g "
       "lidar_scan_to_scan_target_speed_mps=%.9g "
       "lidar_scan_to_scan_target_angular_radps=%.9g "
       "lidar_scan_to_scan_cumulative_target_path_m=%.9g "
+      "lidar_scan_to_scan_small_translation_targets=%zu "
+      "lidar_scan_to_scan_prediction_translation_fallbacks=%zu "
+      "lidar_scan_to_scan_translation_priors_skipped=%zu "
       "prior_seed=%zu prior_position_factors=%zu "
       "prior_orientation_factors=%zu "
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
@@ -2539,10 +2557,15 @@ private:
       lidar_scan_to_scan_last_predicted_relative_translation_m_,
       lidar_scan_to_scan_last_correction_translation_m_,
       lidar_scan_to_scan_last_correction_rotation_rad_,
+      lidar_scan_to_scan_last_raw_target_relative_translation_m_,
       lidar_scan_to_scan_last_target_relative_translation_m_,
+      lidar_scan_to_scan_last_target_prediction_ratio_,
       lidar_scan_to_scan_last_target_speed_mps_,
       lidar_scan_to_scan_last_target_angular_speed_radps_,
       lidar_scan_to_scan_cumulative_target_path_m_,
+      lidar_scan_to_scan_small_translation_targets_,
+      lidar_scan_to_scan_prediction_translation_fallbacks_,
+      lidar_scan_to_scan_translation_priors_skipped_,
       accepted_prior_count_,
       accepted_prior_position_factor_messages_,
       accepted_prior_orientation_factor_messages_,
@@ -2980,6 +3003,41 @@ private:
     Eigen::Vector3d target_relative_p =
       predicted_relative.p_w_i + correction.delta_p_w;
     target_relative_p *= lidar_scan_to_scan_relative_translation_gain_;
+    lidar_scan_to_scan_last_raw_target_relative_translation_m_ = target_relative_p.norm();
+    const double predicted_relative_norm = predicted_relative.p_w_i.norm();
+    double target_prediction_ratio = 1.0;
+    if (std::isfinite(predicted_relative_norm) && predicted_relative_norm > 1.0e-12) {
+      target_prediction_ratio =
+        lidar_scan_to_scan_last_raw_target_relative_translation_m_ / predicted_relative_norm;
+    }
+    if (!std::isfinite(target_prediction_ratio)) {
+      target_prediction_ratio = 0.0;
+    }
+    lidar_scan_to_scan_last_target_prediction_ratio_ = target_prediction_ratio;
+    const bool small_by_ratio =
+      lidar_scan_to_scan_min_target_prediction_ratio_ > 0.0 &&
+      predicted_relative_norm > std::max(1.0e-9, lidar_scan_to_scan_min_target_translation_m_) &&
+      target_prediction_ratio < lidar_scan_to_scan_min_target_prediction_ratio_;
+    const bool small_by_absolute =
+      lidar_scan_to_scan_min_target_translation_m_ > 0.0 &&
+      predicted_relative_norm > lidar_scan_to_scan_min_target_translation_m_ &&
+      lidar_scan_to_scan_last_raw_target_relative_translation_m_ <
+      lidar_scan_to_scan_min_target_translation_m_;
+    const bool small_translation_target =
+      (small_by_ratio || small_by_absolute) && predicted_relative.p_w_i.allFinite();
+    bool skip_translation_priors = false;
+    if (small_translation_target) {
+      ++lidar_scan_to_scan_small_translation_targets_;
+      if (lidar_scan_to_scan_use_prediction_on_small_target_ ||
+        lidar_scan_to_scan_skip_translation_priors_on_small_target_)
+      {
+        target_relative_p = predicted_relative.p_w_i;
+        if (lidar_scan_to_scan_use_prediction_on_small_target_) {
+          ++lidar_scan_to_scan_prediction_translation_fallbacks_;
+        }
+        skip_translation_priors = lidar_scan_to_scan_skip_translation_priors_on_small_target_;
+      }
+    }
     Eigen::Vector3d target_relative_velocity = target_relative_p / dt_s;
     Eigen::Vector3d target_angular_velocity =
       spline::quaternion_log(target_relative_q) / dt_s;
@@ -3031,7 +3089,9 @@ private:
     }
 
     if (lidar_scan_to_scan_position_weight_ > 0.0) {
-      if (lidar_scan_to_scan_use_relative_pose_factor_) {
+      if (skip_translation_priors) {
+        ++lidar_scan_to_scan_translation_priors_skipped_;
+      } else if (lidar_scan_to_scan_use_relative_pose_factor_) {
         estimator_->add_relative_position_prior(
           last_lidar_scan_to_scan_pose_.stamp_ns, stamp_ns, target_relative_p,
           lidar_scan_to_scan_position_weight_,
@@ -3041,7 +3101,9 @@ private:
           stamp_ns, target_p, lidar_scan_to_scan_position_weight_,
           lidar_scan_to_scan_position_huber_delta_m_);
       }
-      ++lidar_scan_to_scan_position_priors_;
+      if (!skip_translation_priors) {
+        ++lidar_scan_to_scan_position_priors_;
+      }
     }
     if (lidar_scan_to_scan_orientation_weight_ > 0.0) {
       if (lidar_scan_to_scan_use_relative_pose_factor_) {
@@ -3057,7 +3119,9 @@ private:
       ++lidar_scan_to_scan_orientation_priors_;
     }
     if (lidar_scan_to_scan_velocity_weight_ > 0.0) {
-      if (target_velocity.allFinite()) {
+      if (skip_translation_priors) {
+        ++lidar_scan_to_scan_translation_priors_skipped_;
+      } else if (target_velocity.allFinite()) {
         estimator_->add_velocity_prior(
           stamp_ns, target_velocity, lidar_scan_to_scan_velocity_weight_,
           lidar_scan_to_scan_velocity_huber_delta_mps_);
@@ -3455,9 +3519,13 @@ private:
   double lidar_scan_to_scan_max_velocity_mps_{0.0};
   double lidar_scan_to_scan_max_angular_velocity_radps_{0.0};
   double lidar_scan_to_scan_relative_translation_gain_{1.0};
+  double lidar_scan_to_scan_min_target_prediction_ratio_{0.0};
+  double lidar_scan_to_scan_min_target_translation_m_{0.0};
   bool lidar_scan_to_scan_use_odometry_prediction_{false};
   bool lidar_scan_to_scan_use_point_to_plane_correction_{false};
   bool lidar_scan_to_scan_use_relative_pose_factor_{false};
+  bool lidar_scan_to_scan_use_prediction_on_small_target_{false};
+  bool lidar_scan_to_scan_skip_translation_priors_on_small_target_{false};
   bool lidar_scan_to_scan_dead_reckon_on_reject_{false};
   bool lidar_scan_to_scan_apply_pose_seed_{false};
   bool lidar_scan_to_scan_store_corrected_pose_{true};
@@ -3502,10 +3570,15 @@ private:
   double lidar_scan_to_scan_last_predicted_relative_translation_m_{0.0};
   double lidar_scan_to_scan_last_correction_translation_m_{0.0};
   double lidar_scan_to_scan_last_correction_rotation_rad_{0.0};
+  double lidar_scan_to_scan_last_raw_target_relative_translation_m_{0.0};
   double lidar_scan_to_scan_last_target_relative_translation_m_{0.0};
+  double lidar_scan_to_scan_last_target_prediction_ratio_{1.0};
   double lidar_scan_to_scan_last_target_speed_mps_{0.0};
   double lidar_scan_to_scan_last_target_angular_speed_radps_{0.0};
   double lidar_scan_to_scan_cumulative_target_path_m_{0.0};
+  std::size_t lidar_scan_to_scan_small_translation_targets_{0};
+  std::size_t lidar_scan_to_scan_prediction_translation_fallbacks_{0};
+  std::size_t lidar_scan_to_scan_translation_priors_skipped_{0};
   bool enable_lidar_plane_normal_factor_{false};
   double lidar_plane_normal_factor_weight_{0.1};
   double lidar_plane_normal_huber_delta_rad_{0.10};

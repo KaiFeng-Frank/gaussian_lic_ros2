@@ -164,6 +164,18 @@ the expected Ceres factors while shortening the optimized path to
 `0.144 m`. The missing piece is now target quality/global coupling, not the
 relative-pose residual surface itself.
 
+The same path now has a target-quality gate for degenerate scan-to-scan ICP
+translation estimates. `lidar_scan_to_scan_min_target_prediction_ratio` and
+`lidar_scan_to_scan_min_target_translation_m` detect when the corrected target
+motion collapses relative to the predicted motion; the node can then either use
+the predicted relative translation or skip translation priors while still
+reporting raw target length, prediction ratio, fallback counts, and skipped
+prior counts. CBD 12 s probes show why this remains diagnostic: prediction
+fallback fires and prevents silent target collapse, but low weights still freeze
+the optimized path, while high weights overscale it without improving RMSE. The
+next parity work is therefore a global visual/Gaussian-map trajectory-shape
+constraint, not another scan-to-scan scalar clamp.
+
 ## Dataset Profiles
 
 `gaussian_lic_bringup/config` includes ROS2 mapping profiles derived from the upstream Gaussian-LIC YAML files:
@@ -230,6 +242,10 @@ ICP target into two-timestamp relative position/SO(3) factors instead of
 velocity/angular-velocity priors. CTest proves the math is active, but CBD 12 s
 evidence freezes path scale, so it is an ablation hook rather than a production
 default.
+`lidar_scan_to_scan_use_prediction_on_small_target` and
+`lidar_scan_to_scan_skip_translation_priors_on_small_target` make that ablation
+safe to sweep when the raw ICP target is much smaller than the predicted B-spline
+motion.
 
 It currently provides:
 

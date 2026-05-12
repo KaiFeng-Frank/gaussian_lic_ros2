@@ -82,6 +82,10 @@ LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD="${LIDAR_SCAN_TO_SCAN_ORIENTATION
 LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION="${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION:-false}"
 LIDAR_SCAN_TO_SCAN_USE_POINT_TO_PLANE_CORRECTION="${LIDAR_SCAN_TO_SCAN_USE_POINT_TO_PLANE_CORRECTION:-false}"
 LIDAR_SCAN_TO_SCAN_USE_RELATIVE_POSE_FACTOR="${LIDAR_SCAN_TO_SCAN_USE_RELATIVE_POSE_FACTOR:-false}"
+LIDAR_SCAN_TO_SCAN_MIN_TARGET_PREDICTION_RATIO="${LIDAR_SCAN_TO_SCAN_MIN_TARGET_PREDICTION_RATIO:-0.0}"
+LIDAR_SCAN_TO_SCAN_MIN_TARGET_TRANSLATION_M="${LIDAR_SCAN_TO_SCAN_MIN_TARGET_TRANSLATION_M:-0.0}"
+LIDAR_SCAN_TO_SCAN_USE_PREDICTION_ON_SMALL_TARGET="${LIDAR_SCAN_TO_SCAN_USE_PREDICTION_ON_SMALL_TARGET:-false}"
+LIDAR_SCAN_TO_SCAN_SKIP_TRANSLATION_PRIORS_ON_SMALL_TARGET="${LIDAR_SCAN_TO_SCAN_SKIP_TRANSLATION_PRIORS_ON_SMALL_TARGET:-false}"
 LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT="${LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT:-false}"
 LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED="${LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED:-false}"
 LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE="${LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE:-true}"
@@ -284,6 +288,10 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p lidar_scan_to_scan_use_odometry_prediction:="${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION}" \
   -p lidar_scan_to_scan_use_point_to_plane_correction:="${LIDAR_SCAN_TO_SCAN_USE_POINT_TO_PLANE_CORRECTION}" \
   -p lidar_scan_to_scan_use_relative_pose_factor:="${LIDAR_SCAN_TO_SCAN_USE_RELATIVE_POSE_FACTOR}" \
+  -p lidar_scan_to_scan_min_target_prediction_ratio:="${LIDAR_SCAN_TO_SCAN_MIN_TARGET_PREDICTION_RATIO}" \
+  -p lidar_scan_to_scan_min_target_translation_m:="${LIDAR_SCAN_TO_SCAN_MIN_TARGET_TRANSLATION_M}" \
+  -p lidar_scan_to_scan_use_prediction_on_small_target:="${LIDAR_SCAN_TO_SCAN_USE_PREDICTION_ON_SMALL_TARGET}" \
+  -p lidar_scan_to_scan_skip_translation_priors_on_small_target:="${LIDAR_SCAN_TO_SCAN_SKIP_TRANSLATION_PRIORS_ON_SMALL_TARGET}" \
   -p lidar_scan_to_scan_dead_reckon_on_reject:="${LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT}" \
   -p lidar_scan_to_scan_apply_pose_seed:="${LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED}" \
   -p lidar_scan_to_scan_store_corrected_pose:="${LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE}" \
@@ -617,6 +625,11 @@ native = {
     "lidar_scan_to_scan_orientation_huber_delta_rad": float("${LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD}"),
     "lidar_scan_to_scan_use_odometry_prediction": "${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION}" == "true",
     "lidar_scan_to_scan_use_point_to_plane_correction": "${LIDAR_SCAN_TO_SCAN_USE_POINT_TO_PLANE_CORRECTION}" == "true",
+    "lidar_scan_to_scan_use_relative_pose_factor": "${LIDAR_SCAN_TO_SCAN_USE_RELATIVE_POSE_FACTOR}" == "true",
+    "lidar_scan_to_scan_min_target_prediction_ratio": float("${LIDAR_SCAN_TO_SCAN_MIN_TARGET_PREDICTION_RATIO}"),
+    "lidar_scan_to_scan_min_target_translation_m": float("${LIDAR_SCAN_TO_SCAN_MIN_TARGET_TRANSLATION_M}"),
+    "lidar_scan_to_scan_use_prediction_on_small_target": "${LIDAR_SCAN_TO_SCAN_USE_PREDICTION_ON_SMALL_TARGET}" == "true",
+    "lidar_scan_to_scan_skip_translation_priors_on_small_target": "${LIDAR_SCAN_TO_SCAN_SKIP_TRANSLATION_PRIORS_ON_SMALL_TARGET}" == "true",
     "lidar_scan_to_scan_dead_reckon_on_reject": "${LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT}" == "true",
     "lidar_scan_to_scan_apply_pose_seed": "${LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED}" == "true",
     "lidar_scan_to_scan_pose_seed_position_gain": float("${LIDAR_SCAN_TO_SCAN_POSE_SEED_POSITION_GAIN}"),
