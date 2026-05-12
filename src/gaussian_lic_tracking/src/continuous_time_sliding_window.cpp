@@ -353,6 +353,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
 
   TrajectoryEstimatorOptions solve_options;
   solve_options.max_num_iterations = impl_->options.max_iterations_per_step;
+  solve_options.initial_trust_region_radius =
+    impl_->options.ceres_initial_trust_region_radius;
+  solve_options.max_trust_region_radius =
+    impl_->options.ceres_max_trust_region_radius;
   solve_options.hold_gyro_bias_constant = impl_->options.hold_gyro_bias_constant;
   solve_options.hold_accel_bias_constant = impl_->options.hold_accel_bias_constant;
   solve_options.hold_gravity_constant = impl_->options.hold_gravity_constant;

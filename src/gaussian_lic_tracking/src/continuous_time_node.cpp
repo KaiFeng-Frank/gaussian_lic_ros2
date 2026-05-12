@@ -133,6 +133,17 @@ public:
     {
       throw std::runtime_error("imu_info_gyro and imu_info_accel must be finite and positive");
     }
+    options.ceres_initial_trust_region_radius =
+      declare_parameter<double>("ceres_initial_trust_region_radius", 0.0);
+    options.ceres_max_trust_region_radius =
+      declare_parameter<double>("ceres_max_trust_region_radius", 0.0);
+    if (!std::isfinite(options.ceres_initial_trust_region_radius) ||
+      options.ceres_initial_trust_region_radius < 0.0 ||
+      !std::isfinite(options.ceres_max_trust_region_radius) ||
+      options.ceres_max_trust_region_radius < 0.0)
+    {
+      throw std::runtime_error("Ceres trust-region radii must be finite and non-negative");
+    }
     options.lidar_huber_delta_m =
       declare_parameter<double>("lidar_huber_delta_m", 0.10);
     lidar_huber_delta_m_ = options.lidar_huber_delta_m;

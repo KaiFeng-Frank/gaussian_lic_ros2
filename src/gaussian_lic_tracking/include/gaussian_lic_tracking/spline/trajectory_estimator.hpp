@@ -34,6 +34,9 @@ struct TrajectoryEstimatorOptions
   double function_tolerance{1.0e-8};
   double parameter_tolerance{1.0e-8};
   double gradient_tolerance{1.0e-10};
+  // Optional Ceres trust-region controls. Leave <= 0 to use Ceres defaults.
+  double initial_trust_region_radius{0.0};
+  double max_trust_region_radius{0.0};
   bool minimizer_progress_to_stdout{false};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};

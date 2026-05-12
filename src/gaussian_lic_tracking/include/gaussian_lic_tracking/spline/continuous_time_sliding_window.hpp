@@ -55,6 +55,10 @@ struct ContinuousTimeSlidingWindowOptions
   // accel variance ~1e-1 m²/s⁴ → info ~10¹.
   double imu_info_gyro{100.0};
   double imu_info_accel{10.0};
+  // Optional Ceres trust-region controls for online windows. Leave <= 0 to
+  // use Ceres defaults.
+  double ceres_initial_trust_region_radius{0.0};
+  double ceres_max_trust_region_radius{0.0};
   double lidar_huber_delta_m{0.10};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};

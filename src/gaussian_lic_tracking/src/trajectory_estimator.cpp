@@ -625,6 +625,16 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
   solver_options.parameter_tolerance = options.parameter_tolerance;
   solver_options.gradient_tolerance = options.gradient_tolerance;
   solver_options.minimizer_progress_to_stdout = options.minimizer_progress_to_stdout;
+  if (std::isfinite(options.initial_trust_region_radius) &&
+    options.initial_trust_region_radius > 0.0)
+  {
+    solver_options.initial_trust_region_radius = options.initial_trust_region_radius;
+  }
+  if (std::isfinite(options.max_trust_region_radius) &&
+    options.max_trust_region_radius > 0.0)
+  {
+    solver_options.max_trust_region_radius = options.max_trust_region_radius;
+  }
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(solver_options, impl_->problem.get(), &ceres_summary);

@@ -46,6 +46,8 @@ POINTCLOUD_WAIT_QUEUE_MAX_SIZE="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE:-100}"
 MAX_ITERATIONS_PER_STEP="${MAX_ITERATIONS_PER_STEP:-1}"
 IMU_INFO_GYRO="${IMU_INFO_GYRO:-10.0}"
 IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-1.0}"
+CERES_INITIAL_TRUST_REGION_RADIUS="${CERES_INITIAL_TRUST_REGION_RADIUS:-0.0}"
+CERES_MAX_TRUST_REGION_RADIUS="${CERES_MAX_TRUST_REGION_RADIUS:-0.0}"
 APPLY_POSITION_UPDATE_ON_ROTATION_REJECT="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT:-false}"
 APPLY_LIMITED_ROTATION_UPDATE="${APPLY_LIMITED_ROTATION_UPDATE:-false}"
 ENABLE_VOXEL_PLANE_EXTRACTION="${ENABLE_VOXEL_PLANE_EXTRACTION:-true}"
@@ -90,6 +92,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p max_iterations_per_step:="${MAX_ITERATIONS_PER_STEP}" \
   -p imu_info_gyro:="${IMU_INFO_GYRO}" \
   -p imu_info_accel:="${IMU_INFO_ACCEL}" \
+  -p ceres_initial_trust_region_radius:="${CERES_INITIAL_TRUST_REGION_RADIUS}" \
+  -p ceres_max_trust_region_radius:="${CERES_MAX_TRUST_REGION_RADIUS}" \
   -p seed_min_imu_count:=30 \
   -p enable_startup_bias_autocal:="${ENABLE_STARTUP_BIAS_AUTOCAL}" \
   -p imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
@@ -308,6 +312,8 @@ native = {
     "max_iterations_per_step": int("${MAX_ITERATIONS_PER_STEP}"),
     "imu_info_gyro": float("${IMU_INFO_GYRO}"),
     "imu_info_accel": float("${IMU_INFO_ACCEL}"),
+    "ceres_initial_trust_region_radius": float("${CERES_INITIAL_TRUST_REGION_RADIUS}"),
+    "ceres_max_trust_region_radius": float("${CERES_MAX_TRUST_REGION_RADIUS}"),
     "pointcloud_wait_queue_max_size": int("${POINTCLOUD_WAIT_QUEUE_MAX_SIZE}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",

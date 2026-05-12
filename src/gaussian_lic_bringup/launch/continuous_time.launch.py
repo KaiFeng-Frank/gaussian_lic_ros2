@@ -42,6 +42,10 @@ def generate_launch_description() -> LaunchDescription:
     max_iterations_per_step = LaunchConfiguration("max_iterations_per_step")
     imu_info_gyro = LaunchConfiguration("imu_info_gyro")
     imu_info_accel = LaunchConfiguration("imu_info_accel")
+    ceres_initial_trust_region_radius = LaunchConfiguration(
+        "ceres_initial_trust_region_radius"
+    )
+    ceres_max_trust_region_radius = LaunchConfiguration("ceres_max_trust_region_radius")
     lidar_huber_delta_m = LaunchConfiguration("lidar_huber_delta_m")
     step_period_seconds = LaunchConfiguration("step_period_seconds")
     diagnostic_log_period_steps = LaunchConfiguration("diagnostic_log_period_steps")
@@ -95,6 +99,8 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("max_iterations_per_step", default_value="1"),
         DeclareLaunchArgument("imu_info_gyro", default_value="10.0"),
         DeclareLaunchArgument("imu_info_accel", default_value="1.0"),
+        DeclareLaunchArgument("ceres_initial_trust_region_radius", default_value="0.0"),
+        DeclareLaunchArgument("ceres_max_trust_region_radius", default_value="0.0"),
         DeclareLaunchArgument("lidar_huber_delta_m", default_value="0.10"),
         DeclareLaunchArgument("step_period_seconds", default_value="0.10"),
         DeclareLaunchArgument("diagnostic_log_period_steps", default_value="50"),
@@ -164,6 +170,8 @@ def generate_launch_description() -> LaunchDescription:
                 "max_iterations_per_step": max_iterations_per_step,
                 "imu_info_gyro": imu_info_gyro,
                 "imu_info_accel": imu_info_accel,
+                "ceres_initial_trust_region_radius": ceres_initial_trust_region_radius,
+                "ceres_max_trust_region_radius": ceres_max_trust_region_radius,
                 "lidar_huber_delta_m": lidar_huber_delta_m,
                 "step_period_seconds": step_period_seconds,
                 "diagnostic_log_period_steps": diagnostic_log_period_steps,
