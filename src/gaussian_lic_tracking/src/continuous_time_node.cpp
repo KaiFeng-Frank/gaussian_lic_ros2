@@ -572,7 +572,7 @@ public:
     lidar_scan_to_scan_use_odometry_prediction_ =
       declare_parameter<bool>("lidar_scan_to_scan_use_odometry_prediction", false);
     lidar_scan_to_scan_use_point_to_plane_correction_ =
-      declare_parameter<bool>("lidar_scan_to_scan_use_point_to_plane_correction", true);
+      declare_parameter<bool>("lidar_scan_to_scan_use_point_to_plane_correction", false);
     lidar_scan_to_scan_dead_reckon_on_reject_ =
       declare_parameter<bool>("lidar_scan_to_scan_dead_reckon_on_reject", false);
     lidar_scan_to_scan_apply_pose_seed_ =
@@ -2850,7 +2850,7 @@ private:
   double lidar_scan_to_scan_max_velocity_mps_{0.0};
   double lidar_scan_to_scan_max_angular_velocity_radps_{0.0};
   bool lidar_scan_to_scan_use_odometry_prediction_{false};
-  bool lidar_scan_to_scan_use_point_to_plane_correction_{true};
+  bool lidar_scan_to_scan_use_point_to_plane_correction_{false};
   bool lidar_scan_to_scan_dead_reckon_on_reject_{false};
   bool lidar_scan_to_scan_apply_pose_seed_{false};
   bool lidar_scan_to_scan_store_corrected_pose_{true};
