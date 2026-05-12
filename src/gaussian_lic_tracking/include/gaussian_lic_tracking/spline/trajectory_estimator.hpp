@@ -101,8 +101,17 @@ public:
     double weight = 1.0,
     double huber_delta_m = 0.0);
 
+  // Add a position-only prior on the continuous-time body trajectory.
+  // Returns false if the stamp is outside the optimizable interior.
+  bool add_position_prior_factor(
+    double t_s,
+    const Eigen::Vector3d & position_world,
+    double weight = 1.0,
+    double huber_delta_m = 0.0);
+
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
+  std::size_t position_prior_factor_count() const { return position_prior_factor_count_; }
 
   TrajectoryEstimatorSummary solve(const TrajectoryEstimatorOptions & options);
 
@@ -124,6 +133,7 @@ private:
 
   std::size_t imu_factor_count_{0};
   std::size_t lidar_factor_count_{0};
+  std::size_t position_prior_factor_count_{0};
 };
 
 }  // namespace spline

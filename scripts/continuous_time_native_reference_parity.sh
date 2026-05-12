@@ -25,6 +25,13 @@ PRIOR_TUM="${PRIOR_TUM:-}"
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
 PLAYBACK_RATE="${PLAYBACK_RATE:-0.5}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
+DIAGNOSTIC_LOG_PERIOD_STEPS="${DIAGNOSTIC_LOG_PERIOD_STEPS:-50}"
+PRIOR_PUBLISH_DURATION="${PRIOR_PUBLISH_DURATION:-6}"
+PRIOR_PUBLISH_RATE_HZ="${PRIOR_PUBLISH_RATE_HZ:-20}"
+PRIOR_MAX_MESSAGES="${PRIOR_MAX_MESSAGES:-60}"
+ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS="${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS:-false}"
+EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT="${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT:-1.0}"
+EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M="${EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M:-0.25}"
 ENABLE_STARTUP_BIAS_AUTOCAL="${ENABLE_STARTUP_BIAS_AUTOCAL:-true}"
 # FAST-LIVO/FAST-LIVO2 frontend_raw bags store IMU linear_acceleration in
 # normalized-g units (~1.0 at rest). The continuous-time residuals operate in
@@ -82,6 +89,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p enable_startup_bias_autocal:="${ENABLE_STARTUP_BIAS_AUTOCAL}" \
   -p imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
   -p step_period_seconds:=0.20 \
+  -p diagnostic_log_period_steps:="${DIAGNOSTIC_LOG_PERIOD_STEPS}" \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
   -p pointcloud_factor_weight:="${POINTCLOUD_FACTOR_WEIGHT}" \
   -p lidar_huber_delta_m:="${LIDAR_HUBER_DELTA_M}" \
@@ -104,6 +112,9 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p position_extrapolation_damping:="${POSITION_EXTRAPOLATION_DAMPING}" \
   -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
   -p enable_external_odometry_prior:="$([ -n "${PRIOR_TUM}" ] && echo true || echo false)" \
+  -p enable_external_odometry_position_factors:="${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" \
+  -p external_odometry_position_factor_weight:="${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}" \
+  -p external_odometry_position_factor_huber_delta_m:="${EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M}" \
   -p external_odometry_prior_topic:=/external_odometry_prior \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
@@ -119,9 +130,9 @@ if [ -n "${PRIOR_TUM}" ]; then
   setsid /usr/bin/python3.12 "${WORKSPACE}/scripts/tum_to_odometry_publisher.py" \
     --tum "${PRIOR_TUM}" \
     --topic /external_odometry_prior \
-    --rate-hz 20 \
-    --duration 6 \
-    --max-messages 60 \
+    --rate-hz "${PRIOR_PUBLISH_RATE_HZ}" \
+    --duration "${PRIOR_PUBLISH_DURATION}" \
+    --max-messages "${PRIOR_MAX_MESSAGES}" \
     > "${OUTPUT_DIR}/prior_publisher.log" 2>&1 &
   PRIOR_PID=$!
   PRIOR_PGID=$(ps -o pgid= -p "${PRIOR_PID}" 2>/dev/null | tr -d ' ')
@@ -222,6 +233,7 @@ import re
 tum_path = "${TUM_PATH}"
 compare_path = "${REPORT_PATH}"   # empty string when REFERENCE_TUM=__skip__
 logger_log = "${LOGGER_LOG}"
+node_log = "${NODE_LOG}"
 native_report_path = "${NATIVE_REPORT_PATH}"
 
 tum_lines = 0
@@ -254,6 +266,17 @@ if os.path.isfile(logger_log):
     if m:
         odom_written = int(m.group(1))
 
+runtime_diagnostics = {}
+if os.path.isfile(node_log):
+    txt = open(node_log, "r", encoding="utf-8", errors="replace").read()
+    matches = re.findall(r"continuous-time diagnostics:\s*(.*)", txt)
+    if matches:
+        for key, value in re.findall(r"([a-z_]+)=([0-9]+(?:\.[0-9]+)?)", matches[-1]):
+            if "." in value:
+                runtime_diagnostics[key] = float(value)
+            else:
+                runtime_diagnostics[key] = int(value)
+
 compare_payload = {}
 compare_ok = False
 if compare_path and os.path.isfile(compare_path):
@@ -269,12 +292,16 @@ native = {
     "bag": "${BAG_DIR##*/}",
     "playback_duration_s": float("${PLAYBACK_DURATION}"),
     "playback_rate": float("${PLAYBACK_RATE}"),
+    "diagnostic_log_period_steps": int("${DIAGNOSTIC_LOG_PERIOD_STEPS}"),
     "imu_linear_acceleration_scale": float("${IMU_LINEAR_ACCELERATION_SCALE}"),
     "max_iterations_per_step": int("${MAX_ITERATIONS_PER_STEP}"),
     "imu_info_gyro": float("${IMU_INFO_GYRO}"),
     "imu_info_accel": float("${IMU_INFO_ACCEL}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "apply_position_update_on_rotation_reject": "${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" == "true",
+    "enable_external_odometry_position_factors": "${ENABLE_EXTERNAL_ODOMETRY_POSITION_FACTORS}" == "true",
+    "external_odometry_position_factor_weight": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_WEIGHT}"),
+    "external_odometry_position_factor_huber_delta_m": float("${EXTERNAL_ODOMETRY_POSITION_FACTOR_HUBER_DELTA_M}"),
     "metrics": {
         "captured_tum_lines": tum_lines,
         "finite_tum_positions": finite_positions,
@@ -293,6 +320,7 @@ native = {
         "matched_poses": compare_payload.get("matched_poses", 0),
         "coverage": compare_payload.get("coverage", 0.0),
     },
+    "runtime_diagnostics": runtime_diagnostics,
 }
 with open(native_report_path, "w", encoding="utf-8") as fh:
     json.dump(native, fh, indent=2, sort_keys=True)
@@ -304,6 +332,8 @@ print("  odom_messages_received:", odom_received)
 print("  reference_matched_poses:", native["metrics"]["reference_matched_poses"])
 print("  reference_coverage    :", native["metrics"]["reference_coverage"])
 print("  reference_rmse_m      :", native["metrics"]["reference_translation_rmse_m"])
+if runtime_diagnostics:
+    print("  runtime_diagnostics   :", runtime_diagnostics)
 PY
 
 echo "continuous_time_native_reference_parity OK"

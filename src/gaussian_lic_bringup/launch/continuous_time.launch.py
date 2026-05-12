@@ -14,6 +14,17 @@ from launch_ros.actions import Node
 def generate_launch_description() -> LaunchDescription:
     raw_imu_topic = LaunchConfiguration("raw_imu_topic")
     raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
+    external_odometry_prior_topic = LaunchConfiguration("external_odometry_prior_topic")
+    enable_external_odometry_prior = LaunchConfiguration("enable_external_odometry_prior")
+    enable_external_odometry_position_factors = LaunchConfiguration(
+        "enable_external_odometry_position_factors"
+    )
+    external_odometry_position_factor_weight = LaunchConfiguration(
+        "external_odometry_position_factor_weight"
+    )
+    external_odometry_position_factor_huber_delta_m = LaunchConfiguration(
+        "external_odometry_position_factor_huber_delta_m"
+    )
     odometry_topic = LaunchConfiguration("odometry_topic")
     path_topic = LaunchConfiguration("path_topic")
     knot_interval_seconds = LaunchConfiguration("knot_interval_seconds")
@@ -24,6 +35,7 @@ def generate_launch_description() -> LaunchDescription:
     imu_info_accel = LaunchConfiguration("imu_info_accel")
     lidar_huber_delta_m = LaunchConfiguration("lidar_huber_delta_m")
     step_period_seconds = LaunchConfiguration("step_period_seconds")
+    diagnostic_log_period_steps = LaunchConfiguration("diagnostic_log_period_steps")
     seed_min_imu_count = LaunchConfiguration("seed_min_imu_count")
     hold_gravity_constant = LaunchConfiguration("hold_gravity_constant")
     hold_accel_bias_constant = LaunchConfiguration("hold_accel_bias_constant")
@@ -50,6 +62,11 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument(
             "raw_pointcloud_topic", default_value="/points_for_gs"
         ),
+        DeclareLaunchArgument("external_odometry_prior_topic", default_value=""),
+        DeclareLaunchArgument("enable_external_odometry_prior", default_value="false"),
+        DeclareLaunchArgument("enable_external_odometry_position_factors", default_value="false"),
+        DeclareLaunchArgument("external_odometry_position_factor_weight", default_value="1.0"),
+        DeclareLaunchArgument("external_odometry_position_factor_huber_delta_m", default_value="0.25"),
         DeclareLaunchArgument(
             "odometry_topic",
             default_value="/gaussian_lic/continuous_time/odometry",
@@ -66,6 +83,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("imu_info_accel", default_value="1.0"),
         DeclareLaunchArgument("lidar_huber_delta_m", default_value="0.10"),
         DeclareLaunchArgument("step_period_seconds", default_value="0.10"),
+        DeclareLaunchArgument("diagnostic_log_period_steps", default_value="50"),
         DeclareLaunchArgument("seed_min_imu_count", default_value="25"),
         DeclareLaunchArgument("hold_gravity_constant", default_value="true"),
         DeclareLaunchArgument("hold_accel_bias_constant", default_value="false"),
@@ -114,6 +132,11 @@ def generate_launch_description() -> LaunchDescription:
             {
                 "raw_imu_topic": raw_imu_topic,
                 "raw_pointcloud_topic": raw_pointcloud_topic,
+                "external_odometry_prior_topic": external_odometry_prior_topic,
+                "enable_external_odometry_prior": enable_external_odometry_prior,
+                "enable_external_odometry_position_factors": enable_external_odometry_position_factors,
+                "external_odometry_position_factor_weight": external_odometry_position_factor_weight,
+                "external_odometry_position_factor_huber_delta_m": external_odometry_position_factor_huber_delta_m,
                 "odometry_topic": odometry_topic,
                 "path_topic": path_topic,
                 "knot_interval_seconds": knot_interval_seconds,
@@ -124,6 +147,7 @@ def generate_launch_description() -> LaunchDescription:
                 "imu_info_accel": imu_info_accel,
                 "lidar_huber_delta_m": lidar_huber_delta_m,
                 "step_period_seconds": step_period_seconds,
+                "diagnostic_log_period_steps": diagnostic_log_period_steps,
                 "seed_min_imu_count": seed_min_imu_count,
                 "hold_gravity_constant": hold_gravity_constant,
                 "hold_accel_bias_constant": hold_accel_bias_constant,

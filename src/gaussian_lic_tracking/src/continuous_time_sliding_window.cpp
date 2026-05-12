@@ -29,6 +29,14 @@ struct BufferedLidar
   double huber_delta_m{0.0};
 };
 
+struct BufferedPositionPrior
+{
+  int64_t stamp_ns{0};
+  Eigen::Vector3d position_world{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+  double huber_delta_m{0.0};
+};
+
 bool quaternion_is_valid(const Eigen::Quaterniond & q)
 {
   return q.coeffs().allFinite() && std::isfinite(q.norm()) && q.norm() > 1.0e-9;
@@ -53,10 +61,12 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   // window has marginalized past their stamp.
   std::deque<BufferedImu> active_imu;
   std::deque<BufferedLidar> active_lidar;
+  std::deque<BufferedPositionPrior> active_position_priors;
 
   // Brand-new samples waiting for their first solve.
   std::deque<BufferedImu> pending_imu;
   std::deque<BufferedLidar> pending_lidar;
+  std::deque<BufferedPositionPrior> pending_position_priors;
 
   ContinuousTimeSlidingWindowDiagnostics diagnostics;
 };
@@ -126,6 +136,18 @@ void ContinuousTimeSlidingWindowEstimator::add_lidar_correspondence(
     {stamp_ns, correspondence, extrinsics, weight, effective_huber});
 }
 
+void ContinuousTimeSlidingWindowEstimator::add_position_prior(
+  int64_t stamp_ns,
+  const Eigen::Vector3d & position_world,
+  double weight,
+  double huber_delta_m)
+{
+  const double effective_huber =
+    huber_delta_m >= 0.0 ? huber_delta_m : impl_->options.lidar_huber_delta_m;
+  impl_->pending_position_priors.push_back(
+    {stamp_ns, position_world, weight, effective_huber});
+}
+
 bool ContinuousTimeSlidingWindowEstimator::step()
 {
   if (impl_->knot_stamps.size() < static_cast<std::size_t>(N)) {
@@ -186,6 +208,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
   impl_->pending_lidar = lidar_still_pending;
 
+  std::deque<BufferedPositionPrior> position_prior_still_pending;
+  for (const auto & p : impl_->pending_position_priors) {
+    if (p.stamp_ns < interior_end_ns()) {
+      impl_->active_position_priors.push_back(p);
+    } else {
+      position_prior_still_pending.push_back(p);
+    }
+  }
+  impl_->pending_position_priors = position_prior_still_pending;
+
   // Marginalize oldest knots once the window exceeds the configured size.
   while (
     static_cast<int>(impl_->knot_stamps.size()) >
@@ -208,8 +240,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   while (!impl_->active_lidar.empty() && impl_->active_lidar.front().stamp_ns < interior_start_ns) {
     impl_->active_lidar.pop_front();
   }
+  while (
+    !impl_->active_position_priors.empty() &&
+    impl_->active_position_priors.front().stamp_ns < interior_start_ns)
+  {
+    impl_->active_position_priors.pop_front();
+  }
 
-  if (impl_->active_imu.empty() && impl_->active_lidar.empty()) {
+  if (impl_->active_imu.empty() && impl_->active_lidar.empty() &&
+    impl_->active_position_priors.empty())
+  {
     return false;
   }
 
@@ -241,8 +281,18 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       ++impl_->diagnostics.total_lidar_factors;
     }
   }
+  for (const auto & active : impl_->active_position_priors) {
+    const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
+    if (estimator.add_position_prior_factor(
+        t_s, active.position_world, active.weight, active.huber_delta_m))
+    {
+      ++impl_->diagnostics.total_position_prior_factors;
+    }
+  }
 
-  if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0) {
+  if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
+    estimator.position_prior_factor_count() == 0)
+  {
     return false;
   }
 

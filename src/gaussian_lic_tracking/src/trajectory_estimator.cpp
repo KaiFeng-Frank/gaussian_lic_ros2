@@ -158,6 +158,34 @@ struct LidarAutoDiffFunctor
   }
 };
 
+struct PositionPriorAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Vector3d position_world{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(
+    const T * p0, const T * p1, const T * p2, const T * p3,
+    T * residuals) const
+  {
+    std::array<Eigen::Matrix<T, 3, 1>, 4> pos_knots = {
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p0),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p1),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
+
+    const Eigen::Matrix<T, 3, 1> p_w_b =
+      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+      pos_knots, T(u_normalized), T(inv_dt_s));
+    const Eigen::Matrix<T, 3, 1> target = position_world.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * (p_w_b - target);
+    return true;
+  }
+};
+
 }  // namespace
 
 struct TrajectoryEstimator::Impl
@@ -352,6 +380,54 @@ bool TrajectoryEstimator::add_lidar_factor(
   }
   impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   ++lidar_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_position_prior_factor(
+  double t_s,
+  const Eigen::Vector3d & position_world,
+  double weight,
+  double huber_delta_m)
+{
+  if (!position_world.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_m) || huber_delta_m < 0.0)
+  {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  PositionPriorAutoDiffFunctor functor;
+  functor.u_normalized = u;
+  functor.inv_dt_s = 1.0 / dt_s_;
+  functor.position_world = position_world;
+  functor.weight = weight;
+
+  auto * cost = new ceres::AutoDiffCostFunction<
+    PositionPriorAutoDiffFunctor, 3,
+    3, 3, 3, 3>(new PositionPriorAutoDiffFunctor(functor));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->position_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss = nullptr;
+  if (huber_delta_m > 0.0) {
+    loss = new ceres::HuberLoss(huber_delta_m);
+  }
+  impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  ++position_prior_factor_count_;
   return true;
 }
 

@@ -83,6 +83,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t steps_run{0};
   std::size_t total_imu_factors{0};
   std::size_t total_lidar_factors{0};
+  std::size_t total_position_prior_factors{0};
   std::size_t total_marginalized_knots{0};
   double last_step_initial_cost{0.0};
   double last_step_final_cost{0.0};
@@ -122,6 +123,15 @@ public:
     int64_t stamp_ns,
     const LidarPointCorrespondence & correspondence,
     const LidarExtrinsics & extrinsics,
+    double weight = 1.0,
+    double huber_delta_m = -1.0);
+
+  // Adds a timestamped position-only prior. The prior uses the same
+  // signed-nanosecond buffering and activation semantics as IMU/LiDAR
+  // factors, but does not introduce a synthetic LiDAR geometry residual.
+  void add_position_prior(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & position_world,
     double weight = 1.0,
     double huber_delta_m = -1.0);
 

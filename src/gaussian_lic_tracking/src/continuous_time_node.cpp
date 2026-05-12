@@ -70,6 +70,20 @@ public:
       "external_odometry_prior_topic", "");
     enable_external_odometry_prior_ =
       declare_parameter<bool>("enable_external_odometry_prior", false);
+    enable_external_odometry_position_factors_ =
+      declare_parameter<bool>("enable_external_odometry_position_factors", false);
+    external_odometry_position_factor_weight_ =
+      declare_parameter<double>("external_odometry_position_factor_weight", 1.0);
+    external_odometry_position_factor_huber_delta_m_ =
+      declare_parameter<double>("external_odometry_position_factor_huber_delta_m", 0.25);
+    if (!std::isfinite(external_odometry_position_factor_weight_) ||
+      external_odometry_position_factor_weight_ <= 0.0 ||
+      !std::isfinite(external_odometry_position_factor_huber_delta_m_) ||
+      external_odometry_position_factor_huber_delta_m_ < 0.0)
+    {
+      throw std::runtime_error(
+        "external odometry position factor weight/huber parameters must be finite");
+    }
     // Mount rotation: q_imu_in_prior, expressed in (x, y, z, w).
     // For datasets whose ground truth is in a robot-base frame that differs
     // from the IMU sensor frame (e.g. M2DGR uses a base frame rotated ~180°
@@ -150,6 +164,11 @@ public:
 
     step_period_seconds_ =
       declare_parameter<double>("step_period_seconds", 0.10);
+    diagnostic_log_period_steps_ =
+      static_cast<int>(declare_parameter<int>("diagnostic_log_period_steps", 50));
+    if (diagnostic_log_period_steps_ < 0) {
+      throw std::runtime_error("diagnostic_log_period_steps must be >= 0");
+    }
     seed_min_imu_count_ =
       static_cast<int>(declare_parameter<int>("seed_min_imu_count", 25));
     max_path_history_ =
@@ -356,6 +375,11 @@ private:
     if (!msg) {
       return;
     }
+    const int64_t stamp_ns = to_signed_nanoseconds(msg->header.stamp);
+    if (stamp_ns <= 0) {
+      ++rejected_prior_count_;
+      return;
+    }
     const auto & pose = msg->pose.pose;
     Eigen::Vector3d p(pose.position.x, pose.position.y, pose.position.z);
     Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x,
@@ -368,12 +392,30 @@ private:
     }
     std::lock_guard<std::mutex> lock(estimator_mutex_);
     if (initialized_) {
-      return;   // Prior only used for the seed; ignore subsequent messages.
+      if (enable_external_odometry_position_factors_) {
+        add_external_position_prior_factor(stamp_ns, p);
+      }
+      return;
     }
     latest_prior_position_ = p;
     latest_prior_orientation_ = q.normalized();
     have_prior_pose_ = true;
     ++accepted_prior_count_;
+  }
+
+  void add_external_position_prior_factor(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & position_world)
+  {
+    if (!estimator_ || !position_world.allFinite()) {
+      ++rejected_prior_count_;
+      return;
+    }
+    estimator_->add_position_prior(
+      stamp_ns, position_world,
+      external_odometry_position_factor_weight_,
+      external_odometry_position_factor_huber_delta_m_);
+    ++accepted_prior_position_factor_messages_;
   }
 
   void on_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -565,7 +607,50 @@ private:
         diagnostics.last_rotation_limited_position_update_m,
         diagnostics.last_rotation_limited_rotation_update_rad);
     }
+    log_runtime_diagnostics_if_due(diagnostics);
     publish_latest_pose();
+  }
+
+  void log_runtime_diagnostics_if_due(
+    const spline::ContinuousTimeSlidingWindowDiagnostics & diagnostics)
+  {
+    if (diagnostic_log_period_steps_ == 0) {
+      return;
+    }
+    if (
+      last_logged_diagnostic_step_ != 0 &&
+      diagnostics.steps_run < last_logged_diagnostic_step_ +
+        static_cast<std::size_t>(diagnostic_log_period_steps_))
+    {
+      return;
+    }
+    last_logged_diagnostic_step_ = diagnostics.steps_run;
+    RCLCPP_INFO(
+      get_logger(),
+      "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
+      "position_prior_factors=%zu imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
+      "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
+      "point_updates=%zu prior_seed=%zu prior_position_factors=%zu "
+      "prior_rejected=%zu tum_lines=%zu rejected_steps=%zu rotation_limited_steps=%zu",
+      diagnostics.steps_run,
+      diagnostics.total_imu_factors,
+      diagnostics.total_lidar_factors,
+      diagnostics.total_position_prior_factors,
+      accepted_imu_count_,
+      dropped_imu_count_,
+      rejected_imu_count_,
+      pointcloud_messages_,
+      accepted_pointcloud_correspondences_,
+      persistent_plane_map_matches_,
+      persistent_plane_map_updates_,
+      persistent_point_map_matches_,
+      persistent_point_map_updates_,
+      accepted_prior_count_,
+      accepted_prior_position_factor_messages_,
+      rejected_prior_count_,
+      tum_lines_written_,
+      diagnostics.rejected_solver_steps,
+      diagnostics.rotation_limited_solver_steps);
   }
 
   bool find_nearest_persistent_point(
@@ -865,12 +950,16 @@ private:
   bool enable_voxel_plane_extraction_{false};
   bool enable_persistent_plane_map_{true};
   bool enable_external_odometry_prior_{false};
+  bool enable_external_odometry_position_factors_{false};
+  double external_odometry_position_factor_weight_{1.0};
+  double external_odometry_position_factor_huber_delta_m_{0.25};
   bool have_prior_pose_{false};
   Eigen::Vector3d latest_prior_position_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond latest_prior_orientation_{Eigen::Quaterniond::Identity()};
   Eigen::Quaterniond prior_to_imu_rotation_{Eigen::Quaterniond::Identity()};
   std::size_t accepted_prior_count_{0};
   std::size_t rejected_prior_count_{0};
+  std::size_t accepted_prior_position_factor_messages_{0};
   spline::LidarPlaneExtractor plane_extractor_{};
   spline::PersistentPlaneMap persistent_plane_map_{};
   std::size_t persistent_plane_map_matches_{0};
@@ -886,11 +975,13 @@ private:
   std::size_t persistent_point_map_updates_{0};
 
   double step_period_seconds_{0.10};
+  int diagnostic_log_period_steps_{50};
   int64_t step_period_ns_{0};
   int64_t knot_interval_ns_{50000000};
   int64_t last_published_query_ns_{0};
   std::size_t last_logged_rejected_solver_steps_{0};
   std::size_t last_logged_rotation_limited_solver_steps_{0};
+  std::size_t last_logged_diagnostic_step_{0};
 };
 
 }  // namespace gaussian_lic_tracking
