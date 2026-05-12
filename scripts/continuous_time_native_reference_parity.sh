@@ -76,6 +76,8 @@ LIDAR_SCAN_TO_SCAN_ORIENTATION_HUBER_DELTA_RAD="${LIDAR_SCAN_TO_SCAN_ORIENTATION
 LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION="${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION:-false}"
 LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT="${LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT:-false}"
 LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED="${LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED:-false}"
+LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE="${LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE:-true}"
+LIDAR_SCAN_TO_SCAN_YAW_ONLY_ANGULAR_VELOCITY="${LIDAR_SCAN_TO_SCAN_YAW_ONLY_ANGULAR_VELOCITY:-false}"
 LIDAR_SCAN_TO_SCAN_POSE_SEED_POSITION_GAIN="${LIDAR_SCAN_TO_SCAN_POSE_SEED_POSITION_GAIN:-1.0}"
 LIDAR_SCAN_TO_SCAN_POSE_SEED_ROTATION_GAIN="${LIDAR_SCAN_TO_SCAN_POSE_SEED_ROTATION_GAIN:-1.0}"
 ENABLE_LIDAR_PLANE_NORMAL_FACTOR="${ENABLE_LIDAR_PLANE_NORMAL_FACTOR:-false}"
@@ -248,6 +250,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p lidar_scan_to_scan_use_odometry_prediction:="${LIDAR_SCAN_TO_SCAN_USE_ODOMETRY_PREDICTION}" \
   -p lidar_scan_to_scan_dead_reckon_on_reject:="${LIDAR_SCAN_TO_SCAN_DEAD_RECKON_ON_REJECT}" \
   -p lidar_scan_to_scan_apply_pose_seed:="${LIDAR_SCAN_TO_SCAN_APPLY_POSE_SEED}" \
+  -p lidar_scan_to_scan_store_corrected_pose:="${LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE}" \
+  -p lidar_scan_to_scan_yaw_only_angular_velocity:="${LIDAR_SCAN_TO_SCAN_YAW_ONLY_ANGULAR_VELOCITY}" \
   -p lidar_scan_to_scan_pose_seed_position_gain:="${LIDAR_SCAN_TO_SCAN_POSE_SEED_POSITION_GAIN}" \
   -p lidar_scan_to_scan_pose_seed_rotation_gain:="${LIDAR_SCAN_TO_SCAN_POSE_SEED_ROTATION_GAIN}" \
   -p enable_lidar_plane_normal_factor:="${ENABLE_LIDAR_PLANE_NORMAL_FACTOR}" \
@@ -619,6 +623,8 @@ native = {
     "apply_limited_rotation_update": "${APPLY_LIMITED_ROTATION_UPDATE}" == "true",
     "apply_limited_position_update": "${APPLY_LIMITED_POSITION_UPDATE}" == "true",
     "scale_position_with_limited_rotation": "${SCALE_POSITION_WITH_LIMITED_ROTATION}" == "true",
+    "lidar_scan_to_scan_store_corrected_pose": "${LIDAR_SCAN_TO_SCAN_STORE_CORRECTED_POSE}" == "true",
+    "lidar_scan_to_scan_yaw_only_angular_velocity": "${LIDAR_SCAN_TO_SCAN_YAW_ONLY_ANGULAR_VELOCITY}" == "true",
     "persistent_map_update_requires_accepted_solve": "${PERSISTENT_MAP_UPDATE_REQUIRES_ACCEPTED_SOLVE}" == "true",
     "defer_persistent_plane_map_updates_until_solved": "${DEFER_PERSISTENT_PLANE_MAP_UPDATES_UNTIL_SOLVED}" == "true",
     "deferred_plane_map_update_max_queue": int("${DEFERRED_PLANE_MAP_UPDATE_MAX_QUEUE}"),
