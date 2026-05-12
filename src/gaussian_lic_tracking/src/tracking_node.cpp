@@ -314,6 +314,9 @@ public:
     gaussian_snapshot_lidar_min_opacity_ = finite_nonnegative_parameter(
       "gaussian_snapshot_lidar_min_opacity",
       declare_parameter<double>("gaussian_snapshot_lidar_min_opacity", 0.01));
+    gaussian_snapshot_lidar_factor_weight_ = finite_positive_parameter(
+      "gaussian_snapshot_lidar_factor_weight",
+      declare_parameter<double>("gaussian_snapshot_lidar_factor_weight", 1.0));
     sliding_window_max_states_ = integer_parameter_at_least(
       "sliding_window_max_states",
       declare_parameter<int>("sliding_window_max_states", 12), 2);
@@ -1460,6 +1463,7 @@ private:
             lidar_nearest_distance_m_,
             gaussian_snapshot_lidar_min_opacity_);
           if (!gaussian_window_factor.frame_points_i.empty()) {
+            gaussian_window_factor.weight *= gaussian_snapshot_lidar_factor_weight_;
             window_point_correspondences += gaussian_window_factor.frame_points_i.size();
             accumulate_correspondence_weights(
               gaussian_window_factor.point_weights,
@@ -3605,6 +3609,7 @@ private:
   double sliding_window_max_normal_equation_condition_{1.0e13};
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
+  double gaussian_snapshot_lidar_factor_weight_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double sliding_window_imu_weight_{1.0};
   double sliding_window_imu_rotation_weight_{1.0};

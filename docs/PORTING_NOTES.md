@@ -190,6 +190,12 @@ is complete. The 20 s CBD probe at
 keeps `gaussian_snapshot_complete=true` despite a later in-flight map update,
 with `20861` committed Gaussians, `6/6` committed chunks, and 20 point-factor
 batches.
+`tracking_node` also exposes `gaussian_snapshot_lidar_factor_weight` for
+mapper-feedback sweeps. CBD 20 s probes at `0.05` and `0.5` reduced the point
+factor cost but worsened short-window RMSE relative to the original `1.0`
+weight, so the default remains `1.0` while long-window work focuses on replay
+coverage, correspondence quality, and visual/global coupling rather than a
+blind scalar downweight.
 
 2026-05-13 scan-to-scan relative pose follow-up: `TrajectoryEstimator` now
 supports two-timestamp relative position and SO(3) priors, and

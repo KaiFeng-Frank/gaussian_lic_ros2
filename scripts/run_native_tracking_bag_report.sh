@@ -65,6 +65,7 @@ MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
 MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
 MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH=128
 GAUSSIAN_SNAPSHOT_QOS_DEPTH=128
+GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT=1.0
 MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=8
 MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=false
@@ -190,6 +191,8 @@ Options:
   --enable-gaussian-map-feedback
                                Launch mapping_node with Torch Gaussian init/extend and GaussianArray publication so tracking can consume map anchors. This does not require visual factors unless --enable-visual-factors is also set.
   --require-gaussian-snapshot  Require a complete GaussianArray snapshot in the tracking status report.
+  --gaussian-snapshot-lidar-factor-weight W
+                               Weight multiplier for LiDAR-to-Gaussian map anchors. Default: 1.0.
   --mapper-feedback-sync-tolerance-sec SEC
                                mapping_node frame sync tolerance for mapper feedback. Default: 0.01.
   --mapper-feedback-torch-device DEV
@@ -474,6 +477,10 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_GAUSSIAN_SNAPSHOT=true
       shift
       ;;
+    --gaussian-snapshot-lidar-factor-weight)
+      GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT="$2"
+      shift 2
+      ;;
     --mapper-feedback-sync-tolerance-sec)
       MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC="$2"
       shift 2
@@ -710,6 +717,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
   enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_MAP_FEEDBACK}" \
   gaussian_snapshot_qos_depth:="${GAUSSIAN_SNAPSHOT_QOS_DEPTH}" \
+  gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
   tracking_max_pose_step_m:="${TRACKING_MAX_POSE_STEP_M}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:="${LIDAR_KEYFRAME_TRANSLATION_M}" \
