@@ -281,8 +281,9 @@ if os.path.isfile(node_log):
     txt = open(node_log, "r", encoding="utf-8", errors="replace").read()
     matches = re.findall(r"continuous-time diagnostics:\s*(.*)", txt)
     if matches:
-        for key, value in re.findall(r"([a-z_]+)=([0-9]+(?:\.[0-9]+)?)", matches[-1]):
-            if "." in value:
+        value_pattern = r"-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
+        for key, value in re.findall(rf"([a-z_]+)=({value_pattern})", matches[-1]):
+            if "." in value or "e" in value.lower():
                 runtime_diagnostics[key] = float(value)
             else:
                 runtime_diagnostics[key] = int(value)

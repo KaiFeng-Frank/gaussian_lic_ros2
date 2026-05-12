@@ -45,6 +45,14 @@ struct TrajectoryEstimatorSummary
   bool success{false};
   double initial_cost{0.0};
   double final_cost{0.0};
+  double initial_imu_cost{0.0};
+  double final_imu_cost{0.0};
+  double initial_lidar_cost{0.0};
+  double final_lidar_cost{0.0};
+  double initial_position_prior_cost{0.0};
+  double final_position_prior_cost{0.0};
+  double initial_orientation_prior_cost{0.0};
+  double final_orientation_prior_cost{0.0};
   int iterations{0};
   std::string brief_report;
 };

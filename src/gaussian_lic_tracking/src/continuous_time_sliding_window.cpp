@@ -344,6 +344,12 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   {
     return false;
   }
+  impl_->diagnostics.last_step_imu_factors = estimator.imu_factor_count();
+  impl_->diagnostics.last_step_lidar_factors = estimator.lidar_factor_count();
+  impl_->diagnostics.last_step_position_prior_factors =
+    estimator.position_prior_factor_count();
+  impl_->diagnostics.last_step_orientation_prior_factors =
+    estimator.orientation_prior_factor_count();
 
   TrajectoryEstimatorOptions solve_options;
   solve_options.max_num_iterations = impl_->options.max_iterations_per_step;
@@ -353,6 +359,18 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   const auto summary = estimator.solve(solve_options);
   impl_->diagnostics.last_step_initial_cost = summary.initial_cost;
   impl_->diagnostics.last_step_final_cost = summary.final_cost;
+  impl_->diagnostics.last_step_initial_imu_cost = summary.initial_imu_cost;
+  impl_->diagnostics.last_step_final_imu_cost = summary.final_imu_cost;
+  impl_->diagnostics.last_step_initial_lidar_cost = summary.initial_lidar_cost;
+  impl_->diagnostics.last_step_final_lidar_cost = summary.final_lidar_cost;
+  impl_->diagnostics.last_step_initial_position_prior_cost =
+    summary.initial_position_prior_cost;
+  impl_->diagnostics.last_step_final_position_prior_cost =
+    summary.final_position_prior_cost;
+  impl_->diagnostics.last_step_initial_orientation_prior_cost =
+    summary.initial_orientation_prior_cost;
+  impl_->diagnostics.last_step_final_orientation_prior_cost =
+    summary.final_orientation_prior_cost;
   ++impl_->diagnostics.steps_run;
 
   // Pull optimized knots back only when the solve produced a physically
@@ -392,8 +410,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   const bool rotation_update_too_large =
     impl_->options.max_rotation_update_rad > 0.0 &&
     max_rotation_update > impl_->options.max_rotation_update_rad;
+  impl_->diagnostics.last_step_max_position_update_m = max_position_update;
+  impl_->diagnostics.last_step_max_rotation_update_rad = max_rotation_update;
   if (invalid_update || position_update_too_large) {
     ++impl_->diagnostics.rejected_solver_steps;
+    if (invalid_update) {
+      ++impl_->diagnostics.invalid_update_rejections;
+    }
+    if (position_update_too_large) {
+      ++impl_->diagnostics.position_update_rejections;
+    }
     impl_->diagnostics.last_rejected_position_update_m = max_position_update;
     impl_->diagnostics.last_rejected_rotation_update_rad = max_rotation_update;
     return true;
@@ -420,6 +446,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     }
     if (!impl_->options.apply_position_update_on_rotation_reject) {
       ++impl_->diagnostics.rejected_solver_steps;
+      ++impl_->diagnostics.rotation_update_rejections;
       impl_->diagnostics.last_rejected_position_update_m = max_position_update;
       impl_->diagnostics.last_rejected_rotation_update_rad = max_rotation_update;
       return true;

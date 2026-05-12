@@ -746,6 +746,13 @@ private:
     RCLCPP_INFO(
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
+      "last_imu_factors=%zu last_lidar_factors=%zu "
+      "last_position_prior_factors=%zu last_orientation_prior_factors=%zu "
+      "initial_cost=%.9g final_cost=%.9g initial_imu_cost=%.9g "
+      "final_imu_cost=%.9g initial_lidar_cost=%.9g final_lidar_cost=%.9g "
+      "initial_position_prior_cost=%.9g final_position_prior_cost=%.9g "
+      "initial_orientation_prior_cost=%.9g final_orientation_prior_cost=%.9g "
+      "max_position_update_m=%.9g max_rotation_update_rad=%.9g "
       "position_prior_factors=%zu orientation_prior_factors=%zu "
       "imu_msgs=%zu dropped_imu=%zu rejected_imu=%zu pointcloud_msgs=%zu "
       "pointcloud_corr=%zu plane_matches=%zu plane_updates=%zu point_matches=%zu "
@@ -753,10 +760,27 @@ private:
       "prior_orientation_factors=%zu "
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
       "delayed_pc_dropped=%zu delayed_pc_pending=%zu tum_lines=%zu "
-      "rejected_steps=%zu rotation_limited_steps=%zu",
+      "rejected_steps=%zu invalid_rejections=%zu position_rejections=%zu "
+      "rotation_rejections=%zu rotation_limited_steps=%zu",
       diagnostics.steps_run,
       diagnostics.total_imu_factors,
       diagnostics.total_lidar_factors,
+      diagnostics.last_step_imu_factors,
+      diagnostics.last_step_lidar_factors,
+      diagnostics.last_step_position_prior_factors,
+      diagnostics.last_step_orientation_prior_factors,
+      diagnostics.last_step_initial_cost,
+      diagnostics.last_step_final_cost,
+      diagnostics.last_step_initial_imu_cost,
+      diagnostics.last_step_final_imu_cost,
+      diagnostics.last_step_initial_lidar_cost,
+      diagnostics.last_step_final_lidar_cost,
+      diagnostics.last_step_initial_position_prior_cost,
+      diagnostics.last_step_final_position_prior_cost,
+      diagnostics.last_step_initial_orientation_prior_cost,
+      diagnostics.last_step_final_orientation_prior_cost,
+      diagnostics.last_step_max_position_update_m,
+      diagnostics.last_step_max_rotation_update_rad,
       diagnostics.total_position_prior_factors,
       diagnostics.total_orientation_prior_factors,
       accepted_imu_count_,
@@ -778,6 +802,9 @@ private:
       delayed_pointcloud_queue_.size(),
       tum_lines_written_,
       diagnostics.rejected_solver_steps,
+      diagnostics.invalid_update_rejections,
+      diagnostics.position_update_rejections,
+      diagnostics.rotation_update_rejections,
       diagnostics.rotation_limited_solver_steps);
   }
 

@@ -232,6 +232,10 @@ struct TrajectoryEstimator::Impl
   Eigen::Vector3d gravity_storage{Eigen::Vector3d::Zero()};
 
   std::unique_ptr<ceres::Problem> problem;
+  std::vector<ceres::ResidualBlockId> imu_residual_blocks;
+  std::vector<ceres::ResidualBlockId> lidar_residual_blocks;
+  std::vector<ceres::ResidualBlockId> position_prior_residual_blocks;
+  std::vector<ceres::ResidualBlockId> orientation_prior_residual_blocks;
 };
 
 TrajectoryEstimator::TrajectoryEstimator(double dt_s)
@@ -357,7 +361,8 @@ bool TrajectoryEstimator::add_imu_factor(
   parameter_blocks.push_back(impl_->accel_bias_storage.data());
   parameter_blocks.push_back(impl_->gravity_storage.data());
 
-  impl_->problem->AddResidualBlock(cost, nullptr, parameter_blocks);
+  const auto block = impl_->problem->AddResidualBlock(cost, nullptr, parameter_blocks);
+  impl_->imu_residual_blocks.push_back(block);
   ++imu_factor_count_;
   return true;
 }
@@ -410,7 +415,8 @@ bool TrajectoryEstimator::add_lidar_factor(
   if (huber_delta_m > 0.0) {
     loss = new ceres::HuberLoss(huber_delta_m);
   }
-  impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->lidar_residual_blocks.push_back(block);
   ++lidar_factor_count_;
   return true;
 }
@@ -458,7 +464,8 @@ bool TrajectoryEstimator::add_position_prior_factor(
   if (huber_delta_m > 0.0) {
     loss = new ceres::HuberLoss(huber_delta_m);
   }
-  impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->position_prior_residual_blocks.push_back(block);
   ++position_prior_factor_count_;
   return true;
 }
@@ -506,7 +513,8 @@ bool TrajectoryEstimator::add_orientation_prior_factor(
   if (huber_delta_rad > 0.0) {
     loss = new ceres::HuberLoss(huber_delta_rad);
   }
-  impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->orientation_prior_residual_blocks.push_back(block);
   ++orientation_prior_factor_count_;
   return true;
 }
@@ -519,6 +527,10 @@ void TrajectoryEstimator::rebuild_problem()
   // default. Reset the problem to drop any previously-owned manifolds
   // before re-attaching.
   impl_->problem = std::make_unique<ceres::Problem>();
+  impl_->imu_residual_blocks.clear();
+  impl_->lidar_residual_blocks.clear();
+  impl_->position_prior_residual_blocks.clear();
+  impl_->orientation_prior_residual_blocks.clear();
 
   for (auto & rot : impl_->rotation_storage) {
     impl_->problem->AddParameterBlock(rot.data(), 4, new ceres::EigenQuaternionManifold());
@@ -583,6 +595,28 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     impl_->problem->SetParameterBlockConstant(impl_->gravity_storage.data());
   }
 
+  auto evaluate_cost = [this](const std::vector<ceres::ResidualBlockId> & blocks) {
+      if (blocks.empty()) {
+        return 0.0;
+      }
+      ceres::Problem::EvaluateOptions eval_options;
+      eval_options.residual_blocks = blocks;
+      double cost = 0.0;
+      if (!impl_->problem->Evaluate(eval_options, &cost, nullptr, nullptr, nullptr) ||
+        !std::isfinite(cost))
+      {
+        return 0.0;
+      }
+      return cost;
+    };
+
+  summary.initial_imu_cost = evaluate_cost(impl_->imu_residual_blocks);
+  summary.initial_lidar_cost = evaluate_cost(impl_->lidar_residual_blocks);
+  summary.initial_position_prior_cost =
+    evaluate_cost(impl_->position_prior_residual_blocks);
+  summary.initial_orientation_prior_cost =
+    evaluate_cost(impl_->orientation_prior_residual_blocks);
+
   ceres::Solver::Options solver_options;
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   solver_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
@@ -599,6 +633,12 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
 
   summary.initial_cost = ceres_summary.initial_cost;
   summary.final_cost = ceres_summary.final_cost;
+  summary.final_imu_cost = evaluate_cost(impl_->imu_residual_blocks);
+  summary.final_lidar_cost = evaluate_cost(impl_->lidar_residual_blocks);
+  summary.final_position_prior_cost =
+    evaluate_cost(impl_->position_prior_residual_blocks);
+  summary.final_orientation_prior_cost =
+    evaluate_cost(impl_->orientation_prior_residual_blocks);
   summary.iterations = static_cast<int>(ceres_summary.iterations.size());
   summary.brief_report = ceres_summary.BriefReport();
   summary.success =
