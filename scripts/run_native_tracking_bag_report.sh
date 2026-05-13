@@ -27,6 +27,7 @@ LIDAR_ROBUST_KERNEL_M=0.15
 LIDAR_POSE_FACTOR_ITERATIONS=1
 LIDAR_WINDOW_POINT_FACTOR_WEIGHT=1.0
 LIDAR_WINDOW_PLANE_FACTOR_WEIGHT=1.0
+LIDAR_WINDOW_CONFIDENCE_POWER=1.0
 LIDAR_KEYFRAME_TRANSLATION_M=0.0
 MAX_LIDAR_INVALID_FRAMES=0
 LIDAR_TIME_MODE=auto
@@ -217,6 +218,8 @@ Options:
                                Weight multiplier for native LiDAR point-to-point BA factors. Default: 1.0.
   --lidar-window-plane-factor-weight W
                                Weight multiplier for native LiDAR point-to-plane BA factors. Default: 1.0.
+  --lidar-window-confidence-power P
+                               Exponent applied to LiDAR/Gaussian correspondence confidence weights before BA insertion. Default: 1.0.
   --enable-sliding-window-multihop-relative-translation-factor
                                Add one longer-baseline pre-BA relative translation factor inside the active BA window.
   --sliding-window-multihop-relative-translation-weight W
@@ -542,6 +545,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --lidar-window-plane-factor-weight)
       LIDAR_WINDOW_PLANE_FACTOR_WEIGHT="$2"
+      shift 2
+      ;;
+    --lidar-window-confidence-power)
+      LIDAR_WINDOW_CONFIDENCE_POWER="$2"
       shift 2
       ;;
     --lidar-keyframe-translation-m)
@@ -1299,6 +1306,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   lidar_pose_factor_iterations:="${LIDAR_POSE_FACTOR_ITERATIONS}" \
   lidar_window_point_factor_weight:="${LIDAR_WINDOW_POINT_FACTOR_WEIGHT}" \
   lidar_window_plane_factor_weight:="${LIDAR_WINDOW_PLANE_FACTOR_WEIGHT}" \
+  lidar_window_confidence_power:="${LIDAR_WINDOW_CONFIDENCE_POWER}" \
   lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
   lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
   sliding_window_optimize_every_n_frames:="${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
@@ -1468,6 +1476,7 @@ GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_P
 LIDAR_POSE_FACTOR_ITERATIONS_REPORT="${LIDAR_POSE_FACTOR_ITERATIONS}" \
 LIDAR_WINDOW_POINT_FACTOR_WEIGHT_REPORT="${LIDAR_WINDOW_POINT_FACTOR_WEIGHT}" \
 LIDAR_WINDOW_PLANE_FACTOR_WEIGHT_REPORT="${LIDAR_WINDOW_PLANE_FACTOR_WEIGHT}" \
+LIDAR_WINDOW_CONFIDENCE_POWER_REPORT="${LIDAR_WINDOW_CONFIDENCE_POWER}" \
 SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
 SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
@@ -1622,6 +1631,7 @@ gaussian_snapshot_lidar_plane_min_anisotropy = float(
 lidar_pose_factor_iterations = int(os.environ["LIDAR_POSE_FACTOR_ITERATIONS_REPORT"])
 lidar_window_point_factor_weight = float(os.environ["LIDAR_WINDOW_POINT_FACTOR_WEIGHT_REPORT"])
 lidar_window_plane_factor_weight = float(os.environ["LIDAR_WINDOW_PLANE_FACTOR_WEIGHT_REPORT"])
+lidar_window_confidence_power = float(os.environ["LIDAR_WINDOW_CONFIDENCE_POWER_REPORT"])
 sliding_window_max_states = int(os.environ["SLIDING_WINDOW_MAX_STATES_REPORT"])
 sliding_window_max_iterations = int(os.environ["SLIDING_WINDOW_MAX_ITERATIONS_REPORT"])
 sliding_window_marginalization_prior_weight = float(
@@ -1988,6 +1998,7 @@ report = {
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
         "lidar_window_point_factor_weight": lidar_window_point_factor_weight,
         "lidar_window_plane_factor_weight": lidar_window_plane_factor_weight,
+        "lidar_window_confidence_power": lidar_window_confidence_power,
         "sliding_window_max_states": sliding_window_max_states,
         "sliding_window_max_iterations": sliding_window_max_iterations,
         "sliding_window_marginalization_prior_weight": (

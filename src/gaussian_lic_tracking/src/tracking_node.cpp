@@ -67,6 +67,19 @@ double min_or_zero(const size_t count, const double minimum)
   return count > 0U ? minimum : 0.0;
 }
 
+void apply_correspondence_weight_power(std::vector<double> & weights, const double power)
+{
+  if (weights.empty() || !std::isfinite(power) || std::abs(power - 1.0) <= 1.0e-12) {
+    return;
+  }
+  for (double & weight : weights) {
+    if (!std::isfinite(weight) || weight <= 0.0) {
+      continue;
+    }
+    weight = std::pow(std::clamp(weight, 1.0e-9, 1.0), power);
+  }
+}
+
 double ratio_score(const double value, const double threshold)
 {
   if (!std::isfinite(value) || value <= 0.0 || !std::isfinite(threshold) || threshold <= 0.0) {
@@ -301,6 +314,9 @@ public:
     lidar_window_plane_factor_weight_ = finite_positive_parameter(
       "lidar_window_plane_factor_weight",
       declare_parameter<double>("lidar_window_plane_factor_weight", 1.0));
+    lidar_window_confidence_power_ = finite_positive_parameter(
+      "lidar_window_confidence_power",
+      declare_parameter<double>("lidar_window_confidence_power", 1.0));
     lidar_plane_min_neighbors_ = integer_parameter_at_least(
       "lidar_plane_min_neighbors",
       declare_parameter<int>("lidar_plane_min_neighbors", 5), 3);
@@ -1613,6 +1629,8 @@ private:
         auto lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
         if (!lidar_window_factor.frame_points_i.empty()) {
           lidar_window_factor.weight *= lidar_window_point_factor_weight_;
+          apply_correspondence_weight_power(
+            lidar_window_factor.point_weights, lidar_window_confidence_power_);
           window_point_correspondences += lidar_window_factor.frame_points_i.size();
           accumulate_correspondence_weights(
             lidar_window_factor.point_weights,
@@ -1625,6 +1643,8 @@ private:
           auto lidar_plane_factor = lidar_factor_.build_point_to_plane_factor(lidar_points, tracking_pose);
           if (!lidar_plane_factor.frame_points_i.empty()) {
             lidar_plane_factor.weight *= lidar_window_plane_factor_weight_;
+            apply_correspondence_weight_power(
+              lidar_plane_factor.point_weights, lidar_window_confidence_power_);
             window_plane_correspondences += lidar_plane_factor.frame_points_i.size();
             accumulate_correspondence_weights(
               lidar_plane_factor.point_weights,
@@ -1649,6 +1669,8 @@ private:
             gaussian_snapshot_lidar_residual_preweight_);
           if (!gaussian_window_factor.frame_points_i.empty()) {
             gaussian_window_factor.weight *= gaussian_snapshot_lidar_factor_weight_;
+            apply_correspondence_weight_power(
+              gaussian_window_factor.point_weights, lidar_window_confidence_power_);
             window_point_correspondences += gaussian_window_factor.frame_points_i.size();
             accumulate_correspondence_weights(
               gaussian_window_factor.point_weights,
@@ -1674,6 +1696,8 @@ private:
             gaussian_snapshot_lidar_residual_preweight_);
           if (!gaussian_plane_factor.frame_points_i.empty()) {
             gaussian_plane_factor.weight *= gaussian_snapshot_lidar_plane_factor_weight_;
+            apply_correspondence_weight_power(
+              gaussian_plane_factor.point_weights, lidar_window_confidence_power_);
             window_plane_correspondences += gaussian_plane_factor.frame_points_i.size();
             accumulate_correspondence_weights(
               gaussian_plane_factor.point_weights,
@@ -4189,6 +4213,7 @@ private:
   int lidar_pose_factor_iterations_{1};
   double lidar_window_point_factor_weight_{1.0};
   double lidar_window_plane_factor_weight_{1.0};
+  double lidar_window_confidence_power_{1.0};
   int lidar_plane_min_neighbors_{5};
   double lidar_plane_max_condition_{0.2};
   double lidar_keyframe_translation_m_{0.25};

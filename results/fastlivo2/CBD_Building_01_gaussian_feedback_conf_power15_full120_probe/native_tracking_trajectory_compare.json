@@ -1,0 +1,343 @@
+{
+  "alignment": "yaw",
+  "alignment_details": {
+    "translation": [
+      -0.9616251039013716,
+      2.134743960737946,
+      0.4551008588023467
+    ],
+    "yaw_rad": 1.3892630743488643
+  },
+  "baseline": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum",
+  "baseline_poses": 1231,
+  "coverage": 0.9000812347684809,
+  "current": "/tmp/gaussian_feedback_conf_power15_full120_probe/artifacts/trajectory.tum",
+  "current_poses": 1116,
+  "error_bins": [
+    {
+      "bias_xyz_m": [
+        -0.9229269077474453,
+        2.1164528230426427,
+        0.3322852182278786
+      ],
+      "count": 141,
+      "end_stamp": 1661398646.226396,
+      "index": 0,
+      "start_stamp": 1661398632.415146,
+      "translation_max_m": 2.5200048244514885,
+      "translation_mean_m": 2.3421390361546734,
+      "translation_rmse_m": 2.3443183536482106
+    },
+    {
+      "bias_xyz_m": [
+        0.02354133538388007,
+        2.487721013283081,
+        0.085760760019738
+      ],
+      "count": 138,
+      "end_stamp": 1661398660.037646,
+      "index": 1,
+      "start_stamp": 1661398646.226396,
+      "translation_max_m": 3.065290523956922,
+      "translation_mean_m": 2.5265940602740193,
+      "translation_rmse_m": 2.54745423887463
+    },
+    {
+      "bias_xyz_m": [
+        0.11470781184873206,
+        2.0250072951947415,
+        0.015972277853071315
+      ],
+      "count": 138,
+      "end_stamp": 1661398673.848896,
+      "index": 2,
+      "start_stamp": 1661398660.037646,
+      "translation_max_m": 2.5089155906541505,
+      "translation_mean_m": 2.0930108984907654,
+      "translation_rmse_m": 2.1141214753675284
+    },
+    {
+      "bias_xyz_m": [
+        1.6148465680585022,
+        0.282006348081197,
+        -0.5887632329640766
+      ],
+      "count": 137,
+      "end_stamp": 1661398687.660146,
+      "index": 3,
+      "start_stamp": 1661398673.848896,
+      "translation_max_m": 2.2251488406223507,
+      "translation_mean_m": 1.8709059945263489,
+      "translation_rmse_m": 1.8865210637868906
+    },
+    {
+      "bias_xyz_m": [
+        1.4459451577556046,
+        -0.5316657130681091,
+        -0.1850970108739123
+      ],
+      "count": 139,
+      "end_stamp": 1661398701.471396,
+      "index": 4,
+      "start_stamp": 1661398687.660146,
+      "translation_max_m": 1.6394277046534176,
+      "translation_mean_m": 1.571467066209433,
+      "translation_rmse_m": 1.57192044526047
+    },
+    {
+      "bias_xyz_m": [
+        0.371213301941349,
+        -2.287547748394583,
+        -0.053148619422291016
+      ],
+      "count": 138,
+      "end_stamp": 1661398715.282646,
+      "index": 5,
+      "start_stamp": 1661398701.471396,
+      "translation_max_m": 3.535081488292725,
+      "translation_mean_m": 2.405582777022421,
+      "translation_rmse_m": 2.497931527429104
+    },
+    {
+      "bias_xyz_m": [
+        -0.9944367885300939,
+        -4.288198395622816,
+        0.033120516613940894
+      ],
+      "count": 138,
+      "end_stamp": 1661398729.093896,
+      "index": 6,
+      "start_stamp": 1661398715.282646,
+      "translation_max_m": 5.317337946757608,
+      "translation_mean_m": 4.440748017547579,
+      "translation_rmse_m": 4.480745305187387
+    },
+    {
+      "bias_xyz_m": [
+        -1.619864776464084,
+        0.15498760924310992,
+        0.34720540013328194
+      ],
+      "count": 139,
+      "end_stamp": 1661398742.905146,
+      "index": 7,
+      "start_stamp": 1661398729.093896,
+      "translation_max_m": 3.733152401347133,
+      "translation_mean_m": 2.2480944324003045,
+      "translation_rmse_m": 2.3377522863710194
+    }
+  ],
+  "errors": [],
+  "matched_poses": 1108,
+  "max_association_dt_sec": 0.2,
+  "ok": true,
+  "path_length": {
+    "absolute_drift_m": 7.971495312261933,
+    "baseline_m": 32.524495006742136,
+    "current_m": 24.552999694480203,
+    "relative_drift": 0.24509205479161134
+  },
+  "thresholds": {
+    "max_error_m": 10.0,
+    "max_mean_m": 5.0,
+    "max_path_drift": 4.0,
+    "max_rmse_m": 5.0,
+    "min_coverage": 0.85,
+    "min_matches": 10
+  },
+  "time_offset_sweep": {
+    "best": {
+      "coverage": 0.8960194963444355,
+      "matched_poses": 1103,
+      "offset_sec": -0.5,
+      "path_relative_drift": 0.24120784134710854,
+      "translation_mean_m": 2.4302122648943945,
+      "translation_rmse_m": 2.598608883467696
+    },
+    "enabled": true,
+    "max_offset_sec": 0.5,
+    "min_matches": 10,
+    "min_offset_sec": -0.5,
+    "step_sec": 0.1,
+    "top_offsets": [
+      {
+        "coverage": 0.8960194963444355,
+        "matched_poses": 1103,
+        "offset_sec": -0.5,
+        "path_relative_drift": 0.24120784134710854,
+        "translation_mean_m": 2.4302122648943945,
+        "translation_rmse_m": 2.598608883467696
+      },
+      {
+        "coverage": 0.8968318440292445,
+        "matched_poses": 1104,
+        "offset_sec": -0.4,
+        "path_relative_drift": 0.24185797017788807,
+        "translation_mean_m": 2.431250798012149,
+        "translation_rmse_m": 2.599165324813403
+      },
+      {
+        "coverage": 0.8976441917140536,
+        "matched_poses": 1105,
+        "offset_sec": -0.3,
+        "path_relative_drift": 0.24263649012322938,
+        "translation_mean_m": 2.4324079655418775,
+        "translation_rmse_m": 2.5999172789407297
+      },
+      {
+        "coverage": 0.8984565393988627,
+        "matched_poses": 1106,
+        "offset_sec": -0.19999999999999996,
+        "path_relative_drift": 0.2434774434719604,
+        "translation_mean_m": 2.433688948138766,
+        "translation_rmse_m": 2.600872793474182
+      },
+      {
+        "coverage": 0.8992688870836718,
+        "matched_poses": 1107,
+        "offset_sec": -0.09999999999999998,
+        "path_relative_drift": 0.24414411979984524,
+        "translation_mean_m": 2.4350952426912627,
+        "translation_rmse_m": 2.6020341012507173
+      },
+      {
+        "coverage": 0.9000812347684809,
+        "matched_poses": 1108,
+        "offset_sec": 0.0,
+        "path_relative_drift": 0.24509205479161134,
+        "translation_mean_m": 2.436619050193928,
+        "translation_rmse_m": 2.6033949303097836
+      },
+      {
+        "coverage": 0.90089358245329,
+        "matched_poses": 1109,
+        "offset_sec": 0.10000000000000009,
+        "path_relative_drift": 0.24686427093962188,
+        "translation_mean_m": 2.438282631422479,
+        "translation_rmse_m": 2.6049880030094807
+      },
+      {
+        "coverage": 0.9017059301380991,
+        "matched_poses": 1110,
+        "offset_sec": 0.20000000000000007,
+        "path_relative_drift": 0.24779827713145153,
+        "translation_mean_m": 2.4400632333490133,
+        "translation_rmse_m": 2.6067807477839384
+      },
+      {
+        "coverage": 0.9025182778229082,
+        "matched_poses": 1111,
+        "offset_sec": 0.30000000000000004,
+        "path_relative_drift": 0.24875908141337397,
+        "translation_mean_m": 2.4419536365076784,
+        "translation_rmse_m": 2.608766415095613
+      },
+      {
+        "coverage": 0.9033306255077173,
+        "matched_poses": 1112,
+        "offset_sec": 0.4,
+        "path_relative_drift": 0.24972921328406908,
+        "translation_mean_m": 2.4439537190192184,
+        "translation_rmse_m": 2.610942781244469
+      }
+    ]
+  },
+  "trajectory_stats": {
+    "baseline": {
+      "angular_speed_radps": {
+        "count": 1107,
+        "max": 0.7710617911446889,
+        "mean": 0.16294810372948898,
+        "median": 0.14853222768471597,
+        "min": 0.0002828170861825835,
+        "p95": 0.3543765353400934
+      },
+      "dt_s": {
+        "count": 1107,
+        "max": 0.18000030517578125,
+        "mean": 0.09981029789622237,
+        "median": 0.09999966621398926,
+        "min": 0.09000015258789062,
+        "p95": 0.10000014305114746
+      },
+      "duration_s": 110.48999977111816,
+      "path_m": 32.524495006742136,
+      "pose_count": 1108,
+      "rotation_step_rad": {
+        "count": 1107,
+        "max": 0.07273380490652614,
+        "mean": 0.01619107204541148,
+        "median": 0.014853244016177202,
+        "min": 2.828168164671922e-05,
+        "p95": 0.03579644051616771
+      },
+      "speed_mps": {
+        "count": 1107,
+        "max": 0.8046759425657866,
+        "mean": 0.29478699196496666,
+        "median": 0.3100775210145679,
+        "min": 0.0012000011444102713,
+        "p95": 0.6215863149427886
+      },
+      "step_m": {
+        "count": 1107,
+        "max": 0.11484846799152382,
+        "mean": 0.0293807542969667,
+        "median": 0.030357208369677237,
+        "min": 0.00012000000000000002,
+        "p95": 0.06287162852538952
+      }
+    },
+    "current": {
+      "angular_speed_radps": {
+        "count": 1107,
+        "max": 0.7354538444287282,
+        "mean": 0.15950772864997756,
+        "median": 0.14986973514583132,
+        "min": 0.001318207276994322,
+        "p95": 0.3249755281692925
+      },
+      "dt_s": {
+        "count": 1107,
+        "max": 0.10107612609863281,
+        "mean": 0.09999872847731951,
+        "median": 0.09998011589050293,
+        "min": 0.09909415245056152,
+        "p95": 0.10083708763122559
+      },
+      "duration_s": 110.6985924243927,
+      "path_m": 24.552999694480203,
+      "pose_count": 1108,
+      "rotation_step_rad": {
+        "count": 1107,
+        "max": 0.0735249741847009,
+        "mean": 0.015950592263650136,
+        "median": 0.015027753985460685,
+        "min": 0.0001318910018491209,
+        "p95": 0.0324775046672234
+      },
+      "speed_mps": {
+        "count": 1107,
+        "max": 0.25228531597995885,
+        "mean": 0.22179667066002093,
+        "median": 0.24993827172850597,
+        "min": 0.014198669690324413,
+        "p95": 0.2518579338287375
+      },
+      "step_m": {
+        "count": 1107,
+        "max": 0.02500000104115427,
+        "mean": 0.022179764854995666,
+        "median": 0.024999999817225515,
+        "min": 0.001419022693505258,
+        "p95": 0.025000000636327773
+      }
+    }
+  },
+  "translation": {
+    "max_m": 5.317337946757608,
+    "mean_m": 2.436619050193928,
+    "median_m": 2.210608143234789,
+    "rmse_m": 2.6033949303097836
+  }
+}
