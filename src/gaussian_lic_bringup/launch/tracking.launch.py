@@ -133,6 +133,21 @@ def generate_launch_description():
     )
     se3_photometric_huber_delta = LaunchConfiguration("se3_photometric_huber_delta")
     se3_photometric_max_abs_residual = LaunchConfiguration("se3_photometric_max_abs_residual")
+    enable_se3_photometric_pose_correction = LaunchConfiguration(
+        "enable_se3_photometric_pose_correction"
+    )
+    se3_photometric_pose_correction_gain = LaunchConfiguration(
+        "se3_photometric_pose_correction_gain"
+    )
+    se3_photometric_pose_correction_max_translation_m = LaunchConfiguration(
+        "se3_photometric_pose_correction_max_translation_m"
+    )
+    se3_photometric_pose_correction_max_rotation_rad = LaunchConfiguration(
+        "se3_photometric_pose_correction_max_rotation_rad"
+    )
+    se3_photometric_pose_correction_max_dt_ns = LaunchConfiguration(
+        "se3_photometric_pose_correction_max_dt_ns"
+    )
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
     tracking_max_pose_step_m = LaunchConfiguration("tracking_max_pose_step_m")
     trajectory_control_interval_ns = LaunchConfiguration("trajectory_control_interval_ns")
@@ -403,6 +418,11 @@ def generate_launch_description():
             DeclareLaunchArgument("se3_photometric_use_rendered_gradient", default_value="false"),
             DeclareLaunchArgument("se3_photometric_huber_delta", default_value="0.15"),
             DeclareLaunchArgument("se3_photometric_max_abs_residual", default_value="1.0"),
+            DeclareLaunchArgument("enable_se3_photometric_pose_correction", default_value="false"),
+            DeclareLaunchArgument("se3_photometric_pose_correction_gain", default_value="0.1"),
+            DeclareLaunchArgument("se3_photometric_pose_correction_max_translation_m", default_value="0.02"),
+            DeclareLaunchArgument("se3_photometric_pose_correction_max_rotation_rad", default_value="0.01"),
+            DeclareLaunchArgument("se3_photometric_pose_correction_max_dt_ns", default_value="0"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("tracking_max_pose_step_m", default_value="0.25"),
             DeclareLaunchArgument("enable_pre_lio_tracking_step_guard", default_value="true"),
@@ -604,6 +624,21 @@ def generate_launch_description():
                         ),
                         "se3_photometric_huber_delta": se3_photometric_huber_delta,
                         "se3_photometric_max_abs_residual": se3_photometric_max_abs_residual,
+                        "enable_se3_photometric_pose_correction": (
+                            enable_se3_photometric_pose_correction
+                        ),
+                        "se3_photometric_pose_correction_gain": (
+                            se3_photometric_pose_correction_gain
+                        ),
+                        "se3_photometric_pose_correction_max_translation_m": (
+                            se3_photometric_pose_correction_max_translation_m
+                        ),
+                        "se3_photometric_pose_correction_max_rotation_rad": (
+                            se3_photometric_pose_correction_max_rotation_rad
+                        ),
+                        "se3_photometric_pose_correction_max_dt_ns": (
+                            se3_photometric_pose_correction_max_dt_ns
+                        ),
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "tracking_max_pose_step_m": tracking_max_pose_step_m,
                         "enable_pre_lio_tracking_step_guard": enable_pre_lio_tracking_step_guard,

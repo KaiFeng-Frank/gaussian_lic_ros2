@@ -283,6 +283,20 @@ public:
     se3_photometric_max_abs_residual_ = finite_nonnegative_parameter(
       "se3_photometric_max_abs_residual",
       declare_parameter<double>("se3_photometric_max_abs_residual", 1.0));
+    enable_se3_photometric_pose_correction_ =
+      declare_parameter<bool>("enable_se3_photometric_pose_correction", false);
+    se3_photometric_pose_correction_gain_ = finite_unit_interval_parameter(
+      "se3_photometric_pose_correction_gain",
+      declare_parameter<double>("se3_photometric_pose_correction_gain", 0.1));
+    se3_photometric_pose_correction_max_translation_m_ = finite_nonnegative_parameter(
+      "se3_photometric_pose_correction_max_translation_m",
+      declare_parameter<double>("se3_photometric_pose_correction_max_translation_m", 0.02));
+    se3_photometric_pose_correction_max_rotation_rad_ = finite_nonnegative_parameter(
+      "se3_photometric_pose_correction_max_rotation_rad",
+      declare_parameter<double>("se3_photometric_pose_correction_max_rotation_rad", 0.01));
+    se3_photometric_pose_correction_max_dt_ns_ = integer_parameter_at_least(
+      "se3_photometric_pose_correction_max_dt_ns",
+      declare_parameter<int64_t>("se3_photometric_pose_correction_max_dt_ns", 0LL), 0LL);
     enable_lio_factor_ = declare_parameter<bool>("enable_lio_factor", true);
     enable_external_odometry_prior_ =
       declare_parameter<bool>("enable_external_odometry_prior", false);
@@ -1607,6 +1621,7 @@ private:
       tracking_pose.q_w_i = state.q_w_i;
       tracking_pose.v_w_i = state.v_w_i;
     }
+    apply_se3_photometric_pose_correction(tracking_pose);
     std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor>
       relative_translation_factors;
     if (enable_sliding_window_relative_translation_factor_ &&
@@ -2827,6 +2842,91 @@ private:
     if (batch.coverage_tiles < static_cast<size_t>(se3_photometric_min_coverage_tiles_)) {
       return false;
     }
+    return true;
+  }
+
+  const PendingSe3PhotometricFactor * select_se3_photometric_pose_correction(
+    const int64_t stamp_ns) const
+  {
+    if (!enable_se3_photometric_pose_correction_ ||
+      se3_photometric_pose_correction_gain_ <= 0.0 ||
+      pending_visual_se3_photometric_factors_.empty())
+    {
+      return nullptr;
+    }
+
+    const int64_t max_dt_ns = se3_photometric_pose_correction_max_dt_ns_ > 0LL
+      ? se3_photometric_pose_correction_max_dt_ns_
+      : visual_factor_max_dt_ns_;
+    const PendingSe3PhotometricFactor * best = nullptr;
+    int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    for (const auto & pending : pending_visual_se3_photometric_factors_) {
+      if (last_applied_se3_photometric_pose_correction_stamp_ns_.has_value() &&
+        pending.stamp_ns == last_applied_se3_photometric_pose_correction_stamp_ns_.value() &&
+        pending.source_id == last_applied_se3_photometric_pose_correction_source_id_)
+      {
+        continue;
+      }
+      const int64_t delta_ns = stamp_delta_ns(pending.stamp_ns, stamp_ns);
+      if (delta_ns <= max_dt_ns && delta_ns < best_delta_ns) {
+        best = &pending;
+        best_delta_ns = delta_ns;
+      }
+    }
+    return best;
+  }
+
+  bool apply_se3_photometric_pose_correction(
+    gaussian_lic_tracking::TrajectoryPose & tracking_pose)
+  {
+    const auto * pending = select_se3_photometric_pose_correction(tracking_pose.stamp_ns);
+    if (pending == nullptr) {
+      return false;
+    }
+
+    Eigen::Matrix<double, 6, 1> body_delta =
+      gaussian_lic_tracking::transform_camera_delta_to_body(
+      q_i_c_, p_i_c_, pending->linearization.gauss_newton_step);
+    if (!body_delta.allFinite()) {
+      return false;
+    }
+    body_delta *= se3_photometric_pose_correction_gain_;
+
+    Eigen::Vector3d rotation_delta = body_delta.template segment<3>(0);
+    Eigen::Vector3d translation_delta = body_delta.template segment<3>(3);
+    const double raw_translation_m = translation_delta.norm();
+    if (se3_photometric_pose_correction_max_translation_m_ > 0.0 &&
+      raw_translation_m > se3_photometric_pose_correction_max_translation_m_)
+    {
+      translation_delta *= se3_photometric_pose_correction_max_translation_m_ / raw_translation_m;
+    }
+    const double raw_rotation_rad = rotation_delta.norm();
+    if (se3_photometric_pose_correction_max_rotation_rad_ > 0.0 &&
+      raw_rotation_rad > se3_photometric_pose_correction_max_rotation_rad_)
+    {
+      rotation_delta *= se3_photometric_pose_correction_max_rotation_rad_ / raw_rotation_rad;
+    }
+
+    Eigen::Quaterniond rotation_correction = Eigen::Quaterniond::Identity();
+    const double rotation_rad = rotation_delta.norm();
+    if (rotation_rad > 1.0e-12) {
+      rotation_correction =
+        Eigen::Quaterniond(Eigen::AngleAxisd(rotation_rad, rotation_delta / rotation_rad)).normalized();
+    }
+    const double translation_m = translation_delta.norm();
+    if (translation_m <= 0.0 && rotation_rad <= 0.0) {
+      return false;
+    }
+
+    tracking_pose.p_w_i += translation_delta;
+    tracking_pose.q_w_i = (rotation_correction * tracking_pose.q_w_i).normalized();
+    ++se3_photometric_pose_correction_count_;
+    last_se3_photometric_pose_correction_stamp_delta_ns_ =
+      stamp_delta_ns(pending->stamp_ns, tracking_pose.stamp_ns);
+    last_se3_photometric_pose_correction_translation_m_ = translation_m;
+    last_se3_photometric_pose_correction_rotation_rad_ = rotation_rad;
+    last_applied_se3_photometric_pose_correction_stamp_ns_ = pending->stamp_ns;
+    last_applied_se3_photometric_pose_correction_source_id_ = pending->source_id;
     return true;
   }
 
@@ -4273,6 +4373,13 @@ private:
     status.visual_photometric_step_dy = last_visual_photometric_linearization_.valid
       ? last_visual_photometric_linearization_.gauss_newton_step.y()
       : 0.0;
+    status.visual_se3_photometric_pose_corrections = se3_photometric_pose_correction_count_;
+    status.visual_se3_photometric_pose_correction_stamp_delta_ns =
+      last_se3_photometric_pose_correction_stamp_delta_ns_;
+    status.visual_se3_photometric_pose_correction_translation_m =
+      last_se3_photometric_pose_correction_translation_m_;
+    status.visual_se3_photometric_pose_correction_rotation_rad =
+      last_se3_photometric_pose_correction_rotation_rad_;
     const bool se3_sample_quality_valid =
       last_visual_se3_photometric_sampled_depth_pixels_ > 0U &&
       (static_cast<double>(last_visual_se3_photometric_accepted_pixels_) /
@@ -4438,6 +4545,11 @@ private:
   bool se3_photometric_use_rendered_gradient_{false};
   double se3_photometric_huber_delta_{0.15};
   double se3_photometric_max_abs_residual_{1.0};
+  bool enable_se3_photometric_pose_correction_{false};
+  double se3_photometric_pose_correction_gain_{0.1};
+  double se3_photometric_pose_correction_max_translation_m_{0.02};
+  double se3_photometric_pose_correction_max_rotation_rad_{0.01};
+  int64_t se3_photometric_pose_correction_max_dt_ns_{0};
   double se3_photometric_max_hessian_condition_{1.0e12};
   double se3_photometric_min_sample_inlier_ratio_{0.25};
   double se3_photometric_max_mean_abs_residual_for_factor_{0.0};
@@ -4673,6 +4785,12 @@ private:
   size_t last_accepted_visual_se3_photometric_coverage_total_tiles_{0};
   double last_accepted_visual_se3_photometric_mean_abs_residual_{0.0};
   double last_accepted_visual_se3_photometric_step_norm_{0.0};
+  uint64_t se3_photometric_pose_correction_count_{0};
+  int64_t last_se3_photometric_pose_correction_stamp_delta_ns_{0};
+  double last_se3_photometric_pose_correction_translation_m_{0.0};
+  double last_se3_photometric_pose_correction_rotation_rad_{0.0};
+  std::optional<int64_t> last_applied_se3_photometric_pose_correction_stamp_ns_;
+  uint8_t last_applied_se3_photometric_pose_correction_source_id_{0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   std::deque<DepthFrame> depth_frame_cache_;
   std::deque<gaussian_lic_tracking::VisualFrame> observed_frame_cache_;

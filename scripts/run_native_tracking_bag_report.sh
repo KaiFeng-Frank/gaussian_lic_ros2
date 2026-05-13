@@ -176,6 +176,11 @@ SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS=4
 SE3_PHOTOMETRIC_MIN_COVERAGE_TILES=4
 SE3_PHOTOMETRIC_RANK_SAMPLES_BY_GRADIENT=false
 SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT=false
+ENABLE_SE3_PHOTOMETRIC_POSE_CORRECTION=false
+SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN=0.1
+SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M=0.02
+SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD=0.01
+SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS=0
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -468,6 +473,16 @@ Options:
                                SE3 photometric image coverage grid rows. Default: 4.
   --se3-photometric-min-coverage-tiles N
                                Minimum occupied image tiles before accepting an SE3 photometric BA factor. Default: 4.
+  --enable-se3-photometric-pose-correction
+                               Apply gated SE3 photometric Gauss-Newton steps directly to the tracking pose. Default: false.
+  --se3-photometric-pose-correction-gain G
+                               Gain for direct SE3 photometric pose correction. Default: 0.1.
+  --se3-photometric-pose-correction-max-translation-m M
+                               Clamp direct SE3 photometric translation correction. Default: 0.02.
+  --se3-photometric-pose-correction-max-rotation-rad R
+                               Clamp direct SE3 photometric rotation correction. Default: 0.01.
+  --se3-photometric-pose-correction-max-dt-ns NS
+                               Max stamp delta for direct SE3 photometric correction. Default: 0, follow --visual-factor-max-dt-ns.
   --enable-external-odometry-prior
                                Feed the reference odometry topic into tracking BA as an optional pose prior.
   --reference-odometry-topic T Topic to record as reference TUM trajectory. Default: /gaussian_lic/frontend/input_odometry.
@@ -1149,6 +1164,26 @@ while [[ $# -gt 0 ]]; do
       SE3_PHOTOMETRIC_MIN_COVERAGE_TILES="$2"
       shift 2
       ;;
+    --enable-se3-photometric-pose-correction)
+      ENABLE_SE3_PHOTOMETRIC_POSE_CORRECTION=true
+      shift
+      ;;
+    --se3-photometric-pose-correction-gain)
+      SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN="$2"
+      shift 2
+      ;;
+    --se3-photometric-pose-correction-max-translation-m)
+      SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M="$2"
+      shift 2
+      ;;
+    --se3-photometric-pose-correction-max-rotation-rad)
+      SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD="$2"
+      shift 2
+      ;;
+    --se3-photometric-pose-correction-max-dt-ns)
+      SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS="$2"
+      shift 2
+      ;;
     --enable-external-odometry-prior)
       ENABLE_EXTERNAL_ODOMETRY_PRIOR=true
       shift
@@ -1349,6 +1384,11 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   se3_photometric_coverage_grid_cols:="${SE3_PHOTOMETRIC_COVERAGE_GRID_COLS}" \
   se3_photometric_coverage_grid_rows:="${SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS}" \
   se3_photometric_min_coverage_tiles:="${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" \
+  enable_se3_photometric_pose_correction:="${ENABLE_SE3_PHOTOMETRIC_POSE_CORRECTION}" \
+  se3_photometric_pose_correction_gain:="${SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN}" \
+  se3_photometric_pose_correction_max_translation_m:="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M}" \
+  se3_photometric_pose_correction_max_rotation_rad:="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD}" \
+  se3_photometric_pose_correction_max_dt_ns:="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS}" \
   enable_external_odometry_prior:="${ENABLE_EXTERNAL_ODOMETRY_PRIOR}" \
   external_odometry_prior_topic:="${REFERENCE_ODOMETRY_TOPIC:-/__unused_reference_odometry}" \
   external_odometry_prior_max_dt_ns:="${EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS}" \
@@ -1637,6 +1677,11 @@ REFERENCE_TIME_OFFSET_SWEEP_STEP_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_STEP}" \
 SE3_PHOTOMETRIC_MAX_SAMPLES_REPORT="${SE3_PHOTOMETRIC_MAX_SAMPLES}" \
 SE3_PHOTOMETRIC_RANK_SAMPLES_BY_GRADIENT_REPORT="${SE3_PHOTOMETRIC_RANK_SAMPLES_BY_GRADIENT}" \
 SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT_REPORT="${SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT}" \
+ENABLE_SE3_PHOTOMETRIC_POSE_CORRECTION_REPORT="${ENABLE_SE3_PHOTOMETRIC_POSE_CORRECTION}" \
+SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN}" \
+SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M}" \
+SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD}" \
+SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1707,6 +1752,21 @@ se3_photometric_rank_samples_by_gradient = (
 )
 se3_photometric_use_rendered_gradient = (
     os.environ["SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT_REPORT"].lower() == "true"
+)
+enable_se3_photometric_pose_correction = (
+    os.environ["ENABLE_SE3_PHOTOMETRIC_POSE_CORRECTION_REPORT"].lower() == "true"
+)
+se3_photometric_pose_correction_gain = float(
+    os.environ["SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN_REPORT"]
+)
+se3_photometric_pose_correction_max_translation_m = float(
+    os.environ["SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M_REPORT"]
+)
+se3_photometric_pose_correction_max_rotation_rad = float(
+    os.environ["SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD_REPORT"]
+)
+se3_photometric_pose_correction_max_dt_ns = int(
+    os.environ["SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS_REPORT"]
 )
 mapper_feedback_sync_tolerance_sec = float(sys.argv[26])
 enable_gaussian_map_feedback = sys.argv[27].lower() == "true"
@@ -2104,6 +2164,11 @@ if enable_visual_factors:
             f"{mean_abs_residual} > {se3_photometric_max_mean_abs_residual_for_factor}"
         )
 if (
+    enable_se3_photometric_pose_correction
+    and int(last.get("visual_se3_photometric_pose_corrections", 0)) <= 0
+):
+    errors.append("visual_se3_photometric_pose_corrections is zero")
+if (
     enable_visual_factors
     and int(last.get("sliding_window_total_visual_factors", 0)) <= 0
     and not bool(last.get("visual_photometric_valid", False))
@@ -2144,6 +2209,15 @@ report = {
         "se3_photometric_min_coverage_tiles": se3_photometric_min_coverage_tiles,
         "se3_photometric_rank_samples_by_gradient": se3_photometric_rank_samples_by_gradient,
         "se3_photometric_use_rendered_gradient": se3_photometric_use_rendered_gradient,
+        "enable_se3_photometric_pose_correction": enable_se3_photometric_pose_correction,
+        "se3_photometric_pose_correction_gain": se3_photometric_pose_correction_gain,
+        "se3_photometric_pose_correction_max_translation_m": (
+            se3_photometric_pose_correction_max_translation_m
+        ),
+        "se3_photometric_pose_correction_max_rotation_rad": (
+            se3_photometric_pose_correction_max_rotation_rad
+        ),
+        "se3_photometric_pose_correction_max_dt_ns": se3_photometric_pose_correction_max_dt_ns,
         "reference_tum_path": str(reference_tum_path) if reference_tum_path else "",
         "external_reference_tum_poses": external_reference_pose_count,
         "reference_trajectory_align": reference_trajectory_align,
