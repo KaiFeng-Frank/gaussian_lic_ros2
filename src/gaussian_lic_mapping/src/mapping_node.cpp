@@ -2097,6 +2097,28 @@ private:
       torch_gaussian_extend_error_count_ + torch_gaussian_optimization_error_count_ +
       torch_gaussian_densify_error_count_ + torch_gaussian_prune_error_count_ +
       torch_gaussian_opacity_reset_error_count_ + depth_completion_error_count_ + render_error_count_;
+#ifdef GAUSSIAN_LIC_ENABLE_TORCH
+    msg.gaussian_init_count = torch_gaussian_init_count_;
+    msg.gaussian_extend_count = torch_gaussian_extend_count_;
+    msg.gaussian_last_inserted = static_cast<uint64_t>(last_torch_gaussian_inserted_);
+    msg.gaussian_optimization_count = torch_gaussian_optimization_count_;
+    msg.gaussian_optimization_steps = torch_gaussian_optimization_step_count_;
+    msg.gaussian_optimization_supervised =
+      static_cast<uint64_t>(last_torch_optimization_supervised_);
+    msg.gaussian_optimization_loss = last_torch_optimization_loss_;
+    msg.gaussian_optimization_errors = torch_gaussian_optimization_error_count_;
+    msg.gaussian_densify_count = torch_gaussian_densify_count_;
+    msg.gaussian_densified_total = torch_gaussian_densified_total_;
+    msg.gaussian_last_densified = static_cast<uint64_t>(last_torch_densified_);
+    msg.gaussian_densify_errors = torch_gaussian_densify_error_count_;
+    msg.gaussian_prune_count = torch_gaussian_prune_count_;
+    msg.gaussian_pruned_total = torch_gaussian_pruned_total_;
+    msg.gaussian_last_pruned = static_cast<uint64_t>(last_torch_pruned_);
+    msg.gaussian_prune_errors = torch_gaussian_prune_error_count_;
+    msg.gaussian_opacity_reset_count = torch_gaussian_opacity_reset_count_;
+    msg.gaussian_last_opacity_reset = static_cast<uint64_t>(last_torch_opacity_reset_);
+    msg.gaussian_opacity_reset_errors = torch_gaussian_opacity_reset_error_count_;
+#endif
     msg.tracking_hz = last_tracking_hz_;
     msg.mapping_hz = last_mapping_hz_;
     msg.tracking_latency_ms = 0.0F;

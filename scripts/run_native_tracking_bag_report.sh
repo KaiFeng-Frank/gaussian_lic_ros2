@@ -82,11 +82,14 @@ MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=8
 MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=false
+MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=true
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_OPTIMIZATION=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_DENSIFICATION=false
 MAPPER_FEEDBACK_TORCH_DEVICE=cpu
 MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS=0
+MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND=400000
+MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY=uniform
 VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
@@ -237,6 +240,14 @@ Options:
                                Per-frame Torch optimization steps for mapper feedback Gaussian snapshots. Default: 0.
   --mapper-feedback-enable-torch-optimization
                                Enable mapper feedback Torch photometric optimization.
+  --mapper-feedback-torch-max-foreground N
+                               Cap foreground Gaussians for mapper feedback snapshots. Default: 400000 in the Gaussian feedback preset.
+  --mapper-feedback-torch-prune-count-policy POLICY
+                               Foreground cap pruning policy: opacity or uniform. Default: uniform for feedback coverage.
+  --mapper-feedback-enable-extend-visibility-filter
+                               Keep mapper feedback Gaussian extension alpha-hole filtering enabled. The production Gaussian feedback preset disables it so the map can keep growing under skybox/rasterizer feedback.
+  --mapper-feedback-disable-extend-visibility-filter
+                               Disable mapper feedback Gaussian extension alpha-hole filtering.
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
@@ -541,6 +552,8 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=true
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=true
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=false
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
       MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
       if [[ "${MAPPER_FEEDBACK_RENDER_MODE_EXPLICIT}" != "true" ]]; then
@@ -594,6 +607,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mapper-feedback-enable-torch-optimization)
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_OPTIMIZATION=true
+      shift
+      ;;
+    --mapper-feedback-torch-max-foreground)
+      MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND="$2"
+      shift 2
+      ;;
+    --mapper-feedback-torch-prune-count-policy)
+      MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY="$2"
+      shift 2
+      ;;
+    --mapper-feedback-enable-extend-visibility-filter)
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=true
+      shift
+      ;;
+    --mapper-feedback-disable-extend-visibility-filter)
+      MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=false
       shift
       ;;
     --visual-factor-max-dt-ns)
@@ -886,11 +915,14 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p enable_torch_camera_conversion:="${MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION}" \
     -p enable_torch_gaussian_init:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT}" \
     -p enable_torch_gaussian_extend:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND}" \
+    -p enable_torch_gaussian_extend_visibility_filter:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER}" \
     -p enable_torch_gaussian_optimization:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_OPTIMIZATION}" \
     -p enable_torch_gaussian_pruning:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING}" \
     -p enable_torch_gaussian_densification:="${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_DENSIFICATION}" \
     -p torch_gaussian_device:="${MAPPER_FEEDBACK_TORCH_DEVICE}" \
     -p torch_gaussian_optimization_steps:="${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS}" \
+    -p torch_gaussian_max_foreground:="${MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND}" \
+    -p torch_gaussian_prune_count_policy:="${MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY}" \
     >"${mapper_log}" 2>&1 &
   mapper_pid=$!
 fi
@@ -903,6 +935,7 @@ recorder_args=(
   -p odometry_topic:=/gaussian_lic/frontend/odometry
   -p pointcloud_topic:=/points_for_gs
   -p status_topic:=/gaussian_lic/frontend/status
+  -p mapping_status_topic:=/gaussian_lic/status
 )
 if [[ -n "${REFERENCE_ODOMETRY_TOPIC}" ]]; then
   recorder_args+=(-p reference_odometry_topic:="${REFERENCE_ODOMETRY_TOPIC}")
@@ -972,6 +1005,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" "${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
   "${ENABLE_GAUSSIAN_MAP_FEEDBACK}" "${REQUIRE_GAUSSIAN_SNAPSHOT}" \
   "${MAPPER_FEEDBACK_TORCH_DEVICE}" "${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_STEPS}" \
+  "${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER}" \
+  "${MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING}" \
+  "${MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND}" "${MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY}" \
   "${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC}" \
   "${MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND}" \
   "${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
@@ -1021,26 +1057,30 @@ enable_gaussian_map_feedback = sys.argv[27].lower() == "true"
 require_gaussian_snapshot = sys.argv[28].lower() == "true"
 mapper_feedback_torch_device = sys.argv[29]
 mapper_feedback_torch_optimization_steps = int(sys.argv[30])
-mapper_feedback_gaussian_map_publish_min_interval_sec = float(sys.argv[31])
-mapper_feedback_gaussian_map_publish_on_empty_extend = sys.argv[32].lower() == "true"
-sliding_window_optimize_every_n_frames = int(sys.argv[33])
-sliding_window_max_feedback_translation_m = float(sys.argv[34])
-sliding_window_max_feedback_rotation_rad = float(sys.argv[35])
-sliding_window_max_feedback_velocity_mps = float(sys.argv[36])
-mapper_feedback_render_mode = sys.argv[37]
-tracking_max_pose_step_m = float(sys.argv[38])
-tracking_step_guard_velocity_scale = float(sys.argv[39])
-tracking_step_guard_acceleration_mps2 = float(sys.argv[40])
-tracking_step_guard_max_velocity_mps = float(sys.argv[41])
-tracking_step_guard_margin_m = float(sys.argv[42])
-reference_tum_path = Path(sys.argv[43]) if sys.argv[43] else None
-reference_trajectory_align = sys.argv[44]
-reference_max_association_dt = float(sys.argv[45])
-reference_min_coverage = float(sys.argv[46])
-reference_max_rmse_m = float(sys.argv[47])
-reference_max_mean_m = float(sys.argv[48])
-reference_max_error_m = float(sys.argv[49])
-reference_max_path_drift = float(sys.argv[50])
+mapper_feedback_extend_visibility_filter = sys.argv[31].lower() == "true"
+mapper_feedback_pruning = sys.argv[32].lower() == "true"
+mapper_feedback_torch_max_foreground = int(sys.argv[33])
+mapper_feedback_torch_prune_count_policy = sys.argv[34]
+mapper_feedback_gaussian_map_publish_min_interval_sec = float(sys.argv[35])
+mapper_feedback_gaussian_map_publish_on_empty_extend = sys.argv[36].lower() == "true"
+sliding_window_optimize_every_n_frames = int(sys.argv[37])
+sliding_window_max_feedback_translation_m = float(sys.argv[38])
+sliding_window_max_feedback_rotation_rad = float(sys.argv[39])
+sliding_window_max_feedback_velocity_mps = float(sys.argv[40])
+mapper_feedback_render_mode = sys.argv[41]
+tracking_max_pose_step_m = float(sys.argv[42])
+tracking_step_guard_velocity_scale = float(sys.argv[43])
+tracking_step_guard_acceleration_mps2 = float(sys.argv[44])
+tracking_step_guard_max_velocity_mps = float(sys.argv[45])
+tracking_step_guard_margin_m = float(sys.argv[46])
+reference_tum_path = Path(sys.argv[47]) if sys.argv[47] else None
+reference_trajectory_align = sys.argv[48]
+reference_max_association_dt = float(sys.argv[49])
+reference_min_coverage = float(sys.argv[50])
+reference_max_rmse_m = float(sys.argv[51])
+reference_max_mean_m = float(sys.argv[52])
+reference_max_error_m = float(sys.argv[53])
+reference_max_path_drift = float(sys.argv[54])
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
@@ -1285,6 +1325,10 @@ report = {
         "mapper_feedback_torch_device": mapper_feedback_torch_device,
         "mapper_feedback_render_mode": mapper_feedback_render_mode,
         "mapper_feedback_torch_optimization_steps": mapper_feedback_torch_optimization_steps,
+        "mapper_feedback_extend_visibility_filter": mapper_feedback_extend_visibility_filter,
+        "mapper_feedback_pruning": mapper_feedback_pruning,
+        "mapper_feedback_torch_max_foreground": mapper_feedback_torch_max_foreground,
+        "mapper_feedback_torch_prune_count_policy": mapper_feedback_torch_prune_count_policy,
         "mapper_feedback_gaussian_map_publish_min_interval_sec": (
             mapper_feedback_gaussian_map_publish_min_interval_sec
         ),

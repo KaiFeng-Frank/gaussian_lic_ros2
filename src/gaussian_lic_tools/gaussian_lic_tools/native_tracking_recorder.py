@@ -11,7 +11,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 
 from geometry_msgs.msg import PoseStamped
-from gaussian_lic_msgs.msg import TrackingStatus
+from gaussian_lic_msgs.msg import MappingStatus, TrackingStatus
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2
 
@@ -29,7 +29,7 @@ def finite_float(value):
     return numeric if math.isfinite(numeric) else 0.0
 
 
-def tracking_status_to_dict(msg):
+def status_to_dict(msg):
     output = {}
     for name in msg.get_fields_and_field_types():
         value = getattr(msg, name)
@@ -52,6 +52,7 @@ class NativeTrackingRecorder(Node):
         self.pointcloud_topic = self.declare_parameter("pointcloud_topic", "/points_for_gs").value
         self.status_topic = self.declare_parameter(
             "status_topic", "/gaussian_lic/frontend/status").value
+        self.mapping_status_topic = self.declare_parameter("mapping_status_topic", "").value
         self.reference_odometry_topic = self.declare_parameter("reference_odometry_topic", "").value
         self.reference_pose_topic = self.declare_parameter("reference_pose_topic", "").value
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -72,13 +73,18 @@ class NativeTrackingRecorder(Node):
             self.topic_counts[self.reference_odometry_topic] = 0
         if self.reference_pose_topic:
             self.topic_counts[self.reference_pose_topic] = 0
+        if self.mapping_status_topic:
+            self.topic_counts[self.mapping_status_topic] = 0
         self.first_stamp_ns = None
         self.last_stamp_ns = None
         self.last_status = {}
+        self.last_mapping_status = {}
 
         self.create_subscription(Odometry, self.odometry_topic, self.on_odometry, qos)
         self.create_subscription(PointCloud2, self.pointcloud_topic, self.on_pointcloud, qos)
         self.create_subscription(TrackingStatus, self.status_topic, self.on_status, qos)
+        if self.mapping_status_topic:
+            self.create_subscription(MappingStatus, self.mapping_status_topic, self.on_mapping_status, qos)
         if self.reference_odometry_topic:
             self.create_subscription(
                 Odometry, self.reference_odometry_topic, self.on_reference_odometry, qos)
@@ -154,7 +160,11 @@ class NativeTrackingRecorder(Node):
 
     def on_status(self, msg):
         self.topic_counts[self.status_topic] += 1
-        self.last_status = tracking_status_to_dict(msg)
+        self.last_status = status_to_dict(msg)
+
+    def on_mapping_status(self, msg):
+        self.topic_counts[self.mapping_status_topic] += 1
+        self.last_mapping_status = status_to_dict(msg)
 
     def flush(self):
         trajectory_path = self.output_dir / "trajectory.tum"
@@ -181,6 +191,11 @@ class NativeTrackingRecorder(Node):
             "tracking_status": {
                 "samples": self.topic_counts[self.status_topic],
                 "last": self.last_status,
+            },
+            "mapping_status": {
+                "samples": self.topic_counts.get(self.mapping_status_topic, 0),
+                "topic": self.mapping_status_topic,
+                "last": self.last_mapping_status,
             },
             "outputs": {
                 "trajectory_tum": str(trajectory_path),

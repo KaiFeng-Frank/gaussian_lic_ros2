@@ -437,6 +437,29 @@ void append_gaussian_topology(
   require_grad_for_map(map);
 }
 
+TorchGaussianMap make_foreground_visibility_map(const TorchGaussianMap & map)
+{
+  if (!map.xyz.defined() || map.skybox_count == 0U) {
+    return map;
+  }
+  const int64_t total_count = map.xyz.size(0);
+  const int64_t foreground_start =
+    std::min<int64_t>(static_cast<int64_t>(map.skybox_count), total_count);
+  const auto foreground_slice = torch::indexing::Slice(foreground_start, torch::indexing::None);
+
+  TorchGaussianMap foreground;
+  foreground.xyz = map.xyz.index({foreground_slice}).contiguous();
+  foreground.features_dc = map.features_dc.index({foreground_slice}).contiguous();
+  foreground.features_rest = map.features_rest.index({foreground_slice}).contiguous();
+  foreground.scaling = map.scaling.index({foreground_slice}).contiguous();
+  foreground.rotation = map.rotation.index({foreground_slice}).contiguous();
+  foreground.opacity = map.opacity.index({foreground_slice}).contiguous();
+  foreground.sh_degree = map.sh_degree;
+  foreground.foreground_count = static_cast<size_t>(std::max<int64_t>(total_count - foreground_start, 0));
+  foreground.skybox_count = 0U;
+  return foreground;
+}
+
 void select_gaussian_topology(TorchGaussianMap & map, const torch::Tensor & keep_indices, const size_t kept_foreground)
 {
   const int64_t old_count = map.xyz.size(0);
@@ -741,7 +764,8 @@ std::vector<size_t> select_pending_points_in_alpha_holes(
     return {};
   }
 
-  auto render_result = rasterize_gaussian_map(map, camera, config, device);
+  const auto visibility_map = make_foreground_visibility_map(map);
+  auto render_result = rasterize_gaussian_map(visibility_map, camera, config, device);
   const auto alpha = (1.0F - std::get<3>(render_result).detach())
     .clamp(0.0F, 1.0F)
     .to(torch::kCPU)

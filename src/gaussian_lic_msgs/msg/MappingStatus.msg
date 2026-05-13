@@ -31,6 +31,29 @@ uint64 num_mapping_frames
 uint64 num_dropped_messages
 uint64 num_errors
 
+# Torch/CUDA Gaussian backend diagnostics. These make native tracking reports
+# prove whether the mapper only initialized a fixed map or kept extending,
+# optimizing, densifying, pruning, and resetting opacity during replay.
+uint64 gaussian_init_count
+uint64 gaussian_extend_count
+uint64 gaussian_last_inserted
+uint64 gaussian_optimization_count
+uint64 gaussian_optimization_steps
+uint64 gaussian_optimization_supervised
+float32 gaussian_optimization_loss
+uint64 gaussian_optimization_errors
+uint64 gaussian_densify_count
+uint64 gaussian_densified_total
+uint64 gaussian_last_densified
+uint64 gaussian_densify_errors
+uint64 gaussian_prune_count
+uint64 gaussian_pruned_total
+uint64 gaussian_last_pruned
+uint64 gaussian_prune_errors
+uint64 gaussian_opacity_reset_count
+uint64 gaussian_last_opacity_reset
+uint64 gaussian_opacity_reset_errors
+
 float32 tracking_hz
 float32 mapping_hz
 float32 tracking_latency_ms
