@@ -207,6 +207,9 @@ def generate_launch_description():
     post_ba_step_guard_min_visual_coverage_tiles = LaunchConfiguration(
         "post_ba_step_guard_min_visual_coverage_tiles"
     )
+    post_ba_step_guard_reject_to_pre_ba_over_m = LaunchConfiguration(
+        "post_ba_step_guard_reject_to_pre_ba_over_m"
+    )
     tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
     tracking_step_guard_acceleration_mps2 = LaunchConfiguration("tracking_step_guard_acceleration_mps2")
     tracking_step_guard_max_velocity_mps = LaunchConfiguration("tracking_step_guard_max_velocity_mps")
@@ -310,6 +313,7 @@ def generate_launch_description():
             DeclareLaunchArgument("post_ba_step_guard_min_visual_inlier_ratio", default_value="0.85"),
             DeclareLaunchArgument("post_ba_step_guard_max_visual_residual", default_value="0.3"),
             DeclareLaunchArgument("post_ba_step_guard_min_visual_coverage_tiles", default_value="8"),
+            DeclareLaunchArgument("post_ba_step_guard_reject_to_pre_ba_over_m", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_velocity_scale", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_acceleration_mps2", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_max_velocity_mps", default_value="0.0"),
@@ -466,6 +470,9 @@ def generate_launch_description():
                         ),
                         "post_ba_step_guard_min_visual_coverage_tiles": (
                             post_ba_step_guard_min_visual_coverage_tiles
+                        ),
+                        "post_ba_step_guard_reject_to_pre_ba_over_m": (
+                            post_ba_step_guard_reject_to_pre_ba_over_m
                         ),
                         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
                         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,

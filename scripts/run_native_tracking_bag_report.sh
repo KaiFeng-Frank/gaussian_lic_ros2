@@ -44,6 +44,7 @@ POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE=0.6
 POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO=0.85
 POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL=0.3
 POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES=8
+POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M=0.0
 TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
 TRACKING_STEP_GUARD_ACCELERATION_MPS2=0.0
 TRACKING_STEP_GUARD_MAX_VELOCITY_MPS=0.0
@@ -215,6 +216,8 @@ Options:
                                Mean SE3 photometric residual for full confidence-gated post-BA allowance. Default: 0.3.
   --post-ba-step-guard-min-visual-coverage-tiles N
                                SE3 photometric coverage tiles needed for full confidence-gated post-BA allowance. Default: 8.
+  --post-ba-step-guard-reject-to-pre-ba-over-m M
+                               Reject over-large post-BA candidates to the pre-BA LiDAR/IMU pose instead of clamping their direction. Default: 0.0 disabled.
   --tracking-step-guard-velocity-scale S
                                Optional speed-scaled adaptive pose-step allowance. Default: 0.0 disabled.
   --tracking-step-guard-acceleration-mps2 A
@@ -539,6 +542,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --post-ba-step-guard-min-visual-coverage-tiles)
       POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-reject-to-pre-ba-over-m)
+      POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M="$2"
       shift 2
       ;;
     --require-deskew)
@@ -1057,6 +1064,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   post_ba_step_guard_min_visual_inlier_ratio:="${POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO}" \
   post_ba_step_guard_max_visual_residual:="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
   post_ba_step_guard_min_visual_coverage_tiles:="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
+  post_ba_step_guard_reject_to_pre_ba_over_m:="${POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M}" \
   tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   tracking_step_guard_acceleration_mps2:="${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" \
   tracking_step_guard_max_velocity_mps:="${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
@@ -1221,6 +1229,7 @@ POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE_REPORT="${POST_BA_STEP_GUARD_MIN_LIDAR_C
 POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO}" \
 POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL_REPORT="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
 POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
+POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M_REPORT="${POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
 SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
@@ -1345,6 +1354,9 @@ post_ba_step_guard_max_visual_residual = float(
 )
 post_ba_step_guard_min_visual_coverage_tiles = int(
     os.environ["POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT"]
+)
+post_ba_step_guard_reject_to_pre_ba_over_m = float(
+    os.environ["POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M_REPORT"]
 )
 sliding_window_smoothness_position_velocity_weight = float(
     os.environ["SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT"]
@@ -1689,6 +1701,9 @@ report = {
         ),
         "post_ba_step_guard_min_visual_coverage_tiles": (
             post_ba_step_guard_min_visual_coverage_tiles
+        ),
+        "post_ba_step_guard_reject_to_pre_ba_over_m": (
+            post_ba_step_guard_reject_to_pre_ba_over_m
         ),
         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,

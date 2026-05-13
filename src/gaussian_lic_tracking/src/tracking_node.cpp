@@ -355,6 +355,9 @@ public:
     post_ba_step_guard_min_visual_coverage_tiles_ = integer_parameter_at_least(
       "post_ba_step_guard_min_visual_coverage_tiles",
       declare_parameter<int>("post_ba_step_guard_min_visual_coverage_tiles", 8), 1);
+    post_ba_step_guard_reject_to_pre_ba_over_m_ = finite_nonnegative_parameter(
+      "post_ba_step_guard_reject_to_pre_ba_over_m",
+      declare_parameter<double>("post_ba_step_guard_reject_to_pre_ba_over_m", 0.0));
     tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
       "tracking_step_guard_velocity_scale",
       declare_parameter<double>("tracking_step_guard_velocity_scale", 0.0));
@@ -979,6 +982,13 @@ private:
            state.gyro_bias.allFinite() && state.accel_bias.allFinite() &&
            state.q_w_i.coeffs().allFinite() &&
            state.q_w_i.norm() > std::numeric_limits<double>::epsilon();
+  }
+
+  static bool valid_trajectory_pose(const gaussian_lic_tracking::TrajectoryPose & pose)
+  {
+    return pose.p_w_i.allFinite() && pose.v_w_i.allFinite() &&
+           pose.q_w_i.coeffs().allFinite() &&
+           pose.q_w_i.norm() > std::numeric_limits<double>::epsilon();
   }
 
   static void clamp_vector_norm(Eigen::Vector3d & value, const double max_norm)
@@ -1672,6 +1682,7 @@ private:
       pending_visual_se3_photometric_factors_ = std::move(retained_pending);
     }
 
+    const auto pre_ba_tracking_pose = tracking_pose;
     if (enable_sliding_window_optimizer_) {
       tracking_pose = update_sliding_window(
         tracking_pose,
@@ -1681,7 +1692,8 @@ private:
         se3_photometric_factors);
     }
     if (enable_post_ba_tracking_step_guard_) {
-      apply_tracking_step_guard(tracking_pose, true, StepGuardStage::kPostBa);
+      apply_tracking_step_guard(
+        tracking_pose, true, StepGuardStage::kPostBa, &pre_ba_tracking_pose);
     }
     append_trajectory_control_pose(tracking_pose);
 
@@ -3217,7 +3229,8 @@ private:
   bool apply_tracking_step_guard(
     gaussian_lic_tracking::TrajectoryPose & pose,
     const bool rebase_imu,
-    const StepGuardStage stage)
+    const StepGuardStage stage,
+    const gaussian_lic_tracking::TrajectoryPose * fallback_pose = nullptr)
   {
     if (!last_output_tracking_pose_.has_value() || tracking_max_pose_step_m_ <= 0.0) {
       return false;
@@ -3281,6 +3294,35 @@ private:
     last_tracking_step_guard_confidence_score_ = confidence_score;
     if (!std::isfinite(step_m) || !std::isfinite(allowed_step_m) || step_m <= allowed_step_m) {
       return false;
+    }
+    if (stage == StepGuardStage::kPostBa &&
+      post_ba_step_guard_reject_to_pre_ba_over_m_ > 0.0 &&
+      step_m > post_ba_step_guard_reject_to_pre_ba_over_m_ &&
+      fallback_pose != nullptr &&
+      fallback_pose->stamp_ns == pose.stamp_ns &&
+      valid_trajectory_pose(*fallback_pose))
+    {
+      pose = *fallback_pose;
+      ++tracking_step_guard_post_ba_rejection_count_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "tracking post-BA step guard rejected pose step %.3fm over %.3fm at %" PRId64,
+        step_m,
+        post_ba_step_guard_reject_to_pre_ba_over_m_,
+        pose.stamp_ns);
+      if (rebase_imu && imu_propagator_.initialized()) {
+        gaussian_lic_tracking::ImuState corrected_state;
+        corrected_state.stamp_ns = pose.stamp_ns;
+        corrected_state.p_w_i = pose.p_w_i;
+        corrected_state.q_w_i = pose.q_w_i;
+        corrected_state.v_w_i = pose.v_w_i;
+        corrected_state.gyro_bias = sliding_window_bias_.gyro;
+        corrected_state.accel_bias = sliding_window_bias_.accel;
+        if (imu_propagator_.rebase_from_state(corrected_state)) {
+          ++num_sliding_window_imu_reanchors_;
+        }
+      }
+      return true;
     }
     delta *= allowed_step_m / step_m;
     pose.p_w_i = previous.p_w_i + delta;
@@ -3586,6 +3628,8 @@ private:
     status.tracking_step_guard_clamps = tracking_step_guard_clamp_count_;
     status.tracking_step_guard_pre_lio_clamps = tracking_step_guard_pre_lio_clamp_count_;
     status.tracking_step_guard_post_ba_clamps = tracking_step_guard_post_ba_clamp_count_;
+    status.tracking_step_guard_post_ba_rejections =
+      tracking_step_guard_post_ba_rejection_count_;
     status.tracking_step_guard_last_raw_step_m = last_tracking_step_guard_raw_step_m_;
     status.tracking_step_guard_last_allowed_step_m = last_tracking_step_guard_allowed_step_m_;
     status.tracking_step_guard_last_dt_s = last_tracking_step_guard_dt_s_;
@@ -3825,6 +3869,7 @@ private:
   double post_ba_step_guard_min_visual_inlier_ratio_{0.85};
   double post_ba_step_guard_max_visual_residual_{0.3};
   int post_ba_step_guard_min_visual_coverage_tiles_{8};
+  double post_ba_step_guard_reject_to_pre_ba_over_m_{0.0};
   double tracking_step_guard_velocity_scale_{0.0};
   double tracking_step_guard_acceleration_mps2_{0.0};
   double tracking_step_guard_max_velocity_mps_{0.0};
@@ -3954,6 +3999,7 @@ private:
   uint64_t tracking_step_guard_clamp_count_{0};
   uint64_t tracking_step_guard_pre_lio_clamp_count_{0};
   uint64_t tracking_step_guard_post_ba_clamp_count_{0};
+  uint64_t tracking_step_guard_post_ba_rejection_count_{0};
   double last_tracking_step_guard_raw_step_m_{0.0};
   double last_tracking_step_guard_allowed_step_m_{0.0};
   double last_tracking_step_guard_dt_s_{0.0};
