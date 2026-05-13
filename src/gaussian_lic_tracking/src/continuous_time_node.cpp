@@ -1879,9 +1879,15 @@ private:
 
   bool pointcloud_needs_pose_delay() const
   {
+    // Pose-dependent factors must not silently degrade into same-scan
+    // constraints before the spline window can answer the scan stamp.
     return enable_lidar_pose_prior_factor_ ||
-           (enable_voxel_plane_extraction_ &&
-           (enable_persistent_plane_map_ || enable_persistent_point_map_));
+           enable_lidar_scan_to_scan_prior_ ||
+           enable_gaussian_snapshot_lidar_factor_ ||
+           enable_lidar_plane_normal_factor_ ||
+           enable_voxel_plane_extraction_ ||
+           enable_persistent_plane_map_ ||
+           enable_persistent_point_map_;
   }
 
   bool pointcloud_pose_ready_locked(int64_t stamp_ns) const
