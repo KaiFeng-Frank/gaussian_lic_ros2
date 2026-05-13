@@ -43,6 +43,33 @@ def status_to_dict(msg):
     return output
 
 
+def update_numeric_summary(summary, record):
+    for key, value in record.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            continue
+        entry = summary.setdefault(
+            key,
+            {
+                "count": 0,
+                "first": numeric,
+                "last": numeric,
+                "min": numeric,
+                "max": numeric,
+                "mean": 0.0,
+                "delta": 0.0,
+            },
+        )
+        entry["count"] += 1
+        entry["last"] = numeric
+        entry["min"] = min(entry["min"], numeric)
+        entry["max"] = max(entry["max"], numeric)
+        entry["mean"] += (numeric - entry["mean"]) / entry["count"]
+        entry["delta"] = numeric - entry["first"]
+
+
 class NativeTrackingRecorder(Node):
     def __init__(self):
         super().__init__("native_tracking_recorder")
@@ -79,6 +106,8 @@ class NativeTrackingRecorder(Node):
         self.last_stamp_ns = None
         self.last_status = {}
         self.last_mapping_status = {}
+        self.status_summary = {}
+        self.mapping_status_summary = {}
 
         self.create_subscription(Odometry, self.odometry_topic, self.on_odometry, qos)
         self.create_subscription(PointCloud2, self.pointcloud_topic, self.on_pointcloud, qos)
@@ -161,10 +190,12 @@ class NativeTrackingRecorder(Node):
     def on_status(self, msg):
         self.topic_counts[self.status_topic] += 1
         self.last_status = status_to_dict(msg)
+        update_numeric_summary(self.status_summary, self.last_status)
 
     def on_mapping_status(self, msg):
         self.topic_counts[self.mapping_status_topic] += 1
         self.last_mapping_status = status_to_dict(msg)
+        update_numeric_summary(self.mapping_status_summary, self.last_mapping_status)
 
     def flush(self):
         trajectory_path = self.output_dir / "trajectory.tum"
@@ -191,11 +222,13 @@ class NativeTrackingRecorder(Node):
             "tracking_status": {
                 "samples": self.topic_counts[self.status_topic],
                 "last": self.last_status,
+                "summary": self.status_summary,
             },
             "mapping_status": {
                 "samples": self.topic_counts.get(self.mapping_status_topic, 0),
                 "topic": self.mapping_status_topic,
                 "last": self.last_mapping_status,
+                "summary": self.mapping_status_summary,
             },
             "outputs": {
                 "trajectory_tum": str(trajectory_path),
