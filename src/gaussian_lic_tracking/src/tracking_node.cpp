@@ -473,6 +473,11 @@ public:
     gaussian_snapshot_lidar_pose_correction_min_coverage_tiles_ = integer_parameter_at_least(
       "gaussian_snapshot_lidar_pose_correction_min_coverage_tiles",
       declare_parameter<int>("gaussian_snapshot_lidar_pose_correction_min_coverage_tiles", 0), 0);
+    gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m_ =
+      finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m",
+      declare_parameter<double>(
+        "gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m", 0.0));
     gaussian_snapshot_lidar_plane_factor_weight_ = finite_positive_parameter(
       "gaussian_snapshot_lidar_plane_factor_weight",
       declare_parameter<double>("gaussian_snapshot_lidar_plane_factor_weight", 1.0));
@@ -2000,9 +2005,11 @@ private:
     std::vector<Eigen::Vector3d> source_w;
     std::vector<Eigen::Vector3d> target_w;
     std::vector<double> match_weights;
+    std::vector<double> residual_norms;
     source_w.reserve(std::min(frame_points_i.size(), max_frame_points > 0U ? max_frame_points : frame_points_i.size()));
     target_w.reserve(source_w.capacity());
     match_weights.reserve(source_w.capacity());
+    residual_norms.reserve(source_w.capacity());
     double residual_weight_sum = 0.0;
     double residual_norm_sum = 0.0;
     size_t finite_sample_count = 0U;
@@ -2031,8 +2038,54 @@ private:
       source_w.push_back(point_w);
       target_w.push_back(nearest.xyz);
       match_weights.push_back(match_weight);
+      residual_norms.push_back(residual_norm);
       residual_weight_sum += match_weight;
       residual_norm_sum += match_weight * residual_norm;
+    }
+    if (gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m_ > 0.0 &&
+      !source_w.empty())
+    {
+      const double bidirectional_max_distance_sq =
+        gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m_ *
+        gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m_;
+      std::vector<Eigen::Vector3d> filtered_source_w;
+      std::vector<Eigen::Vector3d> filtered_target_w;
+      std::vector<double> filtered_match_weights;
+      std::vector<double> filtered_residual_norms;
+      filtered_source_w.reserve(source_w.size());
+      filtered_target_w.reserve(target_w.size());
+      filtered_match_weights.reserve(match_weights.size());
+      filtered_residual_norms.reserve(residual_norms.size());
+      double filtered_weight_sum = 0.0;
+      double filtered_residual_sum = 0.0;
+      for (size_t target_index = 0U; target_index < target_w.size(); ++target_index) {
+        size_t nearest_source_index = 0U;
+        double nearest_source_distance_sq = std::numeric_limits<double>::infinity();
+        for (size_t source_index = 0U; source_index < source_w.size(); ++source_index) {
+          const double distance_sq = (target_w[target_index] - source_w[source_index]).squaredNorm();
+          if (distance_sq < nearest_source_distance_sq) {
+            nearest_source_distance_sq = distance_sq;
+            nearest_source_index = source_index;
+          }
+        }
+        if (nearest_source_index != target_index ||
+          nearest_source_distance_sq > bidirectional_max_distance_sq)
+        {
+          continue;
+        }
+        filtered_source_w.push_back(source_w[target_index]);
+        filtered_target_w.push_back(target_w[target_index]);
+        filtered_match_weights.push_back(match_weights[target_index]);
+        filtered_residual_norms.push_back(residual_norms[target_index]);
+        filtered_weight_sum += match_weights[target_index];
+        filtered_residual_sum += match_weights[target_index] * residual_norms[target_index];
+      }
+      source_w = std::move(filtered_source_w);
+      target_w = std::move(filtered_target_w);
+      match_weights = std::move(filtered_match_weights);
+      residual_norms = std::move(filtered_residual_norms);
+      residual_weight_sum = filtered_weight_sum;
+      residual_norm_sum = filtered_residual_sum;
     }
     if (source_w.size() < static_cast<size_t>(lidar_min_points_) ||
       residual_weight_sum <= std::numeric_limits<double>::epsilon())
@@ -4464,6 +4517,7 @@ private:
   int gaussian_snapshot_lidar_pose_correction_coverage_grid_cols_{1};
   int gaussian_snapshot_lidar_pose_correction_coverage_grid_rows_{1};
   int gaussian_snapshot_lidar_pose_correction_min_coverage_tiles_{0};
+  double gaussian_snapshot_lidar_pose_correction_bidirectional_max_distance_m_{0.0};
   double gaussian_snapshot_lidar_plane_factor_weight_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double gaussian_snapshot_lidar_plane_min_anisotropy_{0.25};
