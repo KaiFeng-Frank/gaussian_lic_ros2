@@ -54,6 +54,7 @@ LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
 CAMERA_TO_IMU_TRANSLATION_M="[0.0673699, 0.0412418, 0.0764217]"
 CAMERA_TO_IMU_RPY_RAD="[-1.5768568829, 0.0154178108, -1.5646936365]"
 SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=1
+SLIDING_WINDOW_MAX_STATES=12
 SLIDING_WINDOW_MAX_ITERATIONS=3
 SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
 SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
@@ -238,6 +239,8 @@ Options:
                                Max BA iterations per solve. Default: 3.
   --sliding-window-optimize-every-n-frames N
                                Optimize the accumulated sliding window every N point-cloud frames. Default: 1; Gaussian-map feedback sets 4.
+  --sliding-window-max-states N
+                               Maximum states retained by the native sliding-window BA. Default: 12.
   --sliding-window-max-state-gap-s SEC
                                Max active-window state gap before BA is marked degenerate. Default: 1.0.
   --sliding-window-max-condition C
@@ -583,6 +586,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sliding-window-optimize-every-n-frames)
       SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES="$2"
+      shift 2
+      ;;
+    --sliding-window-max-states)
+      SLIDING_WINDOW_MAX_STATES="$2"
       shift 2
       ;;
     --sliding-window-max-state-gap-s)
@@ -1110,6 +1117,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
   lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
   sliding_window_optimize_every_n_frames:="${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
+  sliding_window_max_states:="${SLIDING_WINDOW_MAX_STATES}" \
   sliding_window_max_iterations:="${SLIDING_WINDOW_MAX_ITERATIONS}" \
   sliding_window_max_state_gap_s:="${SLIDING_WINDOW_MAX_STATE_GAP_S}" \
   sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
@@ -1250,6 +1258,8 @@ GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PL
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
 LIDAR_POSE_FACTOR_ITERATIONS_REPORT="${LIDAR_POSE_FACTOR_ITERATIONS}" \
+SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
+SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
@@ -1374,6 +1384,8 @@ gaussian_snapshot_lidar_plane_min_anisotropy = float(
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT"]
 )
 lidar_pose_factor_iterations = int(os.environ["LIDAR_POSE_FACTOR_ITERATIONS_REPORT"])
+sliding_window_max_states = int(os.environ["SLIDING_WINDOW_MAX_STATES_REPORT"])
+sliding_window_max_iterations = int(os.environ["SLIDING_WINDOW_MAX_ITERATIONS_REPORT"])
 enable_pre_lio_tracking_step_guard = (
     os.environ["ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT"].lower() == "true"
 )
@@ -1674,6 +1686,8 @@ report = {
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
+        "sliding_window_max_states": sliding_window_max_states,
+        "sliding_window_max_iterations": sliding_window_max_iterations,
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
         "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,
