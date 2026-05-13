@@ -503,6 +503,27 @@ public:
     sliding_window_relative_translation_huber_delta_m_ = finite_nonnegative_parameter(
       "sliding_window_relative_translation_huber_delta_m",
       declare_parameter<double>("sliding_window_relative_translation_huber_delta_m", 0.1));
+    enable_sliding_window_multihop_relative_translation_factor_ =
+      declare_parameter<bool>("enable_sliding_window_multihop_relative_translation_factor", false);
+    sliding_window_multihop_relative_translation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_translation_weight",
+      declare_parameter<double>("sliding_window_multihop_relative_translation_weight", 0.0));
+    sliding_window_multihop_relative_translation_huber_delta_m_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_translation_huber_delta_m",
+      declare_parameter<double>("sliding_window_multihop_relative_translation_huber_delta_m", 0.15));
+    sliding_window_multihop_relative_translation_min_dt_s_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_translation_min_dt_s",
+      declare_parameter<double>("sliding_window_multihop_relative_translation_min_dt_s", 0.45));
+    sliding_window_multihop_relative_translation_max_dt_s_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_translation_max_dt_s",
+      declare_parameter<double>("sliding_window_multihop_relative_translation_max_dt_s", 1.05));
+    if (sliding_window_multihop_relative_translation_max_dt_s_ <
+      sliding_window_multihop_relative_translation_min_dt_s_)
+    {
+      throw std::runtime_error(
+              "sliding_window_multihop_relative_translation_max_dt_s must be >= "
+              "sliding_window_multihop_relative_translation_min_dt_s");
+    }
     enable_imu_gravity_autocalibration_ =
       declare_parameter<bool>("enable_imu_gravity_autocalibration", true);
     imu_gravity_autocalibration_samples_ = integer_parameter_at_least(
@@ -1731,6 +1752,7 @@ private:
       }
       pending_visual_se3_photometric_factors_ = std::move(retained_pending);
     }
+    append_multihop_relative_translation_factors(tracking_pose, relative_translation_factors);
 
     const auto pre_ba_tracking_pose = tracking_pose;
     if (enable_sliding_window_optimizer_) {
@@ -1789,6 +1811,81 @@ private:
     }
     publish_tracking_status(msg.header.stamp);
     last_output_tracking_pose_ = tracking_pose;
+    cache_relative_motion_pose(pre_ba_tracking_pose);
+  }
+
+  void append_multihop_relative_translation_factors(
+    const gaussian_lic_tracking::TrajectoryPose & pre_ba_pose,
+    std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor> & factors) const
+  {
+    if (!enable_sliding_window_multihop_relative_translation_factor_ ||
+      sliding_window_multihop_relative_translation_weight_ <= 0.0 ||
+      relative_motion_pose_history_.empty())
+    {
+      return;
+    }
+    const int64_t min_dt_ns = static_cast<int64_t>(
+      sliding_window_multihop_relative_translation_min_dt_s_ *
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+    const int64_t max_dt_ns = static_cast<int64_t>(
+      sliding_window_multihop_relative_translation_max_dt_s_ *
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+    const gaussian_lic_tracking::TrajectoryPose * selected = nullptr;
+    for (const auto & history_pose : relative_motion_pose_history_) {
+      if (history_pose.stamp_ns >= pre_ba_pose.stamp_ns) {
+        continue;
+      }
+      const int64_t dt_ns = pre_ba_pose.stamp_ns - history_pose.stamp_ns;
+      if (dt_ns < min_dt_ns || dt_ns > max_dt_ns) {
+        continue;
+      }
+      selected = &history_pose;
+      break;
+    }
+    if (selected == nullptr) {
+      return;
+    }
+    const Eigen::Vector3d delta_p_w = pre_ba_pose.p_w_i - selected->p_w_i;
+    if (!delta_p_w.allFinite()) {
+      return;
+    }
+    gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
+    factor.from_stamp_ns = selected->stamp_ns;
+    factor.to_stamp_ns = pre_ba_pose.stamp_ns;
+    factor.delta_p_w = delta_p_w;
+    factor.weight = sliding_window_multihop_relative_translation_weight_;
+    factor.huber_delta_m = sliding_window_multihop_relative_translation_huber_delta_m_;
+    factors.push_back(factor);
+  }
+
+  void cache_relative_motion_pose(const gaussian_lic_tracking::TrajectoryPose & pose)
+  {
+    if (!pose.p_w_i.allFinite() || !pose.q_w_i.coeffs().allFinite() ||
+      pose.q_w_i.norm() <= std::numeric_limits<double>::epsilon())
+    {
+      return;
+    }
+    if (!relative_motion_pose_history_.empty() &&
+      pose.stamp_ns <= relative_motion_pose_history_.back().stamp_ns)
+    {
+      return;
+    }
+    relative_motion_pose_history_.push_back(pose);
+    const int64_t max_history_ns = static_cast<int64_t>(
+      std::max(
+        sliding_window_multihop_relative_translation_max_dt_s_,
+        sliding_window_max_state_gap_s_) *
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+    while (!relative_motion_pose_history_.empty() &&
+      relative_motion_pose_history_.front().stamp_ns + max_history_ns < pose.stamp_ns)
+    {
+      relative_motion_pose_history_.pop_front();
+    }
+    const size_t max_history_size = std::max<size_t>(
+      static_cast<size_t>(sliding_window_max_states_) + 2U, 4U);
+    while (relative_motion_pose_history_.size() > max_history_size) {
+      relative_motion_pose_history_.pop_front();
+    }
   }
 
   gaussian_lic_tracking::TrajectoryPose update_sliding_window(
@@ -3995,6 +4092,11 @@ private:
   bool enable_sliding_window_relative_translation_factor_{false};
   double sliding_window_relative_translation_weight_{0.0};
   double sliding_window_relative_translation_huber_delta_m_{0.1};
+  bool enable_sliding_window_multihop_relative_translation_factor_{false};
+  double sliding_window_multihop_relative_translation_weight_{0.0};
+  double sliding_window_multihop_relative_translation_huber_delta_m_{0.15};
+  double sliding_window_multihop_relative_translation_min_dt_s_{0.45};
+  double sliding_window_multihop_relative_translation_max_dt_s_{1.05};
   int lidar_min_points_{32};
   int lidar_max_frame_points_{2000};
   int lidar_max_map_points_{20000};
@@ -4084,6 +4186,7 @@ private:
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   std::optional<gaussian_lic_tracking::TrajectoryPose> last_output_tracking_pose_;
+  std::deque<gaussian_lic_tracking::TrajectoryPose> relative_motion_pose_history_;
   bool has_lidar_keyframe_{false};
   gaussian_lic_tracking::GaussianSnapshot gaussian_snapshot_;
   gaussian_lic_tracking::VisualFactor visual_factor_;
