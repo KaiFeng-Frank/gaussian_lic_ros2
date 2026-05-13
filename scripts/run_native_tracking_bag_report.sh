@@ -9,6 +9,8 @@ OUTPUT_DIR="${ROOT_DIR}/results/fastlivo2/Bright_Screen_Wall_native_tracking_12s
 PLAYBACK_DURATION=12
 PLAYBACK_RATE=1.0
 PLAYBACK_RATE_EXPLICIT=false
+PLAYBACK_START_OFFSET=0.0
+PLAYBACK_CLOCK_TOPICS_ALL=false
 TIMEOUT_SEC=30
 POST_PLAY_SETTLE_SEC=8
 MIN_POSES=20
@@ -171,7 +173,9 @@ Options:
   --bag DIR                    Frontend-raw rosbag2 directory.
   --output DIR                 Output report directory.
   --playback-duration SEC      rosbag2 playback duration. Default: 12.
+  --playback-start-offset SEC   Start this many seconds into the bag. Default: 0.0.
   --rate RATE                  rosbag2 playback rate. Default: 1.0; Gaussian-map feedback uses 0.5 unless explicitly overridden.
+  --clock-topics-all           Publish /clock immediately before each replayed message instead of using periodic --clock.
   --timeout SEC                Topic/report timeout. Default: 30.
   --post-play-settle SEC       Time to drain tracking callbacks after rosbag play exits. Default: 8.
   --min-poses N                Minimum recorded frontend odometry poses. Default: 20.
@@ -401,10 +405,18 @@ while [[ $# -gt 0 ]]; do
       PLAYBACK_DURATION="$2"
       shift 2
       ;;
+    --playback-start-offset)
+      PLAYBACK_START_OFFSET="$2"
+      shift 2
+      ;;
     --rate)
       PLAYBACK_RATE="$2"
       PLAYBACK_RATE_EXPLICIT=true
       shift 2
+      ;;
+    --clock-topics-all)
+      PLAYBACK_CLOCK_TOPICS_ALL=true
+      shift
       ;;
     --timeout)
       TIMEOUT_SEC="$2"
@@ -1223,12 +1235,22 @@ record_pid=$!
 
 sleep 2
 
-ros2 bag play "${BAG_PATH}" \
-  --clock \
-  --rate "${PLAYBACK_RATE}" \
-  --read-ahead-queue-size 100 \
-  --playback-duration "${PLAYBACK_DURATION}" \
-  --disable-keyboard-controls \
+playback_args=(
+  "${BAG_PATH}"
+  --rate "${PLAYBACK_RATE}"
+  --read-ahead-queue-size 100
+  --playback-duration "${PLAYBACK_DURATION}"
+  --disable-keyboard-controls
+)
+if [[ "${PLAYBACK_CLOCK_TOPICS_ALL}" == "true" ]]; then
+  playback_args+=(--clock-topics-all)
+else
+  playback_args+=(--clock)
+fi
+if [[ "${PLAYBACK_START_OFFSET}" != "0" && "${PLAYBACK_START_OFFSET}" != "0.0" ]]; then
+  playback_args+=(--start-offset "${PLAYBACK_START_OFFSET}")
+fi
+ros2 bag play "${playback_args[@]}" \
   >"${play_log}" 2>&1 &
 play_pid=$!
 
@@ -1261,6 +1283,8 @@ unset launch_pid
 set +e
 IMU_LINEAR_ACCELERATION_SCALE_REPORT="${IMU_LINEAR_ACCELERATION_SCALE}" \
 PLAYBACK_RATE_REPORT="${PLAYBACK_RATE}" \
+PLAYBACK_START_OFFSET_REPORT="${PLAYBACK_START_OFFSET}" \
+PLAYBACK_CLOCK_TOPICS_ALL_REPORT="${PLAYBACK_CLOCK_TOPICS_ALL}" \
 MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT="${MAPPER_FEEDBACK_POINTCLOUD_COORDINATES}" \
 MAPPER_FEEDBACK_MAX_DEPTH_REPORT="${MAPPER_FEEDBACK_MAX_DEPTH}" \
@@ -1458,6 +1482,8 @@ reference_max_path_drift = float(sys.argv[56])
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
+playback_start_offset = float(os.environ["PLAYBACK_START_OFFSET_REPORT"])
+playback_clock_topics_all = os.environ["PLAYBACK_CLOCK_TOPICS_ALL_REPORT"].lower() == "true"
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
 
 
@@ -1707,6 +1733,8 @@ report = {
         "reference_max_error_m": reference_max_error_m,
         "reference_max_path_drift": reference_max_path_drift,
         "playback_rate": playback_rate,
+        "playback_start_offset": playback_start_offset,
+        "playback_clock_topics_all": playback_clock_topics_all,
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
