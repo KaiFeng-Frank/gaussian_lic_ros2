@@ -1259,17 +1259,10 @@ if [[ -s "${REFERENCE_TUM}" && -s "${CURRENT_TUM}" ]]; then
     --max-error-m "${REFERENCE_MAX_ERROR_M}"
     --max-path-drift "${REFERENCE_MAX_PATH_DRIFT}"
   )
-  if [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
-    "${compare_cmd[@]}"
-  else
-    set +e
-    "${compare_cmd[@]}"
-    compare_status=$?
-    set -e
-    if [[ "${compare_status}" -ne 0 ]]; then
-      echo "[native-tracking] reference trajectory comparison did not meet thresholds; report kept non-gating at ${COMPARE_JSON}" >&2
-    fi
-  fi
+  set +e
+  "${compare_cmd[@]}"
+  compare_status=$?
+  set -e
 
   python3 - "${REPORT_JSON}" "${COMPARE_JSON}" <<'PY'
 import json
@@ -1283,6 +1276,13 @@ if compare_path.exists():
     report["trajectory_compare"] = json.loads(compare_path.read_text(encoding="utf-8"))
 report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
+  if [[ "${compare_status}" -ne 0 ]]; then
+    if [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
+      echo "[native-tracking] reference trajectory comparison failed; report kept at ${REPORT_JSON}" >&2
+      exit "${compare_status}"
+    fi
+    echo "[native-tracking] reference trajectory comparison did not meet thresholds; report kept non-gating at ${COMPARE_JSON}" >&2
+  fi
 elif [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
   echo "required reference/current trajectory file is empty or missing" >&2
   exit 1
