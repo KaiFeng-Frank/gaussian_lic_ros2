@@ -463,6 +463,9 @@ public:
     sliding_window_max_state_gap_s_ = finite_nonnegative_parameter(
       "sliding_window_max_state_gap_s",
       declare_parameter<double>("sliding_window_max_state_gap_s", 1.0));
+    sliding_window_marginalization_prior_weight_ = finite_nonnegative_parameter(
+      "sliding_window_marginalization_prior_weight",
+      declare_parameter<double>("sliding_window_marginalization_prior_weight", 1.0));
     sliding_window_imu_weight_ = finite_nonnegative_parameter(
       "sliding_window_imu_weight",
       declare_parameter<double>("sliding_window_imu_weight", 1.0));
@@ -579,6 +582,7 @@ public:
     window_config.max_normal_equation_condition = sliding_window_max_normal_equation_condition_;
     window_config.min_normal_equation_rank_ratio = sliding_window_min_normal_equation_rank_ratio_;
     window_config.max_state_gap_s = sliding_window_max_state_gap_s_;
+    window_config.marginalization_prior_weight = sliding_window_marginalization_prior_weight_;
     sliding_window_optimizer_.set_config(window_config);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
@@ -4106,6 +4110,7 @@ private:
   double sliding_window_max_normal_equation_condition_{1.0e13};
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
+  double sliding_window_marginalization_prior_weight_{1.0};
   double gaussian_snapshot_lidar_factor_weight_{1.0};
   double gaussian_snapshot_lidar_nearest_distance_m_{0.0};
   bool gaussian_snapshot_lidar_residual_preweight_{true};

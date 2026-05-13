@@ -65,6 +65,7 @@ SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=1
 SLIDING_WINDOW_MAX_STATES=12
 SLIDING_WINDOW_MAX_ITERATIONS=3
 SLIDING_WINDOW_MAX_STATE_GAP_S=1.0
+SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT=1.0
 SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION=10000000000000.0
 SLIDING_WINDOW_MAX_TRANSLATION_STEP_M=1.0
 SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M=1.0
@@ -289,6 +290,8 @@ Options:
                                Maximum states retained by the native sliding-window BA. Default: 12.
   --sliding-window-max-state-gap-s SEC
                                Max active-window state gap before BA is marked degenerate. Default: 1.0.
+  --sliding-window-marginalization-prior-weight W
+                               Weight for the Schur marginalization prior that anchors dropped sliding-window states. Default: 1.0.
   --sliding-window-max-condition C
                                Max normal-equation condition before BA is marked degenerate. Default: 1e13.
   --sliding-window-max-translation-step-m M
@@ -686,6 +689,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sliding-window-max-state-gap-s)
       SLIDING_WINDOW_MAX_STATE_GAP_S="$2"
+      shift 2
+      ;;
+    --sliding-window-marginalization-prior-weight)
+      SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT="$2"
       shift 2
       ;;
     --sliding-window-max-condition)
@@ -1274,6 +1281,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_max_states:="${SLIDING_WINDOW_MAX_STATES}" \
   sliding_window_max_iterations:="${SLIDING_WINDOW_MAX_ITERATIONS}" \
   sliding_window_max_state_gap_s:="${SLIDING_WINDOW_MAX_STATE_GAP_S}" \
+  sliding_window_marginalization_prior_weight:="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
   sliding_window_max_normal_equation_condition:="${SLIDING_WINDOW_MAX_NORMAL_EQUATION_CONDITION}" \
   sliding_window_max_translation_step_m:="${SLIDING_WINDOW_MAX_TRANSLATION_STEP_M}" \
   sliding_window_max_feedback_translation_m:="${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
@@ -1438,6 +1446,7 @@ LIDAR_WINDOW_POINT_FACTOR_WEIGHT_REPORT="${LIDAR_WINDOW_POINT_FACTOR_WEIGHT}" \
 LIDAR_WINDOW_PLANE_FACTOR_WEIGHT_REPORT="${LIDAR_WINDOW_PLANE_FACTOR_WEIGHT}" \
 SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
 SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
+SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
@@ -1588,6 +1597,9 @@ lidar_window_point_factor_weight = float(os.environ["LIDAR_WINDOW_POINT_FACTOR_W
 lidar_window_plane_factor_weight = float(os.environ["LIDAR_WINDOW_PLANE_FACTOR_WEIGHT_REPORT"])
 sliding_window_max_states = int(os.environ["SLIDING_WINDOW_MAX_STATES_REPORT"])
 sliding_window_max_iterations = int(os.environ["SLIDING_WINDOW_MAX_ITERATIONS_REPORT"])
+sliding_window_marginalization_prior_weight = float(
+    os.environ["SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT"]
+)
 enable_pre_lio_tracking_step_guard = (
     os.environ["ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT"].lower() == "true"
 )
@@ -1942,6 +1954,9 @@ report = {
         "lidar_window_plane_factor_weight": lidar_window_plane_factor_weight,
         "sliding_window_max_states": sliding_window_max_states,
         "sliding_window_max_iterations": sliding_window_max_iterations,
+        "sliding_window_marginalization_prior_weight": (
+            sliding_window_marginalization_prior_weight
+        ),
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
         "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,
