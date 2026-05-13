@@ -125,6 +125,9 @@ def generate_launch_description():
     se3_photometric_min_depth_m = LaunchConfiguration("se3_photometric_min_depth_m")
     se3_photometric_max_depth_m = LaunchConfiguration("se3_photometric_max_depth_m")
     se3_photometric_min_gradient = LaunchConfiguration("se3_photometric_min_gradient")
+    se3_photometric_rank_samples_by_gradient = LaunchConfiguration(
+        "se3_photometric_rank_samples_by_gradient"
+    )
     se3_photometric_use_rendered_gradient = LaunchConfiguration(
         "se3_photometric_use_rendered_gradient"
     )
@@ -363,6 +366,7 @@ def generate_launch_description():
             DeclareLaunchArgument("se3_photometric_min_depth_m", default_value="0.05"),
             DeclareLaunchArgument("se3_photometric_max_depth_m", default_value="200.0"),
             DeclareLaunchArgument("se3_photometric_min_gradient", default_value="0.0001"),
+            DeclareLaunchArgument("se3_photometric_rank_samples_by_gradient", default_value="false"),
             DeclareLaunchArgument("se3_photometric_use_rendered_gradient", default_value="false"),
             DeclareLaunchArgument("se3_photometric_huber_delta", default_value="0.15"),
             DeclareLaunchArgument("se3_photometric_max_abs_residual", default_value="1.0"),
@@ -539,6 +543,9 @@ def generate_launch_description():
                         "se3_photometric_min_depth_m": se3_photometric_min_depth_m,
                         "se3_photometric_max_depth_m": se3_photometric_max_depth_m,
                         "se3_photometric_min_gradient": se3_photometric_min_gradient,
+                        "se3_photometric_rank_samples_by_gradient": (
+                            se3_photometric_rank_samples_by_gradient
+                        ),
                         "se3_photometric_use_rendered_gradient": (
                             se3_photometric_use_rendered_gradient
                         ),

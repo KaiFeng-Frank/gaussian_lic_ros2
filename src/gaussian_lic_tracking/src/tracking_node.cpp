@@ -262,6 +262,8 @@ public:
     se3_photometric_min_gradient_ = finite_nonnegative_parameter(
       "se3_photometric_min_gradient",
       declare_parameter<double>("se3_photometric_min_gradient", 1.0e-4));
+    se3_photometric_rank_samples_by_gradient_ =
+      declare_parameter<bool>("se3_photometric_rank_samples_by_gradient", false);
     se3_photometric_use_rendered_gradient_ =
       declare_parameter<bool>("se3_photometric_use_rendered_gradient", false);
     se3_photometric_huber_delta_ = finite_nonnegative_parameter(
@@ -2971,6 +2973,24 @@ private:
     if (valid_depth_pixels == 0U) {
       return batch;
     }
+    auto observed_at = [&observed](const size_t px, const size_t py) {
+        return static_cast<double>(observed.gray[py * observed.width + px]);
+      };
+    auto rendered_at = [&rendered](const size_t px, const size_t py) {
+        return static_cast<double>(rendered.gray[py * rendered.width + px]);
+      };
+    auto gradient_at = [&](const size_t px, const size_t py) {
+        return se3_photometric_use_rendered_gradient_ ? rendered_at(px, py) : observed_at(px, py);
+      };
+    auto gradient_score = [&](const size_t index) {
+        const size_t x = index % observed.width;
+        const size_t y = index / observed.width;
+        const Eigen::Vector2d gradient{
+          0.5 * (gradient_at(x + 1U, y) - gradient_at(x - 1U, y)),
+          0.5 * (gradient_at(x, y + 1U) - gradient_at(x, y - 1U))};
+        const double norm = gradient.norm();
+        return std::isfinite(norm) ? norm : 0.0;
+      };
     std::vector<size_t> tile_quotas(valid_depth_tiles.size(), 0U);
     size_t active_tiles = 0U;
     for (const auto & tile_indices : valid_depth_tiles) {
@@ -3012,6 +3032,18 @@ private:
           valid_depth_indices.end(), tile_indices.begin(), tile_indices.end());
         continue;
       }
+      if (se3_photometric_rank_samples_by_gradient_) {
+        std::vector<size_t> ranked_indices = tile_indices;
+        const auto quota_end =
+          ranked_indices.begin() + static_cast<std::vector<size_t>::difference_type>(quota);
+        std::partial_sort(
+          ranked_indices.begin(), quota_end, ranked_indices.end(),
+          [&](const size_t lhs, const size_t rhs) {
+            return gradient_score(lhs) > gradient_score(rhs);
+          });
+        valid_depth_indices.insert(valid_depth_indices.end(), ranked_indices.begin(), quota_end);
+        continue;
+      }
       for (size_t i = 0; i < quota; ++i) {
         valid_depth_indices.push_back(tile_indices[(i * tile_indices.size()) / quota]);
       }
@@ -3022,15 +3054,6 @@ private:
       const size_t x = index % observed.width;
       const size_t y = index / observed.width;
       const float depth = depth_frame->depth_m[index];
-      auto observed_at = [&observed](const size_t px, const size_t py) {
-          return static_cast<double>(observed.gray[py * observed.width + px]);
-        };
-      auto rendered_at = [&rendered](const size_t px, const size_t py) {
-          return static_cast<double>(rendered.gray[py * rendered.width + px]);
-        };
-      auto gradient_at = [&](const size_t px, const size_t py) {
-          return se3_photometric_use_rendered_gradient_ ? rendered_at(px, py) : observed_at(px, py);
-        };
       gaussian_lic_tracking::VisualSe3PhotometricSample sample;
       ++batch.sampled_depth_pixels;
       const double z = static_cast<double>(depth);
@@ -4110,6 +4133,7 @@ private:
   double se3_photometric_min_depth_m_{0.05};
   double se3_photometric_max_depth_m_{200.0};
   double se3_photometric_min_gradient_{1.0e-4};
+  bool se3_photometric_rank_samples_by_gradient_{false};
   bool se3_photometric_use_rendered_gradient_{false};
   double se3_photometric_huber_delta_{0.15};
   double se3_photometric_max_abs_residual_{1.0};
