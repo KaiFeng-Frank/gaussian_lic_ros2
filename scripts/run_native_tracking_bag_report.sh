@@ -64,6 +64,7 @@ SLIDING_WINDOW_IMU_WEIGHT=1.0
 SLIDING_WINDOW_IMU_ROTATION_WEIGHT=1.0
 SLIDING_WINDOW_IMU_VELOCITY_WEIGHT=1.0
 SLIDING_WINDOW_IMU_POSITION_WEIGHT=1.0
+SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT=0.0
 SLIDING_WINDOW_BIAS_WEIGHT=1.0
 SLIDING_WINDOW_POSE_TRANSLATION_WEIGHT=2.0
 SLIDING_WINDOW_POSE_ROTATION_WEIGHT=2.0
@@ -251,6 +252,8 @@ Options:
                                IMU velocity residual weight. Default: 1.0.
   --sliding-window-imu-position-weight W
                                IMU position residual weight. Default: 1.0.
+  --sliding-window-imu-velocity-prior-weight W
+                               Optional state velocity prior toward propagated IMU velocity. Default: 0.0 disabled.
   --sliding-window-bias-weight W
                                IMU bias random-walk residual weight. Default: 1.0.
   --sliding-window-pose-translation-weight W
@@ -604,6 +607,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sliding-window-imu-position-weight)
       SLIDING_WINDOW_IMU_POSITION_WEIGHT="$2"
+      shift 2
+      ;;
+    --sliding-window-imu-velocity-prior-weight)
+      SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT="$2"
       shift 2
       ;;
     --sliding-window-bias-weight)
@@ -1082,6 +1089,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_imu_rotation_weight:="${SLIDING_WINDOW_IMU_ROTATION_WEIGHT}" \
   sliding_window_imu_velocity_weight:="${SLIDING_WINDOW_IMU_VELOCITY_WEIGHT}" \
   sliding_window_imu_position_weight:="${SLIDING_WINDOW_IMU_POSITION_WEIGHT}" \
+  sliding_window_imu_velocity_prior_weight:="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
   sliding_window_bias_weight:="${SLIDING_WINDOW_BIAS_WEIGHT}" \
   sliding_window_pose_translation_weight:="${SLIDING_WINDOW_POSE_TRANSLATION_WEIGHT}" \
   sliding_window_pose_rotation_weight:="${SLIDING_WINDOW_POSE_ROTATION_WEIGHT}" \
@@ -1214,6 +1222,7 @@ POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO_REPORT="${POST_BA_STEP_GUARD_MIN_VISU
 POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL_REPORT="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
 POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
+SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1339,6 +1348,9 @@ post_ba_step_guard_min_visual_coverage_tiles = int(
 )
 sliding_window_smoothness_position_velocity_weight = float(
     os.environ["SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT"]
+)
+sliding_window_imu_velocity_prior_weight = float(
+    os.environ["SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT"]
 )
 tracking_max_pose_step_m = float(sys.argv[44])
 tracking_step_guard_velocity_scale = float(sys.argv[45])
@@ -1657,6 +1669,7 @@ report = {
         "sliding_window_smoothness_position_velocity_weight": (
             sliding_window_smoothness_position_velocity_weight
         ),
+        "sliding_window_imu_velocity_prior_weight": sliding_window_imu_velocity_prior_weight,
         "tracking_max_pose_step_m": tracking_max_pose_step_m,
         "enable_pre_lio_tracking_step_guard": enable_pre_lio_tracking_step_guard,
         "enable_post_ba_tracking_step_guard": enable_post_ba_tracking_step_guard,

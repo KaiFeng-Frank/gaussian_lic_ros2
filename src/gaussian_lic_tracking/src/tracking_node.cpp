@@ -449,6 +449,9 @@ public:
     sliding_window_imu_position_weight_ = finite_nonnegative_parameter(
       "sliding_window_imu_position_weight",
       declare_parameter<double>("sliding_window_imu_position_weight", 1.0));
+    sliding_window_imu_velocity_prior_weight_ = finite_nonnegative_parameter(
+      "sliding_window_imu_velocity_prior_weight",
+      declare_parameter<double>("sliding_window_imu_velocity_prior_weight", 0.0));
     sliding_window_imu_max_extrapolation_s_ = finite_nonnegative_parameter(
       "sliding_window_imu_max_extrapolation_s",
       declare_parameter<double>("sliding_window_imu_max_extrapolation_s", 0.02));
@@ -1760,6 +1763,22 @@ private:
     sliding_window_optimizer_.add_pose_prior(prior);
     bool window_factor_added = false;
     bool external_feedback_factor_added = false;
+    if (sliding_window_imu_velocity_prior_weight_ > 0.0) {
+      gaussian_lic_tracking::SlidingWindowStatePrior velocity_prior;
+      velocity_prior.stamp_ns = input_pose.stamp_ns;
+      velocity_prior.p_w_i = input_pose.p_w_i;
+      velocity_prior.q_w_i = input_pose.q_w_i;
+      velocity_prior.v_w_i = imu_state.v_w_i;
+      velocity_prior.gyro_bias = sliding_window_bias_.gyro;
+      velocity_prior.accel_bias = sliding_window_bias_.accel;
+      velocity_prior.rotation_weight = 0.0;
+      velocity_prior.velocity_weight = sliding_window_imu_velocity_prior_weight_;
+      velocity_prior.position_weight = 0.0;
+      velocity_prior.gyro_bias_weight = 0.0;
+      velocity_prior.accel_bias_weight = 0.0;
+      sliding_window_optimizer_.add_state_prior(velocity_prior);
+      window_factor_added = true;
+    }
     if (enable_external_odometry_prior_) {
       const auto external_prior = select_external_odometry_prior(input_pose.stamp_ns);
       if (external_prior.has_value()) {
@@ -3844,6 +3863,7 @@ private:
   double sliding_window_imu_rotation_weight_{1.0};
   double sliding_window_imu_velocity_weight_{1.0};
   double sliding_window_imu_position_weight_{1.0};
+  double sliding_window_imu_velocity_prior_weight_{0.0};
   double sliding_window_imu_max_extrapolation_s_{0.02};
   double sliding_window_bias_weight_{1.0};
   double sliding_window_pose_translation_weight_{2.0};

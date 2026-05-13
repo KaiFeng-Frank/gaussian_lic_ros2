@@ -158,6 +158,9 @@ def generate_launch_description():
     sliding_window_imu_rotation_weight = LaunchConfiguration("sliding_window_imu_rotation_weight")
     sliding_window_imu_velocity_weight = LaunchConfiguration("sliding_window_imu_velocity_weight")
     sliding_window_imu_position_weight = LaunchConfiguration("sliding_window_imu_position_weight")
+    sliding_window_imu_velocity_prior_weight = LaunchConfiguration(
+        "sliding_window_imu_velocity_prior_weight"
+    )
     sliding_window_imu_max_extrapolation_s = LaunchConfiguration("sliding_window_imu_max_extrapolation_s")
     sliding_window_bias_weight = LaunchConfiguration("sliding_window_bias_weight")
     sliding_window_pose_translation_weight = LaunchConfiguration("sliding_window_pose_translation_weight")
@@ -333,6 +336,7 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_imu_rotation_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_imu_velocity_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_imu_position_weight", default_value="1.0"),
+            DeclareLaunchArgument("sliding_window_imu_velocity_prior_weight", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_imu_max_extrapolation_s", default_value="0.02"),
             DeclareLaunchArgument("sliding_window_bias_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_pose_translation_weight", default_value="2.0"),
@@ -489,6 +493,9 @@ def generate_launch_description():
                         "sliding_window_imu_rotation_weight": sliding_window_imu_rotation_weight,
                         "sliding_window_imu_velocity_weight": sliding_window_imu_velocity_weight,
                         "sliding_window_imu_position_weight": sliding_window_imu_position_weight,
+                        "sliding_window_imu_velocity_prior_weight": (
+                            sliding_window_imu_velocity_prior_weight
+                        ),
                         "sliding_window_imu_max_extrapolation_s": sliding_window_imu_max_extrapolation_s,
                         "sliding_window_bias_weight": sliding_window_bias_weight,
                         "sliding_window_pose_translation_weight": sliding_window_pose_translation_weight,

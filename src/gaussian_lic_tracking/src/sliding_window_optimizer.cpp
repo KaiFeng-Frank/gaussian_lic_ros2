@@ -1541,7 +1541,7 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       continue;
     }
     const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
-    if (!rows_available(row, static_cast<Eigen::Index>(kSmoothnessResidualDof))) {
+    if (!rows_available(row, static_cast<Eigen::Index>(kStateDof))) {
       return fallback_to_numeric();
     }
     if (offset >= 0) {
