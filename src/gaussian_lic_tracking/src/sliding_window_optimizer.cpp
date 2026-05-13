@@ -1798,11 +1798,14 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     if (!rows_available(row, 3)) {
       return fallback_to_numeric();
     }
+    const Eigen::Matrix3d r_from_w =
+      states[static_cast<size_t>(from)].q_w_i.normalized().inverse().toRotationMatrix();
+    const Eigen::Vector3d delta_p_w =
+      states[static_cast<size_t>(to)].p_w_i - states[static_cast<size_t>(from)].p_w_i;
     const Eigen::Vector3d predicted_delta_p =
       factor.translation_in_from_frame ?
-      states[static_cast<size_t>(from)].q_w_i.conjugate() *
-      (states[static_cast<size_t>(to)].p_w_i - states[static_cast<size_t>(from)].p_w_i) :
-      states[static_cast<size_t>(to)].p_w_i - states[static_cast<size_t>(from)].p_w_i;
+      r_from_w * delta_p_w :
+      delta_p_w;
     const Eigen::Vector3d residual = predicted_delta_p - factor.delta_p_w;
     const double scale = std::sqrt(
       factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
@@ -1810,10 +1813,14 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     const Eigen::Index to_offset = variable_offsets[static_cast<size_t>(to)];
     if (factor.translation_in_from_frame) {
       if (from_offset >= 0) {
-        mark_numeric(row, 3, from_offset, 9);
+        jacobian.template block<3, 3>(row, from_offset) =
+          scale * r_from_w * skew_symmetric(delta_p_w);
+        jacobian.template block<3, 3>(row, from_offset + 6) =
+          -scale * r_from_w;
       }
       if (to_offset >= 0) {
-        mark_numeric(row, 3, to_offset + 6, 3);
+        jacobian.template block<3, 3>(row, to_offset + 6) =
+          scale * r_from_w;
       }
     } else {
       if (from_offset >= 0) {
@@ -1830,11 +1837,24 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       if (!rows_available(row, 3)) {
         return fallback_to_numeric();
       }
+      const Eigen::Quaterniond predicted_delta_q =
+        states[static_cast<size_t>(from)].q_w_i.normalized().inverse() *
+        states[static_cast<size_t>(to)].q_w_i.normalized();
+      const Eigen::Vector3d rotation_residual =
+        SlidingWindowOptimizer::rotation_residual(factor.delta_q_from_to, predicted_delta_q);
+      const double rotation_scale = std::sqrt(
+        factor.rotation_weight *
+        huber_weight(rotation_residual.norm(), factor.rotation_huber_delta_rad));
+      const Eigen::Matrix3d rotation_middle_jacobian =
+        rotation_residual_middle_perturbation_jacobian(
+        factor.delta_q_from_to, predicted_delta_q);
       if (from_offset >= 0) {
-        mark_numeric(row, 3, from_offset, 3);
+        jacobian.template block<3, 3>(row, from_offset) =
+          rotation_scale * rotation_middle_jacobian * (-r_from_w);
       }
       if (to_offset >= 0) {
-        mark_numeric(row, 3, to_offset, 3);
+        jacobian.template block<3, 3>(row, to_offset) =
+          rotation_scale * rotation_middle_jacobian * r_from_w;
       }
       row += 3;
     }

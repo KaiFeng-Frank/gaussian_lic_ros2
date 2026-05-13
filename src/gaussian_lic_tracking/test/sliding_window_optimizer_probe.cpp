@@ -126,11 +126,15 @@ int main()
   if (!relative_summary.converged ||
     relative_summary.relative_translation_factor_count != 1U ||
     relative_summary.relative_translation_factor_cost >= relative_summary.initial_cost ||
+    relative_summary.numeric_jacobian_block_count != 0U ||
+    relative_summary.numeric_jacobian_column_count != 0U ||
     relative_error > 1.0e-8 ||
     relative_rotation_error > 1.0e-8)
   {
     std::cerr << "relative translation/rotation BA factor failed, translation_error="
-              << relative_error << " rotation_error=" << relative_rotation_error << "\n";
+              << relative_error << " rotation_error=" << relative_rotation_error
+              << " numeric_blocks=" << relative_summary.numeric_jacobian_block_count
+              << " numeric_columns=" << relative_summary.numeric_jacobian_column_count << "\n";
     return 1;
   }
 
@@ -175,12 +179,17 @@ int main()
     local_relative_optimized.q_w_i.angularDistance(expected_local_q);
   if (!local_relative_summary.converged ||
     local_relative_summary.relative_translation_factor_count != 1U ||
+    local_relative_summary.numeric_jacobian_block_count != 0U ||
+    local_relative_summary.numeric_jacobian_column_count != 0U ||
     local_relative_error > 1.0e-8 ||
     local_relative_rotation_error > 1.0e-8)
   {
     std::cerr << "local-frame relative BA factor failed, translation_error="
               << local_relative_error << " rotation_error="
-              << local_relative_rotation_error << "\n";
+              << local_relative_rotation_error
+              << " numeric_blocks=" << local_relative_summary.numeric_jacobian_block_count
+              << " numeric_columns=" << local_relative_summary.numeric_jacobian_column_count
+              << "\n";
     return 1;
   }
   std::cout << "sliding_window_optimizer_probe OK\n";
