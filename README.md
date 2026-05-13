@@ -109,7 +109,7 @@ The mapper backend now has the major CUDA/Torch surfaces in tree, but the full p
 - LiDAR scan-to-map angular-velocity priors are wired as a default-off diagnostic on the continuous-time SO(3) derivative. CBD 12 s sweeps confirm the angular factors enter Ceres, but current weights shorten path scale and do not beat the rotation-smoothness plus LiDAR velocity checkpoint.
 - Two-stamp scan-to-scan relative pose priors are now implemented in the continuous-time Ceres backend as default-off relative translation and SO(3) residuals between B-spline query times. Batch and streaming-window probes verify that the factors constrain relative motion without requiring a global anchor. Real CBD 12 s ablations prove the path is live but not yet a parity setting: relative position+orientation priors at weight `0.1` record RMSE `0.144711 m` with path `0.0355/0.9159 m`, and orientation-only records RMSE `0.144454 m` with path `0.0548/0.9159 m`. The remaining blocker is still long-window trajectory-shape and visual/Gaussian-map coupling, not missing relative-pose plumbing.
 - Scan-to-scan target-quality gates now record raw target/prediction ratios and can either use the predicted relative translation or skip translation priors when ICP collapses the target motion. CBD 12 s probes show the gate is useful instrumentation but not the parity fix: ratio `0.5` prediction fallback fires 39 times and raises cumulative target path to `7.92 m`, yet the optimized path remains `0.045/0.914 m`; stronger weights pull path to `0.338 m` and then overdrive it to `2.41 m` without improving RMSE. This keeps the new knobs default-off and points the next sprint at global visual/Gaussian-map constraints rather than scan-to-scan scalar tuning.
-- The continuous-time point-cloud wait queue now covers every pose-dependent factor path, including scan-to-scan priors, Gaussian snapshot anchors, plane-normal factors, voxel-plane extraction, and persistent map constraints. That prevents ROS2 replay/callback timing from silently degrading those constraints into same-scan or stale-pose factors before the B-spline can answer the scan stamp. A 12 s pose-ready probe released all delayed point clouds with zero drops, and the conservative BA default preset now enables LiDAR pose priors plus damped scan-to-scan velocity/angular-velocity priors with soft IMU information (`0.3/0.03`). The matching short CBD probe accepted every solve and reached RMSE `0.096 m`, but path scale is still high (`2.922 m` vs `0.916 m`), so this is a stronger default and timing fix, not full long-window Coco-LIC2 parity.
+- The continuous-time point-cloud wait queue now covers every pose-dependent factor path, including scan-to-scan priors, Gaussian snapshot anchors, plane-normal factors, voxel-plane extraction, and persistent map constraints. That prevents ROS2 replay/callback timing from silently degrading those constraints into same-scan or stale-pose factors before the B-spline can answer the scan stamp. A 12 s pose-ready probe released all delayed point clouds with zero drops. Scan-to-scan velocity/angular-velocity priors are implemented and reproducibly exposed, but they stay opt-in because their best short-window probe (`0.096 m` RMSE) regressed the 60 s default run to `2.062 m` RMSE and `1361%` path drift. The default parity preset therefore keeps LiDAR scan-to-map pose/velocity priors plus SO(3) smoothness active while leaving scan-to-scan as a diagnostic until long-window trajectory shape is stable.
 - TensorRT/SPNet depth completion has a native optional wrapper and a local TensorRT 10.9 FP16 engine benchmark; the generated `.engine` is hardware/runtime-specific and intentionally not checked in.
 - Strict paper reproduction now has the local `CBD_Building_01` bag, ROS1 upstream baseline artifacts, strict CUDA current collection, final-map render-pair extraction, a green mapper-contract/CUDA report, a green CBD native reference trajectory report, and continuous-time tracker producer-chain evidence across every required profile; the latest archived strict `CBD_Building_01` report is green. RMSE-gated continuous-time Coco-LIC2 tracking parity is still the next numerical target.
 
@@ -1142,13 +1142,13 @@ they are diagnostic only: direct scan-to-scan position priors over-scale path
 length, retained-knot soft anchors also over-scale, and unconstrained velocity
 priors do not beat the stable configuration. The current parity script therefore
 uses a conservative default instead of the old all-off smoke preset: LiDAR
-pose-prior factors are enabled, scan-to-scan velocity/angular-velocity priors
-run at `0.05/0.05`, `lidar_scan_to_scan_relative_translation_gain` defaults to
-`0.2`, IMU information defaults to `0.3/0.03`, and rotation smoothness defaults
-to `0.01`. A 12 s CBD probe with these defaults accepted all solves and reached
-RMSE `0.096 m`, but the path remains over-scaled (`2.922 m` vs `0.916 m`), so
-full marginalization/global visual-map coupling is still needed to close the
-strict parity gap.
+pose-prior factors are enabled, LiDAR pose velocity weight remains active,
+IMU information defaults to `0.3/0.03`, and rotation smoothness defaults to
+`0.01`. Scan-to-scan priors remain opt-in diagnostics; enabling damped
+scan-to-scan velocity/angular priors reached `0.096 m` RMSE on a 12 s probe but
+regressed the 60 s default to `2.062 m` RMSE with `1361%` path drift. Full
+marginalization/global visual-map coupling is still needed to close the strict
+parity gap.
 
 See [docs/BASELINE_DATA.md](docs/BASELINE_DATA.md), [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 

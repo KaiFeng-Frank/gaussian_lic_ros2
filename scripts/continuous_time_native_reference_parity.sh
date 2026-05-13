@@ -48,10 +48,10 @@ POINTCLOUD_WAIT_QUEUE_MAX_SIZE="${POINTCLOUD_WAIT_QUEUE_MAX_SIZE:-100}"
 ENABLE_LIDAR_POINT_DESKEW="${ENABLE_LIDAR_POINT_DESKEW:-false}"
 LIDAR_MAX_ABS_POINT_TIME_OFFSET_S="${LIDAR_MAX_ABS_POINT_TIME_OFFSET_S:-0.25}"
 LIDAR_MAX_DESKEW_DELTA_M="${LIDAR_MAX_DESKEW_DELTA_M:-1.0}"
-# Defaults below use the conservative CBD continuous-time BA preset proven by
-# the local parity probe: LiDAR pose priors anchor scan geometry, scan-to-scan
-# velocity/orientation priors keep motion scale observable without amplifying
-# short-window path length, and the IMU residual stays a soft stabilizer.
+# Defaults below keep the long-window CBD tracker on the most stable native
+# continuous-time preset found so far: LiDAR scan-to-map pose/velocity priors
+# anchor scan geometry, SO(3) smoothness stabilizes rotation, and scan-to-scan
+# factors stay opt-in because the short-window gain does not carry to 60 s.
 ENABLE_LIDAR_POSE_PRIOR_FACTOR="${ENABLE_LIDAR_POSE_PRIOR_FACTOR:-true}"
 LIDAR_POSE_PRIOR_POSITION_WEIGHT="${LIDAR_POSE_PRIOR_POSITION_WEIGHT:-5.0}"
 LIDAR_POSE_PRIOR_VELOCITY_WEIGHT="${LIDAR_POSE_PRIOR_VELOCITY_WEIGHT:-1.0}"
@@ -71,7 +71,7 @@ LIDAR_POSE_FACTOR_MAX_CORRECTION_M="${LIDAR_POSE_FACTOR_MAX_CORRECTION_M:-0.25}"
 LIDAR_POSE_FACTOR_MAX_ROTATION_RAD="${LIDAR_POSE_FACTOR_MAX_ROTATION_RAD:-0.08}"
 LIDAR_POSE_FACTOR_ROBUST_KERNEL_M="${LIDAR_POSE_FACTOR_ROBUST_KERNEL_M:-0.15}"
 LIDAR_POSE_FACTOR_ITERATIONS="${LIDAR_POSE_FACTOR_ITERATIONS:-1}"
-ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR="${ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR:-true}"
+ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR="${ENABLE_LIDAR_SCAN_TO_SCAN_PRIOR:-false}"
 LIDAR_SCAN_TO_SCAN_POSITION_WEIGHT="${LIDAR_SCAN_TO_SCAN_POSITION_WEIGHT:-0.0}"
 LIDAR_SCAN_TO_SCAN_VELOCITY_WEIGHT="${LIDAR_SCAN_TO_SCAN_VELOCITY_WEIGHT:-0.05}"
 LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT="${LIDAR_SCAN_TO_SCAN_ANGULAR_VELOCITY_WEIGHT:-0.05}"
