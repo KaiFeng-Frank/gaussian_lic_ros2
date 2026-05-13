@@ -172,6 +172,10 @@ def generate_launch_description():
     gaussian_snapshot_qos_depth = LaunchConfiguration("gaussian_snapshot_qos_depth")
     gaussian_snapshot_lidar_factor_weight = LaunchConfiguration("gaussian_snapshot_lidar_factor_weight")
     gaussian_snapshot_lidar_min_opacity = LaunchConfiguration("gaussian_snapshot_lidar_min_opacity")
+    tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
+    tracking_step_guard_acceleration_mps2 = LaunchConfiguration("tracking_step_guard_acceleration_mps2")
+    tracking_step_guard_max_velocity_mps = LaunchConfiguration("tracking_step_guard_max_velocity_mps")
+    tracking_step_guard_margin_m = LaunchConfiguration("tracking_step_guard_margin_m")
     lidar_time_field = LaunchConfiguration("lidar_time_field")
     lidar_time_unit = LaunchConfiguration("lidar_time_unit")
     lidar_time_mode = LaunchConfiguration("lidar_time_mode")
@@ -261,6 +265,10 @@ def generate_launch_description():
             DeclareLaunchArgument("se3_photometric_max_abs_residual", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("tracking_max_pose_step_m", default_value="0.25"),
+            DeclareLaunchArgument("tracking_step_guard_velocity_scale", default_value="0.0"),
+            DeclareLaunchArgument("tracking_step_guard_acceleration_mps2", default_value="0.0"),
+            DeclareLaunchArgument("tracking_step_guard_max_velocity_mps", default_value="0.0"),
+            DeclareLaunchArgument("tracking_step_guard_margin_m", default_value="0.0"),
             DeclareLaunchArgument("trajectory_control_interval_ns", default_value="50000000"),
             DeclareLaunchArgument("enable_sliding_window_optimizer", default_value="true"),
             DeclareLaunchArgument("sliding_window_max_states", default_value="12"),
@@ -389,6 +397,10 @@ def generate_launch_description():
                         "se3_photometric_max_abs_residual": se3_photometric_max_abs_residual,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "tracking_max_pose_step_m": tracking_max_pose_step_m,
+                        "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
+                        "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
+                        "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,
+                        "tracking_step_guard_margin_m": tracking_step_guard_margin_m,
                         "trajectory_control_interval_ns": trajectory_control_interval_ns,
                         "enable_sliding_window_optimizer": enable_sliding_window_optimizer,
                         "sliding_window_max_states": sliding_window_max_states,

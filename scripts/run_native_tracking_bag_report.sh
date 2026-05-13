@@ -34,6 +34,10 @@ POINTCLOUD_IMU_WAIT_QUEUE_SIZE=512
 IMU_HISTORY_SIZE=12000
 IMU_LINEAR_ACCELERATION_SCALE=9.80665
 TRACKING_MAX_POSE_STEP_M=0.25
+TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
+TRACKING_STEP_GUARD_ACCELERATION_MPS2=0.0
+TRACKING_STEP_GUARD_MAX_VELOCITY_MPS=0.0
+TRACKING_STEP_GUARD_MARGIN_M=0.0
 LIDAR_TO_IMU_TRANSLATION_M="[0.04165, 0.02326, -0.0284]"
 LIDAR_TO_IMU_RPY_RAD="[0.0, 0.0, 0.0]"
 CAMERA_TO_IMU_TRANSLATION_M="[0.0673699, 0.0412418, 0.0764217]"
@@ -158,6 +162,14 @@ Options:
   --imu-linear-acceleration-scale S
                                Scale applied to incoming IMU linear_acceleration before propagation. Default: 9.80665 for FAST-LIVO/FAST-LIVO2 normalized-g bags; use 1.0 for SI m/s^2 bags.
   --tracking-max-pose-step-m M Max accepted native tracking pose step per point-cloud frame. Default: 0.25.
+  --tracking-step-guard-velocity-scale S
+                               Optional speed-scaled adaptive pose-step allowance. Default: 0.0 disabled.
+  --tracking-step-guard-acceleration-mps2 A
+                               Optional acceleration ramp for adaptive pose-step allowance. Default: 0.0 disabled.
+  --tracking-step-guard-max-velocity-mps V
+                               Optional hard velocity cap for adaptive pose-step allowance. Default: 0.0 disabled.
+  --tracking-step-guard-margin-m M
+                               Extra adaptive pose-step allowance margin. Default: 0.0.
   --require-deskew             Require nonzero trajectory deskew queries and hits in the report.
   --lidar-to-imu-translation V  YAML vector for LiDAR->IMU translation. Default: FAST-LIVO2.
   --lidar-to-imu-rpy V          YAML vector for LiDAR->IMU RPY radians. Default: FAST-LIVO2 identity.
@@ -388,6 +400,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tracking-max-pose-step-m)
       TRACKING_MAX_POSE_STEP_M="$2"
+      shift 2
+      ;;
+    --tracking-step-guard-velocity-scale)
+      TRACKING_STEP_GUARD_VELOCITY_SCALE="$2"
+      shift 2
+      ;;
+    --tracking-step-guard-acceleration-mps2)
+      TRACKING_STEP_GUARD_ACCELERATION_MPS2="$2"
+      shift 2
+      ;;
+    --tracking-step-guard-max-velocity-mps)
+      TRACKING_STEP_GUARD_MAX_VELOCITY_MPS="$2"
+      shift 2
+      ;;
+    --tracking-step-guard-margin-m)
+      TRACKING_STEP_GUARD_MARGIN_M="$2"
       shift 2
       ;;
     --require-deskew)
@@ -787,6 +815,10 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   gaussian_snapshot_qos_depth:="${GAUSSIAN_SNAPSHOT_QOS_DEPTH}" \
   gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
   tracking_max_pose_step_m:="${TRACKING_MAX_POSE_STEP_M}" \
+  tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
+  tracking_step_guard_acceleration_mps2:="${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" \
+  tracking_step_guard_max_velocity_mps:="${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
+  tracking_step_guard_margin_m:="${TRACKING_STEP_GUARD_MARGIN_M}" \
   lidar_min_points:="${LIDAR_MIN_POINTS}" \
   lidar_keyframe_translation_m:="${LIDAR_KEYFRAME_TRANSLATION_M}" \
   lidar_to_imu_translation_m:="${LIDAR_TO_IMU_TRANSLATION_M}" \
@@ -933,6 +965,9 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS}" \
+  "${TRACKING_MAX_POSE_STEP_M}" "${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
+  "${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" "${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
+  "${TRACKING_STEP_GUARD_MARGIN_M}" \
   "${REFERENCE_TUM_PATH}" "${REFERENCE_TRAJECTORY_ALIGN}" \
   "${REFERENCE_MAX_ASSOCIATION_DT}" "${REFERENCE_MIN_COVERAGE}" \
   "${REFERENCE_MAX_RMSE_M}" "${REFERENCE_MAX_MEAN_M}" \
@@ -978,14 +1013,19 @@ sliding_window_optimize_every_n_frames = int(sys.argv[33])
 sliding_window_max_feedback_translation_m = float(sys.argv[34])
 sliding_window_max_feedback_rotation_rad = float(sys.argv[35])
 sliding_window_max_feedback_velocity_mps = float(sys.argv[36])
-reference_tum_path = Path(sys.argv[37]) if sys.argv[37] else None
-reference_trajectory_align = sys.argv[38]
-reference_max_association_dt = float(sys.argv[39])
-reference_min_coverage = float(sys.argv[40])
-reference_max_rmse_m = float(sys.argv[41])
-reference_max_mean_m = float(sys.argv[42])
-reference_max_error_m = float(sys.argv[43])
-reference_max_path_drift = float(sys.argv[44])
+tracking_max_pose_step_m = float(sys.argv[37])
+tracking_step_guard_velocity_scale = float(sys.argv[38])
+tracking_step_guard_acceleration_mps2 = float(sys.argv[39])
+tracking_step_guard_max_velocity_mps = float(sys.argv[40])
+tracking_step_guard_margin_m = float(sys.argv[41])
+reference_tum_path = Path(sys.argv[42]) if sys.argv[42] else None
+reference_trajectory_align = sys.argv[43]
+reference_max_association_dt = float(sys.argv[44])
+reference_min_coverage = float(sys.argv[45])
+reference_max_rmse_m = float(sys.argv[46])
+reference_max_mean_m = float(sys.argv[47])
+reference_max_error_m = float(sys.argv[48])
+reference_max_path_drift = float(sys.argv[49])
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
@@ -1239,6 +1279,11 @@ report = {
         "sliding_window_max_feedback_translation_m": sliding_window_max_feedback_translation_m,
         "sliding_window_max_feedback_rotation_rad": sliding_window_max_feedback_rotation_rad,
         "sliding_window_max_feedback_velocity_mps": sliding_window_max_feedback_velocity_mps,
+        "tracking_max_pose_step_m": tracking_max_pose_step_m,
+        "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
+        "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
+        "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,
+        "tracking_step_guard_margin_m": tracking_step_guard_margin_m,
     },
     "metrics": metrics,
 }

@@ -305,6 +305,18 @@ public:
     tracking_max_pose_step_m_ = finite_nonnegative_parameter(
       "tracking_max_pose_step_m",
       declare_parameter<double>("tracking_max_pose_step_m", 0.25));
+    tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
+      "tracking_step_guard_velocity_scale",
+      declare_parameter<double>("tracking_step_guard_velocity_scale", 0.0));
+    tracking_step_guard_acceleration_mps2_ = finite_nonnegative_parameter(
+      "tracking_step_guard_acceleration_mps2",
+      declare_parameter<double>("tracking_step_guard_acceleration_mps2", 0.0));
+    tracking_step_guard_max_velocity_mps_ = finite_nonnegative_parameter(
+      "tracking_step_guard_max_velocity_mps",
+      declare_parameter<double>("tracking_step_guard_max_velocity_mps", 0.0));
+    tracking_step_guard_margin_m_ = finite_nonnegative_parameter(
+      "tracking_step_guard_margin_m",
+      declare_parameter<double>("tracking_step_guard_margin_m", 0.0));
     trajectory_control_interval_ns_ = integer_parameter_at_least(
       "trajectory_control_interval_ns",
       declare_parameter<int64_t>("trajectory_control_interval_ns", 50000000LL), 1LL);
@@ -3106,13 +3118,45 @@ private:
     }
     Eigen::Vector3d delta = pose.p_w_i - previous.p_w_i;
     const double step_m = delta.norm();
-    if (!std::isfinite(step_m) || step_m <= tracking_max_pose_step_m_) {
-      return false;
-    }
-    delta *= tracking_max_pose_step_m_ / step_m;
-    pose.p_w_i = previous.p_w_i + delta;
     const double dt_s = static_cast<double>(pose.stamp_ns - previous.stamp_ns) /
       static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond);
+    double allowed_step_m = tracking_max_pose_step_m_;
+    double previous_speed_mps = previous.v_w_i.norm();
+    if (!std::isfinite(previous_speed_mps)) {
+      previous_speed_mps = 0.0;
+    }
+    double reference_speed_mps = std::max(previous_speed_mps, pose.v_w_i.norm());
+    if (!std::isfinite(reference_speed_mps)) {
+      reference_speed_mps = 0.0;
+    }
+    if (dt_s > 1.0e-9) {
+      if (tracking_step_guard_velocity_scale_ > 0.0) {
+        allowed_step_m = std::max(
+          allowed_step_m,
+          tracking_step_guard_velocity_scale_ * reference_speed_mps * dt_s +
+          tracking_step_guard_margin_m_);
+      }
+      if (tracking_step_guard_acceleration_mps2_ > 0.0) {
+        allowed_step_m = std::max(
+          allowed_step_m,
+          (previous_speed_mps + tracking_step_guard_acceleration_mps2_ * dt_s) * dt_s +
+          tracking_step_guard_margin_m_);
+      }
+      if (tracking_step_guard_max_velocity_mps_ > 0.0) {
+        const double hard_velocity_step_m =
+          tracking_step_guard_max_velocity_mps_ * dt_s + tracking_step_guard_margin_m_;
+        allowed_step_m = std::min(allowed_step_m, std::max(tracking_max_pose_step_m_, hard_velocity_step_m));
+      }
+    }
+    last_tracking_step_guard_raw_step_m_ = step_m;
+    last_tracking_step_guard_allowed_step_m_ = allowed_step_m;
+    last_tracking_step_guard_dt_s_ = dt_s;
+    last_tracking_step_guard_reference_speed_mps_ = reference_speed_mps;
+    if (!std::isfinite(step_m) || !std::isfinite(allowed_step_m) || step_m <= allowed_step_m) {
+      return false;
+    }
+    delta *= allowed_step_m / step_m;
+    pose.p_w_i = previous.p_w_i + delta;
     if (dt_s > 1.0e-9) {
       pose.v_w_i = delta / dt_s;
       clamp_vector_norm(pose.v_w_i, sliding_window_max_feedback_velocity_norm_mps_);
@@ -3124,7 +3168,7 @@ private:
       get_logger(), *get_clock(), 2000,
       "tracking step guard clamped pose step %.3fm to %.3fm at %" PRId64,
       step_m,
-      tracking_max_pose_step_m_,
+      allowed_step_m,
       pose.stamp_ns);
     if (rebase_imu && imu_propagator_.initialized()) {
       gaussian_lic_tracking::ImuState corrected_state;
@@ -3371,6 +3415,12 @@ private:
     status.trajectory_deskew_queries = trajectory_deskew_queries_;
     status.trajectory_deskew_hits = trajectory_deskew_hits_;
     status.trajectory_control_pose_skip_count = trajectory_control_pose_skip_count_;
+    status.tracking_step_guard_clamps = tracking_step_guard_clamp_count_;
+    status.tracking_step_guard_last_raw_step_m = last_tracking_step_guard_raw_step_m_;
+    status.tracking_step_guard_last_allowed_step_m = last_tracking_step_guard_allowed_step_m_;
+    status.tracking_step_guard_last_dt_s = last_tracking_step_guard_dt_s_;
+    status.tracking_step_guard_last_reference_speed_mps =
+      last_tracking_step_guard_reference_speed_mps_;
 
     status.gaussian_snapshot_points = static_cast<uint64_t>(gaussian_snapshot_.point_count());
     status.gaussian_snapshot_expected_total = last_gaussian_total_count_;
@@ -3593,6 +3643,10 @@ private:
   double lidar_max_abs_point_time_offset_s_{0.25};
   int imu_history_size_{12000};
   double tracking_max_pose_step_m_{0.25};
+  double tracking_step_guard_velocity_scale_{0.0};
+  double tracking_step_guard_acceleration_mps2_{0.0};
+  double tracking_step_guard_max_velocity_mps_{0.0};
+  double tracking_step_guard_margin_m_{0.0};
   bool enable_imu_gravity_autocalibration_{true};
   int imu_gravity_autocalibration_samples_{50};
   double imu_gravity_magnitude_m_s2_{9.80665};
@@ -3711,6 +3765,10 @@ private:
   uint64_t trajectory_deskew_hits_{0};
   uint64_t trajectory_control_pose_skip_count_{0};
   uint64_t tracking_step_guard_clamp_count_{0};
+  double last_tracking_step_guard_raw_step_m_{0.0};
+  double last_tracking_step_guard_allowed_step_m_{0.0};
+  double last_tracking_step_guard_dt_s_{0.0};
+  double last_tracking_step_guard_reference_speed_mps_{0.0};
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   std::optional<gaussian_lic_tracking::TrajectoryPose> last_output_tracking_pose_;
