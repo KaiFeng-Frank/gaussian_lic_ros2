@@ -35,6 +35,10 @@ POINTCLOUD_IMU_WAIT_QUEUE_SIZE=512
 IMU_HISTORY_SIZE=12000
 IMU_LINEAR_ACCELERATION_SCALE=9.80665
 TRACKING_MAX_POSE_STEP_M=0.25
+ENABLE_PRE_LIO_TRACKING_STEP_GUARD=true
+ENABLE_POST_BA_TRACKING_STEP_GUARD=true
+PRE_LIO_TRACKING_MAX_POSE_STEP_M=0.0
+POST_BA_TRACKING_MAX_POSE_STEP_M=0.0
 TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
 TRACKING_STEP_GUARD_ACCELERATION_MPS2=0.0
 TRACKING_STEP_GUARD_MAX_VELOCITY_MPS=0.0
@@ -186,6 +190,14 @@ Options:
   --imu-linear-acceleration-scale S
                                Scale applied to incoming IMU linear_acceleration before propagation. Default: 9.80665 for FAST-LIVO/FAST-LIVO2 normalized-g bags; use 1.0 for SI m/s^2 bags.
   --tracking-max-pose-step-m M Max accepted native tracking pose step per point-cloud frame. Default: 0.25.
+  --disable-pre-lio-step-guard
+                               Skip the pre-LIO pose-step clamp while keeping the post-BA guard available.
+  --disable-post-ba-step-guard
+                               Skip the final post-BA pose-step clamp. Use only for diagnostics.
+  --pre-lio-tracking-max-pose-step-m M
+                               Override only the pre-LIO step guard limit. Default: 0.0, use --tracking-max-pose-step-m.
+  --post-ba-tracking-max-pose-step-m M
+                               Override only the post-BA step guard limit. Default: 0.0, use --tracking-max-pose-step-m.
   --tracking-step-guard-velocity-scale S
                                Optional speed-scaled adaptive pose-step allowance. Default: 0.0 disabled.
   --tracking-step-guard-acceleration-mps2 A
@@ -470,6 +482,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tracking-step-guard-margin-m)
       TRACKING_STEP_GUARD_MARGIN_M="$2"
+      shift 2
+      ;;
+    --disable-pre-lio-step-guard)
+      ENABLE_PRE_LIO_TRACKING_STEP_GUARD=false
+      shift
+      ;;
+    --disable-post-ba-step-guard)
+      ENABLE_POST_BA_TRACKING_STEP_GUARD=false
+      shift
+      ;;
+    --pre-lio-tracking-max-pose-step-m)
+      PRE_LIO_TRACKING_MAX_POSE_STEP_M="$2"
+      shift 2
+      ;;
+    --post-ba-tracking-max-pose-step-m)
+      POST_BA_TRACKING_MAX_POSE_STEP_M="$2"
       shift 2
       ;;
     --require-deskew)
@@ -971,6 +999,10 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   gaussian_snapshot_lidar_plane_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
   gaussian_snapshot_lidar_plane_min_anisotropy:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
   tracking_max_pose_step_m:="${TRACKING_MAX_POSE_STEP_M}" \
+  enable_pre_lio_tracking_step_guard:="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
+  enable_post_ba_tracking_step_guard:="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
+  pre_lio_tracking_max_pose_step_m:="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
+  post_ba_tracking_max_pose_step_m:="${POST_BA_TRACKING_MAX_POSE_STEP_M}" \
   tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   tracking_step_guard_acceleration_mps2:="${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" \
   tracking_step_guard_max_velocity_mps:="${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
@@ -1124,6 +1156,10 @@ GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PL
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
 LIDAR_POSE_FACTOR_ITERATIONS_REPORT="${LIDAR_POSE_FACTOR_ITERATIONS}" \
+ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
+ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
+PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
+POST_BA_TRACKING_MAX_POSE_STEP_M_REPORT="${POST_BA_TRACKING_MAX_POSE_STEP_M}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1224,6 +1260,14 @@ gaussian_snapshot_lidar_plane_min_anisotropy = float(
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT"]
 )
 lidar_pose_factor_iterations = int(os.environ["LIDAR_POSE_FACTOR_ITERATIONS_REPORT"])
+enable_pre_lio_tracking_step_guard = (
+    os.environ["ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT"].lower() == "true"
+)
+enable_post_ba_tracking_step_guard = (
+    os.environ["ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT"].lower() == "true"
+)
+pre_lio_tracking_max_pose_step_m = float(os.environ["PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT"])
+post_ba_tracking_max_pose_step_m = float(os.environ["POST_BA_TRACKING_MAX_POSE_STEP_M_REPORT"])
 tracking_max_pose_step_m = float(sys.argv[44])
 tracking_step_guard_velocity_scale = float(sys.argv[45])
 tracking_step_guard_acceleration_mps2 = float(sys.argv[46])
@@ -1539,6 +1583,10 @@ report = {
         "sliding_window_max_feedback_rotation_rad": sliding_window_max_feedback_rotation_rad,
         "sliding_window_max_feedback_velocity_mps": sliding_window_max_feedback_velocity_mps,
         "tracking_max_pose_step_m": tracking_max_pose_step_m,
+        "enable_pre_lio_tracking_step_guard": enable_pre_lio_tracking_step_guard,
+        "enable_post_ba_tracking_step_guard": enable_post_ba_tracking_step_guard,
+        "pre_lio_tracking_max_pose_step_m": pre_lio_tracking_max_pose_step_m,
+        "post_ba_tracking_max_pose_step_m": post_ba_tracking_max_pose_step_m,
         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
         "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,

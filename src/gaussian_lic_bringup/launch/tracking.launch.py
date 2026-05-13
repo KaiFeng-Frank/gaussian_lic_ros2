@@ -182,6 +182,10 @@ def generate_launch_description():
     gaussian_snapshot_lidar_plane_min_anisotropy = LaunchConfiguration(
         "gaussian_snapshot_lidar_plane_min_anisotropy"
     )
+    enable_pre_lio_tracking_step_guard = LaunchConfiguration("enable_pre_lio_tracking_step_guard")
+    enable_post_ba_tracking_step_guard = LaunchConfiguration("enable_post_ba_tracking_step_guard")
+    pre_lio_tracking_max_pose_step_m = LaunchConfiguration("pre_lio_tracking_max_pose_step_m")
+    post_ba_tracking_max_pose_step_m = LaunchConfiguration("post_ba_tracking_max_pose_step_m")
     tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
     tracking_step_guard_acceleration_mps2 = LaunchConfiguration("tracking_step_guard_acceleration_mps2")
     tracking_step_guard_max_velocity_mps = LaunchConfiguration("tracking_step_guard_max_velocity_mps")
@@ -276,6 +280,10 @@ def generate_launch_description():
             DeclareLaunchArgument("se3_photometric_max_abs_residual", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
             DeclareLaunchArgument("tracking_max_pose_step_m", default_value="0.25"),
+            DeclareLaunchArgument("enable_pre_lio_tracking_step_guard", default_value="true"),
+            DeclareLaunchArgument("enable_post_ba_tracking_step_guard", default_value="true"),
+            DeclareLaunchArgument("pre_lio_tracking_max_pose_step_m", default_value="0.0"),
+            DeclareLaunchArgument("post_ba_tracking_max_pose_step_m", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_velocity_scale", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_acceleration_mps2", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_max_velocity_mps", default_value="0.0"),
@@ -412,6 +420,10 @@ def generate_launch_description():
                         "se3_photometric_max_abs_residual": se3_photometric_max_abs_residual,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
                         "tracking_max_pose_step_m": tracking_max_pose_step_m,
+                        "enable_pre_lio_tracking_step_guard": enable_pre_lio_tracking_step_guard,
+                        "enable_post_ba_tracking_step_guard": enable_post_ba_tracking_step_guard,
+                        "pre_lio_tracking_max_pose_step_m": pre_lio_tracking_max_pose_step_m,
+                        "post_ba_tracking_max_pose_step_m": post_ba_tracking_max_pose_step_m,
                         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
                         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
                         "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,

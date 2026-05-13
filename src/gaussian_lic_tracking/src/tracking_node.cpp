@@ -71,6 +71,12 @@ double min_or_zero(const size_t count, const double minimum)
 
 class TrackingNode final : public rclcpp::Node
 {
+  enum class StepGuardStage
+  {
+    kPreLio,
+    kPostBa,
+  };
+
 public:
   explicit TrackingNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
   : Node("tracking_node", options)
@@ -308,6 +314,16 @@ public:
     tracking_max_pose_step_m_ = finite_nonnegative_parameter(
       "tracking_max_pose_step_m",
       declare_parameter<double>("tracking_max_pose_step_m", 0.25));
+    enable_pre_lio_tracking_step_guard_ =
+      declare_parameter<bool>("enable_pre_lio_tracking_step_guard", true);
+    enable_post_ba_tracking_step_guard_ =
+      declare_parameter<bool>("enable_post_ba_tracking_step_guard", true);
+    pre_lio_tracking_max_pose_step_m_ = finite_nonnegative_parameter(
+      "pre_lio_tracking_max_pose_step_m",
+      declare_parameter<double>("pre_lio_tracking_max_pose_step_m", 0.0));
+    post_ba_tracking_max_pose_step_m_ = finite_nonnegative_parameter(
+      "post_ba_tracking_max_pose_step_m",
+      declare_parameter<double>("post_ba_tracking_max_pose_step_m", 0.0));
     tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
       "tracking_step_guard_velocity_scale",
       declare_parameter<double>("tracking_step_guard_velocity_scale", 0.0));
@@ -1414,7 +1430,9 @@ private:
       tracking_pose.q_w_i = state.q_w_i;
       tracking_pose.v_w_i = state.v_w_i;
     }
-    apply_tracking_step_guard(tracking_pose, true);
+    if (enable_pre_lio_tracking_step_guard_) {
+      apply_tracking_step_guard(tracking_pose, true, StepGuardStage::kPreLio);
+    }
 
     sensor_msgs::msg::PointCloud2 output_cloud = msg;
     std::vector<Eigen::Vector3d> lidar_points;
@@ -1625,7 +1643,9 @@ private:
         visual_window_factors,
         se3_photometric_factors);
     }
-    apply_tracking_step_guard(tracking_pose, true);
+    if (enable_post_ba_tracking_step_guard_) {
+      apply_tracking_step_guard(tracking_pose, true, StepGuardStage::kPostBa);
+    }
     append_trajectory_control_pose(tracking_pose);
 
     geometry_msgs::msg::PoseStamped pose;
@@ -3141,7 +3161,8 @@ private:
 
   bool apply_tracking_step_guard(
     gaussian_lic_tracking::TrajectoryPose & pose,
-    const bool rebase_imu)
+    const bool rebase_imu,
+    const StepGuardStage stage)
   {
     if (!last_output_tracking_pose_.has_value() || tracking_max_pose_step_m_ <= 0.0) {
       return false;
@@ -3155,6 +3176,12 @@ private:
     const double dt_s = static_cast<double>(pose.stamp_ns - previous.stamp_ns) /
       static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond);
     double allowed_step_m = tracking_max_pose_step_m_;
+    if (stage == StepGuardStage::kPreLio && pre_lio_tracking_max_pose_step_m_ > 0.0) {
+      allowed_step_m = pre_lio_tracking_max_pose_step_m_;
+    } else if (stage == StepGuardStage::kPostBa && post_ba_tracking_max_pose_step_m_ > 0.0) {
+      allowed_step_m = post_ba_tracking_max_pose_step_m_;
+    }
+    const double stage_base_step_m = allowed_step_m;
     double previous_speed_mps = previous.v_w_i.norm();
     if (!std::isfinite(previous_speed_mps)) {
       previous_speed_mps = 0.0;
@@ -3179,7 +3206,9 @@ private:
       if (tracking_step_guard_max_velocity_mps_ > 0.0) {
         const double hard_velocity_step_m =
           tracking_step_guard_max_velocity_mps_ * dt_s + tracking_step_guard_margin_m_;
-        allowed_step_m = std::min(allowed_step_m, std::max(tracking_max_pose_step_m_, hard_velocity_step_m));
+        allowed_step_m = std::min(
+          allowed_step_m,
+          std::max(stage_base_step_m, hard_velocity_step_m));
       }
     }
     last_tracking_step_guard_raw_step_m_ = step_m;
@@ -3198,9 +3227,15 @@ private:
       pose.v_w_i = previous.v_w_i;
     }
     ++tracking_step_guard_clamp_count_;
+    if (stage == StepGuardStage::kPreLio) {
+      ++tracking_step_guard_pre_lio_clamp_count_;
+    } else {
+      ++tracking_step_guard_post_ba_clamp_count_;
+    }
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 2000,
-      "tracking step guard clamped pose step %.3fm to %.3fm at %" PRId64,
+      "tracking %s step guard clamped pose step %.3fm to %.3fm at %" PRId64,
+      stage == StepGuardStage::kPreLio ? "pre-LIO" : "post-BA",
       step_m,
       allowed_step_m,
       pose.stamp_ns);
@@ -3450,6 +3485,8 @@ private:
     status.trajectory_deskew_hits = trajectory_deskew_hits_;
     status.trajectory_control_pose_skip_count = trajectory_control_pose_skip_count_;
     status.tracking_step_guard_clamps = tracking_step_guard_clamp_count_;
+    status.tracking_step_guard_pre_lio_clamps = tracking_step_guard_pre_lio_clamp_count_;
+    status.tracking_step_guard_post_ba_clamps = tracking_step_guard_post_ba_clamp_count_;
     status.tracking_step_guard_last_raw_step_m = last_tracking_step_guard_raw_step_m_;
     status.tracking_step_guard_last_allowed_step_m = last_tracking_step_guard_allowed_step_m_;
     status.tracking_step_guard_last_dt_s = last_tracking_step_guard_dt_s_;
@@ -3678,6 +3715,10 @@ private:
   double lidar_max_abs_point_time_offset_s_{0.25};
   int imu_history_size_{12000};
   double tracking_max_pose_step_m_{0.25};
+  bool enable_pre_lio_tracking_step_guard_{true};
+  bool enable_post_ba_tracking_step_guard_{true};
+  double pre_lio_tracking_max_pose_step_m_{0.0};
+  double post_ba_tracking_max_pose_step_m_{0.0};
   double tracking_step_guard_velocity_scale_{0.0};
   double tracking_step_guard_acceleration_mps2_{0.0};
   double tracking_step_guard_max_velocity_mps_{0.0};
@@ -3803,6 +3844,8 @@ private:
   uint64_t trajectory_deskew_hits_{0};
   uint64_t trajectory_control_pose_skip_count_{0};
   uint64_t tracking_step_guard_clamp_count_{0};
+  uint64_t tracking_step_guard_pre_lio_clamp_count_{0};
+  uint64_t tracking_step_guard_post_ba_clamp_count_{0};
   double last_tracking_step_guard_raw_step_m_{0.0};
   double last_tracking_step_guard_allowed_step_m_{0.0};
   double last_tracking_step_guard_dt_s_{0.0};
