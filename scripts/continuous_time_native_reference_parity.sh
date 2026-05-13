@@ -23,6 +23,7 @@ PRIOR_TUM="${PRIOR_TUM:-}"
 # can seed its initial pose from ground truth. Leave empty for identity
 # / gravity-autocal seeding.
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
+PLAYBACK_DURATION_SOURCE="${PLAYBACK_DURATION}"
 PLAYBACK_RATE="${PLAYBACK_RATE:-1.0}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
 NODE_READY_TIMEOUT_SEC="${NODE_READY_TIMEOUT_SEC:-15}"
@@ -214,6 +215,47 @@ TIME_OFFSET_SWEEP_MIN="${TIME_OFFSET_SWEEP_MIN:--12.0}"
 TIME_OFFSET_SWEEP_MAX="${TIME_OFFSET_SWEEP_MAX:-12.0}"
 TIME_OFFSET_SWEEP_STEP="${TIME_OFFSET_SWEEP_STEP:-0.1}"
 TIME_OFFSET_SWEEP_MIN_MATCHES="${TIME_OFFSET_SWEEP_MIN_MATCHES:-50}"
+
+resolve_playback_duration_seconds() {
+  local requested="$1"
+  case "${requested}" in
+    full|auto|metadata)
+      local metadata="${BAG_DIR}/metadata.yaml"
+      if [ ! -f "${metadata}" ]; then
+        echo "continuous_time_native_reference_parity FAIL: metadata.yaml missing for PLAYBACK_DURATION=${requested}: ${metadata}" >&2
+        exit 1
+      fi
+      /usr/bin/python3.12 - "${metadata}" <<'PY'
+import math
+import re
+import sys
+
+metadata_path = sys.argv[1]
+text = open(metadata_path, "r", encoding="utf-8").read()
+match = re.search(r"duration:\s*\n\s*nanoseconds:\s*([0-9]+)", text)
+if not match:
+    raise SystemExit(f"could not find rosbag2 duration nanoseconds in {metadata_path}")
+duration_s = int(match.group(1)) * 1.0e-9
+if not math.isfinite(duration_s) or duration_s <= 0.0:
+    raise SystemExit(f"invalid rosbag2 duration {duration_s!r} in {metadata_path}")
+print(f"{duration_s:.9f}")
+PY
+      ;;
+    *)
+      /usr/bin/python3.12 - "${requested}" <<'PY'
+import math
+import sys
+
+value = float(sys.argv[1])
+if not math.isfinite(value) or value <= 0.0:
+    raise SystemExit("PLAYBACK_DURATION must be positive seconds, or one of: full, auto, metadata")
+print(f"{value:.9f}")
+PY
+      ;;
+  esac
+}
+
+PLAYBACK_DURATION="$(resolve_playback_duration_seconds "${PLAYBACK_DURATION}")"
 
 source "${SOURCE_SETUP}"
 source "${WORKSPACE}/install/setup.bash"
@@ -605,6 +647,7 @@ native = {
     "ok": (tum_lines > 0 and finite_positions > 0),
     "schema": "gaussian_lic_continuous_time_native_tracking_report/v1",
     "bag": "${BAG_DIR##*/}",
+    "playback_duration_source": "${PLAYBACK_DURATION_SOURCE}",
     "playback_duration_s": float("${PLAYBACK_DURATION}"),
     "playback_rate": float("${PLAYBACK_RATE}"),
     "capture_wall_duration_s": float("${CAPTURE_WALL_SECS}"),
@@ -775,12 +818,25 @@ native = {
             compare_payload.get("translation", {}).get("rmse_m"),
         "reference_translation_mean_m":
             compare_payload.get("translation", {}).get("mean_m"),
+        "reference_translation_max_m":
+            compare_payload.get("translation", {}).get("max_m"),
+        "reference_path_drift_m":
+            compare_payload.get("path_length", {}).get("absolute_drift_m"),
+        "reference_path_relative_drift":
+            compare_payload.get("path_length", {}).get("relative_drift"),
+        "reference_baseline_path_m":
+            compare_payload.get("path_length", {}).get("baseline_m"),
+        "reference_current_path_m":
+            compare_payload.get("path_length", {}).get("current_m"),
     },
     "trajectory_compare": {
         "ok": compare_ok,
         "report": compare_path,
         "matched_poses": compare_payload.get("matched_poses", 0),
         "coverage": compare_payload.get("coverage", 0.0),
+        "translation": compare_payload.get("translation", {}),
+        "path_length": compare_payload.get("path_length", {}),
+        "time_offset_best": compare_payload.get("time_offset_sweep", {}).get("best"),
     },
     "runtime_diagnostics": runtime_diagnostics,
 }
