@@ -323,12 +323,22 @@ public:
     enable_sliding_window_optimizer_ = declare_parameter<bool>("enable_sliding_window_optimizer", true);
     enable_gaussian_snapshot_lidar_factor_ =
       declare_parameter<bool>("enable_gaussian_snapshot_lidar_factor", true);
+    enable_gaussian_snapshot_lidar_plane_factor_ =
+      declare_parameter<bool>("enable_gaussian_snapshot_lidar_plane_factor", false);
     gaussian_snapshot_lidar_min_opacity_ = finite_nonnegative_parameter(
       "gaussian_snapshot_lidar_min_opacity",
       declare_parameter<double>("gaussian_snapshot_lidar_min_opacity", 0.01));
     gaussian_snapshot_lidar_factor_weight_ = finite_positive_parameter(
       "gaussian_snapshot_lidar_factor_weight",
       declare_parameter<double>("gaussian_snapshot_lidar_factor_weight", 1.0));
+    gaussian_snapshot_lidar_plane_factor_weight_ = finite_positive_parameter(
+      "gaussian_snapshot_lidar_plane_factor_weight",
+      declare_parameter<double>("gaussian_snapshot_lidar_plane_factor_weight", 1.0));
+    gaussian_snapshot_lidar_plane_min_anisotropy_ = finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_plane_min_anisotropy",
+      declare_parameter<double>("gaussian_snapshot_lidar_plane_min_anisotropy", 0.25));
+    gaussian_snapshot_lidar_plane_min_anisotropy_ =
+      std::min(gaussian_snapshot_lidar_plane_min_anisotropy_, 1.0);
     sliding_window_max_states_ = integer_parameter_at_least(
       "sliding_window_max_states",
       declare_parameter<int>("sliding_window_max_states", 12), 2);
@@ -1486,6 +1496,26 @@ private:
               window_point_weight_sum,
               window_point_weight_min);
             window_point_factors.push_back(std::move(gaussian_window_factor));
+          }
+        }
+        if (enable_gaussian_snapshot_lidar_plane_factor_ && gaussian_snapshot_.complete()) {
+          auto gaussian_plane_factor = gaussian_snapshot_.build_point_to_plane_factor(
+            lidar_points,
+            tracking_pose,
+            static_cast<size_t>(lidar_min_points_),
+            static_cast<size_t>(lidar_max_frame_points_),
+            lidar_nearest_distance_m_,
+            gaussian_snapshot_lidar_min_opacity_,
+            gaussian_snapshot_lidar_plane_min_anisotropy_);
+          if (!gaussian_plane_factor.frame_points_i.empty()) {
+            gaussian_plane_factor.weight *= gaussian_snapshot_lidar_plane_factor_weight_;
+            window_plane_correspondences += gaussian_plane_factor.frame_points_i.size();
+            accumulate_correspondence_weights(
+              gaussian_plane_factor.point_weights,
+              window_plane_weight_count,
+              window_plane_weight_sum,
+              window_plane_weight_min);
+            window_plane_factors.push_back(std::move(gaussian_plane_factor));
           }
         }
       }
@@ -3636,6 +3666,7 @@ private:
   bool enable_lidar_deskew_{true};
   bool enable_sliding_window_optimizer_{true};
   bool enable_gaussian_snapshot_lidar_factor_{true};
+  bool enable_gaussian_snapshot_lidar_plane_factor_{false};
   std::string lidar_time_field_{"auto"};
   std::string lidar_time_unit_{"auto"};
   std::string lidar_time_mode_{"auto"};
@@ -3674,7 +3705,9 @@ private:
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
   double gaussian_snapshot_lidar_factor_weight_{1.0};
+  double gaussian_snapshot_lidar_plane_factor_weight_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
+  double gaussian_snapshot_lidar_plane_min_anisotropy_{0.25};
   double sliding_window_imu_weight_{1.0};
   double sliding_window_imu_rotation_weight_{1.0};
   double sliding_window_imu_velocity_weight_{1.0};

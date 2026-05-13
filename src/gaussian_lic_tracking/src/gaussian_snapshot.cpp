@@ -11,6 +11,41 @@
 namespace gaussian_lic_tracking
 {
 
+Eigen::Vector3d GaussianSnapshotPoint::normal_w() const
+{
+  if (!scale.allFinite() || !q_w_g.coeffs().allFinite() || q_w_g.norm() <= 1.0e-9) {
+    return Eigen::Vector3d::Zero();
+  }
+  Eigen::Index min_axis = 0;
+  scale.cwiseAbs().minCoeff(&min_axis);
+  Eigen::Vector3d axis = Eigen::Vector3d::UnitX();
+  if (min_axis == 1) {
+    axis = Eigen::Vector3d::UnitY();
+  } else if (min_axis == 2) {
+    axis = Eigen::Vector3d::UnitZ();
+  }
+  Eigen::Vector3d normal = q_w_g.normalized() * axis;
+  const double norm = normal.norm();
+  if (!normal.allFinite() || norm <= 1.0e-9) {
+    return Eigen::Vector3d::Zero();
+  }
+  return normal / norm;
+}
+
+double GaussianSnapshotPoint::normal_anisotropy() const
+{
+  if (!scale.allFinite()) {
+    return 0.0;
+  }
+  const Eigen::Vector3d abs_scale = scale.cwiseAbs();
+  const double max_scale = abs_scale.maxCoeff();
+  const double min_scale = abs_scale.minCoeff();
+  if (!std::isfinite(max_scale) || !std::isfinite(min_scale) || max_scale <= 1.0e-9) {
+    return 0.0;
+  }
+  return std::clamp(1.0 - min_scale / max_scale, 0.0, 1.0);
+}
+
 void GaussianSnapshot::clear()
 {
   stamp_ns_ = 0;
@@ -71,6 +106,16 @@ bool GaussianSnapshot::ingest(const gaussian_lic_msgs::msg::GaussianArray & msg)
       static_cast<double>(gaussian.xyz[0]),
       static_cast<double>(gaussian.xyz[1]),
       static_cast<double>(gaussian.xyz[2])};
+    point.q_w_g = Eigen::Quaterniond{
+      static_cast<double>(gaussian.rotation_xyzw[3]),
+      static_cast<double>(gaussian.rotation_xyzw[0]),
+      static_cast<double>(gaussian.rotation_xyzw[1]),
+      static_cast<double>(gaussian.rotation_xyzw[2])};
+    if (!point.q_w_g.coeffs().allFinite() || point.q_w_g.norm() <= 1.0e-9) {
+      point.q_w_g = Eigen::Quaterniond::Identity();
+    } else {
+      point.q_w_g.normalize();
+    }
     point.scale = Eigen::Vector3d{
       static_cast<double>(gaussian.scale[0]),
       static_cast<double>(gaussian.scale[1]),
@@ -297,6 +342,64 @@ SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
   if (factor.frame_points_i.size() < min_points) {
     factor.frame_points_i.clear();
     factor.target_points_w.clear();
+    factor.point_weights.clear();
+  }
+  return factor;
+}
+
+SlidingWindowPointToPlaneFactor GaussianSnapshot::build_point_to_plane_factor(
+  const std::vector<Eigen::Vector3d> & frame_points_i,
+  const TrajectoryPose & predicted_pose,
+  const size_t min_points,
+  const size_t max_frame_points,
+  const double nearest_distance_m,
+  const double min_opacity,
+  const double min_normal_anisotropy) const
+{
+  SlidingWindowPointToPlaneFactor factor;
+  factor.stamp_ns = predicted_pose.stamp_ns;
+  factor.source_id = 3U;
+  if (!complete() || frame_points_i.size() < min_points || points_.size() < min_points ||
+    nearest_distance_m <= 0.0)
+  {
+    return factor;
+  }
+
+  const size_t stride = max_frame_points > 0U && frame_points_i.size() > max_frame_points
+    ? static_cast<size_t>(std::ceil(static_cast<double>(frame_points_i.size()) / static_cast<double>(max_frame_points)))
+    : 1U;
+  const double max_distance_sq = nearest_distance_m * nearest_distance_m;
+  const double robust_kernel_m = 0.5 * nearest_distance_m;
+  const double anisotropy_threshold = std::clamp(
+    std::isfinite(min_normal_anisotropy) ? min_normal_anisotropy : 0.0, 0.0, 1.0);
+  factor.weight = 1.0 / std::max(max_distance_sq, 1.0e-12);
+  for (size_t point_index = 0; point_index < frame_points_i.size(); point_index += stride) {
+    const auto & point_i = frame_points_i[point_index];
+    const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
+    const auto nearest = find_nearest(point_w, nearest_distance_m, min_opacity, 1);
+    if (!nearest.matched || nearest.distance_sq > max_distance_sq ||
+      nearest.point_index >= points_.size())
+    {
+      continue;
+    }
+    const auto & gaussian = points_[nearest.point_index];
+    const double anisotropy = gaussian.normal_anisotropy();
+    const Eigen::Vector3d normal_w = gaussian.normal_w();
+    if (anisotropy < anisotropy_threshold || !normal_w.allFinite() || normal_w.norm() <= 1.0e-9) {
+      continue;
+    }
+    const double residual_norm = std::sqrt(nearest.distance_sq);
+    factor.frame_points_i.push_back(point_i);
+    factor.target_points_w.push_back(nearest.xyz);
+    factor.target_normals_w.push_back(normal_w);
+    const double robust_weight =
+      std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12));
+    factor.point_weights.push_back(robust_weight * std::clamp(anisotropy, 0.0, 1.0));
+  }
+  if (factor.frame_points_i.size() < min_points) {
+    factor.frame_points_i.clear();
+    factor.target_points_w.clear();
+    factor.target_normals_w.clear();
     factor.point_weights.clear();
   }
   return factor;

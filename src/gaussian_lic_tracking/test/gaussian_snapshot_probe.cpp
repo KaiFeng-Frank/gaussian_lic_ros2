@@ -17,7 +17,8 @@ gaussian_lic_msgs::msg::Gaussian make_gaussian(
   gaussian_lic_msgs::msg::Gaussian gaussian;
   gaussian.id = id;
   gaussian.xyz = {x, y, z};
-  gaussian.scale = {0.1F, 0.1F, 0.1F};
+  gaussian.rotation_xyzw = {0.0F, 0.0F, 0.0F, 1.0F};
+  gaussian.scale = {0.1F, 0.1F, 0.01F};
   gaussian.opacity = opacity;
   gaussian.confidence = 1.0F;
   return gaussian;
@@ -89,6 +90,25 @@ int main()
   for (const double weight : point_factor.point_weights) {
     if (weight <= 0.0 || weight > 1.0) {
       std::cerr << "Gaussian snapshot robust point weight is outside (0, 1]\n";
+      return 1;
+    }
+  }
+  const auto plane_factor = snapshot.build_point_to_plane_factor(
+    frame_points, predicted_pose, 2U, 100U, 0.05, 0.1, 0.5);
+  std::cout << "gaussian_snapshot_plane_factor correspondences="
+            << plane_factor.frame_points_i.size()
+            << " normals=" << plane_factor.target_normals_w.size()
+            << " robust_weights=" << plane_factor.point_weights.size() << "\n";
+  if (plane_factor.frame_points_i.size() != frame_points.size() ||
+    plane_factor.target_normals_w.size() != plane_factor.frame_points_i.size() ||
+    plane_factor.point_weights.size() != plane_factor.frame_points_i.size())
+  {
+    std::cerr << "Gaussian snapshot point-to-plane factor is invalid\n";
+    return 1;
+  }
+  for (const auto & normal : plane_factor.target_normals_w) {
+    if (!normal.allFinite() || std::abs(normal.norm() - 1.0) > 1.0e-6) {
+      std::cerr << "Gaussian snapshot plane normal is invalid\n";
       return 1;
     }
   }

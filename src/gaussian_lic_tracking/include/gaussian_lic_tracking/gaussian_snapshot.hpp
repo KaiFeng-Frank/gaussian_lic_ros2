@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
@@ -20,10 +21,13 @@ struct GaussianSnapshotPoint
 {
   uint32_t id{0};
   Eigen::Vector3d xyz{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_w_g{Eigen::Quaterniond::Identity()};
   Eigen::Vector3d scale{Eigen::Vector3d::Zero()};
   double opacity{0.0};
   double confidence{0.0};
   uint8_t flags{0};
+  Eigen::Vector3d normal_w() const;
+  double normal_anisotropy() const;
 };
 
 struct GaussianSnapshotNearest
@@ -62,6 +66,14 @@ public:
     size_t max_frame_points,
     double nearest_distance_m,
     double min_opacity) const;
+  SlidingWindowPointToPlaneFactor build_point_to_plane_factor(
+    const std::vector<Eigen::Vector3d> & frame_points_i,
+    const TrajectoryPose & predicted_pose,
+    size_t min_points,
+    size_t max_frame_points,
+    double nearest_distance_m,
+    double min_opacity,
+    double min_normal_anisotropy) const;
 
 private:
   struct VoxelKey

@@ -169,9 +169,18 @@ def generate_launch_description():
     imu_history_size = LaunchConfiguration("imu_history_size")
     imu_linear_acceleration_scale = LaunchConfiguration("imu_linear_acceleration_scale")
     enable_gaussian_snapshot_lidar_factor = LaunchConfiguration("enable_gaussian_snapshot_lidar_factor")
+    enable_gaussian_snapshot_lidar_plane_factor = LaunchConfiguration(
+        "enable_gaussian_snapshot_lidar_plane_factor"
+    )
     gaussian_snapshot_qos_depth = LaunchConfiguration("gaussian_snapshot_qos_depth")
     gaussian_snapshot_lidar_factor_weight = LaunchConfiguration("gaussian_snapshot_lidar_factor_weight")
+    gaussian_snapshot_lidar_plane_factor_weight = LaunchConfiguration(
+        "gaussian_snapshot_lidar_plane_factor_weight"
+    )
     gaussian_snapshot_lidar_min_opacity = LaunchConfiguration("gaussian_snapshot_lidar_min_opacity")
+    gaussian_snapshot_lidar_plane_min_anisotropy = LaunchConfiguration(
+        "gaussian_snapshot_lidar_plane_min_anisotropy"
+    )
     tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
     tracking_step_guard_acceleration_mps2 = LaunchConfiguration("tracking_step_guard_acceleration_mps2")
     tracking_step_guard_max_velocity_mps = LaunchConfiguration("tracking_step_guard_max_velocity_mps")
@@ -303,9 +312,12 @@ def generate_launch_description():
             DeclareLaunchArgument("imu_history_size", default_value="12000"),
             DeclareLaunchArgument("imu_linear_acceleration_scale", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot_lidar_factor", default_value="true"),
+            DeclareLaunchArgument("enable_gaussian_snapshot_lidar_plane_factor", default_value="false"),
             DeclareLaunchArgument("gaussian_snapshot_qos_depth", default_value="64"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_factor_weight", default_value="1.0"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_plane_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_min_opacity", default_value="0.01"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_plane_min_anisotropy", default_value="0.25"),
             Node(
                 package="gaussian_lic_tracking",
                 executable="tracking_node",
@@ -435,9 +447,18 @@ def generate_launch_description():
                         "imu_history_size": imu_history_size,
                         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
                         "enable_gaussian_snapshot_lidar_factor": enable_gaussian_snapshot_lidar_factor,
+                        "enable_gaussian_snapshot_lidar_plane_factor": (
+                            enable_gaussian_snapshot_lidar_plane_factor
+                        ),
                         "gaussian_snapshot_qos_depth": gaussian_snapshot_qos_depth,
                         "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,
+                        "gaussian_snapshot_lidar_plane_factor_weight": (
+                            gaussian_snapshot_lidar_plane_factor_weight
+                        ),
                         "gaussian_snapshot_lidar_min_opacity": gaussian_snapshot_lidar_min_opacity,
+                        "gaussian_snapshot_lidar_plane_min_anisotropy": (
+                            gaussian_snapshot_lidar_plane_min_anisotropy
+                        ),
                     }
                 ],
             ),

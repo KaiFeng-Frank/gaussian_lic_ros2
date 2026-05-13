@@ -82,6 +82,9 @@ MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC=0.5
 MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND=false
 GAUSSIAN_SNAPSHOT_QOS_DEPTH=128
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT=1.0
+ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=false
+GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT=1.0
+GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY=0.25
 MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=8
 MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=false
@@ -240,6 +243,12 @@ Options:
   --require-gaussian-snapshot  Require a complete GaussianArray snapshot in the tracking status report.
   --gaussian-snapshot-lidar-factor-weight W
                                Weight multiplier for LiDAR-to-Gaussian map anchors. Default: 1.0.
+  --enable-gaussian-snapshot-lidar-plane-factor
+                               Add LiDAR-to-Gaussian point-to-plane BA anchors from anisotropic Gaussian rotation/scale.
+  --gaussian-snapshot-lidar-plane-factor-weight W
+                               Weight multiplier for LiDAR-to-Gaussian plane anchors. Default: 1.0.
+  --gaussian-snapshot-lidar-plane-min-anisotropy A
+                               Minimum 1-min(scale)/max(scale) before a Gaussian contributes a plane normal. Default: 0.25.
   --mapper-feedback-sync-tolerance-sec SEC
                                mapping_node frame sync tolerance for mapper feedback. Default: 0.05.
   --mapper-feedback-render-mode MODE
@@ -611,6 +620,18 @@ while [[ $# -gt 0 ]]; do
       GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT="$2"
       shift 2
       ;;
+    --enable-gaussian-snapshot-lidar-plane-factor)
+      ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=true
+      shift
+      ;;
+    --gaussian-snapshot-lidar-plane-factor-weight)
+      GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT="$2"
+      shift 2
+      ;;
+    --gaussian-snapshot-lidar-plane-min-anisotropy)
+      GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY="$2"
+      shift 2
+      ;;
     --mapper-feedback-sync-tolerance-sec)
       MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC="$2"
       shift 2
@@ -939,6 +960,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_MAP_FEEDBACK}" \
   gaussian_snapshot_qos_depth:="${GAUSSIAN_SNAPSHOT_QOS_DEPTH}" \
   gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
+  enable_gaussian_snapshot_lidar_plane_factor:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
+  gaussian_snapshot_lidar_plane_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
+  gaussian_snapshot_lidar_plane_min_anisotropy:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
   tracking_max_pose_step_m:="${TRACKING_MAX_POSE_STEP_M}" \
   tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   tracking_step_guard_acceleration_mps2:="${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" \
@@ -1088,6 +1112,9 @@ MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT="${MAPPER_FEEDBACK_POINTCLOUD_COOR
 MAPPER_FEEDBACK_MAX_DEPTH_REPORT="${MAPPER_FEEDBACK_MAX_DEPTH}" \
 MAPPER_FEEDBACK_LR_REPORT="${MAPPER_FEEDBACK_POSITION_LR},${MAPPER_FEEDBACK_FEATURE_LR},${MAPPER_FEEDBACK_OPACITY_LR},${MAPPER_FEEDBACK_SCALING_LR},${MAPPER_FEEDBACK_ROTATION_LR}" \
 MAPPER_FEEDBACK_OPTIMIZATION_EVERY_REPORT="${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_EVERY_N_KEYFRAMES}" \
+GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
+GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
+GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1177,6 +1204,15 @@ mapper_feedback_lr = [
 ]
 mapper_feedback_torch_optimization_every_n_keyframes = int(
     os.environ["MAPPER_FEEDBACK_OPTIMIZATION_EVERY_REPORT"]
+)
+gaussian_snapshot_lidar_plane_factor_enabled = (
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT"].lower() == "true"
+)
+gaussian_snapshot_lidar_plane_factor_weight = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT"]
+)
+gaussian_snapshot_lidar_plane_min_anisotropy = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT"]
 )
 tracking_max_pose_step_m = float(sys.argv[44])
 tracking_step_guard_velocity_scale = float(sys.argv[45])
@@ -1447,6 +1483,15 @@ report = {
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
+        "gaussian_snapshot_lidar_plane_factor_enabled": (
+            gaussian_snapshot_lidar_plane_factor_enabled
+        ),
+        "gaussian_snapshot_lidar_plane_factor_weight": (
+            gaussian_snapshot_lidar_plane_factor_weight
+        ),
+        "gaussian_snapshot_lidar_plane_min_anisotropy": (
+            gaussian_snapshot_lidar_plane_min_anisotropy
+        ),
         "mapper_feedback_torch_device": mapper_feedback_torch_device,
         "mapper_feedback_render_mode": mapper_feedback_render_mode,
         "mapper_feedback_pointcloud_coordinates": mapper_feedback_pointcloud_coordinates,
