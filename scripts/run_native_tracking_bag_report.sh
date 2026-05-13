@@ -162,6 +162,7 @@ SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR=0.0
 SE3_PHOTOMETRIC_COVERAGE_GRID_COLS=4
 SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS=4
 SE3_PHOTOMETRIC_MIN_COVERAGE_TILES=4
+SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT=false
 ENABLE_EXTERNAL_ODOMETRY_PRIOR=false
 REFERENCE_ODOMETRY_TOPIC="/gaussian_lic/frontend/input_odometry"
 REFERENCE_POSE_TOPIC=""
@@ -420,6 +421,8 @@ Options:
                                Minimum accepted/sampled sparse-depth ratio before accepting an SE3 photometric BA factor. Default: 0.25.
   --se3-photometric-max-mean-abs-residual R
                                Optional max mean absolute residual for accepted SE3 photometric BA factors. Default: 0.0 disabled.
+  --se3-photometric-use-rendered-gradient
+                               Use rendered/map-image gradients for SE3 photometric BA linearization. Default: observed-image gradients.
   --se3-photometric-coverage-grid-cols N
                                SE3 photometric image coverage grid columns. Default: 4.
   --se3-photometric-coverage-grid-rows N
@@ -1039,6 +1042,10 @@ while [[ $# -gt 0 ]]; do
       SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR="$2"
       shift 2
       ;;
+    --se3-photometric-use-rendered-gradient)
+      SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT=true
+      shift
+      ;;
     --se3-photometric-coverage-grid-cols)
       SE3_PHOTOMETRIC_COVERAGE_GRID_COLS="$2"
       shift 2
@@ -1245,6 +1252,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   se3_photometric_max_hessian_condition:="${SE3_PHOTOMETRIC_MAX_HESSIAN_CONDITION}" \
   se3_photometric_min_sample_inlier_ratio:="${SE3_PHOTOMETRIC_MIN_SAMPLE_INLIER_RATIO}" \
   se3_photometric_max_mean_abs_residual_for_factor:="${SE3_PHOTOMETRIC_MAX_MEAN_ABS_RESIDUAL_FOR_FACTOR}" \
+  se3_photometric_use_rendered_gradient:="${SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT}" \
   se3_photometric_coverage_grid_cols:="${SE3_PHOTOMETRIC_COVERAGE_GRID_COLS}" \
   se3_photometric_coverage_grid_rows:="${SE3_PHOTOMETRIC_COVERAGE_GRID_ROWS}" \
   se3_photometric_min_coverage_tiles:="${SE3_PHOTOMETRIC_MIN_COVERAGE_TILES}" \
@@ -1511,6 +1519,7 @@ REFERENCE_ERROR_BIN_COUNT_REPORT="${REFERENCE_ERROR_BIN_COUNT}" \
 REFERENCE_TIME_OFFSET_SWEEP_MIN_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_MIN}" \
 REFERENCE_TIME_OFFSET_SWEEP_MAX_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_MAX}" \
 REFERENCE_TIME_OFFSET_SWEEP_STEP_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_STEP}" \
+SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT_REPORT="${SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1575,6 +1584,9 @@ se3_photometric_max_mean_abs_residual_for_factor = float(sys.argv[22])
 se3_photometric_coverage_grid_cols = int(sys.argv[23])
 se3_photometric_coverage_grid_rows = int(sys.argv[24])
 se3_photometric_min_coverage_tiles = int(sys.argv[25])
+se3_photometric_use_rendered_gradient = (
+    os.environ["SE3_PHOTOMETRIC_USE_RENDERED_GRADIENT_REPORT"].lower() == "true"
+)
 mapper_feedback_sync_tolerance_sec = float(sys.argv[26])
 enable_gaussian_map_feedback = sys.argv[27].lower() == "true"
 require_gaussian_snapshot = sys.argv[28].lower() == "true"
@@ -1975,6 +1987,7 @@ report = {
         "se3_photometric_coverage_grid_cols": se3_photometric_coverage_grid_cols,
         "se3_photometric_coverage_grid_rows": se3_photometric_coverage_grid_rows,
         "se3_photometric_min_coverage_tiles": se3_photometric_min_coverage_tiles,
+        "se3_photometric_use_rendered_gradient": se3_photometric_use_rendered_gradient,
         "reference_tum_path": str(reference_tum_path) if reference_tum_path else "",
         "external_reference_tum_poses": external_reference_pose_count,
         "reference_trajectory_align": reference_trajectory_align,

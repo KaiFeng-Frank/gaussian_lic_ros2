@@ -262,6 +262,8 @@ public:
     se3_photometric_min_gradient_ = finite_nonnegative_parameter(
       "se3_photometric_min_gradient",
       declare_parameter<double>("se3_photometric_min_gradient", 1.0e-4));
+    se3_photometric_use_rendered_gradient_ =
+      declare_parameter<bool>("se3_photometric_use_rendered_gradient", false);
     se3_photometric_huber_delta_ = finite_nonnegative_parameter(
       "se3_photometric_huber_delta",
       declare_parameter<double>("se3_photometric_huber_delta", 0.15));
@@ -3020,8 +3022,14 @@ private:
       const size_t x = index % observed.width;
       const size_t y = index / observed.width;
       const float depth = depth_frame->depth_m[index];
-      auto at = [&observed](const size_t px, const size_t py) {
+      auto observed_at = [&observed](const size_t px, const size_t py) {
           return static_cast<double>(observed.gray[py * observed.width + px]);
+        };
+      auto rendered_at = [&rendered](const size_t px, const size_t py) {
+          return static_cast<double>(rendered.gray[py * rendered.width + px]);
+        };
+      auto gradient_at = [&](const size_t px, const size_t py) {
+          return se3_photometric_use_rendered_gradient_ ? rendered_at(px, py) : observed_at(px, py);
         };
       gaussian_lic_tracking::VisualSe3PhotometricSample sample;
       ++batch.sampled_depth_pixels;
@@ -3031,8 +3039,8 @@ private:
         (static_cast<double>(y) - camera_intrinsics_.cy) * z / camera_intrinsics_.fy,
         z};
       sample.image_gradient = Eigen::Vector2d{
-        0.5 * (at(x + 1U, y) - at(x - 1U, y)),
-        0.5 * (at(x, y + 1U) - at(x, y - 1U))};
+        0.5 * (gradient_at(x + 1U, y) - gradient_at(x - 1U, y)),
+        0.5 * (gradient_at(x, y + 1U) - gradient_at(x, y - 1U))};
       sample.residual = static_cast<double>(observed.gray[index] - rendered.gray[index]);
       const double gradient_norm = sample.image_gradient.norm();
       if (!std::isfinite(gradient_norm) || gradient_norm < se3_photometric_min_gradient_) {
@@ -4102,6 +4110,7 @@ private:
   double se3_photometric_min_depth_m_{0.05};
   double se3_photometric_max_depth_m_{200.0};
   double se3_photometric_min_gradient_{1.0e-4};
+  bool se3_photometric_use_rendered_gradient_{false};
   double se3_photometric_huber_delta_{0.15};
   double se3_photometric_max_abs_residual_{1.0};
   double se3_photometric_max_hessian_condition_{1.0e12};

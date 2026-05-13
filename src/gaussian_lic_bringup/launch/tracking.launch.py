@@ -125,6 +125,9 @@ def generate_launch_description():
     se3_photometric_min_depth_m = LaunchConfiguration("se3_photometric_min_depth_m")
     se3_photometric_max_depth_m = LaunchConfiguration("se3_photometric_max_depth_m")
     se3_photometric_min_gradient = LaunchConfiguration("se3_photometric_min_gradient")
+    se3_photometric_use_rendered_gradient = LaunchConfiguration(
+        "se3_photometric_use_rendered_gradient"
+    )
     se3_photometric_huber_delta = LaunchConfiguration("se3_photometric_huber_delta")
     se3_photometric_max_abs_residual = LaunchConfiguration("se3_photometric_max_abs_residual")
     enable_gaussian_snapshot = LaunchConfiguration("enable_gaussian_snapshot")
@@ -360,6 +363,7 @@ def generate_launch_description():
             DeclareLaunchArgument("se3_photometric_min_depth_m", default_value="0.05"),
             DeclareLaunchArgument("se3_photometric_max_depth_m", default_value="200.0"),
             DeclareLaunchArgument("se3_photometric_min_gradient", default_value="0.0001"),
+            DeclareLaunchArgument("se3_photometric_use_rendered_gradient", default_value="false"),
             DeclareLaunchArgument("se3_photometric_huber_delta", default_value="0.15"),
             DeclareLaunchArgument("se3_photometric_max_abs_residual", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot", default_value="true"),
@@ -535,6 +539,9 @@ def generate_launch_description():
                         "se3_photometric_min_depth_m": se3_photometric_min_depth_m,
                         "se3_photometric_max_depth_m": se3_photometric_max_depth_m,
                         "se3_photometric_min_gradient": se3_photometric_min_gradient,
+                        "se3_photometric_use_rendered_gradient": (
+                            se3_photometric_use_rendered_gradient
+                        ),
                         "se3_photometric_huber_delta": se3_photometric_huber_delta,
                         "se3_photometric_max_abs_residual": se3_photometric_max_abs_residual,
                         "enable_gaussian_snapshot": enable_gaussian_snapshot,
