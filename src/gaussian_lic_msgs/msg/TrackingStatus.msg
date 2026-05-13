@@ -171,6 +171,7 @@ float64 tracking_step_guard_last_raw_step_m
 float64 tracking_step_guard_last_allowed_step_m
 float64 tracking_step_guard_last_dt_s
 float64 tracking_step_guard_last_reference_speed_mps
+float64 tracking_step_guard_last_confidence_score
 
 uint64 gaussian_snapshot_points
 uint64 gaussian_snapshot_expected_total

@@ -186,6 +186,21 @@ def generate_launch_description():
     enable_post_ba_tracking_step_guard = LaunchConfiguration("enable_post_ba_tracking_step_guard")
     pre_lio_tracking_max_pose_step_m = LaunchConfiguration("pre_lio_tracking_max_pose_step_m")
     post_ba_tracking_max_pose_step_m = LaunchConfiguration("post_ba_tracking_max_pose_step_m")
+    post_ba_step_guard_confidence_max_pose_step_m = LaunchConfiguration(
+        "post_ba_step_guard_confidence_max_pose_step_m"
+    )
+    post_ba_step_guard_min_lidar_confidence = LaunchConfiguration(
+        "post_ba_step_guard_min_lidar_confidence"
+    )
+    post_ba_step_guard_min_visual_inlier_ratio = LaunchConfiguration(
+        "post_ba_step_guard_min_visual_inlier_ratio"
+    )
+    post_ba_step_guard_max_visual_residual = LaunchConfiguration(
+        "post_ba_step_guard_max_visual_residual"
+    )
+    post_ba_step_guard_min_visual_coverage_tiles = LaunchConfiguration(
+        "post_ba_step_guard_min_visual_coverage_tiles"
+    )
     tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
     tracking_step_guard_acceleration_mps2 = LaunchConfiguration("tracking_step_guard_acceleration_mps2")
     tracking_step_guard_max_velocity_mps = LaunchConfiguration("tracking_step_guard_max_velocity_mps")
@@ -284,6 +299,11 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_post_ba_tracking_step_guard", default_value="true"),
             DeclareLaunchArgument("pre_lio_tracking_max_pose_step_m", default_value="0.0"),
             DeclareLaunchArgument("post_ba_tracking_max_pose_step_m", default_value="0.0"),
+            DeclareLaunchArgument("post_ba_step_guard_confidence_max_pose_step_m", default_value="0.0"),
+            DeclareLaunchArgument("post_ba_step_guard_min_lidar_confidence", default_value="0.6"),
+            DeclareLaunchArgument("post_ba_step_guard_min_visual_inlier_ratio", default_value="0.85"),
+            DeclareLaunchArgument("post_ba_step_guard_max_visual_residual", default_value="0.3"),
+            DeclareLaunchArgument("post_ba_step_guard_min_visual_coverage_tiles", default_value="8"),
             DeclareLaunchArgument("tracking_step_guard_velocity_scale", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_acceleration_mps2", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_max_velocity_mps", default_value="0.0"),
@@ -424,6 +444,21 @@ def generate_launch_description():
                         "enable_post_ba_tracking_step_guard": enable_post_ba_tracking_step_guard,
                         "pre_lio_tracking_max_pose_step_m": pre_lio_tracking_max_pose_step_m,
                         "post_ba_tracking_max_pose_step_m": post_ba_tracking_max_pose_step_m,
+                        "post_ba_step_guard_confidence_max_pose_step_m": (
+                            post_ba_step_guard_confidence_max_pose_step_m
+                        ),
+                        "post_ba_step_guard_min_lidar_confidence": (
+                            post_ba_step_guard_min_lidar_confidence
+                        ),
+                        "post_ba_step_guard_min_visual_inlier_ratio": (
+                            post_ba_step_guard_min_visual_inlier_ratio
+                        ),
+                        "post_ba_step_guard_max_visual_residual": (
+                            post_ba_step_guard_max_visual_residual
+                        ),
+                        "post_ba_step_guard_min_visual_coverage_tiles": (
+                            post_ba_step_guard_min_visual_coverage_tiles
+                        ),
                         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
                         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
                         "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,

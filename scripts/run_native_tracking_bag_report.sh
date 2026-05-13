@@ -39,6 +39,11 @@ ENABLE_PRE_LIO_TRACKING_STEP_GUARD=true
 ENABLE_POST_BA_TRACKING_STEP_GUARD=true
 PRE_LIO_TRACKING_MAX_POSE_STEP_M=0.0
 POST_BA_TRACKING_MAX_POSE_STEP_M=0.0
+POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M=0.0
+POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE=0.6
+POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO=0.85
+POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL=0.3
+POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES=8
 TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
 TRACKING_STEP_GUARD_ACCELERATION_MPS2=0.0
 TRACKING_STEP_GUARD_MAX_VELOCITY_MPS=0.0
@@ -198,6 +203,16 @@ Options:
                                Override only the pre-LIO step guard limit. Default: 0.0, use --tracking-max-pose-step-m.
   --post-ba-tracking-max-pose-step-m M
                                Override only the post-BA step guard limit. Default: 0.0, use --tracking-max-pose-step-m.
+  --post-ba-step-guard-confidence-max-pose-step-m M
+                               Let high-confidence post-BA frames interpolate up to this step limit. Default: 0.0 disabled.
+  --post-ba-step-guard-min-lidar-confidence C
+                               LiDAR confidence needed for full confidence-gated post-BA allowance. Default: 0.6.
+  --post-ba-step-guard-min-visual-inlier-ratio R
+                               SE3 photometric inlier ratio needed for full confidence-gated post-BA allowance. Default: 0.85.
+  --post-ba-step-guard-max-visual-residual R
+                               Mean SE3 photometric residual for full confidence-gated post-BA allowance. Default: 0.3.
+  --post-ba-step-guard-min-visual-coverage-tiles N
+                               SE3 photometric coverage tiles needed for full confidence-gated post-BA allowance. Default: 8.
   --tracking-step-guard-velocity-scale S
                                Optional speed-scaled adaptive pose-step allowance. Default: 0.0 disabled.
   --tracking-step-guard-acceleration-mps2 A
@@ -498,6 +513,26 @@ while [[ $# -gt 0 ]]; do
       ;;
     --post-ba-tracking-max-pose-step-m)
       POST_BA_TRACKING_MAX_POSE_STEP_M="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-confidence-max-pose-step-m)
+      POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-min-lidar-confidence)
+      POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-min-visual-inlier-ratio)
+      POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-max-visual-residual)
+      POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-min-visual-coverage-tiles)
+      POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES="$2"
       shift 2
       ;;
     --require-deskew)
@@ -1003,6 +1038,11 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_post_ba_tracking_step_guard:="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
   pre_lio_tracking_max_pose_step_m:="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
   post_ba_tracking_max_pose_step_m:="${POST_BA_TRACKING_MAX_POSE_STEP_M}" \
+  post_ba_step_guard_confidence_max_pose_step_m:="${POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M}" \
+  post_ba_step_guard_min_lidar_confidence:="${POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE}" \
+  post_ba_step_guard_min_visual_inlier_ratio:="${POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO}" \
+  post_ba_step_guard_max_visual_residual:="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
+  post_ba_step_guard_min_visual_coverage_tiles:="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
   tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   tracking_step_guard_acceleration_mps2:="${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" \
   tracking_step_guard_max_velocity_mps:="${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
@@ -1160,6 +1200,11 @@ ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
 POST_BA_TRACKING_MAX_POSE_STEP_M_REPORT="${POST_BA_TRACKING_MAX_POSE_STEP_M}" \
+POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M_REPORT="${POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M}" \
+POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE_REPORT="${POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE}" \
+POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO}" \
+POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL_REPORT="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
+POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1268,6 +1313,21 @@ enable_post_ba_tracking_step_guard = (
 )
 pre_lio_tracking_max_pose_step_m = float(os.environ["PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT"])
 post_ba_tracking_max_pose_step_m = float(os.environ["POST_BA_TRACKING_MAX_POSE_STEP_M_REPORT"])
+post_ba_step_guard_confidence_max_pose_step_m = float(
+    os.environ["POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M_REPORT"]
+)
+post_ba_step_guard_min_lidar_confidence = float(
+    os.environ["POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE_REPORT"]
+)
+post_ba_step_guard_min_visual_inlier_ratio = float(
+    os.environ["POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO_REPORT"]
+)
+post_ba_step_guard_max_visual_residual = float(
+    os.environ["POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL_REPORT"]
+)
+post_ba_step_guard_min_visual_coverage_tiles = int(
+    os.environ["POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT"]
+)
 tracking_max_pose_step_m = float(sys.argv[44])
 tracking_step_guard_velocity_scale = float(sys.argv[45])
 tracking_step_guard_acceleration_mps2 = float(sys.argv[46])
@@ -1587,6 +1647,21 @@ report = {
         "enable_post_ba_tracking_step_guard": enable_post_ba_tracking_step_guard,
         "pre_lio_tracking_max_pose_step_m": pre_lio_tracking_max_pose_step_m,
         "post_ba_tracking_max_pose_step_m": post_ba_tracking_max_pose_step_m,
+        "post_ba_step_guard_confidence_max_pose_step_m": (
+            post_ba_step_guard_confidence_max_pose_step_m
+        ),
+        "post_ba_step_guard_min_lidar_confidence": (
+            post_ba_step_guard_min_lidar_confidence
+        ),
+        "post_ba_step_guard_min_visual_inlier_ratio": (
+            post_ba_step_guard_min_visual_inlier_ratio
+        ),
+        "post_ba_step_guard_max_visual_residual": (
+            post_ba_step_guard_max_visual_residual
+        ),
+        "post_ba_step_guard_min_visual_coverage_tiles": (
+            post_ba_step_guard_min_visual_coverage_tiles
+        ),
         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
         "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,

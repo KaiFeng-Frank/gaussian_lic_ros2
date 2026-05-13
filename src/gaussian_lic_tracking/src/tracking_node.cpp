@@ -67,6 +67,22 @@ double min_or_zero(const size_t count, const double minimum)
   return count > 0U ? minimum : 0.0;
 }
 
+double ratio_score(const double value, const double threshold)
+{
+  if (!std::isfinite(value) || value <= 0.0 || !std::isfinite(threshold) || threshold <= 0.0) {
+    return 0.0;
+  }
+  return std::clamp(value / threshold, 0.0, 1.0);
+}
+
+double inverse_ratio_score(const double value, const double threshold)
+{
+  if (!std::isfinite(value) || value <= 0.0 || !std::isfinite(threshold) || threshold <= 0.0) {
+    return 0.0;
+  }
+  return std::clamp(threshold / value, 0.0, 1.0);
+}
+
 }  // namespace
 
 class TrackingNode final : public rclcpp::Node
@@ -324,6 +340,21 @@ public:
     post_ba_tracking_max_pose_step_m_ = finite_nonnegative_parameter(
       "post_ba_tracking_max_pose_step_m",
       declare_parameter<double>("post_ba_tracking_max_pose_step_m", 0.0));
+    post_ba_step_guard_confidence_max_pose_step_m_ = finite_nonnegative_parameter(
+      "post_ba_step_guard_confidence_max_pose_step_m",
+      declare_parameter<double>("post_ba_step_guard_confidence_max_pose_step_m", 0.0));
+    post_ba_step_guard_min_lidar_confidence_ = finite_nonnegative_parameter(
+      "post_ba_step_guard_min_lidar_confidence",
+      declare_parameter<double>("post_ba_step_guard_min_lidar_confidence", 0.6));
+    post_ba_step_guard_min_visual_inlier_ratio_ = finite_unit_interval_parameter(
+      "post_ba_step_guard_min_visual_inlier_ratio",
+      declare_parameter<double>("post_ba_step_guard_min_visual_inlier_ratio", 0.85));
+    post_ba_step_guard_max_visual_residual_ = finite_nonnegative_parameter(
+      "post_ba_step_guard_max_visual_residual",
+      declare_parameter<double>("post_ba_step_guard_max_visual_residual", 0.3));
+    post_ba_step_guard_min_visual_coverage_tiles_ = integer_parameter_at_least(
+      "post_ba_step_guard_min_visual_coverage_tiles",
+      declare_parameter<int>("post_ba_step_guard_min_visual_coverage_tiles", 8), 1);
     tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
       "tracking_step_guard_velocity_scale",
       declare_parameter<double>("tracking_step_guard_velocity_scale", 0.0));
@@ -3182,6 +3213,14 @@ private:
       allowed_step_m = post_ba_tracking_max_pose_step_m_;
     }
     const double stage_base_step_m = allowed_step_m;
+    double confidence_score = 0.0;
+    if (stage == StepGuardStage::kPostBa &&
+      post_ba_step_guard_confidence_max_pose_step_m_ > allowed_step_m)
+    {
+      confidence_score = post_ba_step_guard_confidence_score();
+      allowed_step_m += confidence_score *
+        (post_ba_step_guard_confidence_max_pose_step_m_ - allowed_step_m);
+    }
     double previous_speed_mps = previous.v_w_i.norm();
     if (!std::isfinite(previous_speed_mps)) {
       previous_speed_mps = 0.0;
@@ -3215,6 +3254,7 @@ private:
     last_tracking_step_guard_allowed_step_m_ = allowed_step_m;
     last_tracking_step_guard_dt_s_ = dt_s;
     last_tracking_step_guard_reference_speed_mps_ = reference_speed_mps;
+    last_tracking_step_guard_confidence_score_ = confidence_score;
     if (!std::isfinite(step_m) || !std::isfinite(allowed_step_m) || step_m <= allowed_step_m) {
       return false;
     }
@@ -3252,6 +3292,41 @@ private:
       }
     }
     return true;
+  }
+
+  double post_ba_step_guard_confidence_score() const
+  {
+    double score = 1.0;
+    bool has_signal = false;
+    const size_t total_correspondences =
+      last_window_point_correspondences_ + last_window_plane_correspondences_;
+    if (total_correspondences >= static_cast<size_t>(lidar_min_points_)) {
+      has_signal = true;
+      const double lidar_confidence =
+        std::max(last_window_point_confidence_mean_, last_window_plane_confidence_mean_);
+      score = std::min(score, ratio_score(lidar_confidence, post_ba_step_guard_min_lidar_confidence_));
+    }
+    if (enable_visual_factor_ && visual_se3_photometric_valid_batches_ > 0U) {
+      has_signal = true;
+      score = std::min(
+        score,
+        ratio_score(
+          last_accepted_visual_se3_photometric_sample_inlier_ratio_,
+          post_ba_step_guard_min_visual_inlier_ratio_));
+      score = std::min(
+        score,
+        ratio_score(
+          static_cast<double>(last_accepted_visual_se3_photometric_coverage_tiles_),
+          static_cast<double>(post_ba_step_guard_min_visual_coverage_tiles_)));
+      if (post_ba_step_guard_max_visual_residual_ > 0.0) {
+        score = std::min(
+          score,
+          inverse_ratio_score(
+            last_accepted_visual_se3_photometric_mean_abs_residual_,
+            post_ba_step_guard_max_visual_residual_));
+      }
+    }
+    return has_signal ? std::clamp(score, 0.0, 1.0) : 0.0;
   }
 
   void publish_tracking_status(const builtin_interfaces::msg::Time & stamp)
@@ -3492,6 +3567,8 @@ private:
     status.tracking_step_guard_last_dt_s = last_tracking_step_guard_dt_s_;
     status.tracking_step_guard_last_reference_speed_mps =
       last_tracking_step_guard_reference_speed_mps_;
+    status.tracking_step_guard_last_confidence_score =
+      last_tracking_step_guard_confidence_score_;
 
     status.gaussian_snapshot_points = static_cast<uint64_t>(gaussian_snapshot_.point_count());
     status.gaussian_snapshot_expected_total = last_gaussian_total_count_;
@@ -3719,6 +3796,11 @@ private:
   bool enable_post_ba_tracking_step_guard_{true};
   double pre_lio_tracking_max_pose_step_m_{0.0};
   double post_ba_tracking_max_pose_step_m_{0.0};
+  double post_ba_step_guard_confidence_max_pose_step_m_{0.0};
+  double post_ba_step_guard_min_lidar_confidence_{0.6};
+  double post_ba_step_guard_min_visual_inlier_ratio_{0.85};
+  double post_ba_step_guard_max_visual_residual_{0.3};
+  int post_ba_step_guard_min_visual_coverage_tiles_{8};
   double tracking_step_guard_velocity_scale_{0.0};
   double tracking_step_guard_acceleration_mps2_{0.0};
   double tracking_step_guard_max_velocity_mps_{0.0};
@@ -3850,6 +3932,7 @@ private:
   double last_tracking_step_guard_allowed_step_m_{0.0};
   double last_tracking_step_guard_dt_s_{0.0};
   double last_tracking_step_guard_reference_speed_mps_{0.0};
+  double last_tracking_step_guard_confidence_score_{0.0};
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   std::optional<gaussian_lic_tracking::TrajectoryPose> last_output_tracking_pose_;
