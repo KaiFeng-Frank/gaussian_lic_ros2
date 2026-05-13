@@ -1728,7 +1728,8 @@ private:
   }
 
   sensor_msgs::msg::Image make_projected_map_preview_message(
-    const builtin_interfaces::msg::Time & stamp) const
+    const builtin_interfaces::msg::Time & stamp,
+    const bool fallback_to_input = true) const
   {
     sensor_msgs::msg::Image image = make_blank_rendered_image_message(stamp);
     if (image.width == 0 || image.height == 0) {
@@ -1739,7 +1740,7 @@ private:
     const auto & colors = dataset_.map_colors_rgb();
     const size_t point_count = std::min(points.size(), colors.size());
     if (point_count == 0) {
-      return make_input_preview_message(stamp);
+      return fallback_to_input ? make_input_preview_message(stamp) : image;
     }
 
     const auto intrinsics = current_intrinsics();
@@ -1783,7 +1784,7 @@ private:
     }
 
     if (visible_count == 0) {
-      return make_input_preview_message(stamp);
+      return fallback_to_input ? make_input_preview_message(stamp) : image;
     }
     return image;
   }
@@ -1806,12 +1807,12 @@ private:
   sensor_msgs::msg::Image make_torch_gaussian_splat_preview_message(
     const builtin_interfaces::msg::Time & stamp) const
   {
-    sensor_msgs::msg::Image image = make_input_preview_message(stamp);
+    sensor_msgs::msg::Image image = make_blank_rendered_image_message(stamp);
     if (
       image.width == 0 || image.height == 0 || !torch_gaussian_initialized_ ||
       torch_gaussian_count_ == 0)
     {
-      return make_projected_map_preview_message(stamp);
+      return make_projected_map_preview_message(stamp, false);
     }
 
     torch::NoGradGuard no_grad;
@@ -1820,7 +1821,7 @@ private:
     const auto scaling = torch_gaussian_map_.scaling.detach().to(torch::kCPU).contiguous();
     const auto opacity = torch_gaussian_map_.opacity.detach().to(torch::kCPU).contiguous();
     if (xyz.dim() != 2 || xyz.size(1) < 3 || features_dc.dim() != 3 || features_dc.size(2) < 3) {
-      return make_projected_map_preview_message(stamp);
+      return make_projected_map_preview_message(stamp, false);
     }
 
     const auto xyz_a = xyz.accessor<float, 2>();
@@ -1898,7 +1899,7 @@ private:
     }
 
     if (visible_count == 0) {
-      return make_projected_map_preview_message(stamp);
+      return make_projected_map_preview_message(stamp, false);
     }
     return image;
   }

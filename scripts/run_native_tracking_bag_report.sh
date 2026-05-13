@@ -69,7 +69,8 @@ ENABLE_MAPPER_FEEDBACK=false
 MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.05
 ENABLE_GAUSSIAN_MAP_FEEDBACK=false
 REQUIRE_GAUSSIAN_SNAPSHOT=false
-MAPPER_FEEDBACK_RENDER_MODE=debug_input
+MAPPER_FEEDBACK_RENDER_MODE="${MAPPER_FEEDBACK_RENDER_MODE:-debug_input}"
+MAPPER_FEEDBACK_RENDER_MODE_EXPLICIT=false
 MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
 MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
 MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH=128
@@ -218,12 +219,14 @@ Options:
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
-                               Launch mapping_node with Torch Gaussian init/extend and GaussianArray publication so tracking can consume map anchors. This does not require visual factors unless --enable-visual-factors is also set.
+                               Launch mapping_node with Torch Gaussian init/extend, rasterizer rendered-image feedback, and GaussianArray publication so tracking can consume map anchors and real Gaussian photometric BA.
   --require-gaussian-snapshot  Require a complete GaussianArray snapshot in the tracking status report.
   --gaussian-snapshot-lidar-factor-weight W
                                Weight multiplier for LiDAR-to-Gaussian map anchors. Default: 1.0.
   --mapper-feedback-sync-tolerance-sec SEC
                                mapping_node frame sync tolerance for mapper feedback. Default: 0.05.
+  --mapper-feedback-render-mode MODE
+                               mapping_node rendered image mode for feedback. Default: debug_input; --enable-gaussian-map-feedback promotes this to rasterizer unless explicitly set.
   --mapper-feedback-gaussian-map-publish-min-interval-sec SEC
                                Minimum simulated-time interval between full GaussianArray feedback publications. Default: 0.5.
   --mapper-feedback-gaussian-map-publish-on-empty-extend
@@ -540,14 +543,19 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
       MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
+      if [[ "${MAPPER_FEEDBACK_RENDER_MODE_EXPLICIT}" != "true" ]]; then
+        MAPPER_FEEDBACK_RENDER_MODE=rasterizer
+      fi
       if [[ "${PLAYBACK_RATE_EXPLICIT}" != "true" ]]; then
         PLAYBACK_RATE=0.5
       fi
       LIDAR_MAX_FRAME_POINTS=500
-      TRACKING_MAX_POSE_STEP_M=0.025
+      TRACKING_MAX_POSE_STEP_M=0.020
       SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES=4
       SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M=0.05
       SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS=0.5
+      VISUAL_ALIGNMENT_WINDOW_WEIGHT=0.25
+      SE3_PHOTOMETRIC_WINDOW_WEIGHT=0.25
       REQUIRE_GAUSSIAN_SNAPSHOT=true
       shift
       ;;
@@ -561,6 +569,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mapper-feedback-sync-tolerance-sec)
       MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC="$2"
+      shift 2
+      ;;
+    --mapper-feedback-render-mode)
+      MAPPER_FEEDBACK_RENDER_MODE="$2"
+      MAPPER_FEEDBACK_RENDER_MODE_EXPLICIT=true
       shift 2
       ;;
     --mapper-feedback-gaussian-map-publish-min-interval-sec)
@@ -965,6 +978,7 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS}" \
+  "${MAPPER_FEEDBACK_RENDER_MODE}" \
   "${TRACKING_MAX_POSE_STEP_M}" "${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   "${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" "${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
   "${TRACKING_STEP_GUARD_MARGIN_M}" \
@@ -1013,19 +1027,20 @@ sliding_window_optimize_every_n_frames = int(sys.argv[33])
 sliding_window_max_feedback_translation_m = float(sys.argv[34])
 sliding_window_max_feedback_rotation_rad = float(sys.argv[35])
 sliding_window_max_feedback_velocity_mps = float(sys.argv[36])
-tracking_max_pose_step_m = float(sys.argv[37])
-tracking_step_guard_velocity_scale = float(sys.argv[38])
-tracking_step_guard_acceleration_mps2 = float(sys.argv[39])
-tracking_step_guard_max_velocity_mps = float(sys.argv[40])
-tracking_step_guard_margin_m = float(sys.argv[41])
-reference_tum_path = Path(sys.argv[42]) if sys.argv[42] else None
-reference_trajectory_align = sys.argv[43]
-reference_max_association_dt = float(sys.argv[44])
-reference_min_coverage = float(sys.argv[45])
-reference_max_rmse_m = float(sys.argv[46])
-reference_max_mean_m = float(sys.argv[47])
-reference_max_error_m = float(sys.argv[48])
-reference_max_path_drift = float(sys.argv[49])
+mapper_feedback_render_mode = sys.argv[37]
+tracking_max_pose_step_m = float(sys.argv[38])
+tracking_step_guard_velocity_scale = float(sys.argv[39])
+tracking_step_guard_acceleration_mps2 = float(sys.argv[40])
+tracking_step_guard_max_velocity_mps = float(sys.argv[41])
+tracking_step_guard_margin_m = float(sys.argv[42])
+reference_tum_path = Path(sys.argv[43]) if sys.argv[43] else None
+reference_trajectory_align = sys.argv[44]
+reference_max_association_dt = float(sys.argv[45])
+reference_min_coverage = float(sys.argv[46])
+reference_max_rmse_m = float(sys.argv[47])
+reference_max_mean_m = float(sys.argv[48])
+reference_max_error_m = float(sys.argv[49])
+reference_max_path_drift = float(sys.argv[50])
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
@@ -1268,6 +1283,7 @@ report = {
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
         "mapper_feedback_torch_device": mapper_feedback_torch_device,
+        "mapper_feedback_render_mode": mapper_feedback_render_mode,
         "mapper_feedback_torch_optimization_steps": mapper_feedback_torch_optimization_steps,
         "mapper_feedback_gaussian_map_publish_min_interval_sec": (
             mapper_feedback_gaussian_map_publish_min_interval_sec
