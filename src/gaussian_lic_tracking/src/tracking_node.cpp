@@ -379,6 +379,12 @@ public:
     tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
       "tracking_step_guard_velocity_scale",
       declare_parameter<double>("tracking_step_guard_velocity_scale", 0.0));
+    pre_lio_tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
+      "pre_lio_tracking_step_guard_velocity_scale",
+      declare_parameter<double>("pre_lio_tracking_step_guard_velocity_scale", 0.0));
+    post_ba_tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
+      "post_ba_tracking_step_guard_velocity_scale",
+      declare_parameter<double>("post_ba_tracking_step_guard_velocity_scale", 0.0));
     tracking_step_guard_acceleration_mps2_ = finite_nonnegative_parameter(
       "tracking_step_guard_acceleration_mps2",
       declare_parameter<double>("tracking_step_guard_acceleration_mps2", 0.0));
@@ -3443,10 +3449,16 @@ private:
       reference_speed_mps = 0.0;
     }
     if (dt_s > 1.0e-9) {
-      if (tracking_step_guard_velocity_scale_ > 0.0) {
+      double velocity_scale = tracking_step_guard_velocity_scale_;
+      if (stage == StepGuardStage::kPreLio) {
+        velocity_scale = std::max(velocity_scale, pre_lio_tracking_step_guard_velocity_scale_);
+      } else if (stage == StepGuardStage::kPostBa) {
+        velocity_scale = std::max(velocity_scale, post_ba_tracking_step_guard_velocity_scale_);
+      }
+      if (velocity_scale > 0.0) {
         allowed_step_m = std::max(
           allowed_step_m,
-          tracking_step_guard_velocity_scale_ * reference_speed_mps * dt_s +
+          velocity_scale * reference_speed_mps * dt_s +
           tracking_step_guard_margin_m_);
       }
       if (tracking_step_guard_acceleration_mps2_ > 0.0) {
@@ -4081,6 +4093,8 @@ private:
   double post_ba_step_guard_pre_ba_agreement_max_delta_m_{0.05};
   double post_ba_step_guard_pre_ba_agreement_margin_m_{0.0};
   double tracking_step_guard_velocity_scale_{0.0};
+  double pre_lio_tracking_step_guard_velocity_scale_{0.0};
+  double post_ba_tracking_step_guard_velocity_scale_{0.0};
   double tracking_step_guard_acceleration_mps2_{0.0};
   double tracking_step_guard_max_velocity_mps_{0.0};
   double tracking_step_guard_margin_m_{0.0};

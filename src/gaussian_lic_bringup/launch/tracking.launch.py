@@ -258,6 +258,12 @@ def generate_launch_description():
         "post_ba_step_guard_pre_ba_agreement_margin_m"
     )
     tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
+    pre_lio_tracking_step_guard_velocity_scale = LaunchConfiguration(
+        "pre_lio_tracking_step_guard_velocity_scale"
+    )
+    post_ba_tracking_step_guard_velocity_scale = LaunchConfiguration(
+        "post_ba_tracking_step_guard_velocity_scale"
+    )
     tracking_step_guard_acceleration_mps2 = LaunchConfiguration("tracking_step_guard_acceleration_mps2")
     tracking_step_guard_max_velocity_mps = LaunchConfiguration("tracking_step_guard_max_velocity_mps")
     tracking_step_guard_margin_m = LaunchConfiguration("tracking_step_guard_margin_m")
@@ -368,6 +374,8 @@ def generate_launch_description():
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_max_delta_m", default_value="0.05"),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_margin_m", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_velocity_scale", default_value="0.0"),
+            DeclareLaunchArgument("pre_lio_tracking_step_guard_velocity_scale", default_value="0.0"),
+            DeclareLaunchArgument("post_ba_tracking_step_guard_velocity_scale", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_acceleration_mps2", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_max_velocity_mps", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_margin_m", default_value="0.0"),
@@ -559,6 +567,12 @@ def generate_launch_description():
                             post_ba_step_guard_pre_ba_agreement_margin_m
                         ),
                         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
+                        "pre_lio_tracking_step_guard_velocity_scale": (
+                            pre_lio_tracking_step_guard_velocity_scale
+                        ),
+                        "post_ba_tracking_step_guard_velocity_scale": (
+                            post_ba_tracking_step_guard_velocity_scale
+                        ),
                         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
                         "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,
                         "tracking_step_guard_margin_m": tracking_step_guard_margin_m,

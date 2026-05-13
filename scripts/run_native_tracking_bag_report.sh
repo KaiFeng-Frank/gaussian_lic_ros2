@@ -54,6 +54,8 @@ POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE=0.85
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M=0.05
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M=0.0
 TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
+PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
+POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
 TRACKING_STEP_GUARD_ACCELERATION_MPS2=0.0
 TRACKING_STEP_GUARD_MAX_VELOCITY_MPS=0.0
 TRACKING_STEP_GUARD_MARGIN_M=0.0
@@ -271,6 +273,10 @@ Options:
                                Extra allowance added to the pre-BA step before the agreement cap. Default: 0.0.
   --tracking-step-guard-velocity-scale S
                                Optional speed-scaled adaptive pose-step allowance. Default: 0.0 disabled.
+  --pre-lio-tracking-step-guard-velocity-scale S
+                               Optional speed-scaled adaptive pose-step allowance for the pre-LIO guard only. Default: 0.0 disabled.
+  --post-ba-tracking-step-guard-velocity-scale S
+                               Optional speed-scaled adaptive pose-step allowance for the post-BA guard only. Default: 0.0 disabled.
   --tracking-step-guard-acceleration-mps2 A
                                Optional acceleration ramp for adaptive pose-step allowance. Default: 0.0 disabled.
   --tracking-step-guard-max-velocity-mps V
@@ -585,6 +591,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tracking-step-guard-velocity-scale)
       TRACKING_STEP_GUARD_VELOCITY_SCALE="$2"
+      shift 2
+      ;;
+    --pre-lio-tracking-step-guard-velocity-scale)
+      PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE="$2"
+      shift 2
+      ;;
+    --post-ba-tracking-step-guard-velocity-scale)
+      POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE="$2"
       shift 2
       ;;
     --tracking-step-guard-acceleration-mps2)
@@ -1256,6 +1270,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   post_ba_step_guard_pre_ba_agreement_max_delta_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M}" \
   post_ba_step_guard_pre_ba_agreement_margin_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M}" \
   tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
+  pre_lio_tracking_step_guard_velocity_scale:="${PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
+  post_ba_tracking_step_guard_velocity_scale:="${POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   tracking_step_guard_acceleration_mps2:="${TRACKING_STEP_GUARD_ACCELERATION_MPS2}" \
   tracking_step_guard_max_velocity_mps:="${TRACKING_STEP_GUARD_MAX_VELOCITY_MPS}" \
   tracking_step_guard_margin_m:="${TRACKING_STEP_GUARD_MARGIN_M}" \
@@ -1461,6 +1477,8 @@ POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M_REPORT="${POST_BA_STEP_GUARD
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M}" \
+PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
+POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
 SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
 ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR_REPORT="${ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR}" \
@@ -1670,6 +1688,12 @@ post_ba_step_guard_pre_ba_agreement_margin_m = float(
 )
 tracking_max_pose_step_m = float(sys.argv[44])
 tracking_step_guard_velocity_scale = float(sys.argv[45])
+pre_lio_tracking_step_guard_velocity_scale = float(
+    os.environ["PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT"]
+)
+post_ba_tracking_step_guard_velocity_scale = float(
+    os.environ["POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT"]
+)
 tracking_step_guard_acceleration_mps2 = float(sys.argv[46])
 tracking_step_guard_max_velocity_mps = float(sys.argv[47])
 tracking_step_guard_margin_m = float(sys.argv[48])
@@ -2079,6 +2103,12 @@ report = {
             post_ba_step_guard_pre_ba_agreement_margin_m
         ),
         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
+        "pre_lio_tracking_step_guard_velocity_scale": (
+            pre_lio_tracking_step_guard_velocity_scale
+        ),
+        "post_ba_tracking_step_guard_velocity_scale": (
+            post_ba_tracking_step_guard_velocity_scale
+        ),
         "tracking_step_guard_acceleration_mps2": tracking_step_guard_acceleration_mps2,
         "tracking_step_guard_max_velocity_mps": tracking_step_guard_max_velocity_mps,
         "tracking_step_guard_margin_m": tracking_step_guard_margin_m,
