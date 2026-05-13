@@ -25,6 +25,8 @@ PRIOR_TUM="${PRIOR_TUM:-}"
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
 PLAYBACK_RATE="${PLAYBACK_RATE:-0.5}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
+NODE_READY_TIMEOUT_SEC="${NODE_READY_TIMEOUT_SEC:-15}"
+BAG_READ_AHEAD_QUEUE_SIZE="${BAG_READ_AHEAD_QUEUE_SIZE:-20000}"
 DIAGNOSTIC_LOG_PERIOD_STEPS="${DIAGNOSTIC_LOG_PERIOD_STEPS:-50}"
 PRIOR_PUBLISH_DURATION="${PRIOR_PUBLISH_DURATION:-6}"
 PRIOR_PUBLISH_RATE_HZ="${PRIOR_PUBLISH_RATE_HZ:-20}"
@@ -219,6 +221,19 @@ NODE_LOG="${OUTPUT_DIR}/node.log"
 PLAY_LOG="${OUTPUT_DIR}/play.log"
 TUM_PATH="${OUTPUT_DIR}/continuous_time_trajectory.tum"
 REPORT_PATH="${OUTPUT_DIR}/trajectory_compare_report.json"
+
+wait_for_continuous_time_node() {
+  local deadline=$((SECONDS + NODE_READY_TIMEOUT_SEC))
+  while (( SECONDS < deadline )); do
+    if ros2 node list 2>/dev/null | grep -qx "/continuous_time_node"; then
+      return 0
+    fi
+    sleep 0.2
+  done
+  echo "continuous_time_native_reference_parity FAIL: /continuous_time_node not ready after ${NODE_READY_TIMEOUT_SEC}s"
+  tail -n 80 "${NODE_LOG}" 2>/dev/null || true
+  exit 1
+}
 
 # `setsid` puts the node in its own process group so cleanup can kill the
 # full process tree, not just the `ros2 run` wrapper.
@@ -424,6 +439,8 @@ if [ -n "${PRIOR_TUM}" ]; then
   PRIOR_PGID=$(ps -o pgid= -p "${PRIOR_PID}" 2>/dev/null | tr -d ' ')
 fi
 
+wait_for_continuous_time_node
+
 PLAYBACK_SECS=$(awk -v d="${PLAYBACK_DURATION}" -v r="${PLAYBACK_RATE}" 'BEGIN{ print d / r }')
 CAPTURE_SECS=$(awk -v p="${PLAYBACK_SECS}" 'BEGIN{ print p + 3 }')
 
@@ -454,9 +471,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-sleep 2
+sleep 1
 
 ros2 bag play "${BAG_DIR}" --rate "${PLAYBACK_RATE}" \
+  --playback-duration "${PLAYBACK_DURATION}" \
+  --read-ahead-queue-size "${BAG_READ_AHEAD_QUEUE_SIZE}" \
+  --disable-keyboard-controls \
   > "${PLAY_LOG}" 2>&1 &
 PLAY_PID=$!
 
@@ -583,6 +603,8 @@ native = {
     "bag": "${BAG_DIR##*/}",
     "playback_duration_s": float("${PLAYBACK_DURATION}"),
     "playback_rate": float("${PLAYBACK_RATE}"),
+    "node_ready_timeout_sec": float("${NODE_READY_TIMEOUT_SEC}"),
+    "bag_read_ahead_queue_size": int("${BAG_READ_AHEAD_QUEUE_SIZE}"),
     "diagnostic_log_period_steps": int("${DIAGNOSTIC_LOG_PERIOD_STEPS}"),
     "imu_linear_acceleration_scale": float("${IMU_LINEAR_ACCELERATION_SCALE}"),
     "max_iterations_per_step": int("${MAX_ITERATIONS_PER_STEP}"),
