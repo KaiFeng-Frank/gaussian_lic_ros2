@@ -16,6 +16,21 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2
 
 
+BINNED_STATUS_PREFIXES = (
+    "gaussian_snapshot_",
+    "last_lidar_",
+    "last_window_",
+    "lidar_invalid_",
+    "lidar_out_of_range_",
+    "pointcloud_imu_wait_",
+    "sliding_window_",
+    "total_window_",
+    "tracking_step_guard_",
+    "trajectory_deskew_",
+    "visual_",
+)
+
+
 def stamp_to_nsec(stamp):
     return int(stamp.sec) * 1_000_000_000 + int(stamp.nanosec)
 
@@ -70,6 +85,71 @@ def update_numeric_summary(summary, record):
         entry["delta"] = numeric - entry["first"]
 
 
+def is_binned_status_field(name):
+    return name == "stamp" or name == "stamp_ns" or name.startswith(BINNED_STATUS_PREFIXES)
+
+
+def compact_status_record(record):
+    compact = {}
+    for key, value in record.items():
+        if not is_binned_status_field(key):
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        numeric = float(value)
+        if math.isfinite(numeric):
+            compact[key] = numeric
+    return compact
+
+
+def compute_time_binned_summary(records, bin_count):
+    if bin_count <= 0 or not records:
+        return []
+
+    stamped_records = [
+        record for record in records
+        if isinstance(record.get("stamp"), (int, float)) and math.isfinite(float(record["stamp"]))
+    ]
+    if not stamped_records:
+        return []
+
+    first_stamp = min(float(record["stamp"]) for record in stamped_records)
+    last_stamp = max(float(record["stamp"]) for record in stamped_records)
+    duration = max(0.0, last_stamp - first_stamp)
+    bins = []
+
+    for index in range(bin_count):
+        if duration <= 0.0:
+            start_stamp = first_stamp
+            end_stamp = last_stamp
+        else:
+            start_stamp = first_stamp + duration * index / bin_count
+            end_stamp = first_stamp + duration * (index + 1) / bin_count
+
+        summary = {}
+        sample_count = 0
+        for record in stamped_records:
+            stamp = float(record["stamp"])
+            if index + 1 == bin_count:
+                in_bin = start_stamp <= stamp <= end_stamp
+            else:
+                in_bin = start_stamp <= stamp < end_stamp
+            if not in_bin:
+                continue
+            sample_count += 1
+            update_numeric_summary(summary, record)
+
+        bins.append({
+            "index": index,
+            "start_stamp": start_stamp,
+            "end_stamp": end_stamp,
+            "sample_count": sample_count,
+            "summary": summary,
+        })
+
+    return bins
+
+
 class NativeTrackingRecorder(Node):
     def __init__(self):
         super().__init__("native_tracking_recorder")
@@ -82,6 +162,9 @@ class NativeTrackingRecorder(Node):
         self.mapping_status_topic = self.declare_parameter("mapping_status_topic", "").value
         self.reference_odometry_topic = self.declare_parameter("reference_odometry_topic", "").value
         self.reference_pose_topic = self.declare_parameter("reference_pose_topic", "").value
+        self.status_bin_count = int(self.declare_parameter("status_bin_count", 8).value)
+        self.status_history_max_samples = int(
+            self.declare_parameter("status_history_max_samples", 5000).value)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         qos = QoSProfile(
@@ -108,6 +191,7 @@ class NativeTrackingRecorder(Node):
         self.last_mapping_status = {}
         self.status_summary = {}
         self.mapping_status_summary = {}
+        self.status_records = []
 
         self.create_subscription(Odometry, self.odometry_topic, self.on_odometry, qos)
         self.create_subscription(PointCloud2, self.pointcloud_topic, self.on_pointcloud, qos)
@@ -190,7 +274,14 @@ class NativeTrackingRecorder(Node):
     def on_status(self, msg):
         self.topic_counts[self.status_topic] += 1
         self.last_status = status_to_dict(msg)
+        self.last_status["stamp"] = stamp_to_tum(msg.header.stamp)
+        self.last_status["stamp_ns"] = stamp_to_nsec(msg.header.stamp)
         update_numeric_summary(self.status_summary, self.last_status)
+        self.status_records.append(compact_status_record(self.last_status))
+        if self.status_history_max_samples > 0:
+            overflow = len(self.status_records) - self.status_history_max_samples
+            if overflow > 0:
+                del self.status_records[:overflow]
 
     def on_mapping_status(self, msg):
         self.topic_counts[self.mapping_status_topic] += 1
@@ -223,6 +314,10 @@ class NativeTrackingRecorder(Node):
                 "samples": self.topic_counts[self.status_topic],
                 "last": self.last_status,
                 "summary": self.status_summary,
+                "binned_summary": compute_time_binned_summary(
+                    self.status_records, self.status_bin_count),
+                "history_samples_retained": len(self.status_records),
+                "status_bin_count": self.status_bin_count,
             },
             "mapping_status": {
                 "samples": self.topic_counts.get(self.mapping_status_topic, 0),
