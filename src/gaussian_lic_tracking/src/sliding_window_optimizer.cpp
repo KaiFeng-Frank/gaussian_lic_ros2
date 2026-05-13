@@ -886,24 +886,31 @@ void SlidingWindowOptimizer::add_relative_translation_factor(
     throw std::runtime_error("relative translation factor timestamps must be strictly increasing");
   }
   if (!std::isfinite(factor.weight) || !std::isfinite(factor.huber_delta_m) ||
-    factor.weight <= 0.0 || factor.huber_delta_m < 0.0)
+    !std::isfinite(factor.rotation_weight) ||
+    !std::isfinite(factor.rotation_huber_delta_rad) ||
+    factor.weight <= 0.0 || factor.huber_delta_m < 0.0 ||
+    factor.rotation_weight < 0.0 || factor.rotation_huber_delta_rad < 0.0)
   {
     throw std::runtime_error(
-      "relative translation factor weight must be positive and Huber delta must be non-negative");
+      "relative translation factor weights must be positive/non-negative and Huber deltas must be non-negative");
   }
-  if (!factor.delta_p_w.allFinite()) {
-    throw std::runtime_error("relative translation factor delta must be finite");
+  if (!factor.delta_p_w.allFinite() ||
+    !quaternion_is_finite_and_nonzero(factor.delta_q_from_to))
+  {
+    throw std::runtime_error("relative translation factor deltas must be finite");
   }
+  SlidingWindowRelativeTranslationFactor normalized = factor;
+  normalized.delta_q_from_to.normalize();
   const auto existing = std::find_if(
     relative_translation_factors_.begin(), relative_translation_factors_.end(),
-    [&factor](const SlidingWindowRelativeTranslationFactor & candidate) {
-      return candidate.from_stamp_ns == factor.from_stamp_ns &&
-             candidate.to_stamp_ns == factor.to_stamp_ns;
+    [&normalized](const SlidingWindowRelativeTranslationFactor & candidate) {
+      return candidate.from_stamp_ns == normalized.from_stamp_ns &&
+             candidate.to_stamp_ns == normalized.to_stamp_ns;
     });
   if (existing == relative_translation_factors_.end()) {
-    relative_translation_factors_.push_back(factor);
+    relative_translation_factors_.push_back(normalized);
   } else {
-    *existing = factor;
+    *existing = normalized;
     ++relative_translation_factor_replacement_count_;
   }
 }
@@ -1221,11 +1228,15 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     *breakdown = SlidingWindowCostBreakdown{};
   }
   std::vector<double> values;
+  size_t relative_translation_residual_dof = 0U;
+  for (const auto & factor : relative_translation_factors_) {
+    relative_translation_residual_dof += 3U + (factor.rotation_weight > 0.0 ? 3U : 0U);
+  }
   values.reserve(
     imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
     dense_priors_.size() * 30U + point_factors_.size() * 300U + plane_factors_.size() * 100U +
     visual_factors_.size() * 2U + se3_photometric_factors_.size() * 6U +
-    relative_translation_factors_.size() * 3U +
+    relative_translation_residual_dof +
     smoothness_factors_.size() * kSmoothnessResidualDof);
 
   auto append = [&values, breakdown](
@@ -1425,6 +1436,18 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     append(
       std::sqrt(factor.weight * robust_weight) * residual,
       &SlidingWindowCostBreakdown::relative_translation_factor_cost);
+    if (factor.rotation_weight > 0.0) {
+      const Eigen::Quaterniond predicted_delta_q =
+        states[static_cast<size_t>(from)].q_w_i.conjugate() *
+        states[static_cast<size_t>(to)].q_w_i;
+      const Eigen::Vector3d rotation_residual =
+        SlidingWindowOptimizer::rotation_residual(factor.delta_q_from_to, predicted_delta_q);
+      const double rotation_robust_weight =
+        huber_weight(rotation_residual.norm(), factor.rotation_huber_delta_rad);
+      append(
+        std::sqrt(factor.rotation_weight * rotation_robust_weight) * rotation_residual,
+        &SlidingWindowCostBreakdown::relative_translation_factor_cost);
+    }
   }
 
   for (const auto & factor : smoothness_factors_) {
@@ -1780,6 +1803,18 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         scale * Eigen::Matrix3d::Identity();
     }
     row += 3;
+    if (factor.rotation_weight > 0.0) {
+      if (!rows_available(row, 3)) {
+        return fallback_to_numeric();
+      }
+      if (from_offset >= 0) {
+        mark_numeric(row, 3, from_offset, 3);
+      }
+      if (to_offset >= 0) {
+        mark_numeric(row, 3, to_offset, 3);
+      }
+      row += 3;
+    }
   }
 
   for (const auto & factor : smoothness_factors_) {

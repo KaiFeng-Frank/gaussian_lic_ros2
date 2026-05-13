@@ -209,6 +209,12 @@ def generate_launch_description():
     sliding_window_relative_translation_huber_delta_m = LaunchConfiguration(
         "sliding_window_relative_translation_huber_delta_m"
     )
+    sliding_window_relative_rotation_weight = LaunchConfiguration(
+        "sliding_window_relative_rotation_weight"
+    )
+    sliding_window_relative_rotation_huber_delta_rad = LaunchConfiguration(
+        "sliding_window_relative_rotation_huber_delta_rad"
+    )
     enable_sliding_window_multihop_relative_translation_factor = LaunchConfiguration(
         "enable_sliding_window_multihop_relative_translation_factor"
     )
@@ -217,6 +223,12 @@ def generate_launch_description():
     )
     sliding_window_multihop_relative_translation_huber_delta_m = LaunchConfiguration(
         "sliding_window_multihop_relative_translation_huber_delta_m"
+    )
+    sliding_window_multihop_relative_rotation_weight = LaunchConfiguration(
+        "sliding_window_multihop_relative_rotation_weight"
+    )
+    sliding_window_multihop_relative_rotation_huber_delta_rad = LaunchConfiguration(
+        "sliding_window_multihop_relative_rotation_huber_delta_rad"
     )
     sliding_window_multihop_relative_translation_min_dt_s = LaunchConfiguration(
         "sliding_window_multihop_relative_translation_min_dt_s"
@@ -483,6 +495,8 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_sliding_window_relative_translation_factor", default_value="false"),
             DeclareLaunchArgument("sliding_window_relative_translation_weight", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_relative_translation_huber_delta_m", default_value="0.1"),
+            DeclareLaunchArgument("sliding_window_relative_rotation_weight", default_value="0.0"),
+            DeclareLaunchArgument("sliding_window_relative_rotation_huber_delta_rad", default_value="0.05"),
             DeclareLaunchArgument(
                 "enable_sliding_window_multihop_relative_translation_factor",
                 default_value="false",
@@ -491,6 +505,11 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "sliding_window_multihop_relative_translation_huber_delta_m",
                 default_value="0.15",
+            ),
+            DeclareLaunchArgument("sliding_window_multihop_relative_rotation_weight", default_value="0.0"),
+            DeclareLaunchArgument(
+                "sliding_window_multihop_relative_rotation_huber_delta_rad",
+                default_value="0.08",
             ),
             DeclareLaunchArgument("sliding_window_multihop_relative_translation_min_dt_s", default_value="0.45"),
             DeclareLaunchArgument("sliding_window_multihop_relative_translation_max_dt_s", default_value="1.05"),
@@ -737,6 +756,12 @@ def generate_launch_description():
                         "sliding_window_relative_translation_huber_delta_m": (
                             sliding_window_relative_translation_huber_delta_m
                         ),
+                        "sliding_window_relative_rotation_weight": (
+                            sliding_window_relative_rotation_weight
+                        ),
+                        "sliding_window_relative_rotation_huber_delta_rad": (
+                            sliding_window_relative_rotation_huber_delta_rad
+                        ),
                         "enable_sliding_window_multihop_relative_translation_factor": (
                             enable_sliding_window_multihop_relative_translation_factor
                         ),
@@ -745,6 +770,12 @@ def generate_launch_description():
                         ),
                         "sliding_window_multihop_relative_translation_huber_delta_m": (
                             sliding_window_multihop_relative_translation_huber_delta_m
+                        ),
+                        "sliding_window_multihop_relative_rotation_weight": (
+                            sliding_window_multihop_relative_rotation_weight
+                        ),
+                        "sliding_window_multihop_relative_rotation_huber_delta_rad": (
+                            sliding_window_multihop_relative_rotation_huber_delta_rad
                         ),
                         "sliding_window_multihop_relative_translation_min_dt_s": (
                             sliding_window_multihop_relative_translation_min_dt_s

@@ -609,6 +609,12 @@ public:
     sliding_window_relative_translation_huber_delta_m_ = finite_nonnegative_parameter(
       "sliding_window_relative_translation_huber_delta_m",
       declare_parameter<double>("sliding_window_relative_translation_huber_delta_m", 0.1));
+    sliding_window_relative_rotation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_relative_rotation_weight",
+      declare_parameter<double>("sliding_window_relative_rotation_weight", 0.0));
+    sliding_window_relative_rotation_huber_delta_rad_ = finite_nonnegative_parameter(
+      "sliding_window_relative_rotation_huber_delta_rad",
+      declare_parameter<double>("sliding_window_relative_rotation_huber_delta_rad", 0.05));
     enable_sliding_window_multihop_relative_translation_factor_ =
       declare_parameter<bool>("enable_sliding_window_multihop_relative_translation_factor", false);
     sliding_window_multihop_relative_translation_weight_ = finite_nonnegative_parameter(
@@ -617,6 +623,12 @@ public:
     sliding_window_multihop_relative_translation_huber_delta_m_ = finite_nonnegative_parameter(
       "sliding_window_multihop_relative_translation_huber_delta_m",
       declare_parameter<double>("sliding_window_multihop_relative_translation_huber_delta_m", 0.15));
+    sliding_window_multihop_relative_rotation_weight_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_rotation_weight",
+      declare_parameter<double>("sliding_window_multihop_relative_rotation_weight", 0.0));
+    sliding_window_multihop_relative_rotation_huber_delta_rad_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_rotation_huber_delta_rad",
+      declare_parameter<double>("sliding_window_multihop_relative_rotation_huber_delta_rad", 0.08));
     sliding_window_multihop_relative_translation_min_dt_s_ = finite_nonnegative_parameter(
       "sliding_window_multihop_relative_translation_min_dt_s",
       declare_parameter<double>("sliding_window_multihop_relative_translation_min_dt_s", 0.45));
@@ -1642,8 +1654,12 @@ private:
         factor.from_stamp_ns = previous_pose.stamp_ns;
         factor.to_stamp_ns = tracking_pose.stamp_ns;
         factor.delta_p_w = raw_delta_p_w;
+        factor.delta_q_from_to =
+          (previous_pose.q_w_i.conjugate() * tracking_pose.q_w_i).normalized();
         factor.weight = sliding_window_relative_translation_weight_;
         factor.huber_delta_m = sliding_window_relative_translation_huber_delta_m_;
+        factor.rotation_weight = sliding_window_relative_rotation_weight_;
+        factor.rotation_huber_delta_rad = sliding_window_relative_rotation_huber_delta_rad_;
         relative_translation_factors.push_back(factor);
       }
     }
@@ -1987,8 +2003,13 @@ private:
       factor.from_stamp_ns = history_pose.stamp_ns;
       factor.to_stamp_ns = pre_ba_pose.stamp_ns;
       factor.delta_p_w = delta_p_w;
+      factor.delta_q_from_to =
+        (history_pose.q_w_i.conjugate() * pre_ba_pose.q_w_i).normalized();
       factor.weight = sliding_window_multihop_relative_translation_weight_;
       factor.huber_delta_m = sliding_window_multihop_relative_translation_huber_delta_m_;
+      factor.rotation_weight = sliding_window_multihop_relative_rotation_weight_;
+      factor.rotation_huber_delta_rad =
+        sliding_window_multihop_relative_rotation_huber_delta_rad_;
       factors.push_back(factor);
       ++added_factors;
       if (added_factors >=
@@ -4675,9 +4696,13 @@ private:
   bool enable_sliding_window_relative_translation_factor_{false};
   double sliding_window_relative_translation_weight_{0.0};
   double sliding_window_relative_translation_huber_delta_m_{0.1};
+  double sliding_window_relative_rotation_weight_{0.0};
+  double sliding_window_relative_rotation_huber_delta_rad_{0.05};
   bool enable_sliding_window_multihop_relative_translation_factor_{false};
   double sliding_window_multihop_relative_translation_weight_{0.0};
   double sliding_window_multihop_relative_translation_huber_delta_m_{0.15};
+  double sliding_window_multihop_relative_rotation_weight_{0.0};
+  double sliding_window_multihop_relative_rotation_huber_delta_rad_{0.08};
   double sliding_window_multihop_relative_translation_min_dt_s_{0.45};
   double sliding_window_multihop_relative_translation_max_dt_s_{1.05};
   int sliding_window_multihop_relative_translation_max_factors_{1};

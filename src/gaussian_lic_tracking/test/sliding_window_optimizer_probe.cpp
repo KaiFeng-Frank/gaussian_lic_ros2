@@ -106,8 +106,12 @@ int main()
   relative_factor.from_stamp_ns = relative_start.stamp_ns;
   relative_factor.to_stamp_ns = relative_end.stamp_ns;
   relative_factor.delta_p_w = Eigen::Vector3d{0.4, -0.1, 0.2};
+  relative_factor.delta_q_from_to =
+    Eigen::Quaterniond(Eigen::AngleAxisd(0.15, Eigen::Vector3d::UnitZ()));
   relative_factor.weight = 25.0;
   relative_factor.huber_delta_m = 0.0;
+  relative_factor.rotation_weight = 25.0;
+  relative_factor.rotation_huber_delta_rad = 0.0;
   relative_optimizer.add_relative_translation_factor(relative_factor);
   const auto relative_summary = relative_optimizer.optimize();
   gaussian_lic_tracking::SlidingWindowState relative_optimized;
@@ -117,12 +121,16 @@ int main()
   }
   const double relative_error =
     (relative_optimized.p_w_i - relative_factor.delta_p_w).norm();
+  const double relative_rotation_error =
+    relative_optimized.q_w_i.angularDistance(relative_factor.delta_q_from_to);
   if (!relative_summary.converged ||
     relative_summary.relative_translation_factor_count != 1U ||
     relative_summary.relative_translation_factor_cost >= relative_summary.initial_cost ||
-    relative_error > 1.0e-8)
+    relative_error > 1.0e-8 ||
+    relative_rotation_error > 1.0e-8)
   {
-    std::cerr << "relative translation BA factor failed, error=" << relative_error << "\n";
+    std::cerr << "relative translation/rotation BA factor failed, translation_error="
+              << relative_error << " rotation_error=" << relative_rotation_error << "\n";
     return 1;
   }
   std::cout << "sliding_window_optimizer_probe OK\n";
