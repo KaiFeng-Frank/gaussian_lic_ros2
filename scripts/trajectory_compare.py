@@ -235,7 +235,7 @@ def summarize_pose_series(poses, positions):
     }
 
 
-def summarize_matches(matches, align):
+def aligned_match_positions(matches, align):
     baseline_poses = [pair[0] for pair in matches]
     current_poses = [pair[1] for pair in matches]
     baseline_positions = [translation_tuple(pair[0]) for pair in matches]
@@ -263,6 +263,13 @@ def summarize_matches(matches, align):
         }
     else:
         current_positions = raw_current_positions
+    return baseline_poses, current_poses, baseline_positions, current_positions, alignment_details
+
+
+def summarize_matches(matches, align):
+    baseline_poses, current_poses, baseline_positions, current_positions, alignment_details = (
+        aligned_match_positions(matches, align)
+    )
     translation_errors = [
         distance(baseline_position, current_position)
         for baseline_position, current_position in zip(baseline_positions, current_positions)
@@ -306,6 +313,67 @@ def summarize_matches(matches, align):
             "current": summarize_pose_series(current_poses, current_positions),
         },
     }
+
+
+def summarize_error_bins(matches, align, bin_count):
+    if bin_count <= 0 or not matches:
+        return []
+    baseline_poses, _, baseline_positions, current_positions, _ = aligned_match_positions(matches, align)
+    first_stamp = baseline_poses[0].stamp
+    last_stamp = baseline_poses[-1].stamp
+    duration = last_stamp - first_stamp
+    bins = []
+    for bin_index in range(bin_count):
+        start_fraction = bin_index / bin_count
+        end_fraction = (bin_index + 1) / bin_count
+        start_stamp = first_stamp + duration * start_fraction
+        end_stamp = first_stamp + duration * end_fraction
+        if bin_index + 1 == bin_count:
+            selected = [
+                (baseline, current)
+                for pose, baseline, current in zip(baseline_poses, baseline_positions, current_positions)
+                if start_stamp <= pose.stamp <= end_stamp
+            ]
+        else:
+            selected = [
+                (baseline, current)
+                for pose, baseline, current in zip(baseline_poses, baseline_positions, current_positions)
+                if start_stamp <= pose.stamp < end_stamp
+            ]
+        errors = [
+            (
+                current[0] - baseline[0],
+                current[1] - baseline[1],
+                current[2] - baseline[2],
+            )
+            for baseline, current in selected
+        ]
+        norms = [math.sqrt(dx * dx + dy * dy + dz * dz) for dx, dy, dz in errors]
+        if errors:
+            inv_count = 1.0 / len(errors)
+            bias = [
+                sum(error[axis] for error in errors) * inv_count
+                for axis in range(3)
+            ]
+            rmse = math.sqrt(sum(norm * norm for norm in norms) / len(norms))
+            mean = sum(norms) / len(norms)
+            max_error = max(norms)
+        else:
+            bias = [0.0, 0.0, 0.0]
+            rmse = 0.0
+            mean = 0.0
+            max_error = 0.0
+        bins.append({
+            "index": bin_index,
+            "start_stamp": start_stamp,
+            "end_stamp": end_stamp,
+            "count": len(errors),
+            "translation_rmse_m": rmse,
+            "translation_mean_m": mean,
+            "translation_max_m": max_error,
+            "bias_xyz_m": bias,
+        })
+    return bins
 
 
 def shifted_poses(poses, offset_s):
@@ -428,6 +496,8 @@ def compute_report(args):
         "ok": not errors,
         "errors": errors,
     }
+    if args.error_bin_count > 0:
+        report["error_bins"] = summarize_error_bins(matches, args.align, args.error_bin_count)
     time_offset_sweep = compute_time_offset_sweep(baseline, current, args)
     if time_offset_sweep is not None:
         report["time_offset_sweep"] = time_offset_sweep
@@ -455,6 +525,12 @@ def main(argv=None):
     parser.add_argument("--max-mean-m", type=float, default=0.03)
     parser.add_argument("--max-error-m", type=float, default=0.15)
     parser.add_argument("--max-path-drift", type=float, default=0.05)
+    parser.add_argument(
+        "--error-bin-count",
+        type=int,
+        default=0,
+        help="Optional number of time-ordered match bins to summarize for drift-shape diagnostics.",
+    )
     parser.add_argument(
         "--time-offset-sweep-min",
         type=float,
