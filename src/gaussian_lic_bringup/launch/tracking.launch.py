@@ -74,6 +74,8 @@ def generate_launch_description():
     lidar_max_rotation_rad = LaunchConfiguration("lidar_max_rotation_rad")
     lidar_robust_kernel_m = LaunchConfiguration("lidar_robust_kernel_m")
     lidar_pose_factor_iterations = LaunchConfiguration("lidar_pose_factor_iterations")
+    lidar_window_point_factor_weight = LaunchConfiguration("lidar_window_point_factor_weight")
+    lidar_window_plane_factor_weight = LaunchConfiguration("lidar_window_plane_factor_weight")
     lidar_plane_min_neighbors = LaunchConfiguration("lidar_plane_min_neighbors")
     lidar_plane_max_condition = LaunchConfiguration("lidar_plane_max_condition")
     lidar_keyframe_translation_m = LaunchConfiguration("lidar_keyframe_translation_m")
@@ -265,6 +267,8 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_max_rotation_rad", default_value="0.08"),
             DeclareLaunchArgument("lidar_robust_kernel_m", default_value="0.15"),
             DeclareLaunchArgument("lidar_pose_factor_iterations", default_value="1"),
+            DeclareLaunchArgument("lidar_window_point_factor_weight", default_value="1.0"),
+            DeclareLaunchArgument("lidar_window_plane_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("lidar_plane_min_neighbors", default_value="5"),
             DeclareLaunchArgument("lidar_plane_max_condition", default_value="0.2"),
             DeclareLaunchArgument("lidar_keyframe_translation_m", default_value="0.25"),
@@ -415,6 +419,8 @@ def generate_launch_description():
                         "lidar_max_rotation_rad": lidar_max_rotation_rad,
                         "lidar_robust_kernel_m": lidar_robust_kernel_m,
                         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
+                        "lidar_window_point_factor_weight": lidar_window_point_factor_weight,
+                        "lidar_window_plane_factor_weight": lidar_window_plane_factor_weight,
                         "lidar_plane_min_neighbors": lidar_plane_min_neighbors,
                         "lidar_plane_max_condition": lidar_plane_max_condition,
                         "lidar_keyframe_translation_m": lidar_keyframe_translation_m,

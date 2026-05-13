@@ -295,6 +295,12 @@ public:
     lidar_pose_factor_iterations_ = integer_parameter_at_least(
       "lidar_pose_factor_iterations",
       declare_parameter<int>("lidar_pose_factor_iterations", 1), 1);
+    lidar_window_point_factor_weight_ = finite_positive_parameter(
+      "lidar_window_point_factor_weight",
+      declare_parameter<double>("lidar_window_point_factor_weight", 1.0));
+    lidar_window_plane_factor_weight_ = finite_positive_parameter(
+      "lidar_window_plane_factor_weight",
+      declare_parameter<double>("lidar_window_plane_factor_weight", 1.0));
     lidar_plane_min_neighbors_ = integer_parameter_at_least(
       "lidar_plane_min_neighbors",
       declare_parameter<int>("lidar_plane_min_neighbors", 5), 3);
@@ -1533,6 +1539,7 @@ private:
       if (enable_sliding_window_optimizer_) {
         auto lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
         if (!lidar_window_factor.frame_points_i.empty()) {
+          lidar_window_factor.weight *= lidar_window_point_factor_weight_;
           window_point_correspondences += lidar_window_factor.frame_points_i.size();
           accumulate_correspondence_weights(
             lidar_window_factor.point_weights,
@@ -1544,6 +1551,7 @@ private:
         if (enable_lidar_plane_factor_) {
           auto lidar_plane_factor = lidar_factor_.build_point_to_plane_factor(lidar_points, tracking_pose);
           if (!lidar_plane_factor.frame_points_i.empty()) {
+            lidar_plane_factor.weight *= lidar_window_plane_factor_weight_;
             window_plane_correspondences += lidar_plane_factor.frame_points_i.size();
             accumulate_correspondence_weights(
               lidar_plane_factor.point_weights,
@@ -3947,6 +3955,8 @@ private:
   double lidar_max_rotation_rad_{0.08};
   double lidar_robust_kernel_m_{0.15};
   int lidar_pose_factor_iterations_{1};
+  double lidar_window_point_factor_weight_{1.0};
+  double lidar_window_plane_factor_weight_{1.0};
   int lidar_plane_min_neighbors_{5};
   double lidar_plane_max_condition_{0.2};
   double lidar_keyframe_translation_m_{0.25};

@@ -25,6 +25,8 @@ LIDAR_MAX_CORRECTION_M=0.25
 LIDAR_MAX_ROTATION_RAD=0.08
 LIDAR_ROBUST_KERNEL_M=0.15
 LIDAR_POSE_FACTOR_ITERATIONS=1
+LIDAR_WINDOW_POINT_FACTOR_WEIGHT=1.0
+LIDAR_WINDOW_PLANE_FACTOR_WEIGHT=1.0
 LIDAR_KEYFRAME_TRANSLATION_M=0.0
 MAX_LIDAR_INVALID_FRAMES=0
 LIDAR_TIME_MODE=auto
@@ -191,6 +193,10 @@ Options:
   --lidar-robust-kernel-m M     LiDAR robust kernel delta. Default: 0.15.
   --lidar-pose-factor-iterations N
                                LiDAR point-to-plane pose correction iterations. Default: 1.
+  --lidar-window-point-factor-weight W
+                               Weight multiplier for native LiDAR point-to-point BA factors. Default: 1.0.
+  --lidar-window-plane-factor-weight W
+                               Weight multiplier for native LiDAR point-to-plane BA factors. Default: 1.0.
   --lidar-keyframe-translation-m M
                                Keyframe insertion threshold. Default: 0.0 for strict replay sweeps.
   --max-lidar-invalid-frames N  Maximum invalid LiDAR frames tolerated by report gate. Default: 0.
@@ -472,6 +478,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --lidar-pose-factor-iterations)
       LIDAR_POSE_FACTOR_ITERATIONS="$2"
+      shift 2
+      ;;
+    --lidar-window-point-factor-weight)
+      LIDAR_WINDOW_POINT_FACTOR_WEIGHT="$2"
+      shift 2
+      ;;
+    --lidar-window-plane-factor-weight)
+      LIDAR_WINDOW_PLANE_FACTOR_WEIGHT="$2"
       shift 2
       ;;
     --lidar-keyframe-translation-m)
@@ -1142,6 +1156,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   lidar_max_rotation_rad:="${LIDAR_MAX_ROTATION_RAD}" \
   lidar_robust_kernel_m:="${LIDAR_ROBUST_KERNEL_M}" \
   lidar_pose_factor_iterations:="${LIDAR_POSE_FACTOR_ITERATIONS}" \
+  lidar_window_point_factor_weight:="${LIDAR_WINDOW_POINT_FACTOR_WEIGHT}" \
+  lidar_window_plane_factor_weight:="${LIDAR_WINDOW_PLANE_FACTOR_WEIGHT}" \
   lidar_max_frame_points:="${LIDAR_MAX_FRAME_POINTS}" \
   lidar_max_map_points:="${LIDAR_MAX_MAP_POINTS}" \
   sliding_window_optimize_every_n_frames:="${SLIDING_WINDOW_OPTIMIZE_EVERY_N_FRAMES}" \
@@ -1300,6 +1316,8 @@ GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PL
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
 LIDAR_POSE_FACTOR_ITERATIONS_REPORT="${LIDAR_POSE_FACTOR_ITERATIONS}" \
+LIDAR_WINDOW_POINT_FACTOR_WEIGHT_REPORT="${LIDAR_WINDOW_POINT_FACTOR_WEIGHT}" \
+LIDAR_WINDOW_PLANE_FACTOR_WEIGHT_REPORT="${LIDAR_WINDOW_PLANE_FACTOR_WEIGHT}" \
 SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
 SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
@@ -1432,6 +1450,8 @@ gaussian_snapshot_lidar_plane_min_anisotropy = float(
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT"]
 )
 lidar_pose_factor_iterations = int(os.environ["LIDAR_POSE_FACTOR_ITERATIONS_REPORT"])
+lidar_window_point_factor_weight = float(os.environ["LIDAR_WINDOW_POINT_FACTOR_WEIGHT_REPORT"])
+lidar_window_plane_factor_weight = float(os.environ["LIDAR_WINDOW_PLANE_FACTOR_WEIGHT_REPORT"])
 sliding_window_max_states = int(os.environ["SLIDING_WINDOW_MAX_STATES_REPORT"])
 sliding_window_max_iterations = int(os.environ["SLIDING_WINDOW_MAX_ITERATIONS_REPORT"])
 enable_pre_lio_tracking_step_guard = (
@@ -1738,6 +1758,8 @@ report = {
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
+        "lidar_window_point_factor_weight": lidar_window_point_factor_weight,
+        "lidar_window_plane_factor_weight": lidar_window_plane_factor_weight,
         "sliding_window_max_states": sliding_window_max_states,
         "sliding_window_max_iterations": sliding_window_max_iterations,
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
