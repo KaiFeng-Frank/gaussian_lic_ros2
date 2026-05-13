@@ -44,6 +44,9 @@ public:
   size_t map_point_count() const { return map_points_world_.size(); }
   size_t total_point_count() const { return total_point_count_; }
   size_t skipped_nonpositive_depth_count() const { return skipped_nonpositive_depth_count_; }
+  size_t skipped_max_depth_count() const { return skipped_max_depth_count_; }
+  size_t skipped_unprojected_count() const { return skipped_unprojected_count_; }
+  size_t skipped_occluded_count() const { return skipped_occluded_count_; }
 
   const std::vector<CameraFrameRecord> & train_frames() const { return train_frames_; }
   const std::vector<CameraFrameRecord> & test_frames() const { return test_frames_; }
@@ -59,6 +62,9 @@ private:
   size_t all_frame_count_{0};
   size_t total_point_count_{0};
   size_t skipped_nonpositive_depth_count_{0};
+  size_t skipped_max_depth_count_{0};
+  size_t skipped_unprojected_count_{0};
+  size_t skipped_occluded_count_{0};
   std::vector<CameraFrameRecord> train_frames_;
   std::vector<CameraFrameRecord> test_frames_;
   CameraFrameRecord skipped_test_frame_;

@@ -90,14 +90,15 @@ bool has_valid_projection_intrinsics(const CameraIntrinsics & intrinsics)
     intrinsics.fx > 0.0 && intrinsics.fy > 0.0;
 }
 
-bool sample_projected_image_color(
-  const cv::Mat & image_rgb_float,
+bool project_to_image_pixel(
+  const int width,
+  const int height,
   const CameraIntrinsics & intrinsics,
   const Eigen::Vector3d & xyz_cam,
-  Eigen::Vector3f & color_rgb)
+  int & u,
+  int & v)
 {
-  if (image_rgb_float.empty() || image_rgb_float.type() != CV_32FC3 ||
-    !has_valid_projection_intrinsics(intrinsics) || xyz_cam.z() <= 0.0)
+  if (width <= 0 || height <= 0 || !has_valid_projection_intrinsics(intrinsics) || xyz_cam.z() <= 0.0)
   {
     return false;
   }
@@ -108,10 +109,33 @@ bool sample_projected_image_color(
     return false;
   }
 
-  const int u = static_cast<int>(std::floor(u_float));
-  const int v = static_cast<int>(std::floor(v_float));
-  if (u < 0 || v < 0 || u >= image_rgb_float.cols || v >= image_rgb_float.rows) {
+  u = static_cast<int>(std::floor(u_float));
+  v = static_cast<int>(std::floor(v_float));
+  return u >= 0 && v >= 0 && u < width && v < height;
+}
+
+bool sample_projected_image_color(
+  const cv::Mat & image_rgb_float,
+  const CameraIntrinsics & intrinsics,
+  const Eigen::Vector3d & xyz_cam,
+  Eigen::Vector3f & color_rgb,
+  int * projected_u = nullptr,
+  int * projected_v = nullptr)
+{
+  if (image_rgb_float.empty() || image_rgb_float.type() != CV_32FC3) {
     return false;
+  }
+
+  int u = 0;
+  int v = 0;
+  if (!project_to_image_pixel(image_rgb_float.cols, image_rgb_float.rows, intrinsics, xyz_cam, u, v)) {
+    return false;
+  }
+  if (projected_u) {
+    *projected_u = u;
+  }
+  if (projected_v) {
+    *projected_v = v;
   }
 
   const cv::Vec3f & rgb = image_rgb_float.at<cv::Vec3f>(v, u);
@@ -263,9 +287,18 @@ std::vector<MapperPoint> convert_pointcloud(
   const CameraIntrinsics & intrinsics,
   const PointCloudCoordinates pointcloud_coordinates,
   const CameraExtrinsics & camera_extrinsics,
-  size_t & skipped_nonpositive_depth)
+  const double max_depth_m,
+  const bool require_projected_color,
+  const bool zbuffer_projected_points,
+  size_t & skipped_nonpositive_depth,
+  size_t & skipped_max_depth,
+  size_t & skipped_unprojected,
+  size_t & skipped_occluded)
 {
   skipped_nonpositive_depth = 0;
+  skipped_max_depth = 0;
+  skipped_unprojected = 0;
+  skipped_occluded = 0;
   const size_t point_count = static_cast<size_t>(cloud.width) * static_cast<size_t>(cloud.height);
   std::vector<MapperPoint> points;
   points.reserve(point_count);
@@ -291,6 +324,18 @@ std::vector<MapperPoint> convert_pointcloud(
   const auto * intensity_field = find_field(cloud, "intensity");
   if (!intensity_field) {
     intensity_field = find_field(cloud, "reflectivity");
+  }
+  const bool has_explicit_color = rgb_field || (r_field && g_field && b_field);
+  const bool use_projected_zbuffer =
+    zbuffer_projected_points && require_projected_color && !has_explicit_color && !image_rgb_float.empty() &&
+    image_rgb_float.type() == CV_32FC3 && has_valid_projection_intrinsics(intrinsics);
+  std::vector<int> nearest_point_by_pixel;
+  std::vector<double> nearest_depth_by_pixel;
+  if (use_projected_zbuffer) {
+    const size_t pixel_count =
+      static_cast<size_t>(image_rgb_float.cols) * static_cast<size_t>(image_rgb_float.rows);
+    nearest_point_by_pixel.assign(pixel_count, -1);
+    nearest_depth_by_pixel.assign(pixel_count, std::numeric_limits<double>::infinity());
   }
 
   const Eigen::Matrix3d r_cw = q_wc.toRotationMatrix().transpose();
@@ -318,8 +363,14 @@ std::vector<MapperPoint> convert_pointcloud(
       ++skipped_nonpositive_depth;
       continue;
     }
+    if (max_depth_m > 0.0 && xyz_cam.z() > max_depth_m) {
+      ++skipped_max_depth;
+      continue;
+    }
 
     Eigen::Vector3f color_rgb{1.0F, 1.0F, 1.0F};
+    int projected_u = -1;
+    int projected_v = -1;
     if (rgb_field) {
       const uint32_t rgb = read_rgb_bits(base, *rgb_field);
       color_rgb.x() = static_cast<float>((rgb >> 16U) & 0xFFU) / 255.0F;
@@ -329,14 +380,47 @@ std::vector<MapperPoint> convert_pointcloud(
       color_rgb.x() = static_cast<float>(read_numeric_field(base, *r_field)) / 255.0F;
       color_rgb.y() = static_cast<float>(read_numeric_field(base, *g_field)) / 255.0F;
       color_rgb.z() = static_cast<float>(read_numeric_field(base, *b_field)) / 255.0F;
-    } else if (!sample_projected_image_color(image_rgb_float, intrinsics, xyz_cam, color_rgb)) {
+    } else if (!sample_projected_image_color(
+        image_rgb_float, intrinsics, xyz_cam, color_rgb, &projected_u, &projected_v))
+    {
+      if (require_projected_color) {
+        ++skipped_unprojected;
+        continue;
+      }
       (void)sample_intensity_color(base, intensity_field, color_rgb);
     }
 
-    points.push_back(MapperPoint{
+    MapperPoint point{
       xyz_world.cast<float>(),
       color_rgb,
-      static_cast<float>(xyz_cam.z())});
+      static_cast<float>(xyz_cam.z())};
+    if (use_projected_zbuffer) {
+      if (projected_u < 0 || projected_v < 0) {
+        ++skipped_unprojected;
+        continue;
+      }
+      const size_t pixel_index =
+        static_cast<size_t>(projected_v) * static_cast<size_t>(image_rgb_float.cols) +
+        static_cast<size_t>(projected_u);
+      if (pixel_index >= nearest_point_by_pixel.size()) {
+        ++skipped_unprojected;
+        continue;
+      }
+      const int previous_index = nearest_point_by_pixel[pixel_index];
+      if (previous_index >= 0 && xyz_cam.z() >= nearest_depth_by_pixel[pixel_index]) {
+        ++skipped_occluded;
+        continue;
+      }
+      if (previous_index >= 0) {
+        points[static_cast<size_t>(previous_index)] = point;
+        nearest_depth_by_pixel[pixel_index] = xyz_cam.z();
+        ++skipped_occluded;
+        continue;
+      }
+      nearest_point_by_pixel[pixel_index] = static_cast<int>(points.size());
+      nearest_depth_by_pixel[pixel_index] = xyz_cam.z();
+    }
+    points.push_back(point);
   }
 
   return points;
@@ -350,7 +434,10 @@ MapperFrameData convert_aligned_frame(
   const int select_every_k_frame,
   const CameraIntrinsics & intrinsics,
   const PointCloudCoordinates pointcloud_coordinates,
-  const CameraExtrinsics & camera_extrinsics)
+  const CameraExtrinsics & camera_extrinsics,
+  const double max_depth_m,
+  const bool require_projected_color,
+  const bool zbuffer_projected_points)
 {
   if (!frame.pointcloud || !frame.pose || !frame.image) {
     throw std::runtime_error("cannot convert incomplete aligned ROS frame");
@@ -386,7 +473,10 @@ MapperFrameData convert_aligned_frame(
 
   out.points = convert_pointcloud(
     *frame.pointcloud, q_w_pose, t_w_pose, out.q_wc, out.t_wc, out.image_rgb_float, intrinsics,
-    pointcloud_coordinates, camera_extrinsics, out.skipped_points_nonpositive_depth);
+    pointcloud_coordinates, camera_extrinsics, max_depth_m, require_projected_color,
+    zbuffer_projected_points,
+    out.skipped_points_nonpositive_depth, out.skipped_points_max_depth,
+    out.skipped_points_unprojected, out.skipped_points_occluded);
   if (frame.depth) {
     out.depth_m_float = convert_depth_to_float_m(*frame.depth);
   } else {

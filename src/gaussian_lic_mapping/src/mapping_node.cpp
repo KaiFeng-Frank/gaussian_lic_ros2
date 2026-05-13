@@ -116,6 +116,8 @@ public:
     test_frame_stride_ =
       std::max(1, static_cast<int>(declare_parameter<int>("test_frame_stride", 1)));
     require_depth_topic_ = declare_parameter<bool>("require_depth_topic", true);
+    require_projected_point_color_ = declare_parameter<bool>("require_projected_point_color", true);
+    zbuffer_projected_points_ = declare_parameter<bool>("zbuffer_projected_points", false);
     fx_ = declare_parameter<double>("fx", 1.0);
     fy_ = declare_parameter<double>("fy", 1.0);
     cx_ = declare_parameter<double>("cx", 0.5);
@@ -352,6 +354,10 @@ public:
       sync_tolerance_sec_, max_queue_size_);
     RCLCPP_INFO(get_logger(), "Depth topic synchronization %s",
       require_depth_topic_ ? "required" : "optional; projected point depth fallback enabled");
+    RCLCPP_INFO(get_logger(), "Projected point color requirement %s",
+      require_projected_point_color_ ? "enabled" : "disabled; intensity fallback allowed");
+    RCLCPP_INFO(get_logger(), "Projected point z-buffer %s",
+      zbuffer_projected_points_ ? "enabled" : "disabled");
     RCLCPP_INFO(
       get_logger(),
       "PointCloud coordinate semantics: %s camera_to_pose_t=[%.4f, %.4f, %.4f]",
@@ -771,7 +777,8 @@ private:
           intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy};
         MapperFrameData frame_data = gaussian_lic_mapping::convert_aligned_frame(
           frame, dataset_.all_frame_count(), select_every_k_frame_, frame_intrinsics,
-          pointcloud_coordinates_, camera_extrinsics_);
+          pointcloud_coordinates_, camera_extrinsics_, backend_config_.max_depth,
+          require_projected_point_color_, zbuffer_projected_points_);
         record_converted_frame(std::move(frame_data));
         record_iteration_timing(iteration_start);
       } catch (const std::exception & ex) {
@@ -2188,6 +2195,10 @@ private:
       torch_gaussian_extend_error_count_ + torch_gaussian_optimization_error_count_ +
       torch_gaussian_densify_error_count_ + torch_gaussian_prune_error_count_ +
       torch_gaussian_opacity_reset_error_count_ + depth_completion_error_count_ + render_error_count_;
+    msg.skipped_nonpositive_depth_points = dataset_.skipped_nonpositive_depth_count();
+    msg.skipped_max_depth_points = dataset_.skipped_max_depth_count();
+    msg.skipped_unprojected_points = dataset_.skipped_unprojected_count();
+    msg.skipped_occluded_points = dataset_.skipped_occluded_count();
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     msg.gaussian_init_count = torch_gaussian_init_count_;
     msg.gaussian_extend_count = torch_gaussian_extend_count_;
@@ -2237,7 +2248,7 @@ private:
       "gaussian_prune_calls=%lu gaussian_pruned_total=%lu last_pruned=%zu gaussian_prune_errors=%lu | "
       "latency last=%.3fms mean=%.3fms | "
       "camera_info=%lu intrinsics=%s fx=%.3f fy=%.3f cx=%.3f cy=%.3f | "
-      "dropped points=%lu pose=%lu image=%lu depth=%lu skipped_depth=%lu conversion_errors=%lu | "
+      "dropped points=%lu pose=%lu image=%lu depth=%lu skipped_depth=%lu skipped_depth_max=%lu skipped_unprojected=%lu skipped_occluded=%lu conversion_errors=%lu | "
       "queues=%zu/%zu/%zu/%zu",
       pointcloud_count_, pose_count_, image_count_, depth_count_, imu_count_, aligned_frame_count_,
       converted_frame_count_, dataset_.train_frame_count(), dataset_.test_frame_count(),
@@ -2264,7 +2275,9 @@ private:
       last_mapping_latency_ms_, mean_iteration_ms_,
       camera_info_count_, intrinsics.source.c_str(), intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy,
       dropped_pointcloud_count_, dropped_pose_count_, dropped_image_count_, dropped_depth_count_,
-      dataset_.skipped_nonpositive_depth_count(), conversion_error_count_,
+      dataset_.skipped_nonpositive_depth_count(), dataset_.skipped_max_depth_count(),
+      dataset_.skipped_unprojected_count(), dataset_.skipped_occluded_count(),
+      conversion_error_count_,
       q_points, q_pose, q_image, q_depth);
   }
 
@@ -2305,6 +2318,8 @@ private:
   int select_every_k_frame_{8};
   int test_frame_stride_{1};
   bool require_depth_topic_{true};
+  bool require_projected_point_color_{true};
+  bool zbuffer_projected_points_{false};
   double fx_{1.0};
   double fy_{1.0};
   double cx_{0.5};

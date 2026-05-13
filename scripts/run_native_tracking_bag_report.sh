@@ -88,6 +88,7 @@ MAPPER_FEEDBACK_POINTCLOUD_COORDINATES=world
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_EXPLICIT=false
 MAPPER_FEEDBACK_MAX_DEPTH=20.0
 MAPPER_FEEDBACK_MAX_DEPTH_EXPLICIT=false
+MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS=false
 MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
 MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
 MAPPER_FEEDBACK_GAUSSIAN_MAP_QOS_DEPTH=128
@@ -295,7 +296,9 @@ Options:
   --mapper-feedback-pointcloud-coordinates MODE
                                mapping_node pointcloud coordinate semantics: world or sensor. Native Gaussian feedback defaults to sensor.
   --mapper-feedback-max-depth M
-                               mapping_node optimization/projection max depth in meters. Native Gaussian feedback defaults to 200.
+                               mapping_node input/projection max depth in meters. Native Gaussian feedback defaults to 20 to match mapper profiles and bound Gaussian growth.
+  --mapper-feedback-zbuffer-projected-points
+                               Keep only the nearest projected non-RGB LiDAR point per image pixel before Gaussian insertion. Default: disabled.
   --mapper-feedback-gaussian-map-publish-min-interval-sec SEC
                                Minimum simulated-time interval between full GaussianArray feedback publications. Default: 0.5.
   --mapper-feedback-gaussian-map-publish-on-empty-extend
@@ -688,7 +691,7 @@ while [[ $# -gt 0 ]]; do
         MAPPER_FEEDBACK_POINTCLOUD_COORDINATES=sensor
       fi
       if [[ "${MAPPER_FEEDBACK_MAX_DEPTH_EXPLICIT}" != "true" ]]; then
-        MAPPER_FEEDBACK_MAX_DEPTH=200.0
+        MAPPER_FEEDBACK_MAX_DEPTH=20.0
       fi
       if [[ "${PLAYBACK_RATE_EXPLICIT}" != "true" ]]; then
         PLAYBACK_RATE=0.5
@@ -741,6 +744,10 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_MAX_DEPTH="$2"
       MAPPER_FEEDBACK_MAX_DEPTH_EXPLICIT=true
       shift 2
+      ;;
+    --mapper-feedback-zbuffer-projected-points)
+      MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS=true
+      shift
       ;;
     --mapper-feedback-gaussian-map-publish-min-interval-sec)
       MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC="$2"
@@ -1118,6 +1125,7 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p camera_to_pose_translation_m:="${CAMERA_TO_IMU_TRANSLATION_M}" \
     -p camera_to_pose_rpy_rad:="${CAMERA_TO_IMU_RPY_RAD}" \
     -p max_depth:="${MAPPER_FEEDBACK_MAX_DEPTH}" \
+    -p zbuffer_projected_points:="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p sync_tolerance_sec:="${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
     -p select_every_k_frame:="${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME}" \
@@ -1214,6 +1222,7 @@ PLAYBACK_RATE_REPORT="${PLAYBACK_RATE}" \
 MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT="${MAPPER_FEEDBACK_POINTCLOUD_COORDINATES}" \
 MAPPER_FEEDBACK_MAX_DEPTH_REPORT="${MAPPER_FEEDBACK_MAX_DEPTH}" \
+MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS_REPORT="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
 MAPPER_FEEDBACK_LR_REPORT="${MAPPER_FEEDBACK_POSITION_LR},${MAPPER_FEEDBACK_FEATURE_LR},${MAPPER_FEEDBACK_OPACITY_LR},${MAPPER_FEEDBACK_SCALING_LR},${MAPPER_FEEDBACK_ROTATION_LR}" \
 MAPPER_FEEDBACK_OPTIMIZATION_EVERY_REPORT="${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_EVERY_N_KEYFRAMES}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
@@ -1316,6 +1325,9 @@ sliding_window_max_feedback_velocity_mps = float(sys.argv[42])
 mapper_feedback_render_mode = sys.argv[43]
 mapper_feedback_pointcloud_coordinates = os.environ["MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT"]
 mapper_feedback_max_depth = float(os.environ["MAPPER_FEEDBACK_MAX_DEPTH_REPORT"])
+mapper_feedback_zbuffer_projected_points = (
+    os.environ["MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS_REPORT"].lower() == "true"
+)
 mapper_feedback_lr = [
     float(value) for value in os.environ["MAPPER_FEEDBACK_LR_REPORT"].split(",")
 ]
@@ -1647,6 +1659,7 @@ report = {
         "mapper_feedback_render_mode": mapper_feedback_render_mode,
         "mapper_feedback_pointcloud_coordinates": mapper_feedback_pointcloud_coordinates,
         "mapper_feedback_max_depth": mapper_feedback_max_depth,
+        "mapper_feedback_zbuffer_projected_points": mapper_feedback_zbuffer_projected_points,
         "mapper_feedback_gaussian_lr": {
             "position": mapper_feedback_lr[0],
             "feature": mapper_feedback_lr[1],

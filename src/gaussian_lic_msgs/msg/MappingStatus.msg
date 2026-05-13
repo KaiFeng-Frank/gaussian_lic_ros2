@@ -30,6 +30,10 @@ uint64 num_tracking_frames
 uint64 num_mapping_frames
 uint64 num_dropped_messages
 uint64 num_errors
+uint64 skipped_nonpositive_depth_points
+uint64 skipped_max_depth_points
+uint64 skipped_unprojected_points
+uint64 skipped_occluded_points
 
 # Torch/CUDA Gaussian backend diagnostics. These make native tracking reports
 # prove whether the mapper only initialized a fixed map or kept extending,

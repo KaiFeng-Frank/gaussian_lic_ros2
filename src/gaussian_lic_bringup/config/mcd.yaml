@@ -35,6 +35,8 @@ mapping_node:
     process_period_ms: 5
     select_every_k_frame: 5
     require_depth_topic: false
+    require_projected_point_color: true
+    zbuffer_projected_points: false
     fx: 385.538839108671
     fy: 385.6733947077097
     cx: 328.2882031921083

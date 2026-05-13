@@ -68,6 +68,9 @@ struct MapperFrameData
   Eigen::Matrix3d r_wc{Eigen::Matrix3d::Identity()};
   std::vector<MapperPoint> points;
   size_t skipped_points_nonpositive_depth{0};
+  size_t skipped_points_max_depth{0};
+  size_t skipped_points_unprojected{0};
+  size_t skipped_points_occluded{0};
 };
 
 MapperFrameData convert_aligned_frame(
@@ -76,6 +79,9 @@ MapperFrameData convert_aligned_frame(
   int select_every_k_frame,
   const CameraIntrinsics & intrinsics = CameraIntrinsics{},
   PointCloudCoordinates pointcloud_coordinates = PointCloudCoordinates::kWorld,
-  const CameraExtrinsics & camera_extrinsics = CameraExtrinsics{});
+  const CameraExtrinsics & camera_extrinsics = CameraExtrinsics{},
+  double max_depth_m = 0.0,
+  bool require_projected_color = false,
+  bool zbuffer_projected_points = false);
 
 }  // namespace gaussian_lic_mapping

@@ -41,6 +41,9 @@ const CameraFrameRecord & MapperDataset::add_frame(
 
   total_point_count_ += frame.points.size();
   skipped_nonpositive_depth_count_ += frame.skipped_points_nonpositive_depth;
+  skipped_max_depth_count_ += frame.skipped_points_max_depth;
+  skipped_unprojected_count_ += frame.skipped_points_unprojected;
+  skipped_occluded_count_ += frame.skipped_points_occluded;
 
   const size_t stride = std::max<size_t>(test_frame_stride, 1U);
   if (is_keyframe) {
