@@ -23,11 +23,13 @@ PRIOR_TUM="${PRIOR_TUM:-}"
 # can seed its initial pose from ground truth. Leave empty for identity
 # / gravity-autocal seeding.
 PLAYBACK_DURATION="${PLAYBACK_DURATION:-12}"
-PLAYBACK_RATE="${PLAYBACK_RATE:-0.5}"
+PLAYBACK_RATE="${PLAYBACK_RATE:-1.0}"
 OUTPUT_DIR="${OUTPUT_DIR:-${WORKSPACE}/results/fastlivo2/CBD_Building_01_continuous_time_native_parity}"
 NODE_READY_TIMEOUT_SEC="${NODE_READY_TIMEOUT_SEC:-15}"
 BAG_READ_AHEAD_QUEUE_SIZE="${BAG_READ_AHEAD_QUEUE_SIZE:-20000}"
 DIAGNOSTIC_LOG_PERIOD_STEPS="${DIAGNOSTIC_LOG_PERIOD_STEPS:-50}"
+USE_STAMP_DRIVEN_STEPS="${USE_STAMP_DRIVEN_STEPS:-true}"
+MAX_STAMP_DRIVEN_STEPS_PER_CALLBACK="${MAX_STAMP_DRIVEN_STEPS_PER_CALLBACK:-4}"
 PRIOR_PUBLISH_DURATION="${PRIOR_PUBLISH_DURATION:-6}"
 PRIOR_PUBLISH_RATE_HZ="${PRIOR_PUBLISH_RATE_HZ:-20}"
 PRIOR_MAX_MESSAGES="${PRIOR_MAX_MESSAGES:-60}"
@@ -272,6 +274,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p enable_startup_bias_autocal:="${ENABLE_STARTUP_BIAS_AUTOCAL}" \
   -p imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
   -p step_period_seconds:="${STEP_PERIOD_SECONDS}" \
+  -p use_stamp_driven_steps:="${USE_STAMP_DRIVEN_STEPS}" \
+  -p max_stamp_driven_steps_per_callback:="${MAX_STAMP_DRIVEN_STEPS_PER_CALLBACK}" \
   -p pose_output_period_seconds:="${POSE_OUTPUT_PERIOD_SECONDS}" \
   -p diagnostic_log_period_steps:="${DIAGNOSTIC_LOG_PERIOD_STEPS}" \
   -p pointcloud_enable:="${POINTCLOUD_ENABLE}" \
@@ -441,8 +445,8 @@ fi
 
 wait_for_continuous_time_node
 
-PLAYBACK_SECS=$(awk -v d="${PLAYBACK_DURATION}" -v r="${PLAYBACK_RATE}" 'BEGIN{ print d / r }')
-CAPTURE_SECS=$(awk -v p="${PLAYBACK_SECS}" 'BEGIN{ print p + 3 }')
+CAPTURE_WALL_SECS=$(awk -v d="${PLAYBACK_DURATION}" -v r="${PLAYBACK_RATE}" 'BEGIN{ print d / r }')
+CAPTURE_SECS=$(awk -v p="${CAPTURE_WALL_SECS}" 'BEGIN{ print p + 3 }')
 
 /usr/bin/python3.12 "${WORKSPACE}/scripts/odom_to_tum.py" \
   --topic /continuous_time/odometry \
@@ -603,6 +607,7 @@ native = {
     "bag": "${BAG_DIR##*/}",
     "playback_duration_s": float("${PLAYBACK_DURATION}"),
     "playback_rate": float("${PLAYBACK_RATE}"),
+    "capture_wall_duration_s": float("${CAPTURE_WALL_SECS}"),
     "node_ready_timeout_sec": float("${NODE_READY_TIMEOUT_SEC}"),
     "bag_read_ahead_queue_size": int("${BAG_READ_AHEAD_QUEUE_SIZE}"),
     "diagnostic_log_period_steps": int("${DIAGNOSTIC_LOG_PERIOD_STEPS}"),
@@ -728,6 +733,8 @@ native = {
     "update_gate_edge_knot_margin": int("${UPDATE_GATE_EDGE_KNOT_MARGIN}"),
     "position_extrapolation_damping": float("${POSITION_EXTRAPOLATION_DAMPING}"),
     "step_period_seconds": float("${STEP_PERIOD_SECONDS}"),
+    "use_stamp_driven_steps": "${USE_STAMP_DRIVEN_STEPS}" == "true",
+    "max_stamp_driven_steps_per_callback": int("${MAX_STAMP_DRIVEN_STEPS_PER_CALLBACK}"),
     "pose_output_period_seconds": float("${POSE_OUTPUT_PERIOD_SECONDS}"),
     "time_offset_sweep_min": float("${TIME_OFFSET_SWEEP_MIN}"),
     "time_offset_sweep_max": float("${TIME_OFFSET_SWEEP_MAX}"),

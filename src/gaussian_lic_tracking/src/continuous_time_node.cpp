@@ -554,6 +554,13 @@ public:
 
     step_period_seconds_ =
       declare_parameter<double>("step_period_seconds", 0.10);
+    use_stamp_driven_steps_ =
+      declare_parameter<bool>("use_stamp_driven_steps", false);
+    max_stamp_driven_steps_per_callback_ =
+      static_cast<int>(declare_parameter<int>("max_stamp_driven_steps_per_callback", 4));
+    if (max_stamp_driven_steps_per_callback_ <= 0) {
+      throw std::runtime_error("max_stamp_driven_steps_per_callback must be positive");
+    }
     pose_output_period_seconds_ =
       declare_parameter<double>("pose_output_period_seconds", 0.0);
     if (!std::isfinite(pose_output_period_seconds_) ||
@@ -1210,6 +1217,7 @@ private:
     }
     estimator_->add_imu_sample(stamp_ns, sample);
     ++accepted_imu_count_;
+    maybe_run_stamp_driven_steps_locked(stamp_ns);
   }
 
   void on_external_odometry_prior(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -1875,6 +1883,7 @@ private:
     }
     std::lock_guard<std::mutex> lock(estimator_mutex_);
     process_pointcloud_locked(msg, stamp_ns, true);
+    maybe_run_stamp_driven_steps_locked(stamp_ns);
   }
 
   bool pointcloud_needs_pose_delay() const
@@ -2364,9 +2373,39 @@ private:
   void on_step_timer()
   {
     std::lock_guard<std::mutex> lock(estimator_mutex_);
-    if (!initialized_) {
+    if (!initialized_ || use_stamp_driven_steps_) {
       return;
     }
+    run_estimator_step_locked();
+  }
+
+  void maybe_run_stamp_driven_steps_locked(int64_t stamp_ns)
+  {
+    if (!use_stamp_driven_steps_ || !initialized_ || step_period_ns_ <= 0 || stamp_ns <= 0) {
+      return;
+    }
+    if (last_stamp_driven_step_ns_ == 0) {
+      last_stamp_driven_step_ns_ = stamp_ns;
+      return;
+    }
+    int steps = 0;
+    while (
+      stamp_ns - last_stamp_driven_step_ns_ >= step_period_ns_ &&
+      steps < max_stamp_driven_steps_per_callback_)
+    {
+      last_stamp_driven_step_ns_ += step_period_ns_;
+      run_estimator_step_locked();
+      ++steps;
+    }
+    if (steps == max_stamp_driven_steps_per_callback_ &&
+      stamp_ns - last_stamp_driven_step_ns_ >= step_period_ns_)
+    {
+      last_stamp_driven_step_ns_ = stamp_ns - step_period_ns_;
+    }
+  }
+
+  void run_estimator_step_locked()
+  {
     const bool stepped = estimator_->step();
     if (!stepped) {
       return;
@@ -3524,6 +3563,7 @@ private:
       estimator_->add_imu_sample(sample.first, sample.second);
     }
     estimator_->step();
+    last_stamp_driven_step_ns_ = start_stamp;
     seed_imu_buffer_.clear();
     RCLCPP_INFO(
       get_logger(),
@@ -3924,9 +3964,12 @@ private:
   std::size_t persistent_point_map_update_skips_{0};
 
   double step_period_seconds_{0.10};
+  bool use_stamp_driven_steps_{false};
+  int max_stamp_driven_steps_per_callback_{4};
   double pose_output_period_seconds_{0.0};
   int diagnostic_log_period_steps_{50};
   int64_t step_period_ns_{0};
+  int64_t last_stamp_driven_step_ns_{0};
   int64_t pose_output_period_ns_{0};
   int64_t knot_interval_ns_{50000000};
   int64_t last_published_query_ns_{0};
