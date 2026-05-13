@@ -539,6 +539,12 @@ public:
     sliding_window_max_feedback_accel_bias_norm_ = finite_nonnegative_parameter(
       "sliding_window_max_feedback_accel_bias_norm",
       declare_parameter<double>("sliding_window_max_feedback_accel_bias_norm", 2.5));
+    sliding_window_max_feedback_gyro_bias_step_ = finite_nonnegative_parameter(
+      "sliding_window_max_feedback_gyro_bias_step",
+      declare_parameter<double>("sliding_window_max_feedback_gyro_bias_step", 0.0));
+    sliding_window_max_feedback_accel_bias_step_ = finite_nonnegative_parameter(
+      "sliding_window_max_feedback_accel_bias_step",
+      declare_parameter<double>("sliding_window_max_feedback_accel_bias_step", 0.0));
     sliding_window_max_normal_equation_condition_ = finite_positive_parameter(
       "sliding_window_max_normal_equation_condition",
       declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e13));
@@ -584,6 +590,9 @@ public:
     sliding_window_accel_bias_weight_ = finite_nonnegative_parameter(
       "sliding_window_accel_bias_weight",
       declare_parameter<double>("sliding_window_accel_bias_weight", 1.0));
+    sliding_window_bias_random_walk_reference_dt_s_ = finite_nonnegative_parameter(
+      "sliding_window_bias_random_walk_reference_dt_s",
+      declare_parameter<double>("sliding_window_bias_random_walk_reference_dt_s", 0.0));
     sliding_window_pose_translation_weight_ = finite_nonnegative_parameter(
       "sliding_window_pose_translation_weight",
       declare_parameter<double>("sliding_window_pose_translation_weight", 2.0));
@@ -1168,6 +1177,18 @@ private:
     const double norm = value.norm();
     if (max_norm > 0.0 && std::isfinite(norm) && norm > max_norm) {
       value *= max_norm / norm;
+    }
+  }
+
+  static void clamp_vector_step(
+    Eigen::Vector3d & value,
+    const Eigen::Vector3d & reference,
+    const double max_step)
+  {
+    Eigen::Vector3d delta = value - reference;
+    const double norm = delta.norm();
+    if (max_step > 0.0 && std::isfinite(norm) && norm > max_step) {
+      value = reference + delta * (max_step / norm);
     }
   }
 
@@ -2487,6 +2508,7 @@ private:
         factor.bias_weight = sliding_window_bias_weight_;
         factor.gyro_bias_weight = sliding_window_gyro_bias_weight_;
         factor.accel_bias_weight = sliding_window_accel_bias_weight_;
+        factor.bias_random_walk_reference_dt_s = sliding_window_bias_random_walk_reference_dt_s_;
         try {
           sliding_window_optimizer_.add_imu_factor(factor);
           ++sliding_window_total_imu_factors_;
@@ -2560,6 +2582,12 @@ private:
                 raw_velocity_delta * (sliding_window_max_feedback_velocity_mps_ / raw_velocity_delta_mps);
             }
             clamp_vector_norm(applied.v_w_i, sliding_window_max_feedback_velocity_norm_mps_);
+            clamp_vector_step(
+              applied.gyro_bias, sliding_window_bias_.gyro,
+              sliding_window_max_feedback_gyro_bias_step_);
+            clamp_vector_step(
+              applied.accel_bias, sliding_window_bias_.accel,
+              sliding_window_max_feedback_accel_bias_step_);
             clamp_vector_norm(applied.gyro_bias, sliding_window_max_feedback_gyro_bias_norm_);
             clamp_vector_norm(applied.accel_bias, sliding_window_max_feedback_accel_bias_norm_);
             if (!valid_sliding_window_state(applied)) {
@@ -4673,6 +4701,8 @@ private:
   double sliding_window_max_feedback_velocity_norm_mps_{5.0};
   double sliding_window_max_feedback_gyro_bias_norm_{0.5};
   double sliding_window_max_feedback_accel_bias_norm_{2.5};
+  double sliding_window_max_feedback_gyro_bias_step_{0.0};
+  double sliding_window_max_feedback_accel_bias_step_{0.0};
   double sliding_window_max_normal_equation_condition_{1.0e13};
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
@@ -4704,6 +4734,7 @@ private:
   double sliding_window_bias_weight_{1.0};
   double sliding_window_gyro_bias_weight_{1.0};
   double sliding_window_accel_bias_weight_{1.0};
+  double sliding_window_bias_random_walk_reference_dt_s_{0.0};
   double sliding_window_pose_translation_weight_{2.0};
   double sliding_window_pose_rotation_weight_{2.0};
   double external_odometry_prior_translation_weight_{4.0};

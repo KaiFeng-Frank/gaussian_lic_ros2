@@ -75,6 +75,8 @@ SLIDING_WINDOW_MAX_TRANSLATION_STEP_M=1.0
 SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M=1.0
 SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD=0.5
 SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS=5.0
+SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP=0.0
+SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP=0.0
 SLIDING_WINDOW_IMU_WEIGHT=1.0
 SLIDING_WINDOW_IMU_ROTATION_WEIGHT=1.0
 SLIDING_WINDOW_IMU_VELOCITY_WEIGHT=1.0
@@ -85,6 +87,7 @@ SLIDING_WINDOW_ACCEL_BIAS_PRIOR_WEIGHT=0.0
 SLIDING_WINDOW_BIAS_WEIGHT=1.0
 SLIDING_WINDOW_GYRO_BIAS_WEIGHT=1.0
 SLIDING_WINDOW_ACCEL_BIAS_WEIGHT=1.0
+SLIDING_WINDOW_BIAS_RANDOM_WALK_REFERENCE_DT_S=0.0
 SLIDING_WINDOW_POSE_TRANSLATION_WEIGHT=2.0
 SLIDING_WINDOW_POSE_ROTATION_WEIGHT=2.0
 SLIDING_WINDOW_SMOOTHNESS_ROTATION_WEIGHT=0.1
@@ -359,6 +362,10 @@ Options:
                                Max optimized-state rotation feedback applied back to online tracking. Default: 0.5.
   --sliding-window-max-feedback-velocity-mps V
                                Max optimized-state velocity feedback applied back to online tracking. Default: 5.0.
+  --sliding-window-max-feedback-gyro-bias-step B
+                               Max per-feedback gyro-bias delta applied back to online IMU propagation. Default: 0.0 disabled.
+  --sliding-window-max-feedback-accel-bias-step B
+                               Max per-feedback accel-bias delta applied back to online IMU propagation. Default: 0.0 disabled.
   --sliding-window-imu-weight W
                                IMU residual weight. Default: 1.0.
   --sliding-window-imu-rotation-weight W
@@ -379,6 +386,8 @@ Options:
                                Multiplier for gyro-bias random-walk residuals. Default: 1.0.
   --sliding-window-accel-bias-weight W
                                Multiplier for accel-bias random-walk residuals. Default: 1.0.
+  --sliding-window-bias-random-walk-reference-dt-s SEC
+                               Scale bias random-walk residuals by sqrt(SEC / dt). Default: 0.0 keeps legacy per-step weighting.
   --sliding-window-pose-translation-weight W
                                Pose prior translation weight. Default: 2.0.
   --sliding-window-pose-rotation-weight W
@@ -836,6 +845,14 @@ while [[ $# -gt 0 ]]; do
       SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS="$2"
       shift 2
       ;;
+    --sliding-window-max-feedback-gyro-bias-step)
+      SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP="$2"
+      shift 2
+      ;;
+    --sliding-window-max-feedback-accel-bias-step)
+      SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP="$2"
+      shift 2
+      ;;
     --sliding-window-imu-weight)
       SLIDING_WINDOW_IMU_WEIGHT="$2"
       shift 2
@@ -874,6 +891,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sliding-window-accel-bias-weight)
       SLIDING_WINDOW_ACCEL_BIAS_WEIGHT="$2"
+      shift 2
+      ;;
+    --sliding-window-bias-random-walk-reference-dt-s)
+      SLIDING_WINDOW_BIAS_RANDOM_WALK_REFERENCE_DT_S="$2"
       shift 2
       ;;
     --sliding-window-pose-translation-weight)
@@ -1554,6 +1575,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_max_feedback_translation_m:="${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
   sliding_window_max_feedback_rotation_rad:="${SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD}" \
   sliding_window_max_feedback_velocity_mps:="${SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS}" \
+  sliding_window_max_feedback_gyro_bias_step:="${SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP}" \
+  sliding_window_max_feedback_accel_bias_step:="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
   sliding_window_imu_weight:="${SLIDING_WINDOW_IMU_WEIGHT}" \
   sliding_window_imu_rotation_weight:="${SLIDING_WINDOW_IMU_ROTATION_WEIGHT}" \
   sliding_window_imu_velocity_weight:="${SLIDING_WINDOW_IMU_VELOCITY_WEIGHT}" \
@@ -1564,6 +1587,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_bias_weight:="${SLIDING_WINDOW_BIAS_WEIGHT}" \
   sliding_window_gyro_bias_weight:="${SLIDING_WINDOW_GYRO_BIAS_WEIGHT}" \
   sliding_window_accel_bias_weight:="${SLIDING_WINDOW_ACCEL_BIAS_WEIGHT}" \
+  sliding_window_bias_random_walk_reference_dt_s:="${SLIDING_WINDOW_BIAS_RANDOM_WALK_REFERENCE_DT_S}" \
   sliding_window_pose_translation_weight:="${SLIDING_WINDOW_POSE_TRANSLATION_WEIGHT}" \
   sliding_window_pose_rotation_weight:="${SLIDING_WINDOW_POSE_ROTATION_WEIGHT}" \
   sliding_window_smoothness_rotation_weight:="${SLIDING_WINDOW_SMOOTHNESS_ROTATION_WEIGHT}" \
@@ -1754,6 +1778,8 @@ POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA
 POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP_REPORT="${POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP}" \
 PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
 POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
+SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP}" \
+SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
 SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
 SLIDING_WINDOW_GYRO_BIAS_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_GYRO_BIAS_PRIOR_WEIGHT}" \
@@ -1761,6 +1787,7 @@ SLIDING_WINDOW_ACCEL_BIAS_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_ACCEL_BIAS_PRIOR
 SLIDING_WINDOW_BIAS_WEIGHT_REPORT="${SLIDING_WINDOW_BIAS_WEIGHT}" \
 SLIDING_WINDOW_GYRO_BIAS_WEIGHT_REPORT="${SLIDING_WINDOW_GYRO_BIAS_WEIGHT}" \
 SLIDING_WINDOW_ACCEL_BIAS_WEIGHT_REPORT="${SLIDING_WINDOW_ACCEL_BIAS_WEIGHT}" \
+SLIDING_WINDOW_BIAS_RANDOM_WALK_REFERENCE_DT_S_REPORT="${SLIDING_WINDOW_BIAS_RANDOM_WALK_REFERENCE_DT_S}" \
 ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR_REPORT="${ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR}" \
 SLIDING_WINDOW_RELATIVE_TRANSLATION_WEIGHT_REPORT="${SLIDING_WINDOW_RELATIVE_TRANSLATION_WEIGHT}" \
 SLIDING_WINDOW_RELATIVE_TRANSLATION_HUBER_DELTA_M_REPORT="${SLIDING_WINDOW_RELATIVE_TRANSLATION_HUBER_DELTA_M}" \
@@ -2004,9 +2031,18 @@ sliding_window_gyro_bias_prior_weight = float(
 sliding_window_accel_bias_prior_weight = float(
     os.environ["SLIDING_WINDOW_ACCEL_BIAS_PRIOR_WEIGHT_REPORT"]
 )
+sliding_window_max_feedback_gyro_bias_step = float(
+    os.environ["SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_REPORT"]
+)
+sliding_window_max_feedback_accel_bias_step = float(
+    os.environ["SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_REPORT"]
+)
 sliding_window_bias_weight = float(os.environ["SLIDING_WINDOW_BIAS_WEIGHT_REPORT"])
 sliding_window_gyro_bias_weight = float(os.environ["SLIDING_WINDOW_GYRO_BIAS_WEIGHT_REPORT"])
 sliding_window_accel_bias_weight = float(os.environ["SLIDING_WINDOW_ACCEL_BIAS_WEIGHT_REPORT"])
+sliding_window_bias_random_walk_reference_dt_s = float(
+    os.environ["SLIDING_WINDOW_BIAS_RANDOM_WALK_REFERENCE_DT_S_REPORT"]
+)
 enable_sliding_window_relative_translation_factor = (
     os.environ["ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR_REPORT"] == "true"
 )
@@ -2471,6 +2507,12 @@ report = {
         "sliding_window_max_feedback_translation_m": sliding_window_max_feedback_translation_m,
         "sliding_window_max_feedback_rotation_rad": sliding_window_max_feedback_rotation_rad,
         "sliding_window_max_feedback_velocity_mps": sliding_window_max_feedback_velocity_mps,
+        "sliding_window_max_feedback_gyro_bias_step": (
+            sliding_window_max_feedback_gyro_bias_step
+        ),
+        "sliding_window_max_feedback_accel_bias_step": (
+            sliding_window_max_feedback_accel_bias_step
+        ),
         "sliding_window_smoothness_position_velocity_weight": (
             sliding_window_smoothness_position_velocity_weight
         ),
@@ -2480,6 +2522,9 @@ report = {
         "sliding_window_bias_weight": sliding_window_bias_weight,
         "sliding_window_gyro_bias_weight": sliding_window_gyro_bias_weight,
         "sliding_window_accel_bias_weight": sliding_window_accel_bias_weight,
+        "sliding_window_bias_random_walk_reference_dt_s": (
+            sliding_window_bias_random_walk_reference_dt_s
+        ),
         "enable_sliding_window_relative_translation_factor": (
             enable_sliding_window_relative_translation_factor
         ),

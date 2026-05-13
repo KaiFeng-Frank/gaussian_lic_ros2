@@ -66,6 +66,23 @@ int main()
     return 1;
   }
 
+  gaussian_lic_tracking::SlidingWindowOptimizer scaled_optimizer;
+  scaled_optimizer.add_or_update_state(start);
+  scaled_optimizer.add_or_update_state(end);
+  factor.bias_random_walk_reference_dt_s = 0.25;
+  scaled_optimizer.add_imu_factor(factor);
+  const auto scaled_normal = scaled_optimizer.build_normal_equation(0.0);
+  const double dt_s = preintegration.delta_t_s();
+  const double time_scale = std::sqrt(factor.bias_random_walk_reference_dt_s / dt_s);
+  const Eigen::MatrixXd scaled_expected = time_scale * expected;
+  const Eigen::MatrixXd scaled_actual = scaled_normal.jacobian.block(9, 0, 6, 30);
+  const double scaled_max_abs_error = (scaled_actual - scaled_expected).cwiseAbs().maxCoeff();
+  if (!scaled_normal.valid || scaled_max_abs_error > 1.0e-12) {
+    std::cerr << "time-scaled IMU bias random-walk Jacobian is wrong, max_abs_error="
+              << scaled_max_abs_error << "\n";
+    return 1;
+  }
+
   std::cout << "sliding_window_imu_bias_jacobian_probe OK\n";
   return 0;
 }

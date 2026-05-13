@@ -40,7 +40,7 @@ Available now:
 Still pending:
 
 - RMSE-gated continuous-time native tracker parity on the full long-window datasets; the data and reference-trajectory archive gate itself is now complete.
-- Latest 2026-05-13 Coco-LIC2 tracker work: LiDAR residuals now carry Coco-LIC-style feature scale through both residuals and weighted Huber gates, limited sliding-window updates feed accepted IMU bias/gravity state instead of freezing it, scan-to-scan velocity/angle clamps now bound the stored target pose as well as the prior, a Coco-LIC `fixed_control_point_index` gauge-anchor mode is implemented as an ablation parameter, and the continuous-time estimator now has native 3D LiDAR point-to-point map residuals for persistent/Gaussian map anchors. The mapper-to-tracker reverse channel lets `continuous_time_node` subscribe to chunked `GaussianArray` snapshots, build voxel-indexed nearest-neighbor Gaussian anchors, and inject robust LiDAR-to-Gaussian point factors into the online window through parity-script controls; `run_native_tracking_bag_report.sh --enable-gaussian-map-feedback --require-gaussian-snapshot` now starts mapper Torch Gaussian init/extend, promotes feedback rendering to `render_mode:=rasterizer`, and gates complete snapshot delivery. The Gaussian map QoS depth is parameterized instead of hard-coded to 1, `GaussianSnapshot` double-buffers in-flight chunk sequences, strict feedback replay now slows to `--rate 0.5` unless explicitly overridden, and real rasterizer feedback no longer uses the observed input image as a preview fallback background. The latest CBD rasterizer feedback probes record nonzero visual/SE3 costs and tune the production preset to `tracking_max_pose_step_m=0.025`, visual/SE3 weights `0.25/0.5`, disabled alpha-hole extend filtering, and a uniform 400k foreground cap. The best current projected-color 60 s candidate reaches 522 reference matches, 42.40% coverage, 0.649 m RMSE, and 10.28% path drift, while the older capped-growth checkpoint remains archived at 0.585 m RMSE. The full120 capped real-rasterizer checkpoint reaches 1143 matches, 92.85% coverage, 2.488 m RMSE, and 23.65% path drift with a complete 400k-Gaussian snapshot. This closes the fake-zero residual path and restores mapper topology growth under feedback replay; cross-dataset long-window RMSE-gated continuous-time parity remains the next hardening target.
+- Latest 2026-05-14 Coco-LIC2 tracker work: LiDAR residuals now carry Coco-LIC-style feature scale through both residuals and weighted Huber gates, limited sliding-window updates feed accepted IMU bias/gravity state instead of freezing it, scan-to-scan velocity/angle clamps now bound the stored target pose as well as the prior, a Coco-LIC `fixed_control_point_index` gauge-anchor mode is implemented as an ablation parameter, and the continuous-time estimator now has native 3D LiDAR point-to-point map residuals for persistent/Gaussian map anchors. The mapper-to-tracker reverse channel lets `continuous_time_node` subscribe to chunked `GaussianArray` snapshots, build voxel-indexed nearest-neighbor Gaussian anchors, and inject robust LiDAR-to-Gaussian point factors into the online window through parity-script controls; `run_native_tracking_bag_report.sh --enable-gaussian-map-feedback --require-gaussian-snapshot` now starts mapper Torch Gaussian init/extend, promotes feedback rendering to `render_mode:=rasterizer`, and gates complete snapshot delivery. The Gaussian map QoS depth is parameterized instead of hard-coded to 1, `GaussianSnapshot` double-buffers in-flight chunk sequences, strict feedback replay now slows to `--rate 0.5` unless explicitly overridden, and real rasterizer feedback no longer uses the observed input image as a preview fallback background. The latest CBD rasterizer feedback probes record nonzero visual/SE3 costs and tune the production preset to `tracking_max_pose_step_m=0.025`, visual/SE3 weights `0.25/0.5`, disabled alpha-hole extend filtering, and a uniform 400k foreground cap. A new default-off bias-feedback hardening path exposes time-normalized IMU bias random-walk residual scaling plus per-feedback gyro/accel bias step clamps. The `gyro=0.02`, `accel=0.12` clamp candidate is the current best full122 Gaussian-feedback checkpoint at `results/fastlivo2/CBD_Building_01_gaussian_feedback_biasstep_g02_a12_repeat_full122_diagnostic/native_tracking_report.json`: 1094 matches, 88.87% coverage, 1.756 m RMSE, 1.694 m mean error, 2.858 m max error, 2.26% path drift, and 242 visual/SE3 factors. Diagnostics still show a post-70 s bias jump, so this is a measurable advance rather than a 100% paper/super-paper parity claim; cross-dataset long-window RMSE-gated continuous-time parity remains the next hardening target.
 - Continuous-time tracker quality hardening: the producer chain is now cross-profile and matrix-gated, persistent world-frame plane constraints plus online solve-step rejection are in tree, but the newest continuous-time entries are still liveness-gated while RMSE/paper-grade parity remains the next numerical target.
 - Continued production hardening of the native tracker under faster-than-strict replay; strict reference parity still uses controlled rosbag2 replay to preserve ROS1-style sequential timing semantics.
 
@@ -1173,22 +1173,18 @@ Current readiness gate:
 ./scripts/baseline_readiness.py --dataset-root /home/frank/data/fast_livo --sequence CBD_Building_01
 ```
 
-Latest native-tracker status (2026-05-13): data and reference trajectories are
+Latest native-tracker status (2026-05-14): data and reference trajectories are
 available, and the remaining blocker is long-window continuous-time BA quality.
-The best recent CBD 60 s native run is still about `1.8 m` RMSE against the
-trusted Coco-LIC reference. New retained-knot prior hooks and scan-to-scan
-position-prior ablations are implemented and tested, but the 12 s probes showed
-they are diagnostic only: direct scan-to-scan position priors over-scale path
-length, retained-knot soft anchors also over-scale, and unconstrained velocity
-priors do not beat the stable configuration. The current parity script therefore
-uses a conservative default instead of the old all-off smoke preset: LiDAR
-pose-prior factors are enabled, LiDAR pose velocity weight remains active,
-IMU information defaults to `0.3/0.03`, and rotation smoothness defaults to
-`0.01`. Scan-to-scan priors remain opt-in diagnostics; enabling damped
-scan-to-scan velocity/angular priors reached `0.096 m` RMSE on a 12 s probe but
-regressed the 60 s default to `2.062 m` RMSE with `1361%` path drift. Full
-marginalization/global visual-map coupling is still needed to close the strict
-parity gap.
+The best current CBD full122 Gaussian-feedback diagnostic is
+`results/fastlivo2/CBD_Building_01_gaussian_feedback_biasstep_g02_a12_repeat_full122_diagnostic/`:
+1094 reference matches, 88.87% coverage, `1.756 m` RMSE, `1.694 m` mean error,
+`2.858 m` max error, and `2.26%` path drift. It uses the default-off
+per-feedback gyro/accel bias step clamps (`0.02` / `0.12`) added after the
+long-window bias diagnosis; simple time-scaled bias random-walk weighting and
+stronger clamps were rejected by full-window evidence. The diagnostic plots still
+show a post-70 s bias jump without Hessian-rank collapse, so full
+marginalization/global visual-map coupling remains needed to close the strict
+native Coco-LIC2 parity gap.
 
 See [docs/BASELINE_DATA.md](docs/BASELINE_DATA.md), [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 

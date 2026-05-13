@@ -348,6 +348,18 @@ Eigen::Matrix<double, 9, 9> effective_imu_sqrt_information(
   return sqrt_information;
 }
 
+double bias_random_walk_time_scale(const SlidingWindowImuFactor & factor)
+{
+  if (factor.bias_random_walk_reference_dt_s <= 0.0) {
+    return 1.0;
+  }
+  const double dt_s = factor.preintegration.delta_t_s();
+  if (!std::isfinite(dt_s) || dt_s <= 0.0) {
+    return 1.0;
+  }
+  return std::sqrt(factor.bias_random_walk_reference_dt_s / std::max(dt_s, 1.0e-9));
+}
+
 Eigen::Matrix<double, kSmoothnessResidualDof, 1> smoothness_residual(
   const SlidingWindowTrajectorySmoothnessFactor & factor,
   const SlidingWindowState & previous,
@@ -607,10 +619,13 @@ void SlidingWindowOptimizer::add_imu_factor(const SlidingWindowImuFactor & facto
   if (!std::isfinite(factor.weight) || !std::isfinite(factor.rotation_weight) ||
     !std::isfinite(factor.velocity_weight) || !std::isfinite(factor.position_weight) ||
     !std::isfinite(factor.bias_weight) || !std::isfinite(factor.gyro_bias_weight) ||
-    !std::isfinite(factor.accel_bias_weight) || factor.weight <= 0.0 ||
+    !std::isfinite(factor.accel_bias_weight) ||
+    !std::isfinite(factor.bias_random_walk_reference_dt_s) ||
+    factor.weight <= 0.0 ||
     factor.rotation_weight < 0.0 || factor.velocity_weight < 0.0 ||
     factor.position_weight < 0.0 || factor.bias_weight < 0.0 ||
-    factor.gyro_bias_weight < 0.0 || factor.accel_bias_weight < 0.0)
+    factor.gyro_bias_weight < 0.0 || factor.accel_bias_weight < 0.0 ||
+    factor.bias_random_walk_reference_dt_s < 0.0)
   {
     throw std::runtime_error("IMU factor weights must be finite and valid");
   }
@@ -1284,14 +1299,15 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
       effective_imu_sqrt_information(factor) * residual.residual,
       &SlidingWindowCostBreakdown::imu_cost);
     Eigen::Matrix<double, 6, 1> bias_residual;
+    const double bias_time_scale = bias_random_walk_time_scale(factor);
     bias_residual.template segment<3>(0) =
       states[static_cast<size_t>(to)].gyro_bias - states[static_cast<size_t>(from)].gyro_bias;
     bias_residual.template segment<3>(3) =
       states[static_cast<size_t>(to)].accel_bias - states[static_cast<size_t>(from)].accel_bias;
     bias_residual.template segment<3>(0) *=
-      std::sqrt(factor.bias_weight * factor.gyro_bias_weight);
+      bias_time_scale * std::sqrt(factor.bias_weight * factor.gyro_bias_weight);
     bias_residual.template segment<3>(3) *=
-      std::sqrt(factor.bias_weight * factor.accel_bias_weight);
+      bias_time_scale * std::sqrt(factor.bias_weight * factor.accel_bias_weight);
     append(bias_residual, &SlidingWindowCostBreakdown::imu_cost);
   }
 
@@ -1562,8 +1578,11 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     if (!rows_available(row + 9, 6)) {
       return fallback_to_numeric();
     }
-    const double gyro_bias_scale = std::sqrt(factor.bias_weight * factor.gyro_bias_weight);
-    const double accel_bias_scale = std::sqrt(factor.bias_weight * factor.accel_bias_weight);
+    const double bias_time_scale = bias_random_walk_time_scale(factor);
+    const double gyro_bias_scale =
+      bias_time_scale * std::sqrt(factor.bias_weight * factor.gyro_bias_weight);
+    const double accel_bias_scale =
+      bias_time_scale * std::sqrt(factor.bias_weight * factor.accel_bias_weight);
     const Eigen::Index from_offset = variable_offsets[static_cast<size_t>(from)];
     const Eigen::Index to_offset = variable_offsets[static_cast<size_t>(to)];
     if (from_offset >= 0) {
