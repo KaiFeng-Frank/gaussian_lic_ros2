@@ -68,6 +68,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential \
             cmake \
+            libceres-dev \
             libeigen3-dev \
             libopencv-dev \
             python3-colcon-common-extensions \
