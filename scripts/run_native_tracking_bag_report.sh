@@ -88,6 +88,7 @@ MAPPER_FEEDBACK_POINTCLOUD_COORDINATES=world
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_EXPLICIT=false
 MAPPER_FEEDBACK_MAX_DEPTH=20.0
 MAPPER_FEEDBACK_MAX_DEPTH_EXPLICIT=false
+MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR=true
 MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS=false
 MAPPER_FEEDBACK_PUBLISH_GAUSSIAN_MAP=false
 MAPPER_FEEDBACK_GAUSSIAN_MAP_CHUNK_SIZE=4096
@@ -100,6 +101,7 @@ ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=false
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT=1.0
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY=0.25
 MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=8
+MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME_EXPLICIT=false
 MAPPER_FEEDBACK_ENABLE_TORCH_CAMERA_CONVERSION=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_INIT=false
 MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND=false
@@ -297,12 +299,16 @@ Options:
                                mapping_node pointcloud coordinate semantics: world or sensor. Native Gaussian feedback defaults to sensor.
   --mapper-feedback-max-depth M
                                mapping_node input/projection max depth in meters. Native Gaussian feedback defaults to 20 to match mapper profiles and bound Gaussian growth.
+  --mapper-feedback-allow-unprojected-color-fallback
+                               Allow non-RGB LiDAR points that cannot project into the image to enter the Gaussian map with intensity/grayscale fallback color. Default: disabled.
   --mapper-feedback-zbuffer-projected-points
                                Keep only the nearest projected non-RGB LiDAR point per image pixel before Gaussian insertion. Default: disabled.
   --mapper-feedback-gaussian-map-publish-min-interval-sec SEC
                                Minimum simulated-time interval between full GaussianArray feedback publications. Default: 0.5.
   --mapper-feedback-gaussian-map-publish-on-empty-extend
                                Publish GaussianArray after keyframes that insert no new Gaussians. Disabled by default for feedback runs.
+  --mapper-feedback-select-every-k-frame N
+                               Mapping keyframe decimation for mapper feedback. Gaussian-map feedback defaults to 1 unless explicitly set.
   --mapper-feedback-torch-device DEV
                                Torch device for mapper feedback Gaussian snapshots. Default: cpu; --enable-gaussian-map-feedback sets auto.
   --mapper-feedback-torch-optimization-steps N
@@ -683,7 +689,9 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=false
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_PRUNING=true
       MAPPER_FEEDBACK_TORCH_DEVICE=auto
-      MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
+      if [[ "${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME_EXPLICIT}" != "true" ]]; then
+        MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME=1
+      fi
       if [[ "${MAPPER_FEEDBACK_RENDER_MODE_EXPLICIT}" != "true" ]]; then
         MAPPER_FEEDBACK_RENDER_MODE=rasterizer
       fi
@@ -745,6 +753,10 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_MAX_DEPTH_EXPLICIT=true
       shift 2
       ;;
+    --mapper-feedback-allow-unprojected-color-fallback)
+      MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR=false
+      shift
+      ;;
     --mapper-feedback-zbuffer-projected-points)
       MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS=true
       shift
@@ -756,6 +768,11 @@ while [[ $# -gt 0 ]]; do
     --mapper-feedback-gaussian-map-publish-on-empty-extend)
       MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND=true
       shift
+      ;;
+    --mapper-feedback-select-every-k-frame)
+      MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME="$2"
+      MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME_EXPLICIT=true
+      shift 2
       ;;
     --mapper-feedback-torch-device)
       MAPPER_FEEDBACK_TORCH_DEVICE="$2"
@@ -1125,6 +1142,7 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p camera_to_pose_translation_m:="${CAMERA_TO_IMU_TRANSLATION_M}" \
     -p camera_to_pose_rpy_rad:="${CAMERA_TO_IMU_RPY_RAD}" \
     -p max_depth:="${MAPPER_FEEDBACK_MAX_DEPTH}" \
+    -p require_projected_point_color:="${MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR}" \
     -p zbuffer_projected_points:="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p sync_tolerance_sec:="${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
@@ -1222,9 +1240,12 @@ PLAYBACK_RATE_REPORT="${PLAYBACK_RATE}" \
 MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT="${MAPPER_FEEDBACK_POINTCLOUD_COORDINATES}" \
 MAPPER_FEEDBACK_MAX_DEPTH_REPORT="${MAPPER_FEEDBACK_MAX_DEPTH}" \
+MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR_REPORT="${MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR}" \
 MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS_REPORT="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
 MAPPER_FEEDBACK_LR_REPORT="${MAPPER_FEEDBACK_POSITION_LR},${MAPPER_FEEDBACK_FEATURE_LR},${MAPPER_FEEDBACK_OPACITY_LR},${MAPPER_FEEDBACK_SCALING_LR},${MAPPER_FEEDBACK_ROTATION_LR}" \
 MAPPER_FEEDBACK_OPTIMIZATION_EVERY_REPORT="${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_EVERY_N_KEYFRAMES}" \
+MAPPER_FEEDBACK_SELECT_EVERY_REPORT="${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME}" \
+GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1325,6 +1346,9 @@ sliding_window_max_feedback_velocity_mps = float(sys.argv[42])
 mapper_feedback_render_mode = sys.argv[43]
 mapper_feedback_pointcloud_coordinates = os.environ["MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT"]
 mapper_feedback_max_depth = float(os.environ["MAPPER_FEEDBACK_MAX_DEPTH_REPORT"])
+mapper_feedback_require_projected_point_color = (
+    os.environ["MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR_REPORT"].lower() == "true"
+)
 mapper_feedback_zbuffer_projected_points = (
     os.environ["MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS_REPORT"].lower() == "true"
 )
@@ -1333,6 +1357,12 @@ mapper_feedback_lr = [
 ]
 mapper_feedback_torch_optimization_every_n_keyframes = int(
     os.environ["MAPPER_FEEDBACK_OPTIMIZATION_EVERY_REPORT"]
+)
+mapper_feedback_select_every_k_frame = int(
+    os.environ["MAPPER_FEEDBACK_SELECT_EVERY_REPORT"]
+)
+gaussian_snapshot_lidar_factor_weight = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT_REPORT"]
 )
 gaussian_snapshot_lidar_plane_factor_enabled = (
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT"].lower() == "true"
@@ -1646,6 +1676,7 @@ report = {
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
+        "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,
         "gaussian_snapshot_lidar_plane_factor_enabled": (
             gaussian_snapshot_lidar_plane_factor_enabled
         ),
@@ -1659,6 +1690,9 @@ report = {
         "mapper_feedback_render_mode": mapper_feedback_render_mode,
         "mapper_feedback_pointcloud_coordinates": mapper_feedback_pointcloud_coordinates,
         "mapper_feedback_max_depth": mapper_feedback_max_depth,
+        "mapper_feedback_require_projected_point_color": (
+            mapper_feedback_require_projected_point_color
+        ),
         "mapper_feedback_zbuffer_projected_points": mapper_feedback_zbuffer_projected_points,
         "mapper_feedback_gaussian_lr": {
             "position": mapper_feedback_lr[0],
@@ -1677,6 +1711,7 @@ report = {
         "mapper_feedback_torch_optimization_sampling": (
             mapper_feedback_torch_optimization_sampling
         ),
+        "mapper_feedback_select_every_k_frame": mapper_feedback_select_every_k_frame,
         "mapper_feedback_extend_visibility_filter": mapper_feedback_extend_visibility_filter,
         "mapper_feedback_pruning": mapper_feedback_pruning,
         "mapper_feedback_torch_max_foreground": mapper_feedback_torch_max_foreground,
