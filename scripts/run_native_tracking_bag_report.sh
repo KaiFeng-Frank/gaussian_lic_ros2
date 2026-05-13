@@ -62,7 +62,7 @@ REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_MAPPER_FEEDBACK=false
-MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.01
+MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.05
 ENABLE_GAUSSIAN_MAP_FEEDBACK=false
 REQUIRE_GAUSSIAN_SNAPSHOT=false
 MAPPER_FEEDBACK_RENDER_MODE=debug_input
@@ -211,7 +211,7 @@ Options:
   --gaussian-snapshot-lidar-factor-weight W
                                Weight multiplier for LiDAR-to-Gaussian map anchors. Default: 1.0.
   --mapper-feedback-sync-tolerance-sec SEC
-                               mapping_node frame sync tolerance for mapper feedback. Default: 0.01.
+                               mapping_node frame sync tolerance for mapper feedback. Default: 0.05.
   --mapper-feedback-gaussian-map-publish-min-interval-sec SEC
                                Minimum simulated-time interval between full GaussianArray feedback publications. Default: 0.5.
   --mapper-feedback-gaussian-map-publish-on-empty-extend
