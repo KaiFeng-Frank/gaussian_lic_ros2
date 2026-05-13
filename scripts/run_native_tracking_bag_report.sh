@@ -908,6 +908,7 @@ unset record_pid
 stop_process_group "${launch_pid}" TERM
 unset launch_pid
 
+set +e
 IMU_LINEAR_ACCELERATION_SCALE_REPORT="${IMU_LINEAR_ACCELERATION_SCALE}" \
 PLAYBACK_RATE_REPORT="${PLAYBACK_RATE}" \
 MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
@@ -932,7 +933,10 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_TRANSLATION_M}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_ROTATION_RAD}" \
   "${SLIDING_WINDOW_MAX_FEEDBACK_VELOCITY_MPS}" \
-  "${REFERENCE_TUM_PATH}" <<'PY'
+  "${REFERENCE_TUM_PATH}" "${REFERENCE_TRAJECTORY_ALIGN}" \
+  "${REFERENCE_MAX_ASSOCIATION_DT}" "${REFERENCE_MIN_COVERAGE}" \
+  "${REFERENCE_MAX_RMSE_M}" "${REFERENCE_MAX_MEAN_M}" \
+  "${REFERENCE_MAX_ERROR_M}" "${REFERENCE_MAX_PATH_DRIFT}" <<'PY'
 import json
 import os
 import sys
@@ -975,6 +979,13 @@ sliding_window_max_feedback_translation_m = float(sys.argv[34])
 sliding_window_max_feedback_rotation_rad = float(sys.argv[35])
 sliding_window_max_feedback_velocity_mps = float(sys.argv[36])
 reference_tum_path = Path(sys.argv[37]) if sys.argv[37] else None
+reference_trajectory_align = sys.argv[38]
+reference_max_association_dt = float(sys.argv[39])
+reference_min_coverage = float(sys.argv[40])
+reference_max_rmse_m = float(sys.argv[41])
+reference_max_mean_m = float(sys.argv[42])
+reference_max_error_m = float(sys.argv[43])
+reference_max_path_drift = float(sys.argv[44])
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
@@ -1204,6 +1215,13 @@ report = {
         "se3_photometric_min_coverage_tiles": se3_photometric_min_coverage_tiles,
         "reference_tum_path": str(reference_tum_path) if reference_tum_path else "",
         "external_reference_tum_poses": external_reference_pose_count,
+        "reference_trajectory_align": reference_trajectory_align,
+        "reference_max_association_dt": reference_max_association_dt,
+        "reference_min_coverage": reference_min_coverage,
+        "reference_max_rmse_m": reference_max_rmse_m,
+        "reference_max_mean_m": reference_max_mean_m,
+        "reference_max_error_m": reference_max_error_m,
+        "reference_max_path_drift": reference_max_path_drift,
         "playback_rate": playback_rate,
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
@@ -1237,6 +1255,8 @@ print(
     f"imu_factors={last.get('sliding_window_total_imu_factors', 0)}"
 )
 PY
+report_status=$?
+set -e
 
 COMPARE_JSON="${OUTPUT_DIR}/native_tracking_trajectory_compare.json"
 REFERENCE_TUM="${ARTIFACT_DIR}/reference_trajectory.tum"
@@ -1286,6 +1306,11 @@ PY
 elif [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
   echo "required reference/current trajectory file is empty or missing" >&2
   exit 1
+fi
+
+if [[ "${report_status}" -ne 0 ]]; then
+  echo "[native-tracking] health report failed; report kept at ${REPORT_JSON}" >&2
+  exit "${report_status}"
 fi
 
 echo "[native-tracking] report: ${REPORT_JSON}"

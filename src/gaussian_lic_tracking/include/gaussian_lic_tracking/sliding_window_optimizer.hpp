@@ -325,6 +325,7 @@ private:
     double damping) const;
   double compute_cost(const Eigen::VectorXd & residual) const;
   bool add_schur_marginalization_prior_for_front();
+  size_t prune_marginalized_factor_references();
   size_t count_orphan_factors() const;
   size_t enforce_window_size();
 

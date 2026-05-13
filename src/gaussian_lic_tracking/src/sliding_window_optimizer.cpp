@@ -1040,7 +1040,90 @@ size_t SlidingWindowOptimizer::enforce_window_size()
       ++fallback_marginalization_prior_count_;
     }
   }
+  if (marginalized > 0U) {
+    prune_marginalized_factor_references();
+  }
   return marginalized;
+}
+
+size_t SlidingWindowOptimizer::prune_marginalized_factor_references()
+{
+  if (states_.empty()) {
+    const size_t removed =
+      imu_factors_.size() + pose_priors_.size() + state_priors_.size() + dense_priors_.size() +
+      point_factors_.size() + plane_factors_.size() + visual_factors_.size() +
+      se3_photometric_factors_.size() + smoothness_factors_.size();
+    imu_factors_.clear();
+    pose_priors_.clear();
+    state_priors_.clear();
+    dense_priors_.clear();
+    point_factors_.clear();
+    plane_factors_.clear();
+    visual_factors_.clear();
+    se3_photometric_factors_.clear();
+    smoothness_factors_.clear();
+    return removed;
+  }
+
+  const int64_t window_begin_ns = states_.front().stamp_ns;
+  auto before_active_window = [window_begin_ns](const int64_t stamp_ns) {
+      return stamp_ns < window_begin_ns;
+    };
+  auto erase_and_count = [](auto & container, auto predicate) {
+      const auto old_size = container.size();
+      container.erase(std::remove_if(container.begin(), container.end(), predicate), container.end());
+      return old_size - container.size();
+    };
+
+  size_t removed = 0U;
+  removed += erase_and_count(
+    imu_factors_,
+    [before_active_window](const SlidingWindowImuFactor & factor) {
+      return before_active_window(factor.from_stamp_ns) || before_active_window(factor.to_stamp_ns);
+    });
+  removed += erase_and_count(
+    pose_priors_,
+    [before_active_window](const SlidingWindowPosePrior & prior) {
+      return before_active_window(prior.stamp_ns);
+    });
+  removed += erase_and_count(
+    state_priors_,
+    [before_active_window](const SlidingWindowStatePrior & prior) {
+      return before_active_window(prior.stamp_ns);
+    });
+  removed += erase_and_count(
+    dense_priors_,
+    [before_active_window](const SlidingWindowDensePrior & prior) {
+      return std::any_of(prior.stamp_ns.begin(), prior.stamp_ns.end(), before_active_window);
+    });
+  removed += erase_and_count(
+    point_factors_,
+    [before_active_window](const SlidingWindowPointToPointFactor & factor) {
+      return before_active_window(factor.stamp_ns);
+    });
+  removed += erase_and_count(
+    plane_factors_,
+    [before_active_window](const SlidingWindowPointToPlaneFactor & factor) {
+      return before_active_window(factor.stamp_ns);
+    });
+  removed += erase_and_count(
+    visual_factors_,
+    [before_active_window](const SlidingWindowVisualAlignmentFactor & factor) {
+      return before_active_window(factor.stamp_ns);
+    });
+  removed += erase_and_count(
+    se3_photometric_factors_,
+    [before_active_window](const SlidingWindowSe3PhotometricFactor & factor) {
+      return before_active_window(factor.stamp_ns);
+    });
+  removed += erase_and_count(
+    smoothness_factors_,
+    [before_active_window](const SlidingWindowTrajectorySmoothnessFactor & factor) {
+      return before_active_window(factor.previous_stamp_ns) ||
+             before_active_window(factor.current_stamp_ns) ||
+             before_active_window(factor.next_stamp_ns);
+    });
+  return removed;
 }
 
 std::vector<SlidingWindowOptimizer::VariableBlock> SlidingWindowOptimizer::variable_layout() const
