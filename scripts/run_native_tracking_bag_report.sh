@@ -2652,6 +2652,13 @@ elif [[ "${REQUIRE_REFERENCE_TRAJECTORY}" == "true" ]]; then
   exit 1
 fi
 
+if [[ "${WRITE_STATUS_HISTORY}" == "true" && -s "${REFERENCE_TUM}" ]]; then
+  "${ROOT_DIR}/scripts/diagnose_native_tracking_drift.py" \
+    --run-dir "${OUTPUT_DIR}" \
+    --reference-tum "${REFERENCE_TUM}" \
+    --output-dir "${OUTPUT_DIR}/diagnostics"
+fi
+
 if [[ "${report_status}" -ne 0 ]]; then
   echo "[native-tracking] health report failed; report kept at ${REPORT_JSON}" >&2
   exit "${report_status}"
