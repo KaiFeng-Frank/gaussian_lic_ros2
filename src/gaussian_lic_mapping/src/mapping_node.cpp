@@ -78,6 +78,17 @@ public:
     pose_topic_ = declare_parameter<std::string>("pose_topic", "/pose_for_gs");
     pointcloud_topic_ = declare_parameter<std::string>("pointcloud_topic", "/points_for_gs");
     imu_topic_ = declare_parameter<std::string>("imu_topic", "/imu_for_gs");
+    pointcloud_coordinates_name_ =
+      declare_parameter<std::string>("pointcloud_coordinates", "world");
+    pointcloud_coordinates_ = parse_pointcloud_coordinates(pointcloud_coordinates_name_);
+    const auto camera_to_pose_translation = declare_parameter<std::vector<double>>(
+      "camera_to_pose_translation_m", std::vector<double>{0.0, 0.0, 0.0});
+    const auto camera_to_pose_rpy = declare_parameter<std::vector<double>>(
+      "camera_to_pose_rpy_rad", std::vector<double>{0.0, 0.0, 0.0});
+    camera_extrinsics_.p_pose_camera = vector3_from_parameter(
+      "camera_to_pose_translation_m", camera_to_pose_translation);
+    camera_extrinsics_.q_pose_camera = quaternion_from_rpy_parameter(
+      "camera_to_pose_rpy_rad", camera_to_pose_rpy);
     status_topic_ = declare_parameter<std::string>("status_topic", "/gaussian_lic/status");
     odometry_topic_ = declare_parameter<std::string>("odometry_topic", "/gaussian_lic/odometry");
     path_topic_ = declare_parameter<std::string>("path_topic", "/gaussian_lic/path");
@@ -155,6 +166,10 @@ public:
       declare_parameter<double>("torch_gaussian_extend_alpha_threshold", 0.99);
     backend_config_.optimization_steps_per_keyframe =
       declare_parameter<int>("torch_gaussian_optimization_steps", 0);
+    const auto optimization_every_n_keyframes =
+      static_cast<int>(declare_parameter<int>("torch_gaussian_optimization_every_n_keyframes", 1));
+    torch_gaussian_optimization_every_n_keyframes_ =
+      std::max(1, optimization_every_n_keyframes);
     backend_config_.optimization_max_samples =
       declare_parameter<int>("torch_gaussian_optimization_max_samples", 4096);
     backend_config_.optimization_sampling =
@@ -337,6 +352,12 @@ public:
       sync_tolerance_sec_, max_queue_size_);
     RCLCPP_INFO(get_logger(), "Depth topic synchronization %s",
       require_depth_topic_ ? "required" : "optional; projected point depth fallback enabled");
+    RCLCPP_INFO(
+      get_logger(),
+      "PointCloud coordinate semantics: %s camera_to_pose_t=[%.4f, %.4f, %.4f]",
+      pointcloud_coordinates_name_.c_str(),
+      camera_extrinsics_.p_pose_camera.x(), camera_extrinsics_.p_pose_camera.y(),
+      camera_extrinsics_.p_pose_camera.z());
     RCLCPP_INFO(get_logger(), "Sensor QoS reliability=%s history=%s depth=%d",
       sensor_qos_reliability_.c_str(), sensor_qos_history_.c_str(), sensor_qos_depth_);
     RCLCPP_INFO(
@@ -369,6 +390,10 @@ public:
       backend_config_.optimization_max_samples,
       backend_config_.optimization_sampling.c_str(),
       backend_config_.optimization_seed);
+    RCLCPP_INFO(
+      get_logger(),
+      "Torch Gaussian optimization cadence every %d keyframes",
+      torch_gaussian_optimization_every_n_keyframes_);
     RCLCPP_INFO(
       get_logger(), "Torch Gaussian pruning %s, min_opacity=%.6f max_foreground=%d count_policy=%s",
       backend_config_.enable_density_control ? "enabled" : "disabled",
@@ -448,6 +473,44 @@ private:
       value.begin(), value.end(), value.begin(),
       [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
+  }
+
+  static gaussian_lic_mapping::PointCloudCoordinates parse_pointcloud_coordinates(
+    const std::string & value)
+  {
+    const std::string mode = lowercase(value);
+    if (mode == "world" || mode == "map") {
+      return gaussian_lic_mapping::PointCloudCoordinates::kWorld;
+    }
+    if (
+      mode == "sensor" || mode == "camera" || mode == "body" || mode == "imu" ||
+      mode == "local")
+    {
+      return gaussian_lic_mapping::PointCloudCoordinates::kSensor;
+    }
+    throw std::runtime_error(
+            "pointcloud_coordinates must be 'world' or one of 'sensor', 'camera', 'body', 'imu', 'local'");
+  }
+
+  static Eigen::Vector3d vector3_from_parameter(
+    const std::string & name,
+    const std::vector<double> & values)
+  {
+    if (values.size() != 3U) {
+      throw std::runtime_error(name + " must contain exactly 3 values");
+    }
+    return Eigen::Vector3d{values[0], values[1], values[2]};
+  }
+
+  static Eigen::Quaterniond quaternion_from_rpy_parameter(
+    const std::string & name,
+    const std::vector<double> & values)
+  {
+    const Eigen::Vector3d rpy = vector3_from_parameter(name, values);
+    const Eigen::AngleAxisd roll(rpy.x(), Eigen::Vector3d::UnitX());
+    const Eigen::AngleAxisd pitch(rpy.y(), Eigen::Vector3d::UnitY());
+    const Eigen::AngleAxisd yaw(rpy.z(), Eigen::Vector3d::UnitZ());
+    return Eigen::Quaterniond(yaw * pitch * roll).normalized();
   }
 
   static std::string legacy_render_mode_to_render_mode(const std::string & value)
@@ -707,7 +770,8 @@ private:
         const gaussian_lic_mapping::CameraIntrinsics frame_intrinsics{
           intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy};
         MapperFrameData frame_data = gaussian_lic_mapping::convert_aligned_frame(
-          frame, dataset_.all_frame_count(), select_every_k_frame_, frame_intrinsics);
+          frame, dataset_.all_frame_count(), select_every_k_frame_, frame_intrinsics,
+          pointcloud_coordinates_, camera_extrinsics_);
         record_converted_frame(std::move(frame_data));
         record_iteration_timing(iteration_start);
       } catch (const std::exception & ex) {
@@ -868,6 +932,13 @@ private:
     {
       return;
     }
+    const uint64_t optimization_keyframe_index = torch_gaussian_optimization_keyframe_counter_++;
+    if (
+      torch_gaussian_optimization_every_n_keyframes_ > 1 &&
+      optimization_keyframe_index % static_cast<uint64_t>(torch_gaussian_optimization_every_n_keyframes_) != 0U)
+    {
+      return;
+    }
 
     try {
       const auto result = optimize_torch_gaussian_training_set(record, intrinsics, device);
@@ -877,6 +948,15 @@ private:
         ++torch_gaussian_optimization_count_;
         torch_gaussian_optimization_step_count_ += static_cast<uint64_t>(result.steps);
         refresh_torch_gaussian_status(device);
+      } else {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "Torch Gaussian optimization produced zero steps: rasterized_visible=%zu projected_visible=%zu depth_valid=%zu finite_uv=%zu in_bounds=%zu z=[%.3f, %.3f] u=[%.1f, %.1f] v=[%.1f, %.1f]",
+          result.rasterized_visible_count, result.projected_visible_count,
+          result.projection_depth_valid_count, result.projection_finite_count,
+          result.projection_in_bounds_count, result.projection_min_z, result.projection_max_z,
+          result.projection_min_u, result.projection_max_u, result.projection_min_v,
+          result.projection_max_v);
       }
     } catch (const std::exception & ex) {
       ++torch_gaussian_optimization_error_count_;
@@ -910,6 +990,17 @@ private:
         torch_gaussian_map_, camera, backend_config_, 1, device);
       total.steps += result.steps;
       total.supervised_count += result.supervised_count;
+      total.rasterized_visible_count += result.rasterized_visible_count;
+      total.projected_visible_count += result.projected_visible_count;
+      total.projection_depth_valid_count += result.projection_depth_valid_count;
+      total.projection_finite_count += result.projection_finite_count;
+      total.projection_in_bounds_count += result.projection_in_bounds_count;
+      total.projection_min_z = result.projection_min_z;
+      total.projection_max_z = result.projection_max_z;
+      total.projection_min_u = result.projection_min_u;
+      total.projection_max_u = result.projection_max_u;
+      total.projection_min_v = result.projection_min_v;
+      total.projection_max_v = result.projection_max_v;
       if (result.steps > 0) {
         total.photometric_l1 = result.photometric_l1;
       }
@@ -2183,6 +2274,10 @@ private:
   std::string pose_topic_;
   std::string pointcloud_topic_;
   std::string imu_topic_;
+  std::string pointcloud_coordinates_name_{"world"};
+  gaussian_lic_mapping::PointCloudCoordinates pointcloud_coordinates_{
+    gaussian_lic_mapping::PointCloudCoordinates::kWorld};
+  gaussian_lic_mapping::CameraExtrinsics camera_extrinsics_;
   std::string status_topic_;
   std::string odometry_topic_;
   std::string path_topic_;
@@ -2230,6 +2325,8 @@ private:
   int gaussian_init_min_keyframes_{1};
   gaussian_lic_mapping::GaussianBackendConfig backend_config_;
   std::mt19937 torch_optimization_rng_;
+  int torch_gaussian_optimization_every_n_keyframes_{1};
+  uint64_t torch_gaussian_optimization_keyframe_counter_{0};
   std::string torch_gaussian_device_name_{"cpu"};
   int gaussian_map_chunk_size_{1024};
   int gaussian_map_qos_depth_{64};

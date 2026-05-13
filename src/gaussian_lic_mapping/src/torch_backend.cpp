@@ -3,6 +3,7 @@
 #include <gaussian_lic_mapping/torch_backend.hpp>
 #ifdef GAUSSIAN_LIC_ENABLE_CUDA
 #include <gaussian_lic_mapping/cuda/fused_ssim.hpp>
+#include <gaussian_lic_mapping/cuda/simple_knn.hpp>
 #include <gaussian_lic_mapping/cuda/sparse_adam.hpp>
 #include "rasterizer.h"
 #endif
@@ -169,11 +170,23 @@ GaussianTensorPack make_foreground_tensors_from_pending_indices(
   auto xyz = torch::from_blob(xyz_values.data(), {num, 3}, cpu_options).clone().to(device);
   auto features = torch::from_blob(
     feature_values.data(), {num, 3, sh_coeff_count}, cpu_options).clone().to(device);
-  auto scaling = torch::from_blob(scale_values.data(), {num}, cpu_options)
-    .clone()
-    .to(device)
-    .unsqueeze(1)
-    .repeat({1, 3});
+  torch::Tensor scaling;
+#ifdef GAUSSIAN_LIC_ENABLE_CUDA
+  if (device.is_cuda() && num >= 4) {
+    const auto dist2 = cuda_ops::dist_cuda2(xyz).clamp_min(1.0e-7F);
+    scaling = torch::log(torch::sqrt(dist2) * static_cast<float>(scaling_scale))
+      .unsqueeze(1)
+      .repeat({1, 3})
+      .contiguous();
+  } else
+#endif
+  {
+    scaling = torch::from_blob(scale_values.data(), {num}, cpu_options)
+      .clone()
+      .to(device)
+      .unsqueeze(1)
+      .repeat({1, 3});
+  }
 
   auto rotation = torch::zeros({num, 4}, cpu_options.device(device));
   rotation.index_put_({torch::indexing::Slice(), 0}, 1.0F);
@@ -504,19 +517,51 @@ double estimate_scene_extent(const TorchGaussianMap & map)
   return std::max(extent, 1.0e-6);
 }
 
-torch::Tensor select_visible_gaussians(
+struct VisibilityProjection
+{
+  torch::Tensor indices;
+  size_t depth_valid_count{0};
+  size_t finite_count{0};
+  size_t in_bounds_count{0};
+  float min_z{0.0F};
+  float max_z{0.0F};
+  float min_u{0.0F};
+  float max_u{0.0F};
+  float min_v{0.0F};
+  float max_v{0.0F};
+};
+
+void set_min_max(
+  const torch::Tensor & values,
+  const torch::Tensor & mask,
+  float & min_value,
+  float & max_value)
+{
+  const auto selected = values.masked_select(mask);
+  if (selected.numel() == 0) {
+    min_value = 0.0F;
+    max_value = 0.0F;
+    return;
+  }
+  min_value = selected.min().to(torch::kCPU).item<float>();
+  max_value = selected.max().to(torch::kCPU).item<float>();
+}
+
+VisibilityProjection project_visible_gaussians(
   const TorchGaussianMap & map,
   const TorchCamera & camera,
   const GaussianBackendConfig & config,
   torch::Device device)
 {
+  VisibilityProjection projection;
   const int64_t total_count = map.xyz.size(0);
   const int64_t start_index = static_cast<int64_t>(map.skybox_count);
+  const auto long_options = torch::TensorOptions().dtype(torch::kLong).device(device);
   if (start_index >= total_count || camera.image_width <= 0 || camera.image_height <= 0) {
-    return torch::empty({0}, torch::TensorOptions().dtype(torch::kLong).device(device));
+    projection.indices = torch::empty({0}, long_options);
+    return projection;
   }
 
-  const auto long_options = torch::TensorOptions().dtype(torch::kLong).device(device);
   const auto float_options = torch::TensorOptions().dtype(torch::kFloat32).device(device);
   const auto xyz = map.xyz.index({torch::indexing::Slice(start_index, torch::indexing::None)})
     .detach()
@@ -538,31 +583,48 @@ torch::Tensor select_visible_gaussians(
   const auto u_idx = torch::round(u).to(torch::kLong);
   const auto v_idx = torch::round(v).to(torch::kLong);
 
-  auto valid = torch::logical_and(z.gt(1.0e-3), torch::isfinite(z));
+  auto depth_valid = torch::logical_and(z.gt(1.0e-3), torch::isfinite(z));
   if (config.max_depth > 0.0) {
-    valid = torch::logical_and(valid, z.lt(config.max_depth));
+    depth_valid = torch::logical_and(depth_valid, z.lt(config.max_depth));
   }
-  valid = torch::logical_and(valid, torch::isfinite(u));
-  valid = torch::logical_and(valid, torch::isfinite(v));
-  valid = torch::logical_and(valid, u_idx.ge(0));
-  valid = torch::logical_and(valid, v_idx.ge(0));
-  valid = torch::logical_and(valid, u_idx.lt(camera.image_width));
-  valid = torch::logical_and(valid, v_idx.lt(camera.image_height));
+  const auto finite = torch::logical_and(
+    depth_valid,
+    torch::logical_and(torch::isfinite(u), torch::isfinite(v)));
+  auto in_bounds = torch::logical_and(finite, u_idx.ge(0));
+  in_bounds = torch::logical_and(in_bounds, v_idx.ge(0));
+  in_bounds = torch::logical_and(in_bounds, u_idx.lt(camera.image_width));
+  in_bounds = torch::logical_and(in_bounds, v_idx.lt(camera.image_height));
 
-  auto visible_local = torch::nonzero(valid).flatten().to(long_options);
-  if (visible_local.numel() == 0) {
-    return visible_local;
+  projection.depth_valid_count = static_cast<size_t>(depth_valid.sum().item<int64_t>());
+  projection.finite_count = static_cast<size_t>(finite.sum().item<int64_t>());
+  projection.in_bounds_count = static_cast<size_t>(in_bounds.sum().item<int64_t>());
+  set_min_max(z, depth_valid, projection.min_z, projection.max_z);
+  set_min_max(u, finite, projection.min_u, projection.max_u);
+  set_min_max(v, finite, projection.min_v, projection.max_v);
+  projection.indices = torch::nonzero(in_bounds).flatten().to(long_options);
+  if (projection.indices.numel() == 0) {
+    return projection;
   }
 
   const int max_samples = std::max(config.optimization_max_samples, 0);
-  if (max_samples > 0 && visible_local.size(0) > max_samples) {
-    visible_local = visible_local.index({
+  if (max_samples > 0 && projection.indices.size(0) > max_samples) {
+    projection.indices = projection.indices.index({
       torch::indexing::Slice(0, static_cast<int64_t>(max_samples))});
   }
 
   const auto global_offset = torch::full(
-    {visible_local.size(0)}, start_index, long_options);
-  return visible_local + global_offset;
+    {projection.indices.size(0)}, start_index, long_options);
+  projection.indices = projection.indices + global_offset;
+  return projection;
+}
+
+torch::Tensor select_visible_gaussians(
+  const TorchGaussianMap & map,
+  const TorchCamera & camera,
+  const GaussianBackendConfig & config,
+  torch::Device device)
+{
+  return project_visible_gaussians(map, camera, config, device).indices;
 }
 
 torch::Tensor gather_camera_targets(
@@ -859,8 +921,28 @@ TorchOptimizationResult optimize_gaussian_map_with_cuda_rasterizer(
     const auto rendered_image = std::get<0>(render_result);
     const auto radii = std::get<1>(render_result);
     const auto rendered_depth = std::get<2>(render_result);
-    const auto visible_mask = radii.gt(0).to(torch::kBool).contiguous();
-    result.supervised_count = static_cast<size_t>(visible_mask.sum().item<int64_t>());
+    auto visible_mask = radii.gt(0).to(torch::kBool).contiguous();
+    result.rasterized_visible_count = static_cast<size_t>(visible_mask.sum().item<int64_t>());
+    result.supervised_count = result.rasterized_visible_count;
+    if (result.supervised_count == 0) {
+      const auto projection = project_visible_gaussians(map, camera, config, device);
+      result.projected_visible_count = static_cast<size_t>(projection.indices.numel());
+      result.projection_depth_valid_count = projection.depth_valid_count;
+      result.projection_finite_count = projection.finite_count;
+      result.projection_in_bounds_count = projection.in_bounds_count;
+      result.projection_min_z = projection.min_z;
+      result.projection_max_z = projection.max_z;
+      result.projection_min_u = projection.min_u;
+      result.projection_max_u = projection.max_u;
+      result.projection_min_v = projection.min_v;
+      result.projection_max_v = projection.max_v;
+      const auto & projected_indices = projection.indices;
+      if (projected_indices.numel() > 0) {
+        visible_mask = torch::zeros_like(visible_mask, torch::TensorOptions().dtype(torch::kBool));
+        visible_mask.index_fill_(0, projected_indices, true);
+        result.supervised_count = static_cast<size_t>(projected_indices.numel());
+      }
+    }
     if (result.supervised_count == 0) {
       break;
     }
@@ -1173,8 +1255,19 @@ TorchOptimizationResult optimize_gaussian_map_from_camera(
   require_grad_for_map(map);
   zero_gaussian_gradients(map);
 
-  const auto gaussian_indices = select_visible_gaussians(map, camera, config, device);
+  const auto projection = project_visible_gaussians(map, camera, config, device);
+  const auto gaussian_indices = projection.indices;
   result.supervised_count = static_cast<size_t>(gaussian_indices.numel());
+  result.projected_visible_count = result.supervised_count;
+  result.projection_depth_valid_count = projection.depth_valid_count;
+  result.projection_finite_count = projection.finite_count;
+  result.projection_in_bounds_count = projection.in_bounds_count;
+  result.projection_min_z = projection.min_z;
+  result.projection_max_z = projection.max_z;
+  result.projection_min_u = projection.min_u;
+  result.projection_max_u = projection.max_u;
+  result.projection_min_v = projection.min_v;
+  result.projection_max_v = projection.max_v;
   if (result.supervised_count == 0) {
     return result;
   }

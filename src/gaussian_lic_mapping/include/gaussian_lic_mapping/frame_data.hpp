@@ -42,6 +42,18 @@ struct CameraIntrinsics
   double cy{0.5};
 };
 
+struct CameraExtrinsics
+{
+  Eigen::Quaterniond q_pose_camera{Eigen::Quaterniond::Identity()};
+  Eigen::Vector3d p_pose_camera{Eigen::Vector3d::Zero()};
+};
+
+enum class PointCloudCoordinates
+{
+  kWorld,
+  kSensor,
+};
+
 struct MapperFrameData
 {
   builtin_interfaces::msg::Time stamp;
@@ -62,6 +74,8 @@ MapperFrameData convert_aligned_frame(
   const AlignedRosFrame & frame,
   uint64_t frame_index,
   int select_every_k_frame,
-  const CameraIntrinsics & intrinsics = CameraIntrinsics{});
+  const CameraIntrinsics & intrinsics = CameraIntrinsics{},
+  PointCloudCoordinates pointcloud_coordinates = PointCloudCoordinates::kWorld,
+  const CameraExtrinsics & camera_extrinsics = CameraExtrinsics{});
 
 }  // namespace gaussian_lic_mapping

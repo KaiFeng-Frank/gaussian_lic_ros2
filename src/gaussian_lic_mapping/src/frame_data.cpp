@@ -255,10 +255,14 @@ cv::Mat convert_depth_to_float_m(const sensor_msgs::msg::Image & depth_msg)
 
 std::vector<MapperPoint> convert_pointcloud(
   const sensor_msgs::msg::PointCloud2 & cloud,
+  const Eigen::Quaterniond & q_w_pose,
+  const Eigen::Vector3d & t_w_pose,
   const Eigen::Quaterniond & q_wc,
   const Eigen::Vector3d & t_wc,
   const cv::Mat & image_rgb_float,
   const CameraIntrinsics & intrinsics,
+  const PointCloudCoordinates pointcloud_coordinates,
+  const CameraExtrinsics & camera_extrinsics,
   size_t & skipped_nonpositive_depth)
 {
   skipped_nonpositive_depth = 0;
@@ -291,16 +295,25 @@ std::vector<MapperPoint> convert_pointcloud(
 
   const Eigen::Matrix3d r_cw = q_wc.toRotationMatrix().transpose();
   const Eigen::Vector3d t_cw = -r_cw * t_wc;
+  const Eigen::Matrix3d r_w_pose = q_w_pose.toRotationMatrix();
+  const Eigen::Quaterniond q_camera_pose = camera_extrinsics.q_pose_camera.inverse();
 
   for (size_t i = 0; i < point_count; ++i) {
     const uint8_t * base = cloud.data.data() + i * cloud.point_step;
 
-    const Eigen::Vector3d xyz_world{
+    const Eigen::Vector3d xyz_input{
       read_numeric_field(base, *x_field),
       read_numeric_field(base, *y_field),
       read_numeric_field(base, *z_field)};
 
-    const Eigen::Vector3d xyz_cam = r_cw * xyz_world + t_cw;
+    Eigen::Vector3d xyz_world = xyz_input;
+    Eigen::Vector3d xyz_cam = xyz_input;
+    if (pointcloud_coordinates == PointCloudCoordinates::kSensor) {
+      xyz_world = r_w_pose * xyz_input + t_w_pose;
+      xyz_cam = q_camera_pose * (xyz_input - camera_extrinsics.p_pose_camera);
+    } else {
+      xyz_cam = r_cw * xyz_world + t_cw;
+    }
     if (xyz_cam.z() <= 0.0) {
       ++skipped_nonpositive_depth;
       continue;
@@ -335,7 +348,9 @@ MapperFrameData convert_aligned_frame(
   const AlignedRosFrame & frame,
   const uint64_t frame_index,
   const int select_every_k_frame,
-  const CameraIntrinsics & intrinsics)
+  const CameraIntrinsics & intrinsics,
+  const PointCloudCoordinates pointcloud_coordinates,
+  const CameraExtrinsics & camera_extrinsics)
 {
   if (!frame.pointcloud || !frame.pose || !frame.image) {
     throw std::runtime_error("cannot convert incomplete aligned ROS frame");
@@ -362,11 +377,16 @@ MapperFrameData convert_aligned_frame(
     frame.pose->pose.position.x,
     frame.pose->pose.position.y,
     frame.pose->pose.position.z};
+  const Eigen::Quaterniond q_w_pose = out.q_wc;
+  const Eigen::Vector3d t_w_pose = out.t_wc;
+  const Eigen::Quaterniond q_pose_camera = camera_extrinsics.q_pose_camera.normalized();
+  out.q_wc = (q_w_pose * q_pose_camera).normalized();
+  out.t_wc = t_w_pose + q_w_pose * camera_extrinsics.p_pose_camera;
   out.r_wc = out.q_wc.toRotationMatrix();
 
   out.points = convert_pointcloud(
-    *frame.pointcloud, out.q_wc, out.t_wc, out.image_rgb_float, intrinsics,
-    out.skipped_points_nonpositive_depth);
+    *frame.pointcloud, q_w_pose, t_w_pose, out.q_wc, out.t_wc, out.image_rgb_float, intrinsics,
+    pointcloud_coordinates, camera_extrinsics, out.skipped_points_nonpositive_depth);
   if (frame.depth) {
     out.depth_m_float = convert_depth_to_float_m(*frame.depth);
   } else {

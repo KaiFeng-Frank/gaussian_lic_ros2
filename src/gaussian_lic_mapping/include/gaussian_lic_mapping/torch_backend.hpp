@@ -67,6 +67,17 @@ struct TorchOptimizationResult
 {
   int steps{0};
   size_t supervised_count{0};
+  size_t rasterized_visible_count{0};
+  size_t projected_visible_count{0};
+  size_t projection_depth_valid_count{0};
+  size_t projection_finite_count{0};
+  size_t projection_in_bounds_count{0};
+  float projection_min_z{0.0F};
+  float projection_max_z{0.0F};
+  float projection_min_u{0.0F};
+  float projection_max_u{0.0F};
+  float projection_min_v{0.0F};
+  float projection_max_v{0.0F};
   float photometric_l1{0.0F};
 };
 
