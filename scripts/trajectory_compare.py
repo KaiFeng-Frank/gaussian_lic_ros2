@@ -496,8 +496,9 @@ def compute_report(args):
         "ok": not errors,
         "errors": errors,
     }
-    if args.error_bin_count > 0:
-        report["error_bins"] = summarize_error_bins(matches, args.align, args.error_bin_count)
+    error_bin_count = getattr(args, "error_bin_count", 0)
+    if error_bin_count > 0:
+        report["error_bins"] = summarize_error_bins(matches, args.align, error_bin_count)
     time_offset_sweep = compute_time_offset_sweep(baseline, current, args)
     if time_offset_sweep is not None:
         report["time_offset_sweep"] = time_offset_sweep
