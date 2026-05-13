@@ -136,7 +136,108 @@ def path_length(positions):
     return sum(distance(previous, current) for previous, current in zip(positions, positions[1:]))
 
 
+def summarize_values(values):
+    if not values:
+        return {
+            "count": 0,
+            "min": 0.0,
+            "mean": 0.0,
+            "median": 0.0,
+            "p95": 0.0,
+            "max": 0.0,
+        }
+    ordered = sorted(values)
+
+    def percentile(fraction):
+        if len(ordered) == 1:
+            return ordered[0]
+        index = fraction * (len(ordered) - 1)
+        lower = int(math.floor(index))
+        upper = int(math.ceil(index))
+        if lower == upper:
+            return ordered[lower]
+        weight = index - lower
+        return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+    return {
+        "count": len(values),
+        "min": ordered[0],
+        "mean": sum(values) / len(values),
+        "median": statistics.median(ordered),
+        "p95": percentile(0.95),
+        "max": ordered[-1],
+    }
+
+
+def normalized_quaternion(pose):
+    norm = math.sqrt(
+        pose.qx * pose.qx +
+        pose.qy * pose.qy +
+        pose.qz * pose.qz +
+        pose.qw * pose.qw
+    )
+    if norm <= 0.0:
+        return 0.0, 0.0, 0.0, 1.0
+    return pose.qx / norm, pose.qy / norm, pose.qz / norm, pose.qw / norm
+
+
+def quaternion_angle(lhs, rhs):
+    lhs_q = normalized_quaternion(lhs)
+    rhs_q = normalized_quaternion(rhs)
+    dot = abs(sum(lhs_q[index] * rhs_q[index] for index in range(4)))
+    dot = max(-1.0, min(1.0, dot))
+    return 2.0 * math.acos(dot)
+
+
+def summarize_pose_series(poses, positions):
+    if not poses:
+        return {
+            "pose_count": 0,
+            "duration_s": 0.0,
+            "path_m": 0.0,
+            "dt_s": summarize_values([]),
+            "step_m": summarize_values([]),
+            "speed_mps": summarize_values([]),
+            "rotation_step_rad": summarize_values([]),
+            "angular_speed_radps": summarize_values([]),
+        }
+
+    dts = []
+    steps = []
+    speeds = []
+    rotation_steps = []
+    angular_speeds = []
+    for previous_pose, current_pose, previous_position, current_position in zip(
+        poses,
+        poses[1:],
+        positions,
+        positions[1:],
+    ):
+        dt = current_pose.stamp - previous_pose.stamp
+        step = distance(previous_position, current_position)
+        rotation_step = quaternion_angle(previous_pose, current_pose)
+        steps.append(step)
+        rotation_steps.append(rotation_step)
+        if dt > 0.0 and math.isfinite(dt):
+            dts.append(dt)
+            speeds.append(step / dt)
+            angular_speeds.append(rotation_step / dt)
+
+    return {
+        "pose_count": len(poses),
+        "duration_s": poses[-1].stamp - poses[0].stamp if len(poses) > 1 else 0.0,
+        "path_m": path_length(positions),
+        "dt_s": summarize_values(dts),
+        "step_m": summarize_values(steps),
+        "speed_mps": summarize_values(speeds),
+        "rotation_step_rad": summarize_values(rotation_steps),
+        "angular_speed_radps": summarize_values(angular_speeds),
+    }
+
+
 def summarize_matches(matches, align):
+    baseline_poses = [pair[0] for pair in matches]
+    current_poses = [pair[1] for pair in matches]
     baseline_positions = [translation_tuple(pair[0]) for pair in matches]
     raw_current_positions = [translation_tuple(pair[1]) for pair in matches]
     alignment_details = {}
@@ -199,6 +300,10 @@ def summarize_matches(matches, align):
             "current_m": current_path,
             "absolute_drift_m": absolute_path_drift,
             "relative_drift": relative_path_drift,
+        },
+        "trajectory_stats": {
+            "baseline": summarize_pose_series(baseline_poses, baseline_positions),
+            "current": summarize_pose_series(current_poses, current_positions),
         },
     }
 
@@ -318,6 +423,7 @@ def compute_report(args):
         "coverage": coverage,
         "translation": summary["translation"],
         "path_length": summary["path_length"],
+        "trajectory_stats": summary["trajectory_stats"],
         "thresholds": thresholds,
         "ok": not errors,
         "errors": errors,

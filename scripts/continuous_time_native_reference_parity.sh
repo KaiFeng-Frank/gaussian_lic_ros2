@@ -60,7 +60,7 @@ LIDAR_MAX_DESKEW_DELTA_M="${LIDAR_MAX_DESKEW_DELTA_M:-1.0}"
 ENABLE_LIDAR_POSE_PRIOR_FACTOR="${ENABLE_LIDAR_POSE_PRIOR_FACTOR:-true}"
 LIDAR_POSE_PRIOR_POSITION_WEIGHT="${LIDAR_POSE_PRIOR_POSITION_WEIGHT:-5.0}"
 LIDAR_POSE_PRIOR_VELOCITY_WEIGHT="${LIDAR_POSE_PRIOR_VELOCITY_WEIGHT:-1.0}"
-LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_WEIGHT="${LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_WEIGHT:-0.0}"
+LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_WEIGHT="${LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_WEIGHT:-0.1}"
 LIDAR_POSE_PRIOR_ORIENTATION_WEIGHT="${LIDAR_POSE_PRIOR_ORIENTATION_WEIGHT:-0.5}"
 LIDAR_POSE_PRIOR_POSITION_HUBER_DELTA_M="${LIDAR_POSE_PRIOR_POSITION_HUBER_DELTA_M:-0.25}"
 LIDAR_POSE_PRIOR_VELOCITY_HUBER_DELTA_MPS="${LIDAR_POSE_PRIOR_VELOCITY_HUBER_DELTA_MPS:-0.25}"
@@ -643,6 +643,14 @@ if compare_path and os.path.isfile(compare_path):
     except Exception:
         compare_payload = {"ok": False, "error": "load failed"}
 
+def nested(payload, *keys):
+    current = payload
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
 native = {
     "ok": (tum_lines > 0 and finite_positions > 0),
     "schema": "gaussian_lic_continuous_time_native_tracking_report/v1",
@@ -828,6 +836,26 @@ native = {
             compare_payload.get("path_length", {}).get("baseline_m"),
         "reference_current_path_m":
             compare_payload.get("path_length", {}).get("current_m"),
+        "reference_baseline_speed_p95_mps":
+            nested(compare_payload, "trajectory_stats", "baseline", "speed_mps", "p95"),
+        "reference_baseline_speed_max_mps":
+            nested(compare_payload, "trajectory_stats", "baseline", "speed_mps", "max"),
+        "reference_current_speed_p95_mps":
+            nested(compare_payload, "trajectory_stats", "current", "speed_mps", "p95"),
+        "reference_current_speed_max_mps":
+            nested(compare_payload, "trajectory_stats", "current", "speed_mps", "max"),
+        "reference_baseline_step_p95_m":
+            nested(compare_payload, "trajectory_stats", "baseline", "step_m", "p95"),
+        "reference_current_step_p95_m":
+            nested(compare_payload, "trajectory_stats", "current", "step_m", "p95"),
+        "reference_baseline_dt_median_s":
+            nested(compare_payload, "trajectory_stats", "baseline", "dt_s", "median"),
+        "reference_current_dt_median_s":
+            nested(compare_payload, "trajectory_stats", "current", "dt_s", "median"),
+        "reference_current_angular_speed_p95_radps":
+            nested(compare_payload, "trajectory_stats", "current", "angular_speed_radps", "p95"),
+        "reference_current_angular_speed_max_radps":
+            nested(compare_payload, "trajectory_stats", "current", "angular_speed_radps", "max"),
     },
     "trajectory_compare": {
         "ok": compare_ok,
@@ -836,6 +864,7 @@ native = {
         "coverage": compare_payload.get("coverage", 0.0),
         "translation": compare_payload.get("translation", {}),
         "path_length": compare_payload.get("path_length", {}),
+        "trajectory_stats": compare_payload.get("trajectory_stats", {}),
         "time_offset_best": compare_payload.get("time_offset_sweep", {}).get("best"),
     },
     "runtime_diagnostics": runtime_diagnostics,
