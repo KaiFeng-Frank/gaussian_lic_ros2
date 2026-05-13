@@ -376,6 +376,9 @@ public:
     post_ba_step_guard_pre_ba_agreement_margin_m_ = finite_nonnegative_parameter(
       "post_ba_step_guard_pre_ba_agreement_margin_m",
       declare_parameter<double>("post_ba_step_guard_pre_ba_agreement_margin_m", 0.0));
+    post_ba_step_guard_pre_ba_blend_on_clamp_ = finite_unit_interval_parameter(
+      "post_ba_step_guard_pre_ba_blend_on_clamp",
+      declare_parameter<double>("post_ba_step_guard_pre_ba_blend_on_clamp", 0.0));
     tracking_step_guard_velocity_scale_ = finite_nonnegative_parameter(
       "tracking_step_guard_velocity_scale",
       declare_parameter<double>("tracking_step_guard_velocity_scale", 0.0));
@@ -3536,6 +3539,24 @@ private:
       }
       return true;
     }
+    if (stage == StepGuardStage::kPostBa &&
+      post_ba_step_guard_pre_ba_blend_on_clamp_ > 0.0 &&
+      fallback_pose != nullptr &&
+      fallback_pose->stamp_ns == pose.stamp_ns &&
+      valid_trajectory_pose(*fallback_pose))
+    {
+      const Eigen::Vector3d pre_ba_delta = fallback_pose->p_w_i - previous.p_w_i;
+      const double pre_ba_step_m = pre_ba_delta.norm();
+      if (std::isfinite(pre_ba_step_m) && pre_ba_step_m > 1.0e-9) {
+        const Eigen::Vector3d blended_delta =
+          (1.0 - post_ba_step_guard_pre_ba_blend_on_clamp_) * delta +
+          post_ba_step_guard_pre_ba_blend_on_clamp_ * pre_ba_delta;
+        const double blended_step_m = blended_delta.norm();
+        if (std::isfinite(blended_step_m) && blended_step_m > 1.0e-9) {
+          delta = blended_delta * (step_m / blended_step_m);
+        }
+      }
+    }
     delta *= allowed_step_m / step_m;
     pose.p_w_i = previous.p_w_i + delta;
     if (dt_s > 1.0e-9) {
@@ -4092,6 +4113,7 @@ private:
   double post_ba_step_guard_pre_ba_agreement_min_cosine_{0.85};
   double post_ba_step_guard_pre_ba_agreement_max_delta_m_{0.05};
   double post_ba_step_guard_pre_ba_agreement_margin_m_{0.0};
+  double post_ba_step_guard_pre_ba_blend_on_clamp_{0.0};
   double tracking_step_guard_velocity_scale_{0.0};
   double pre_lio_tracking_step_guard_velocity_scale_{0.0};
   double post_ba_tracking_step_guard_velocity_scale_{0.0};

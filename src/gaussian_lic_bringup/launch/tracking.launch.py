@@ -257,6 +257,9 @@ def generate_launch_description():
     post_ba_step_guard_pre_ba_agreement_margin_m = LaunchConfiguration(
         "post_ba_step_guard_pre_ba_agreement_margin_m"
     )
+    post_ba_step_guard_pre_ba_blend_on_clamp = LaunchConfiguration(
+        "post_ba_step_guard_pre_ba_blend_on_clamp"
+    )
     tracking_step_guard_velocity_scale = LaunchConfiguration("tracking_step_guard_velocity_scale")
     pre_lio_tracking_step_guard_velocity_scale = LaunchConfiguration(
         "pre_lio_tracking_step_guard_velocity_scale"
@@ -373,6 +376,7 @@ def generate_launch_description():
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_min_cosine", default_value="0.85"),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_max_delta_m", default_value="0.05"),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_margin_m", default_value="0.0"),
+            DeclareLaunchArgument("post_ba_step_guard_pre_ba_blend_on_clamp", default_value="0.0"),
             DeclareLaunchArgument("tracking_step_guard_velocity_scale", default_value="0.0"),
             DeclareLaunchArgument("pre_lio_tracking_step_guard_velocity_scale", default_value="0.0"),
             DeclareLaunchArgument("post_ba_tracking_step_guard_velocity_scale", default_value="0.0"),
@@ -565,6 +569,9 @@ def generate_launch_description():
                         ),
                         "post_ba_step_guard_pre_ba_agreement_margin_m": (
                             post_ba_step_guard_pre_ba_agreement_margin_m
+                        ),
+                        "post_ba_step_guard_pre_ba_blend_on_clamp": (
+                            post_ba_step_guard_pre_ba_blend_on_clamp
                         ),
                         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
                         "pre_lio_tracking_step_guard_velocity_scale": (

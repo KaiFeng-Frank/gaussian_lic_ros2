@@ -53,6 +53,7 @@ POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M=0.0
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE=0.85
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M=0.05
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M=0.0
+POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP=0.0
 TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
 PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
 POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE=0.0
@@ -271,6 +272,8 @@ Options:
                                Max post-BA to pre-BA pose distance for agreement allowance. Default: 0.05.
   --post-ba-step-guard-pre-ba-agreement-margin-m M
                                Extra allowance added to the pre-BA step before the agreement cap. Default: 0.0.
+  --post-ba-step-guard-pre-ba-blend-on-clamp W
+                               Blend clamped post-BA step direction toward the pre-BA LiDAR/IMU direction. 0 keeps BA direction, 1 uses pre-BA direction. Default: 0.0.
   --tracking-step-guard-velocity-scale S
                                Optional speed-scaled adaptive pose-step allowance. Default: 0.0 disabled.
   --pre-lio-tracking-step-guard-velocity-scale S
@@ -667,6 +670,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --post-ba-step-guard-pre-ba-agreement-margin-m)
       POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-pre-ba-blend-on-clamp)
+      POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP="$2"
       shift 2
       ;;
     --require-deskew)
@@ -1269,6 +1276,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   post_ba_step_guard_pre_ba_agreement_min_cosine:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE}" \
   post_ba_step_guard_pre_ba_agreement_max_delta_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M}" \
   post_ba_step_guard_pre_ba_agreement_margin_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M}" \
+  post_ba_step_guard_pre_ba_blend_on_clamp:="${POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP}" \
   tracking_step_guard_velocity_scale:="${TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   pre_lio_tracking_step_guard_velocity_scale:="${PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
   post_ba_tracking_step_guard_velocity_scale:="${POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
@@ -1477,6 +1485,7 @@ POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M_REPORT="${POST_BA_STEP_GUARD
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M}" \
+POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP_REPORT="${POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP}" \
 PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${PRE_LIO_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
 POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
@@ -1685,6 +1694,9 @@ post_ba_step_guard_pre_ba_agreement_max_delta_m = float(
 )
 post_ba_step_guard_pre_ba_agreement_margin_m = float(
     os.environ["POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M_REPORT"]
+)
+post_ba_step_guard_pre_ba_blend_on_clamp = float(
+    os.environ["POST_BA_STEP_GUARD_PRE_BA_BLEND_ON_CLAMP_REPORT"]
 )
 tracking_max_pose_step_m = float(sys.argv[44])
 tracking_step_guard_velocity_scale = float(sys.argv[45])
@@ -2101,6 +2113,9 @@ report = {
         ),
         "post_ba_step_guard_pre_ba_agreement_margin_m": (
             post_ba_step_guard_pre_ba_agreement_margin_m
+        ),
+        "post_ba_step_guard_pre_ba_blend_on_clamp": (
+            post_ba_step_guard_pre_ba_blend_on_clamp
         ),
         "tracking_step_guard_velocity_scale": tracking_step_guard_velocity_scale,
         "pre_lio_tracking_step_guard_velocity_scale": (
