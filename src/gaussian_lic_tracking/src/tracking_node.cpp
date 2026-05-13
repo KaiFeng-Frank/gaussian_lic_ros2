@@ -464,6 +464,15 @@ public:
     gaussian_snapshot_lidar_pose_correction_max_mean_residual_m_ = finite_nonnegative_parameter(
       "gaussian_snapshot_lidar_pose_correction_max_mean_residual_m",
       declare_parameter<double>("gaussian_snapshot_lidar_pose_correction_max_mean_residual_m", 0.0));
+    gaussian_snapshot_lidar_pose_correction_coverage_grid_cols_ = integer_parameter_at_least(
+      "gaussian_snapshot_lidar_pose_correction_coverage_grid_cols",
+      declare_parameter<int>("gaussian_snapshot_lidar_pose_correction_coverage_grid_cols", 1), 1);
+    gaussian_snapshot_lidar_pose_correction_coverage_grid_rows_ = integer_parameter_at_least(
+      "gaussian_snapshot_lidar_pose_correction_coverage_grid_rows",
+      declare_parameter<int>("gaussian_snapshot_lidar_pose_correction_coverage_grid_rows", 1), 1);
+    gaussian_snapshot_lidar_pose_correction_min_coverage_tiles_ = integer_parameter_at_least(
+      "gaussian_snapshot_lidar_pose_correction_min_coverage_tiles",
+      declare_parameter<int>("gaussian_snapshot_lidar_pose_correction_min_coverage_tiles", 0), 0);
     gaussian_snapshot_lidar_plane_factor_weight_ = finite_positive_parameter(
       "gaussian_snapshot_lidar_plane_factor_weight",
       declare_parameter<double>("gaussian_snapshot_lidar_plane_factor_weight", 1.0));
@@ -2041,6 +2050,44 @@ private:
       mean_residual_m > gaussian_snapshot_lidar_pose_correction_max_mean_residual_m_)
     {
       return correction;
+    }
+    if (gaussian_snapshot_lidar_pose_correction_min_coverage_tiles_ > 0) {
+      Eigen::Vector2d min_xy(
+        std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity());
+      Eigen::Vector2d max_xy(
+        -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity());
+      for (const auto & point_w : source_w) {
+        min_xy.x() = std::min(min_xy.x(), point_w.x());
+        min_xy.y() = std::min(min_xy.y(), point_w.y());
+        max_xy.x() = std::max(max_xy.x(), point_w.x());
+        max_xy.y() = std::max(max_xy.y(), point_w.y());
+      }
+      const double range_x = max_xy.x() - min_xy.x();
+      const double range_y = max_xy.y() - min_xy.y();
+      if (range_x <= 1.0e-6 || range_y <= 1.0e-6) {
+        return correction;
+      }
+      const int cols = gaussian_snapshot_lidar_pose_correction_coverage_grid_cols_;
+      const int rows = gaussian_snapshot_lidar_pose_correction_coverage_grid_rows_;
+      std::vector<bool> occupied(static_cast<size_t>(cols * rows), false);
+      for (const auto & point_w : source_w) {
+        const int col = std::clamp(
+          static_cast<int>(std::floor((point_w.x() - min_xy.x()) / range_x * cols)),
+          0,
+          cols - 1);
+        const int row = std::clamp(
+          static_cast<int>(std::floor((point_w.y() - min_xy.y()) / range_y * rows)),
+          0,
+          rows - 1);
+        occupied[static_cast<size_t>(row * cols + col)] = true;
+      }
+      const int occupied_tiles = static_cast<int>(
+        std::count(occupied.begin(), occupied.end(), true));
+      if (occupied_tiles < gaussian_snapshot_lidar_pose_correction_min_coverage_tiles_) {
+        return correction;
+      }
     }
 
     Eigen::Vector3d source_centroid = Eigen::Vector3d::Zero();
@@ -4414,6 +4461,9 @@ private:
   double gaussian_snapshot_lidar_pose_correction_max_rotation_rad_{0.02};
   double gaussian_snapshot_lidar_pose_correction_min_match_ratio_{0.0};
   double gaussian_snapshot_lidar_pose_correction_max_mean_residual_m_{0.0};
+  int gaussian_snapshot_lidar_pose_correction_coverage_grid_cols_{1};
+  int gaussian_snapshot_lidar_pose_correction_coverage_grid_rows_{1};
+  int gaussian_snapshot_lidar_pose_correction_min_coverage_tiles_{0};
   double gaussian_snapshot_lidar_plane_factor_weight_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double gaussian_snapshot_lidar_plane_min_anisotropy_{0.25};

@@ -244,6 +244,15 @@ def generate_launch_description():
     gaussian_snapshot_lidar_pose_correction_max_mean_residual_m = LaunchConfiguration(
         "gaussian_snapshot_lidar_pose_correction_max_mean_residual_m"
     )
+    gaussian_snapshot_lidar_pose_correction_coverage_grid_cols = LaunchConfiguration(
+        "gaussian_snapshot_lidar_pose_correction_coverage_grid_cols"
+    )
+    gaussian_snapshot_lidar_pose_correction_coverage_grid_rows = LaunchConfiguration(
+        "gaussian_snapshot_lidar_pose_correction_coverage_grid_rows"
+    )
+    gaussian_snapshot_lidar_pose_correction_min_coverage_tiles = LaunchConfiguration(
+        "gaussian_snapshot_lidar_pose_correction_min_coverage_tiles"
+    )
     gaussian_snapshot_lidar_plane_factor_weight = LaunchConfiguration(
         "gaussian_snapshot_lidar_plane_factor_weight"
     )
@@ -483,6 +492,9 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("gaussian_snapshot_lidar_pose_correction_min_match_ratio", default_value="0.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_pose_correction_max_mean_residual_m", default_value="0.0"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_pose_correction_coverage_grid_cols", default_value="1"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_pose_correction_coverage_grid_rows", default_value="1"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_pose_correction_min_coverage_tiles", default_value="0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_plane_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_min_opacity", default_value="0.01"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_plane_min_anisotropy", default_value="0.25"),
@@ -732,6 +744,15 @@ def generate_launch_description():
                         ),
                         "gaussian_snapshot_lidar_pose_correction_max_mean_residual_m": (
                             gaussian_snapshot_lidar_pose_correction_max_mean_residual_m
+                        ),
+                        "gaussian_snapshot_lidar_pose_correction_coverage_grid_cols": (
+                            gaussian_snapshot_lidar_pose_correction_coverage_grid_cols
+                        ),
+                        "gaussian_snapshot_lidar_pose_correction_coverage_grid_rows": (
+                            gaussian_snapshot_lidar_pose_correction_coverage_grid_rows
+                        ),
+                        "gaussian_snapshot_lidar_pose_correction_min_coverage_tiles": (
+                            gaussian_snapshot_lidar_pose_correction_min_coverage_tiles
                         ),
                         "gaussian_snapshot_lidar_plane_factor_weight": (
                             gaussian_snapshot_lidar_plane_factor_weight

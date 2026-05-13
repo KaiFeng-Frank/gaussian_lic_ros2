@@ -128,6 +128,9 @@ GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M=0.05
 GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD=0.02
 GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_MATCH_RATIO=0.0
 GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_MEAN_RESIDUAL_M=0.0
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_COLS=1
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_ROWS=1
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_COVERAGE_TILES=0
 ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=false
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT=1.0
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY=0.25
@@ -383,6 +386,12 @@ Options:
                                Minimum finite sampled-point match ratio before applying Gaussian snapshot pose correction. Default: 0.0 disabled.
   --gaussian-snapshot-lidar-pose-correction-max-mean-residual-m M
                                Maximum weighted mean residual before applying Gaussian snapshot pose correction. Default: 0.0 disabled.
+  --gaussian-snapshot-lidar-pose-correction-coverage-grid-cols N
+                               XY coverage grid columns for Gaussian snapshot pose correction matches. Default: 1.
+  --gaussian-snapshot-lidar-pose-correction-coverage-grid-rows N
+                               XY coverage grid rows for Gaussian snapshot pose correction matches. Default: 1.
+  --gaussian-snapshot-lidar-pose-correction-min-coverage-tiles N
+                               Minimum occupied XY coverage tiles before applying Gaussian snapshot pose correction. Default: 0 disabled.
   --enable-gaussian-snapshot-lidar-plane-factor
                                Add LiDAR-to-Gaussian point-to-plane BA anchors from anisotropic Gaussian rotation/scale.
   --gaussian-snapshot-lidar-plane-factor-weight W
@@ -958,6 +967,18 @@ while [[ $# -gt 0 ]]; do
       GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_MEAN_RESIDUAL_M="$2"
       shift 2
       ;;
+    --gaussian-snapshot-lidar-pose-correction-coverage-grid-cols)
+      GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_COLS="$2"
+      shift 2
+      ;;
+    --gaussian-snapshot-lidar-pose-correction-coverage-grid-rows)
+      GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_ROWS="$2"
+      shift 2
+      ;;
+    --gaussian-snapshot-lidar-pose-correction-min-coverage-tiles)
+      GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_COVERAGE_TILES="$2"
+      shift 2
+      ;;
     --enable-gaussian-snapshot-lidar-plane-factor)
       ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=true
       shift
@@ -1344,6 +1365,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   gaussian_snapshot_lidar_pose_correction_max_rotation_rad:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD}" \
   gaussian_snapshot_lidar_pose_correction_min_match_ratio:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_MATCH_RATIO}" \
   gaussian_snapshot_lidar_pose_correction_max_mean_residual_m:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_MEAN_RESIDUAL_M}" \
+  gaussian_snapshot_lidar_pose_correction_coverage_grid_cols:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_COLS}" \
+  gaussian_snapshot_lidar_pose_correction_coverage_grid_rows:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_ROWS}" \
+  gaussian_snapshot_lidar_pose_correction_min_coverage_tiles:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_COVERAGE_TILES}" \
   enable_gaussian_snapshot_lidar_plane_factor:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
   gaussian_snapshot_lidar_plane_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
   gaussian_snapshot_lidar_plane_min_anisotropy:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1556,6 +1580,9 @@ GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M_REPORT="${GAUSSIAN_SNA
 GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD}" \
 GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_MATCH_RATIO_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_MATCH_RATIO}" \
 GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_MEAN_RESIDUAL_M_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_MEAN_RESIDUAL_M}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_COLS_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_COLS}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_ROWS_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_ROWS}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_COVERAGE_TILES_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_COVERAGE_TILES}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1733,6 +1760,15 @@ gaussian_snapshot_lidar_pose_correction_min_match_ratio = float(
 )
 gaussian_snapshot_lidar_pose_correction_max_mean_residual_m = float(
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_MEAN_RESIDUAL_M_REPORT"]
+)
+gaussian_snapshot_lidar_pose_correction_coverage_grid_cols = int(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_COLS_REPORT"]
+)
+gaussian_snapshot_lidar_pose_correction_coverage_grid_rows = int(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_COVERAGE_GRID_ROWS_REPORT"]
+)
+gaussian_snapshot_lidar_pose_correction_min_coverage_tiles = int(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MIN_COVERAGE_TILES_REPORT"]
 )
 gaussian_snapshot_lidar_plane_factor_enabled = (
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT"].lower() == "true"
@@ -2151,6 +2187,15 @@ report = {
         ),
         "gaussian_snapshot_lidar_pose_correction_max_mean_residual_m": (
             gaussian_snapshot_lidar_pose_correction_max_mean_residual_m
+        ),
+        "gaussian_snapshot_lidar_pose_correction_coverage_grid_cols": (
+            gaussian_snapshot_lidar_pose_correction_coverage_grid_cols
+        ),
+        "gaussian_snapshot_lidar_pose_correction_coverage_grid_rows": (
+            gaussian_snapshot_lidar_pose_correction_coverage_grid_rows
+        ),
+        "gaussian_snapshot_lidar_pose_correction_min_coverage_tiles": (
+            gaussian_snapshot_lidar_pose_correction_min_coverage_tiles
         ),
         "gaussian_snapshot_lidar_plane_factor_enabled": (
             gaussian_snapshot_lidar_plane_factor_enabled
