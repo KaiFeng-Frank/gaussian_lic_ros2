@@ -574,6 +574,10 @@ def run_trajectory_compare(args, baseline_dir, current_dir):
         max_mean_m=args.max_trajectory_mean_m,
         max_error_m=args.max_trajectory_error_m,
         max_path_drift=args.max_trajectory_path_drift,
+        time_offset_sweep_min=getattr(args, "time_offset_sweep_min", 0.0),
+        time_offset_sweep_max=getattr(args, "time_offset_sweep_max", 0.0),
+        time_offset_sweep_step=getattr(args, "time_offset_sweep_step", 0.0),
+        time_offset_sweep_min_matches=getattr(args, "time_offset_sweep_min_matches", 0),
     )
     try:
         return compute_trajectory_report(compare_args)
@@ -858,7 +862,7 @@ def main(argv=None):
 
     parser.add_argument("--skip-trajectory", action="store_true")
     parser.add_argument("--trajectory-name", default="trajectory.tum")
-    parser.add_argument("--trajectory-align", choices=("none", "first"), default="none")
+    parser.add_argument("--trajectory-align", choices=("none", "first", "yaw"), default="none")
     parser.add_argument("--max-association-dt", type=float, default=0.02)
     parser.add_argument("--min-trajectory-matches", type=int, default=2)
     parser.add_argument("--min-trajectory-coverage", type=float, default=0.8)
@@ -866,6 +870,10 @@ def main(argv=None):
     parser.add_argument("--max-trajectory-mean-m", type=float, default=0.03)
     parser.add_argument("--max-trajectory-error-m", type=float, default=0.15)
     parser.add_argument("--max-trajectory-path-drift", type=float, default=0.05)
+    parser.add_argument("--time-offset-sweep-min", type=float, default=0.0)
+    parser.add_argument("--time-offset-sweep-max", type=float, default=0.0)
+    parser.add_argument("--time-offset-sweep-step", type=float, default=0.0)
+    parser.add_argument("--time-offset-sweep-min-matches", type=int, default=0)
 
     parser.add_argument("--skip-pointcloud", action="store_true")
     parser.add_argument("--baseline-point-cloud")

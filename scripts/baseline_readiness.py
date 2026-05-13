@@ -193,6 +193,91 @@ def check_results_dir(results_dir):
     return report
 
 
+def current_results_arg_was_set(argv):
+    return any(item == "--current-results-dir" or item.startswith("--current-results-dir=") for item in argv)
+
+
+def file_mtime(path):
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def strict_report_ok(path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - discovery should fall back to file presence if a report is malformed.
+        return False
+    return bool(data.get("ok"))
+
+
+def current_results_score(path):
+    required = ("trajectory.tum", "point_cloud.ply", "metrics.json")
+    if not path.is_dir() or not all((path / name).is_file() for name in required):
+        return None
+
+    strict_ok = strict_report_ok(path / "reproduction_report_strict.json")
+    readiness_ok = strict_report_ok(path / "baseline_readiness_strict.json")
+    quality_ready = (path / "quality_eval.json").is_file() or (path / "renders").is_dir()
+    latest_mtime = max(
+        file_mtime(path / "reproduction_report_strict.json"),
+        file_mtime(path / "baseline_readiness_strict.json"),
+        file_mtime(path / "metrics.json"),
+        file_mtime(path / "point_cloud.ply"),
+        file_mtime(path),
+    )
+    return (
+        1 if strict_ok else 0,
+        1 if readiness_ok else 0,
+        1 if quality_ready else 0,
+        latest_mtime,
+    )
+
+
+def resolve_default_current_results_dir(default_results, sequence):
+    """Select an archived current artifact when the historical default path is empty.
+
+    `results/fastlivo2/current` is useful for ad-hoc local runs, while the
+    strict CBD pipeline archives sequence-specific directories.  Auto-discovery
+    keeps the no-argument readiness command aligned with those archived strict
+    artifacts without changing behavior when the caller supplies an explicit
+    current-results directory.
+    """
+    default_path = Path(default_results).expanduser()
+    if default_path.exists():
+        return default_path
+
+    repo_root = Path(__file__).resolve().parents[1]
+    search_root = repo_root / "results" / "fastlivo2"
+    if not search_root.is_dir():
+        return default_path
+
+    sequence_current = search_root / f"{sequence}_current"
+    sequence_strict_current = search_root / f"{sequence}_strict_current"
+    for candidate in (sequence_current, sequence_strict_current):
+        if current_results_score(candidate) is not None:
+            return candidate
+
+    candidates = []
+    prefix = f"{sequence}_"
+    for path in search_root.iterdir():
+        if not path.is_dir():
+            continue
+        name = path.name
+        if not (name == sequence or name.startswith(prefix)):
+            continue
+        if "current" not in name:
+            continue
+        score = current_results_score(path)
+        if score is None:
+            continue
+        candidates.append((score, path))
+    if not candidates:
+        return default_path
+    return max(candidates, key=lambda item: item[0])[1]
+
+
 def reproduction_args(args, baseline_dir, current_results):
     strict_max_regression = args.strict_max_regression
     return SimpleNamespace(
@@ -230,6 +315,10 @@ def reproduction_args(args, baseline_dir, current_results):
         max_trajectory_mean_m=0.03,
         max_trajectory_error_m=0.15,
         max_trajectory_path_drift=0.05,
+        time_offset_sweep_min=0.0,
+        time_offset_sweep_max=0.0,
+        time_offset_sweep_step=0.0,
+        time_offset_sweep_min_matches=0,
         skip_pointcloud=False,
         baseline_point_cloud=None,
         current_point_cloud=None,
@@ -512,6 +601,7 @@ def build_report(args):
 
 
 def main(argv=None):
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(
         description="Report whether FAST-LIVO2 data, ROS1 baseline artifacts, and ROS2 current artifacts are ready."
     )
@@ -548,6 +638,10 @@ def main(argv=None):
         help="Return success even when readiness gates are blocked. Useful for status jobs.",
     )
     args = parser.parse_args(argv)
+    if not current_results_arg_was_set(raw_argv):
+        args.current_results_dir = str(
+            resolve_default_current_results_dir(args.current_results_dir, args.sequence)
+        )
 
     report = build_report(args)
 
