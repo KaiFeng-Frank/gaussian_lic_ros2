@@ -122,6 +122,10 @@ GAUSSIAN_SNAPSHOT_QOS_DEPTH=128
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT=1.0
 GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M=0.0
 GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT=true
+ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION=false
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_GAIN=0.3
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M=0.05
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD=0.02
 ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=false
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT=1.0
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY=0.25
@@ -365,6 +369,14 @@ Options:
                                Dedicated nearest-neighbor gate for Gaussian snapshot anchors. Default: 0.0 inherits --lidar-nearest-distance-m.
   --disable-gaussian-snapshot-lidar-residual-preweight
                                Do not pre-weight Gaussian snapshot anchors by residual before the BA Huber loss. Diagnostic for double-robust weighting.
+  --enable-gaussian-snapshot-lidar-pose-correction
+                               Apply a bounded pre-BA SE3 scan-to-Gaussian snapshot correction. Default: disabled.
+  --gaussian-snapshot-lidar-pose-correction-gain G
+                               Gain for the bounded Gaussian snapshot pose correction. Default: 0.3.
+  --gaussian-snapshot-lidar-pose-correction-max-translation-m M
+                               Max translation step from the Gaussian snapshot pose correction. Default: 0.05.
+  --gaussian-snapshot-lidar-pose-correction-max-rotation-rad R
+                               Max rotation step from the Gaussian snapshot pose correction. Default: 0.02.
   --enable-gaussian-snapshot-lidar-plane-factor
                                Add LiDAR-to-Gaussian point-to-plane BA anchors from anisotropic Gaussian rotation/scale.
   --gaussian-snapshot-lidar-plane-factor-weight W
@@ -916,6 +928,22 @@ while [[ $# -gt 0 ]]; do
       GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT=false
       shift
       ;;
+    --enable-gaussian-snapshot-lidar-pose-correction)
+      ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION=true
+      shift
+      ;;
+    --gaussian-snapshot-lidar-pose-correction-gain)
+      GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_GAIN="$2"
+      shift 2
+      ;;
+    --gaussian-snapshot-lidar-pose-correction-max-translation-m)
+      GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M="$2"
+      shift 2
+      ;;
+    --gaussian-snapshot-lidar-pose-correction-max-rotation-rad)
+      GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD="$2"
+      shift 2
+      ;;
     --enable-gaussian-snapshot-lidar-plane-factor)
       ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=true
       shift
@@ -1296,6 +1324,10 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
   gaussian_snapshot_lidar_nearest_distance_m:="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}" \
   gaussian_snapshot_lidar_residual_preweight:="${GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT}" \
+  enable_gaussian_snapshot_lidar_pose_correction:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION}" \
+  gaussian_snapshot_lidar_pose_correction_gain:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_GAIN}" \
+  gaussian_snapshot_lidar_pose_correction_max_translation_m:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M}" \
+  gaussian_snapshot_lidar_pose_correction_max_rotation_rad:="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD}" \
   enable_gaussian_snapshot_lidar_plane_factor:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
   gaussian_snapshot_lidar_plane_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
   gaussian_snapshot_lidar_plane_min_anisotropy:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1502,6 +1534,10 @@ MAPPER_FEEDBACK_SELECT_EVERY_REPORT="${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME}" \
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}" \
 GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_GAIN_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_GAIN}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M}" \
+GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1661,6 +1697,18 @@ gaussian_snapshot_lidar_nearest_distance_m = float(
 )
 gaussian_snapshot_lidar_residual_preweight = (
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT_REPORT"].lower() == "true"
+)
+gaussian_snapshot_lidar_pose_correction_enabled = (
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_REPORT"].lower() == "true"
+)
+gaussian_snapshot_lidar_pose_correction_gain = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_GAIN_REPORT"]
+)
+gaussian_snapshot_lidar_pose_correction_max_translation_m = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_TRANSLATION_M_REPORT"]
+)
+gaussian_snapshot_lidar_pose_correction_max_rotation_rad = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_POSE_CORRECTION_MAX_ROTATION_RAD_REPORT"]
 )
 gaussian_snapshot_lidar_plane_factor_enabled = (
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT"].lower() == "true"
@@ -2061,6 +2109,18 @@ report = {
         ),
         "gaussian_snapshot_lidar_residual_preweight": (
             gaussian_snapshot_lidar_residual_preweight
+        ),
+        "gaussian_snapshot_lidar_pose_correction_enabled": (
+            gaussian_snapshot_lidar_pose_correction_enabled
+        ),
+        "gaussian_snapshot_lidar_pose_correction_gain": (
+            gaussian_snapshot_lidar_pose_correction_gain
+        ),
+        "gaussian_snapshot_lidar_pose_correction_max_translation_m": (
+            gaussian_snapshot_lidar_pose_correction_max_translation_m
+        ),
+        "gaussian_snapshot_lidar_pose_correction_max_rotation_rad": (
+            gaussian_snapshot_lidar_pose_correction_max_rotation_rad
         ),
         "gaussian_snapshot_lidar_plane_factor_enabled": (
             gaussian_snapshot_lidar_plane_factor_enabled

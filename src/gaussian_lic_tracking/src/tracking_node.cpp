@@ -38,6 +38,8 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
+#include <Eigen/SVD>
+
 namespace
 {
 
@@ -95,6 +97,15 @@ double inverse_ratio_score(const double value, const double threshold)
   }
   return std::clamp(threshold / value, 0.0, 1.0);
 }
+
+struct GaussianSnapshotPoseCorrection
+{
+  bool applied{false};
+  size_t matched_points{0U};
+  double mean_residual_m{0.0};
+  Eigen::Vector3d delta_p_w{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond delta_q{Eigen::Quaterniond::Identity()};
+};
 
 }  // namespace
 
@@ -436,6 +447,17 @@ public:
       declare_parameter<double>("gaussian_snapshot_lidar_nearest_distance_m", 0.0));
     gaussian_snapshot_lidar_residual_preweight_ =
       declare_parameter<bool>("gaussian_snapshot_lidar_residual_preweight", true);
+    enable_gaussian_snapshot_lidar_pose_correction_ =
+      declare_parameter<bool>("enable_gaussian_snapshot_lidar_pose_correction", false);
+    gaussian_snapshot_lidar_pose_correction_gain_ = finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_pose_correction_gain",
+      declare_parameter<double>("gaussian_snapshot_lidar_pose_correction_gain", 0.3));
+    gaussian_snapshot_lidar_pose_correction_max_translation_m_ = finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_pose_correction_max_translation_m",
+      declare_parameter<double>("gaussian_snapshot_lidar_pose_correction_max_translation_m", 0.05));
+    gaussian_snapshot_lidar_pose_correction_max_rotation_rad_ = finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_pose_correction_max_rotation_rad",
+      declare_parameter<double>("gaussian_snapshot_lidar_pose_correction_max_rotation_rad", 0.02));
     gaussian_snapshot_lidar_plane_factor_weight_ = finite_positive_parameter(
       "gaussian_snapshot_lidar_plane_factor_weight",
       declare_parameter<double>("gaussian_snapshot_lidar_plane_factor_weight", 1.0));
@@ -1632,6 +1654,27 @@ private:
         tracking_pose.p_w_i += correction.delta_p_w;
         tracking_pose.q_w_i = (correction.delta_q * tracking_pose.q_w_i).normalized();
       }
+      if (enable_gaussian_snapshot_lidar_pose_correction_ && gaussian_snapshot_.complete()) {
+        const double gaussian_snapshot_nearest_distance_m =
+          gaussian_snapshot_lidar_nearest_distance_m_ > 0.0
+          ? gaussian_snapshot_lidar_nearest_distance_m_
+          : lidar_nearest_distance_m_;
+        const auto gaussian_pose_correction =
+          compute_gaussian_snapshot_pose_correction(
+          lidar_points,
+          tracking_pose,
+          gaussian_snapshot_nearest_distance_m);
+        if (gaussian_pose_correction.applied) {
+          tracking_pose.p_w_i += gaussian_pose_correction.delta_p_w;
+          tracking_pose.q_w_i = (gaussian_pose_correction.delta_q * tracking_pose.q_w_i).normalized();
+          RCLCPP_DEBUG_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "Gaussian snapshot pose correction matched %zu points, residual %.4fm, delta %.4fm",
+            gaussian_pose_correction.matched_points,
+            gaussian_pose_correction.mean_residual_m,
+            gaussian_pose_correction.delta_p_w.norm());
+        }
+      }
       if (enable_sliding_window_optimizer_) {
         auto lidar_window_factor = lidar_factor_.build_point_to_point_factor(lidar_points, tracking_pose);
         if (!lidar_window_factor.frame_points_i.empty()) {
@@ -1913,6 +1956,140 @@ private:
         return;
       }
     }
+  }
+
+  GaussianSnapshotPoseCorrection compute_gaussian_snapshot_pose_correction(
+    const std::vector<Eigen::Vector3d> & frame_points_i,
+    const gaussian_lic_tracking::TrajectoryPose & predicted_pose,
+    const double nearest_distance_m) const
+  {
+    GaussianSnapshotPoseCorrection correction;
+    if (!gaussian_snapshot_.complete() || frame_points_i.size() < static_cast<size_t>(lidar_min_points_) ||
+      gaussian_snapshot_.point_count() < static_cast<size_t>(lidar_min_points_) ||
+      nearest_distance_m <= 0.0 || !predicted_pose.p_w_i.allFinite() ||
+      !predicted_pose.q_w_i.coeffs().allFinite() ||
+      predicted_pose.q_w_i.norm() <= std::numeric_limits<double>::epsilon())
+    {
+      return correction;
+    }
+
+    const size_t max_frame_points = static_cast<size_t>(lidar_max_frame_points_);
+    const size_t stride = max_frame_points > 0U && frame_points_i.size() > max_frame_points
+      ? static_cast<size_t>(
+        std::ceil(static_cast<double>(frame_points_i.size()) / static_cast<double>(max_frame_points)))
+      : 1U;
+    const double max_distance_sq = nearest_distance_m * nearest_distance_m;
+    const double robust_kernel_m = 0.5 * nearest_distance_m;
+    const Eigen::Quaterniond q_w_i = predicted_pose.q_w_i.normalized();
+
+    std::vector<Eigen::Vector3d> source_w;
+    std::vector<Eigen::Vector3d> target_w;
+    std::vector<double> match_weights;
+    source_w.reserve(std::min(frame_points_i.size(), max_frame_points > 0U ? max_frame_points : frame_points_i.size()));
+    target_w.reserve(source_w.capacity());
+    match_weights.reserve(source_w.capacity());
+    double residual_weight_sum = 0.0;
+    double residual_norm_sum = 0.0;
+    for (size_t point_index = 0U; point_index < frame_points_i.size(); point_index += stride) {
+      const auto & point_i = frame_points_i[point_index];
+      if (!point_i.allFinite()) {
+        continue;
+      }
+      const Eigen::Vector3d point_w = q_w_i * point_i + predicted_pose.p_w_i;
+      const auto nearest =
+        gaussian_snapshot_.find_nearest(
+        point_w,
+        nearest_distance_m,
+        gaussian_snapshot_lidar_min_opacity_,
+        1);
+      if (!nearest.matched || nearest.distance_sq > max_distance_sq) {
+        continue;
+      }
+      const double residual_norm = std::sqrt(nearest.distance_sq);
+      const double match_weight =
+        std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12));
+      if (!std::isfinite(match_weight) || match_weight <= 0.0) {
+        continue;
+      }
+      source_w.push_back(point_w);
+      target_w.push_back(nearest.xyz);
+      match_weights.push_back(match_weight);
+      residual_weight_sum += match_weight;
+      residual_norm_sum += match_weight * residual_norm;
+    }
+    if (source_w.size() < static_cast<size_t>(lidar_min_points_) ||
+      residual_weight_sum <= std::numeric_limits<double>::epsilon())
+    {
+      return correction;
+    }
+
+    Eigen::Vector3d source_centroid = Eigen::Vector3d::Zero();
+    Eigen::Vector3d target_centroid = Eigen::Vector3d::Zero();
+    for (size_t index = 0U; index < source_w.size(); ++index) {
+      source_centroid += match_weights[index] * source_w[index];
+      target_centroid += match_weights[index] * target_w[index];
+    }
+    source_centroid /= residual_weight_sum;
+    target_centroid /= residual_weight_sum;
+
+    Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
+    for (size_t index = 0U; index < source_w.size(); ++index) {
+      covariance += match_weights[index] *
+        (target_w[index] - target_centroid) * (source_w[index] - source_centroid).transpose();
+    }
+    const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      covariance, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    if (svd.matrixU().cols() != 3 || svd.matrixV().cols() != 3) {
+      return correction;
+    }
+    Eigen::Matrix3d u = svd.matrixU();
+    const Eigen::Matrix3d v = svd.matrixV();
+    Eigen::Matrix3d rotation = u * v.transpose();
+    if (rotation.determinant() < 0.0) {
+      u.col(2) *= -1.0;
+      rotation = u * v.transpose();
+    }
+    if (!rotation.allFinite()) {
+      return correction;
+    }
+
+    Eigen::Quaterniond step_q(rotation);
+    step_q.normalize();
+    Eigen::AngleAxisd step_aa(step_q);
+    if (step_aa.angle() > gaussian_snapshot_lidar_pose_correction_max_rotation_rad_) {
+      step_q = Eigen::Quaterniond(
+        Eigen::AngleAxisd(
+        gaussian_snapshot_lidar_pose_correction_max_rotation_rad_,
+        step_aa.axis())).normalized();
+      rotation = step_q.toRotationMatrix();
+    }
+    const Eigen::Vector3d correction_translation = target_centroid - rotation * source_centroid;
+    Eigen::Vector3d step_p =
+      (rotation * predicted_pose.p_w_i + correction_translation) - predicted_pose.p_w_i;
+    step_p *= gaussian_snapshot_lidar_pose_correction_gain_;
+    const double step_p_norm = step_p.norm();
+    if (step_p_norm > gaussian_snapshot_lidar_pose_correction_max_translation_m_) {
+      step_p *= gaussian_snapshot_lidar_pose_correction_max_translation_m_ / step_p_norm;
+    }
+    if (gaussian_snapshot_lidar_pose_correction_gain_ < 1.0) {
+      Eigen::AngleAxisd gained_aa(step_q);
+      if (gained_aa.angle() > 1.0e-12) {
+        step_q = Eigen::Quaterniond(
+          Eigen::AngleAxisd(
+          gaussian_snapshot_lidar_pose_correction_gain_ * gained_aa.angle(),
+          gained_aa.axis())).normalized();
+      }
+    }
+    if (!step_p.allFinite() || !step_q.coeffs().allFinite()) {
+      return correction;
+    }
+
+    correction.applied = true;
+    correction.matched_points = source_w.size();
+    correction.mean_residual_m = residual_norm_sum / residual_weight_sum;
+    correction.delta_p_w = step_p;
+    correction.delta_q = step_q;
+    return correction;
   }
 
   void cache_relative_motion_pose(const gaussian_lic_tracking::TrajectoryPose & pose)
@@ -4211,6 +4388,10 @@ private:
   double gaussian_snapshot_lidar_factor_weight_{1.0};
   double gaussian_snapshot_lidar_nearest_distance_m_{0.0};
   bool gaussian_snapshot_lidar_residual_preweight_{true};
+  bool enable_gaussian_snapshot_lidar_pose_correction_{false};
+  double gaussian_snapshot_lidar_pose_correction_gain_{0.3};
+  double gaussian_snapshot_lidar_pose_correction_max_translation_m_{0.05};
+  double gaussian_snapshot_lidar_pose_correction_max_rotation_rad_{0.02};
   double gaussian_snapshot_lidar_plane_factor_weight_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double gaussian_snapshot_lidar_plane_min_anisotropy_{0.25};

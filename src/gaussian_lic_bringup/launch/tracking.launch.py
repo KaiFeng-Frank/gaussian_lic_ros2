@@ -226,6 +226,18 @@ def generate_launch_description():
     gaussian_snapshot_lidar_residual_preweight = LaunchConfiguration(
         "gaussian_snapshot_lidar_residual_preweight"
     )
+    enable_gaussian_snapshot_lidar_pose_correction = LaunchConfiguration(
+        "enable_gaussian_snapshot_lidar_pose_correction"
+    )
+    gaussian_snapshot_lidar_pose_correction_gain = LaunchConfiguration(
+        "gaussian_snapshot_lidar_pose_correction_gain"
+    )
+    gaussian_snapshot_lidar_pose_correction_max_translation_m = LaunchConfiguration(
+        "gaussian_snapshot_lidar_pose_correction_max_translation_m"
+    )
+    gaussian_snapshot_lidar_pose_correction_max_rotation_rad = LaunchConfiguration(
+        "gaussian_snapshot_lidar_pose_correction_max_rotation_rad"
+    )
     gaussian_snapshot_lidar_plane_factor_weight = LaunchConfiguration(
         "gaussian_snapshot_lidar_plane_factor_weight"
     )
@@ -453,6 +465,16 @@ def generate_launch_description():
             DeclareLaunchArgument("gaussian_snapshot_lidar_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_nearest_distance_m", default_value="0.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_residual_preweight", default_value="true"),
+            DeclareLaunchArgument("enable_gaussian_snapshot_lidar_pose_correction", default_value="false"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_pose_correction_gain", default_value="0.3"),
+            DeclareLaunchArgument(
+                "gaussian_snapshot_lidar_pose_correction_max_translation_m",
+                default_value="0.05",
+            ),
+            DeclareLaunchArgument(
+                "gaussian_snapshot_lidar_pose_correction_max_rotation_rad",
+                default_value="0.02",
+            ),
             DeclareLaunchArgument("gaussian_snapshot_lidar_plane_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_min_opacity", default_value="0.01"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_plane_min_anisotropy", default_value="0.25"),
@@ -684,6 +706,18 @@ def generate_launch_description():
                         ),
                         "gaussian_snapshot_lidar_residual_preweight": (
                             gaussian_snapshot_lidar_residual_preweight
+                        ),
+                        "enable_gaussian_snapshot_lidar_pose_correction": (
+                            enable_gaussian_snapshot_lidar_pose_correction
+                        ),
+                        "gaussian_snapshot_lidar_pose_correction_gain": (
+                            gaussian_snapshot_lidar_pose_correction_gain
+                        ),
+                        "gaussian_snapshot_lidar_pose_correction_max_translation_m": (
+                            gaussian_snapshot_lidar_pose_correction_max_translation_m
+                        ),
+                        "gaussian_snapshot_lidar_pose_correction_max_rotation_rad": (
+                            gaussian_snapshot_lidar_pose_correction_max_rotation_rad
                         ),
                         "gaussian_snapshot_lidar_plane_factor_weight": (
                             gaussian_snapshot_lidar_plane_factor_weight
