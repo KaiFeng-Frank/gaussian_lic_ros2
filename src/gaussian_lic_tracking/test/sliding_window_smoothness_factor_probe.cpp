@@ -150,7 +150,7 @@ int main()
     (jacobian_normal.jacobian.block(0, 0, 3, 45) - expected_rotation_jacobian)
     .cwiseAbs()
     .maxCoeff();
-  if (!jacobian_normal.valid || jacobian_normal.jacobian.rows() != 15 ||
+  if (!jacobian_normal.valid || jacobian_normal.jacobian.rows() != 18 ||
     jacobian_normal.jacobian.cols() != 45 || max_rotation_jacobian_error > 1.0e-5)
   {
     std::cerr << "smoothness analytic rotation Jacobian mismatch: "
@@ -195,7 +195,7 @@ int main()
   optimizer.add_trajectory_smoothness_factor(factor);
 
   const auto normal = optimizer.build_normal_equation(0.0);
-  if (!normal.valid || normal.jacobian.rows() != 15 || normal.jacobian.cols() != 15) {
+  if (!normal.valid || normal.jacobian.rows() != 18 || normal.jacobian.cols() != 15) {
     std::cerr << "smoothness factor normal equation has wrong dimensions\n";
     return 1;
   }

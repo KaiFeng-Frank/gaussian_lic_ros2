@@ -15,6 +15,7 @@ namespace gaussian_lic_tracking
 namespace
 {
 constexpr size_t kStateDof = 15U;
+constexpr size_t kSmoothnessResidualDof = 18U;
 using BiasDerivativeVector = Eigen::Matrix<double, 6, 1>;
 using BiasAutoDiff = Eigen::AutoDiffScalar<BiasDerivativeVector>;
 using Vector3ad = Eigen::Matrix<BiasAutoDiff, 3, 1>;
@@ -347,7 +348,7 @@ Eigen::Matrix<double, 9, 9> effective_imu_sqrt_information(
   return sqrt_information;
 }
 
-Eigen::Matrix<double, 15, 1> smoothness_residual(
+Eigen::Matrix<double, kSmoothnessResidualDof, 1> smoothness_residual(
   const SlidingWindowTrajectorySmoothnessFactor & factor,
   const SlidingWindowState & previous,
   const SlidingWindowState & current,
@@ -357,7 +358,7 @@ Eigen::Matrix<double, 15, 1> smoothness_residual(
     static_cast<double>(current.stamp_ns - previous.stamp_ns) / 1.0e9;
   const double next_dt_s =
     static_cast<double>(next.stamp_ns - current.stamp_ns) / 1.0e9;
-  Eigen::Matrix<double, 15, 1> residual;
+  Eigen::Matrix<double, kSmoothnessResidualDof, 1> residual;
   residual.setZero();
   if (previous_dt_s <= 0.0 || next_dt_s <= 0.0) {
     return residual;
@@ -384,6 +385,10 @@ Eigen::Matrix<double, 15, 1> smoothness_residual(
   residual.template segment<3>(6) =
     std::sqrt(factor.velocity_acceleration_weight) *
     (next_velocity_acceleration - previous_velocity_acceleration);
+
+  residual.template segment<3>(15) =
+    std::sqrt(factor.position_velocity_consistency_weight) *
+    (next_position_rate - 0.5 * (current.v_w_i + next.v_w_i));
 
   const Eigen::Vector3d previous_gyro_bias_rate =
     (current.gyro_bias - previous.gyro_bias) / previous_dt_s;
@@ -892,16 +897,21 @@ void SlidingWindowOptimizer::add_trajectory_smoothness_factor(
   if (!std::isfinite(factor.rotation_rate_weight) ||
     !std::isfinite(factor.position_rate_weight) ||
     !std::isfinite(factor.velocity_acceleration_weight) ||
+    !std::isfinite(factor.position_velocity_consistency_weight) ||
     !std::isfinite(factor.gyro_bias_rate_weight) ||
     !std::isfinite(factor.accel_bias_rate_weight) ||
     factor.rotation_rate_weight < 0.0 || factor.position_rate_weight < 0.0 ||
-    factor.velocity_acceleration_weight < 0.0 || factor.gyro_bias_rate_weight < 0.0 ||
+    factor.velocity_acceleration_weight < 0.0 ||
+    factor.position_velocity_consistency_weight < 0.0 ||
+    factor.gyro_bias_rate_weight < 0.0 ||
     factor.accel_bias_rate_weight < 0.0)
   {
     throw std::runtime_error("trajectory smoothness factor weights must be finite and non-negative");
   }
   if (factor.rotation_rate_weight == 0.0 && factor.position_rate_weight == 0.0 &&
-    factor.velocity_acceleration_weight == 0.0 && factor.gyro_bias_rate_weight == 0.0 &&
+    factor.velocity_acceleration_weight == 0.0 &&
+    factor.position_velocity_consistency_weight == 0.0 &&
+    factor.gyro_bias_rate_weight == 0.0 &&
     factor.accel_bias_rate_weight == 0.0)
   {
     return;
@@ -1179,7 +1189,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
     dense_priors_.size() * 30U + point_factors_.size() * 300U + plane_factors_.size() * 100U +
     visual_factors_.size() * 2U + se3_photometric_factors_.size() * 6U +
-    smoothness_factors_.size() * 15U);
+    smoothness_factors_.size() * kSmoothnessResidualDof);
 
   auto append = [&values, breakdown](
       const Eigen::VectorXd & residual,
@@ -1531,7 +1541,7 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       continue;
     }
     const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
-    if (!rows_available(row, 15)) {
+    if (!rows_available(row, static_cast<Eigen::Index>(kSmoothnessResidualDof))) {
       return fallback_to_numeric();
     }
     if (offset >= 0) {
@@ -1698,7 +1708,7 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     if (previous < 0 || current < 0 || next < 0) {
       continue;
     }
-    if (!rows_available(row, 15)) {
+    if (!rows_available(row, static_cast<Eigen::Index>(kSmoothnessResidualDof))) {
       return fallback_to_numeric();
     }
     const double previous_dt_s =
@@ -1710,7 +1720,7 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       states[static_cast<size_t>(next)].stamp_ns -
       states[static_cast<size_t>(current)].stamp_ns) / 1.0e9;
     if (previous_dt_s <= 0.0 || next_dt_s <= 0.0) {
-      row += 15;
+      row += static_cast<Eigen::Index>(kSmoothnessResidualDof);
       continue;
     }
     const Eigen::Matrix<double, 3, 9> rotation_jacobian =
@@ -1755,7 +1765,24 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         std::sqrt(factor.accel_bias_rate_weight) * block.bias_scale *
         Eigen::Matrix3d::Identity();
     }
-    row += 15;
+    if (factor.position_velocity_consistency_weight > 0.0) {
+      const double consistency_scale = std::sqrt(factor.position_velocity_consistency_weight);
+      const Eigen::Index current_offset = variable_offsets[static_cast<size_t>(current)];
+      const Eigen::Index next_offset = variable_offsets[static_cast<size_t>(next)];
+      if (current_offset >= 0) {
+        jacobian.template block<3, 3>(row + 15, current_offset + 6) =
+          -consistency_scale / next_dt_s * Eigen::Matrix3d::Identity();
+        jacobian.template block<3, 3>(row + 15, current_offset + 3) =
+          -0.5 * consistency_scale * Eigen::Matrix3d::Identity();
+      }
+      if (next_offset >= 0) {
+        jacobian.template block<3, 3>(row + 15, next_offset + 6) =
+          consistency_scale / next_dt_s * Eigen::Matrix3d::Identity();
+        jacobian.template block<3, 3>(row + 15, next_offset + 3) =
+          -0.5 * consistency_scale * Eigen::Matrix3d::Identity();
+      }
+    }
+    row += static_cast<Eigen::Index>(kSmoothnessResidualDof);
   }
 
   if (row != jacobian.rows()) {

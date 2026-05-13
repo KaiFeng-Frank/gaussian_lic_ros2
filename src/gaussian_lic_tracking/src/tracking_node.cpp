@@ -472,6 +472,9 @@ public:
     sliding_window_smoothness_velocity_weight_ = finite_nonnegative_parameter(
       "sliding_window_smoothness_velocity_weight",
       declare_parameter<double>("sliding_window_smoothness_velocity_weight", 0.1));
+    sliding_window_smoothness_position_velocity_weight_ = finite_nonnegative_parameter(
+      "sliding_window_smoothness_position_velocity_weight",
+      declare_parameter<double>("sliding_window_smoothness_position_velocity_weight", 0.0));
     sliding_window_smoothness_bias_weight_ = finite_nonnegative_parameter(
       "sliding_window_smoothness_bias_weight",
       declare_parameter<double>("sliding_window_smoothness_bias_weight", 0.1));
@@ -1841,6 +1844,8 @@ private:
       factor.rotation_rate_weight = sliding_window_smoothness_rotation_weight_;
       factor.position_rate_weight = sliding_window_smoothness_position_weight_;
       factor.velocity_acceleration_weight = sliding_window_smoothness_velocity_weight_;
+      factor.position_velocity_consistency_weight =
+        sliding_window_smoothness_position_velocity_weight_;
       factor.gyro_bias_rate_weight = sliding_window_smoothness_bias_weight_;
       factor.accel_bias_rate_weight = sliding_window_smoothness_bias_weight_;
       try {
@@ -3849,6 +3854,7 @@ private:
   double sliding_window_smoothness_rotation_weight_{0.1};
   double sliding_window_smoothness_position_weight_{0.1};
   double sliding_window_smoothness_velocity_weight_{0.1};
+  double sliding_window_smoothness_position_velocity_weight_{0.0};
   double sliding_window_smoothness_bias_weight_{0.1};
   int lidar_min_points_{32};
   int lidar_max_frame_points_{2000};

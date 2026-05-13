@@ -136,6 +136,7 @@ struct SlidingWindowTrajectorySmoothnessFactor
   double rotation_rate_weight{1.0};
   double position_rate_weight{1.0};
   double velocity_acceleration_weight{1.0};
+  double position_velocity_consistency_weight{0.0};
   double gyro_bias_rate_weight{1.0};
   double accel_bias_rate_weight{1.0};
 };

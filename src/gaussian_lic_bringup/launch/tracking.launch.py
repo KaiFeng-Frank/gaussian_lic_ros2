@@ -166,6 +166,9 @@ def generate_launch_description():
     sliding_window_smoothness_rotation_weight = LaunchConfiguration("sliding_window_smoothness_rotation_weight")
     sliding_window_smoothness_position_weight = LaunchConfiguration("sliding_window_smoothness_position_weight")
     sliding_window_smoothness_velocity_weight = LaunchConfiguration("sliding_window_smoothness_velocity_weight")
+    sliding_window_smoothness_position_velocity_weight = LaunchConfiguration(
+        "sliding_window_smoothness_position_velocity_weight"
+    )
     sliding_window_smoothness_bias_weight = LaunchConfiguration("sliding_window_smoothness_bias_weight")
     imu_history_size = LaunchConfiguration("imu_history_size")
     imu_linear_acceleration_scale = LaunchConfiguration("imu_linear_acceleration_scale")
@@ -338,6 +341,7 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_smoothness_rotation_weight", default_value="0.1"),
             DeclareLaunchArgument("sliding_window_smoothness_position_weight", default_value="0.1"),
             DeclareLaunchArgument("sliding_window_smoothness_velocity_weight", default_value="0.1"),
+            DeclareLaunchArgument("sliding_window_smoothness_position_velocity_weight", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_smoothness_bias_weight", default_value="0.1"),
             DeclareLaunchArgument("imu_history_size", default_value="12000"),
             DeclareLaunchArgument("imu_linear_acceleration_scale", default_value="1.0"),
@@ -493,6 +497,9 @@ def generate_launch_description():
                         "sliding_window_smoothness_rotation_weight": sliding_window_smoothness_rotation_weight,
                         "sliding_window_smoothness_position_weight": sliding_window_smoothness_position_weight,
                         "sliding_window_smoothness_velocity_weight": sliding_window_smoothness_velocity_weight,
+                        "sliding_window_smoothness_position_velocity_weight": (
+                            sliding_window_smoothness_position_velocity_weight
+                        ),
                         "sliding_window_smoothness_bias_weight": sliding_window_smoothness_bias_weight,
                         "imu_history_size": imu_history_size,
                         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
