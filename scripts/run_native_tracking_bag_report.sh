@@ -158,6 +158,7 @@ REFERENCE_MAX_RMSE_M=2.0
 REFERENCE_MAX_MEAN_M=1.5
 REFERENCE_MAX_ERROR_M=5.0
 REFERENCE_MAX_PATH_DRIFT=0.75
+REFERENCE_ERROR_BIN_COUNT=8
 EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS=100000000
 EXTERNAL_ODOMETRY_PRIOR_TRANSLATION_WEIGHT=4.0
 EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT=4.0
@@ -388,6 +389,8 @@ Options:
   --reference-max-mean-m M     Max native-vs-reference translation mean error. Default: 1.5.
   --reference-max-error-m M    Max native-vs-reference translation max error. Default: 5.0.
   --reference-max-path-drift R Max relative path-length drift. Default: 0.75.
+  --reference-error-bin-count N
+                               Number of time-ordered trajectory error bins archived in the reference comparison. Default: 8.
   --external-odometry-prior-max-dt-ns NS
                                Freshness window for optional external odometry BA prior. Default: 100000000.
   --external-odometry-prior-translation-weight W
@@ -972,6 +975,10 @@ while [[ $# -gt 0 ]]; do
       REFERENCE_MAX_PATH_DRIFT="$2"
       shift 2
       ;;
+    --reference-error-bin-count)
+      REFERENCE_ERROR_BIN_COUNT="$2"
+      shift 2
+      ;;
     --external-odometry-prior-max-dt-ns)
       EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS="$2"
       shift 2
@@ -1332,6 +1339,7 @@ POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT="${POST_BA_STEP_GUARD_MIN_VI
 POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M_REPORT="${POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
 SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
+REFERENCE_ERROR_BIN_COUNT_REPORT="${REFERENCE_ERROR_BIN_COUNT}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -1499,6 +1507,7 @@ reference_max_rmse_m = float(sys.argv[53])
 reference_max_mean_m = float(sys.argv[54])
 reference_max_error_m = float(sys.argv[55])
 reference_max_path_drift = float(sys.argv[56])
+reference_error_bin_count = int(os.environ["REFERENCE_ERROR_BIN_COUNT_REPORT"])
 has_external_reference_tum = reference_tum_path is not None and reference_tum_path.is_file() and reference_tum_path.stat().st_size > 0
 imu_linear_acceleration_scale = float(os.environ["IMU_LINEAR_ACCELERATION_SCALE_REPORT"])
 playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
@@ -1752,6 +1761,7 @@ report = {
         "reference_max_mean_m": reference_max_mean_m,
         "reference_max_error_m": reference_max_error_m,
         "reference_max_path_drift": reference_max_path_drift,
+        "reference_error_bin_count": reference_error_bin_count,
         "playback_rate": playback_rate,
         "playback_start_offset": playback_start_offset,
         "playback_clock_topics_all": playback_clock_topics_all,
@@ -1891,6 +1901,9 @@ if [[ -s "${REFERENCE_TUM}" && -s "${CURRENT_TUM}" ]]; then
     --max-error-m "${REFERENCE_MAX_ERROR_M}"
     --max-path-drift "${REFERENCE_MAX_PATH_DRIFT}"
   )
+  if [[ "${REFERENCE_ERROR_BIN_COUNT}" != "0" ]]; then
+    compare_cmd+=(--error-bin-count "${REFERENCE_ERROR_BIN_COUNT}")
+  fi
   set +e
   "${compare_cmd[@]}"
   compare_status=$?
