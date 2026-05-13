@@ -209,6 +209,9 @@ def generate_launch_description():
     sliding_window_multihop_relative_translation_max_dt_s = LaunchConfiguration(
         "sliding_window_multihop_relative_translation_max_dt_s"
     )
+    sliding_window_multihop_relative_translation_max_factors = LaunchConfiguration(
+        "sliding_window_multihop_relative_translation_max_factors"
+    )
     imu_history_size = LaunchConfiguration("imu_history_size")
     imu_linear_acceleration_scale = LaunchConfiguration("imu_linear_acceleration_scale")
     enable_gaussian_snapshot_lidar_factor = LaunchConfiguration("enable_gaussian_snapshot_lidar_factor")
@@ -441,6 +444,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("sliding_window_multihop_relative_translation_min_dt_s", default_value="0.45"),
             DeclareLaunchArgument("sliding_window_multihop_relative_translation_max_dt_s", default_value="1.05"),
+            DeclareLaunchArgument("sliding_window_multihop_relative_translation_max_factors", default_value="1"),
             DeclareLaunchArgument("imu_history_size", default_value="12000"),
             DeclareLaunchArgument("imu_linear_acceleration_scale", default_value="1.0"),
             DeclareLaunchArgument("enable_gaussian_snapshot_lidar_factor", default_value="true"),
@@ -663,6 +667,9 @@ def generate_launch_description():
                         ),
                         "sliding_window_multihop_relative_translation_max_dt_s": (
                             sliding_window_multihop_relative_translation_max_dt_s
+                        ),
+                        "sliding_window_multihop_relative_translation_max_factors": (
+                            sliding_window_multihop_relative_translation_max_factors
                         ),
                         "imu_history_size": imu_history_size,
                         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,

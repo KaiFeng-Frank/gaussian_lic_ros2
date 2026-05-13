@@ -561,6 +561,9 @@ public:
     sliding_window_multihop_relative_translation_max_dt_s_ = finite_nonnegative_parameter(
       "sliding_window_multihop_relative_translation_max_dt_s",
       declare_parameter<double>("sliding_window_multihop_relative_translation_max_dt_s", 1.05));
+    sliding_window_multihop_relative_translation_max_factors_ = integer_parameter_at_least(
+      "sliding_window_multihop_relative_translation_max_factors",
+      declare_parameter<int>("sliding_window_multihop_relative_translation_max_factors", 1), 1);
     if (sliding_window_multihop_relative_translation_max_dt_s_ <
       sliding_window_multihop_relative_translation_min_dt_s_)
     {
@@ -1883,7 +1886,7 @@ private:
     const int64_t max_dt_ns = static_cast<int64_t>(
       sliding_window_multihop_relative_translation_max_dt_s_ *
       static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
-    const gaussian_lic_tracking::TrajectoryPose * selected = nullptr;
+    size_t added_factors = 0U;
     for (const auto & history_pose : relative_motion_pose_history_) {
       if (history_pose.stamp_ns >= pre_ba_pose.stamp_ns) {
         continue;
@@ -1892,23 +1895,24 @@ private:
       if (dt_ns < min_dt_ns || dt_ns > max_dt_ns) {
         continue;
       }
-      selected = &history_pose;
-      break;
+      const Eigen::Vector3d delta_p_w = pre_ba_pose.p_w_i - history_pose.p_w_i;
+      if (!delta_p_w.allFinite()) {
+        continue;
+      }
+      gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
+      factor.from_stamp_ns = history_pose.stamp_ns;
+      factor.to_stamp_ns = pre_ba_pose.stamp_ns;
+      factor.delta_p_w = delta_p_w;
+      factor.weight = sliding_window_multihop_relative_translation_weight_;
+      factor.huber_delta_m = sliding_window_multihop_relative_translation_huber_delta_m_;
+      factors.push_back(factor);
+      ++added_factors;
+      if (added_factors >=
+        static_cast<size_t>(sliding_window_multihop_relative_translation_max_factors_))
+      {
+        return;
+      }
     }
-    if (selected == nullptr) {
-      return;
-    }
-    const Eigen::Vector3d delta_p_w = pre_ba_pose.p_w_i - selected->p_w_i;
-    if (!delta_p_w.allFinite()) {
-      return;
-    }
-    gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
-    factor.from_stamp_ns = selected->stamp_ns;
-    factor.to_stamp_ns = pre_ba_pose.stamp_ns;
-    factor.delta_p_w = delta_p_w;
-    factor.weight = sliding_window_multihop_relative_translation_weight_;
-    factor.huber_delta_m = sliding_window_multihop_relative_translation_huber_delta_m_;
-    factors.push_back(factor);
   }
 
   void cache_relative_motion_pose(const gaussian_lic_tracking::TrajectoryPose & pose)
@@ -4235,6 +4239,7 @@ private:
   double sliding_window_multihop_relative_translation_huber_delta_m_{0.15};
   double sliding_window_multihop_relative_translation_min_dt_s_{0.45};
   double sliding_window_multihop_relative_translation_max_dt_s_{1.05};
+  int sliding_window_multihop_relative_translation_max_factors_{1};
   int lidar_min_points_{32};
   int lidar_max_frame_points_{2000};
   int lidar_max_map_points_{20000};

@@ -96,6 +96,7 @@ SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT=0.0
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M=0.15
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S=0.45
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S=1.05
+SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS=1
 REQUIRE_BA_FEEDBACK=false
 REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
@@ -233,6 +234,8 @@ Options:
                                Minimum span for the multi-hop relative translation factor. Default: 0.45.
   --sliding-window-multihop-relative-translation-max-dt-s SEC
                                Maximum span for the multi-hop relative translation factor. Default: 1.05.
+  --sliding-window-multihop-relative-translation-max-factors N
+                               Max multi-hop relative translation factors inserted per frame. Default: 1.
   --lidar-keyframe-translation-m M
                                Keyframe insertion threshold. Default: 0.0 for strict replay sweeps.
   --max-lidar-invalid-frames N  Maximum invalid LiDAR frames tolerated by report gate. Default: 0.
@@ -836,6 +839,10 @@ while [[ $# -gt 0 ]]; do
       SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S="$2"
       shift 2
       ;;
+    --sliding-window-multihop-relative-translation-max-factors)
+      SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS="$2"
+      shift 2
+      ;;
     --require-ba-feedback)
       REQUIRE_BA_FEEDBACK=true
       shift
@@ -1364,6 +1371,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_multihop_relative_translation_huber_delta_m:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M}" \
   sliding_window_multihop_relative_translation_min_dt_s:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S}" \
   sliding_window_multihop_relative_translation_max_dt_s:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S}" \
+  sliding_window_multihop_relative_translation_max_factors:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS}" \
   >"${launch_log}" 2>&1 &
 launch_pid=$!
 
@@ -1531,6 +1539,7 @@ SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT_REPORT="${SLIDING_WINDOW_MUL
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S}" \
+SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS}" \
 REFERENCE_ERROR_BIN_COUNT_REPORT="${REFERENCE_ERROR_BIN_COUNT}" \
 REFERENCE_TIME_OFFSET_SWEEP_MIN_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_MIN}" \
 REFERENCE_TIME_OFFSET_SWEEP_MAX_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_MAX}" \
@@ -1726,6 +1735,9 @@ sliding_window_multihop_relative_translation_min_dt_s = float(
 )
 sliding_window_multihop_relative_translation_max_dt_s = float(
     os.environ["SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S_REPORT"]
+)
+sliding_window_multihop_relative_translation_max_factors = int(
+    os.environ["SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS_REPORT"]
 )
 post_ba_step_guard_pre_ba_agreement_max_pose_step_m = float(
     os.environ["POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M_REPORT"]
@@ -2126,6 +2138,9 @@ report = {
         ),
         "sliding_window_multihop_relative_translation_max_dt_s": (
             sliding_window_multihop_relative_translation_max_dt_s
+        ),
+        "sliding_window_multihop_relative_translation_max_factors": (
+            sliding_window_multihop_relative_translation_max_factors
         ),
         "tracking_max_pose_step_m": tracking_max_pose_step_m,
         "enable_pre_lio_tracking_step_guard": enable_pre_lio_tracking_step_guard,
