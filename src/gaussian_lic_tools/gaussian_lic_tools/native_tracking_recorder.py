@@ -288,7 +288,7 @@ class NativeTrackingRecorder(Node):
         self.last_mapping_status = status_to_dict(msg)
         update_numeric_summary(self.mapping_status_summary, self.last_mapping_status)
 
-    def flush(self):
+    def flush(self, final=False):
         trajectory_path = self.output_dir / "trajectory.tum"
         reference_trajectory_path = self.output_dir / "reference_trajectory.tum"
         metrics_path = self.output_dir / "metrics.json"
@@ -302,6 +302,18 @@ class NativeTrackingRecorder(Node):
             topic: (count / duration_sec if duration_sec > 0.0 else 0.0)
             for topic, count in self.topic_counts.items()
         }
+        tracking_status = {
+            "samples": self.topic_counts[self.status_topic],
+            "last": self.last_status,
+            "summary": self.status_summary,
+            "history_samples_retained": len(self.status_records),
+            "status_bin_count": self.status_bin_count,
+            "binned_summary_finalized": bool(final),
+        }
+        if final:
+            tracking_status["binned_summary"] = compute_time_binned_summary(
+                self.status_records, self.status_bin_count)
+
         metrics = {
             "duration_sec": duration_sec,
             "topic_counts": dict(self.topic_counts),
@@ -310,15 +322,7 @@ class NativeTrackingRecorder(Node):
             "trajectory_path_length_m": self.path_length(self.poses),
             "reference_trajectory_poses": len(self.reference_poses),
             "reference_trajectory_path_length_m": self.path_length(self.reference_poses),
-            "tracking_status": {
-                "samples": self.topic_counts[self.status_topic],
-                "last": self.last_status,
-                "summary": self.status_summary,
-                "binned_summary": compute_time_binned_summary(
-                    self.status_records, self.status_bin_count),
-                "history_samples_retained": len(self.status_records),
-                "status_bin_count": self.status_bin_count,
-            },
+            "tracking_status": tracking_status,
             "mapping_status": {
                 "samples": self.topic_counts.get(self.mapping_status_topic, 0),
                 "topic": self.mapping_status_topic,
@@ -344,7 +348,7 @@ def main(args=None):
         if "context is not valid" not in str(exc):
             raise
     finally:
-        node.flush()
+        node.flush(final=True)
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
