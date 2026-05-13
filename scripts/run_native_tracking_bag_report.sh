@@ -98,6 +98,8 @@ MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_MIN_INTERVAL_SEC=0.5
 MAPPER_FEEDBACK_GAUSSIAN_MAP_PUBLISH_ON_EMPTY_EXTEND=false
 GAUSSIAN_SNAPSHOT_QOS_DEPTH=128
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT=1.0
+GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M=0.0
+GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT=true
 ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=false
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT=1.0
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY=0.25
@@ -288,6 +290,10 @@ Options:
   --require-gaussian-snapshot  Require a complete GaussianArray snapshot in the tracking status report.
   --gaussian-snapshot-lidar-factor-weight W
                                Weight multiplier for LiDAR-to-Gaussian map anchors. Default: 1.0.
+  --gaussian-snapshot-lidar-nearest-distance-m M
+                               Dedicated nearest-neighbor gate for Gaussian snapshot anchors. Default: 0.0 inherits --lidar-nearest-distance-m.
+  --disable-gaussian-snapshot-lidar-residual-preweight
+                               Do not pre-weight Gaussian snapshot anchors by residual before the BA Huber loss. Diagnostic for double-robust weighting.
   --enable-gaussian-snapshot-lidar-plane-factor
                                Add LiDAR-to-Gaussian point-to-plane BA anchors from anisotropic Gaussian rotation/scale.
   --gaussian-snapshot-lidar-plane-factor-weight W
@@ -729,6 +735,14 @@ while [[ $# -gt 0 ]]; do
       GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT="$2"
       shift 2
       ;;
+    --gaussian-snapshot-lidar-nearest-distance-m)
+      GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M="$2"
+      shift 2
+      ;;
+    --disable-gaussian-snapshot-lidar-residual-preweight)
+      GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT=false
+      shift
+      ;;
     --enable-gaussian-snapshot-lidar-plane-factor)
       ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR=true
       shift
@@ -1082,6 +1096,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_gaussian_snapshot_lidar_factor:="${ENABLE_GAUSSIAN_MAP_FEEDBACK}" \
   gaussian_snapshot_qos_depth:="${GAUSSIAN_SNAPSHOT_QOS_DEPTH}" \
   gaussian_snapshot_lidar_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
+  gaussian_snapshot_lidar_nearest_distance_m:="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}" \
+  gaussian_snapshot_lidar_residual_preweight:="${GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT}" \
   enable_gaussian_snapshot_lidar_plane_factor:="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
   gaussian_snapshot_lidar_plane_factor_weight:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
   gaussian_snapshot_lidar_plane_min_anisotropy:="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1254,6 +1270,8 @@ MAPPER_FEEDBACK_LR_REPORT="${MAPPER_FEEDBACK_POSITION_LR},${MAPPER_FEEDBACK_FEAT
 MAPPER_FEEDBACK_OPTIMIZATION_EVERY_REPORT="${MAPPER_FEEDBACK_TORCH_OPTIMIZATION_EVERY_N_KEYFRAMES}" \
 MAPPER_FEEDBACK_SELECT_EVERY_REPORT="${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME}" \
 GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT}" \
+GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M}" \
+GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT="${ENABLE_GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_WEIGHT}" \
 GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY_REPORT="${GAUSSIAN_SNAPSHOT_LIDAR_PLANE_MIN_ANISOTROPY}" \
@@ -1373,6 +1391,12 @@ mapper_feedback_select_every_k_frame = int(
 )
 gaussian_snapshot_lidar_factor_weight = float(
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_FACTOR_WEIGHT_REPORT"]
+)
+gaussian_snapshot_lidar_nearest_distance_m = float(
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_NEAREST_DISTANCE_M_REPORT"]
+)
+gaussian_snapshot_lidar_residual_preweight = (
+    os.environ["GAUSSIAN_SNAPSHOT_LIDAR_RESIDUAL_PREWEIGHT_REPORT"].lower() == "true"
 )
 gaussian_snapshot_lidar_plane_factor_enabled = (
     os.environ["GAUSSIAN_SNAPSHOT_LIDAR_PLANE_FACTOR_REPORT"].lower() == "true"
@@ -1691,6 +1715,12 @@ report = {
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
         "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,
+        "gaussian_snapshot_lidar_nearest_distance_m": (
+            gaussian_snapshot_lidar_nearest_distance_m
+        ),
+        "gaussian_snapshot_lidar_residual_preweight": (
+            gaussian_snapshot_lidar_residual_preweight
+        ),
         "gaussian_snapshot_lidar_plane_factor_enabled": (
             gaussian_snapshot_lidar_plane_factor_enabled
         ),

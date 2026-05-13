@@ -311,7 +311,8 @@ SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
   const size_t min_points,
   const size_t max_frame_points,
   const double nearest_distance_m,
-  const double min_opacity) const
+  const double min_opacity,
+  const bool residual_preweight) const
 {
   SlidingWindowPointToPointFactor factor;
   factor.stamp_ns = predicted_pose.stamp_ns;
@@ -336,7 +337,10 @@ SlidingWindowPointToPointFactor GaussianSnapshot::build_point_to_point_factor(
       const double residual_norm = std::sqrt(nearest.distance_sq);
       factor.frame_points_i.push_back(point_i);
       factor.target_points_w.push_back(nearest.xyz);
-      factor.point_weights.push_back(std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12)));
+      const double residual_weight = residual_preweight
+        ? std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12))
+        : 1.0;
+      factor.point_weights.push_back(residual_weight);
     }
   }
   if (factor.frame_points_i.size() < min_points) {
@@ -354,7 +358,8 @@ SlidingWindowPointToPlaneFactor GaussianSnapshot::build_point_to_plane_factor(
   const size_t max_frame_points,
   const double nearest_distance_m,
   const double min_opacity,
-  const double min_normal_anisotropy) const
+  const double min_normal_anisotropy,
+  const bool residual_preweight) const
 {
   SlidingWindowPointToPlaneFactor factor;
   factor.stamp_ns = predicted_pose.stamp_ns;
@@ -394,7 +399,8 @@ SlidingWindowPointToPlaneFactor GaussianSnapshot::build_point_to_plane_factor(
     factor.target_normals_w.push_back(normal_w);
     const double robust_weight =
       std::min(1.0, robust_kernel_m / std::max(residual_norm, 1.0e-12));
-    factor.point_weights.push_back(robust_weight * std::clamp(anisotropy, 0.0, 1.0));
+    const double residual_weight = residual_preweight ? robust_weight : 1.0;
+    factor.point_weights.push_back(residual_weight * std::clamp(anisotropy, 0.0, 1.0));
   }
   if (factor.frame_points_i.size() < min_points) {
     factor.frame_points_i.clear();

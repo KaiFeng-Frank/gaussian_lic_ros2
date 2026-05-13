@@ -93,6 +93,26 @@ int main()
       return 1;
     }
   }
+  gaussian_lic_tracking::TrajectoryPose offset_pose = predicted_pose;
+  offset_pose.p_w_i = Eigen::Vector3d{0.04, 0.0, 0.0};
+  const auto preweighted_factor = snapshot.build_point_to_point_factor(
+    frame_points, offset_pose, 2U, 100U, 0.05, 0.1, true);
+  const auto unpreweighted_factor = snapshot.build_point_to_point_factor(
+    frame_points, offset_pose, 2U, 100U, 0.05, 0.1, false);
+  if (preweighted_factor.point_weights.size() != unpreweighted_factor.point_weights.size() ||
+    preweighted_factor.point_weights.empty())
+  {
+    std::cerr << "Gaussian snapshot preweight toggle did not produce comparable factors\n";
+    return 1;
+  }
+  for (size_t index = 0; index < preweighted_factor.point_weights.size(); ++index) {
+    if (preweighted_factor.point_weights[index] >= unpreweighted_factor.point_weights[index] ||
+      std::abs(unpreweighted_factor.point_weights[index] - 1.0) > 1.0e-12)
+    {
+      std::cerr << "Gaussian snapshot residual preweight toggle is ineffective\n";
+      return 1;
+    }
+  }
   const auto plane_factor = snapshot.build_point_to_plane_factor(
     frame_points, predicted_pose, 2U, 100U, 0.05, 0.1, 0.5);
   std::cout << "gaussian_snapshot_plane_factor correspondences="

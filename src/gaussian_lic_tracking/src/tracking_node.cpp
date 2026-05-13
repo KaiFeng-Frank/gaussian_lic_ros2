@@ -384,6 +384,11 @@ public:
     gaussian_snapshot_lidar_factor_weight_ = finite_positive_parameter(
       "gaussian_snapshot_lidar_factor_weight",
       declare_parameter<double>("gaussian_snapshot_lidar_factor_weight", 1.0));
+    gaussian_snapshot_lidar_nearest_distance_m_ = finite_nonnegative_parameter(
+      "gaussian_snapshot_lidar_nearest_distance_m",
+      declare_parameter<double>("gaussian_snapshot_lidar_nearest_distance_m", 0.0));
+    gaussian_snapshot_lidar_residual_preweight_ =
+      declare_parameter<bool>("gaussian_snapshot_lidar_residual_preweight", true);
     gaussian_snapshot_lidar_plane_factor_weight_ = finite_positive_parameter(
       "gaussian_snapshot_lidar_plane_factor_weight",
       declare_parameter<double>("gaussian_snapshot_lidar_plane_factor_weight", 1.0));
@@ -1549,13 +1554,18 @@ private:
           }
         }
         if (enable_gaussian_snapshot_lidar_factor_ && gaussian_snapshot_.complete()) {
+          const double gaussian_snapshot_nearest_distance_m =
+            gaussian_snapshot_lidar_nearest_distance_m_ > 0.0
+            ? gaussian_snapshot_lidar_nearest_distance_m_
+            : lidar_nearest_distance_m_;
           auto gaussian_window_factor = gaussian_snapshot_.build_point_to_point_factor(
             lidar_points,
             tracking_pose,
             static_cast<size_t>(lidar_min_points_),
             static_cast<size_t>(lidar_max_frame_points_),
-            lidar_nearest_distance_m_,
-            gaussian_snapshot_lidar_min_opacity_);
+            gaussian_snapshot_nearest_distance_m,
+            gaussian_snapshot_lidar_min_opacity_,
+            gaussian_snapshot_lidar_residual_preweight_);
           if (!gaussian_window_factor.frame_points_i.empty()) {
             gaussian_window_factor.weight *= gaussian_snapshot_lidar_factor_weight_;
             window_point_correspondences += gaussian_window_factor.frame_points_i.size();
@@ -1568,14 +1578,19 @@ private:
           }
         }
         if (enable_gaussian_snapshot_lidar_plane_factor_ && gaussian_snapshot_.complete()) {
+          const double gaussian_snapshot_nearest_distance_m =
+            gaussian_snapshot_lidar_nearest_distance_m_ > 0.0
+            ? gaussian_snapshot_lidar_nearest_distance_m_
+            : lidar_nearest_distance_m_;
           auto gaussian_plane_factor = gaussian_snapshot_.build_point_to_plane_factor(
             lidar_points,
             tracking_pose,
             static_cast<size_t>(lidar_min_points_),
             static_cast<size_t>(lidar_max_frame_points_),
-            lidar_nearest_distance_m_,
+            gaussian_snapshot_nearest_distance_m,
             gaussian_snapshot_lidar_min_opacity_,
-            gaussian_snapshot_lidar_plane_min_anisotropy_);
+            gaussian_snapshot_lidar_plane_min_anisotropy_,
+            gaussian_snapshot_lidar_residual_preweight_);
           if (!gaussian_plane_factor.frame_points_i.empty()) {
             gaussian_plane_factor.weight *= gaussian_snapshot_lidar_plane_factor_weight_;
             window_plane_correspondences += gaussian_plane_factor.frame_points_i.size();
@@ -3901,6 +3916,8 @@ private:
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
   double gaussian_snapshot_lidar_factor_weight_{1.0};
+  double gaussian_snapshot_lidar_nearest_distance_m_{0.0};
+  bool gaussian_snapshot_lidar_residual_preweight_{true};
   double gaussian_snapshot_lidar_plane_factor_weight_{1.0};
   double gaussian_snapshot_lidar_min_opacity_{0.01};
   double gaussian_snapshot_lidar_plane_min_anisotropy_{0.25};

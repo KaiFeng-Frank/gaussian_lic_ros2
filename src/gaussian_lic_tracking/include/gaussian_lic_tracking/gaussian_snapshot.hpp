@@ -65,7 +65,8 @@ public:
     size_t min_points,
     size_t max_frame_points,
     double nearest_distance_m,
-    double min_opacity) const;
+    double min_opacity,
+    bool residual_preweight = true) const;
   SlidingWindowPointToPlaneFactor build_point_to_plane_factor(
     const std::vector<Eigen::Vector3d> & frame_points_i,
     const TrajectoryPose & predicted_pose,
@@ -73,7 +74,8 @@ public:
     size_t max_frame_points,
     double nearest_distance_m,
     double min_opacity,
-    double min_normal_anisotropy) const;
+    double min_normal_anisotropy,
+    bool residual_preweight = true) const;
 
 private:
   struct VoxelKey

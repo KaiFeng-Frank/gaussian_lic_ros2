@@ -181,6 +181,12 @@ def generate_launch_description():
     )
     gaussian_snapshot_qos_depth = LaunchConfiguration("gaussian_snapshot_qos_depth")
     gaussian_snapshot_lidar_factor_weight = LaunchConfiguration("gaussian_snapshot_lidar_factor_weight")
+    gaussian_snapshot_lidar_nearest_distance_m = LaunchConfiguration(
+        "gaussian_snapshot_lidar_nearest_distance_m"
+    )
+    gaussian_snapshot_lidar_residual_preweight = LaunchConfiguration(
+        "gaussian_snapshot_lidar_residual_preweight"
+    )
     gaussian_snapshot_lidar_plane_factor_weight = LaunchConfiguration(
         "gaussian_snapshot_lidar_plane_factor_weight"
     )
@@ -357,6 +363,8 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_gaussian_snapshot_lidar_plane_factor", default_value="false"),
             DeclareLaunchArgument("gaussian_snapshot_qos_depth", default_value="64"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_factor_weight", default_value="1.0"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_nearest_distance_m", default_value="0.0"),
+            DeclareLaunchArgument("gaussian_snapshot_lidar_residual_preweight", default_value="true"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_plane_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_min_opacity", default_value="0.01"),
             DeclareLaunchArgument("gaussian_snapshot_lidar_plane_min_anisotropy", default_value="0.25"),
@@ -523,6 +531,12 @@ def generate_launch_description():
                         ),
                         "gaussian_snapshot_qos_depth": gaussian_snapshot_qos_depth,
                         "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,
+                        "gaussian_snapshot_lidar_nearest_distance_m": (
+                            gaussian_snapshot_lidar_nearest_distance_m
+                        ),
+                        "gaussian_snapshot_lidar_residual_preweight": (
+                            gaussian_snapshot_lidar_residual_preweight
+                        ),
                         "gaussian_snapshot_lidar_plane_factor_weight": (
                             gaussian_snapshot_lidar_plane_factor_weight
                         ),
