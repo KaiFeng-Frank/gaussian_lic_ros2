@@ -236,7 +236,7 @@ Options:
   --output DIR                 Output report directory.
   --playback-duration SEC      rosbag2 playback duration. Default: 12.
   --playback-start-offset SEC   Start this many seconds into the bag. Default: 0.0.
-  --rate RATE                  rosbag2 playback rate. Default: 1.0; Gaussian-map feedback uses 0.5 unless explicitly overridden.
+  --rate RATE                  rosbag2 playback rate. Default: 1.0; Gaussian-map feedback uses 0.25 unless explicitly overridden.
   --clock-topics-all           Publish /clock immediately before each replayed message instead of using periodic --clock.
   --timeout SEC                Topic/report timeout. Default: 30.
   --post-play-settle SEC       Time to drain tracking callbacks after rosbag play exits. Default: 8.
@@ -1046,7 +1046,7 @@ while [[ $# -gt 0 ]]; do
         MAPPER_FEEDBACK_MAX_DEPTH=20.0
       fi
       if [[ "${PLAYBACK_RATE_EXPLICIT}" != "true" ]]; then
-        PLAYBACK_RATE=0.5
+        PLAYBACK_RATE=0.25
       fi
       LIDAR_MAX_FRAME_POINTS=500
       TRACKING_MAX_POSE_STEP_M=0.0265
