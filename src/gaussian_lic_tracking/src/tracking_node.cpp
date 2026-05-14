@@ -403,6 +403,10 @@ public:
     post_ba_step_guard_confidence_max_pose_step_m_ = finite_nonnegative_parameter(
       "post_ba_step_guard_confidence_max_pose_step_m",
       declare_parameter<double>("post_ba_step_guard_confidence_max_pose_step_m", 0.0));
+    post_ba_step_guard_confidence_warmup_marginalizations_ = integer_parameter_at_least(
+      "post_ba_step_guard_confidence_warmup_marginalizations",
+      declare_parameter<int>("post_ba_step_guard_confidence_warmup_marginalizations", 0),
+      0);
     post_ba_step_guard_min_lidar_confidence_ = finite_nonnegative_parameter(
       "post_ba_step_guard_min_lidar_confidence",
       declare_parameter<double>("post_ba_step_guard_min_lidar_confidence", 0.6));
@@ -4041,7 +4045,13 @@ private:
     }
     const double stage_base_step_m = allowed_step_m;
     double confidence_score = 0.0;
+    const bool confidence_warmup_ready =
+      post_ba_step_guard_confidence_warmup_marginalizations_ <= 0 ||
+      (has_last_sliding_window_summary_ &&
+      last_sliding_window_summary_.schur_marginalization_count >=
+      static_cast<size_t>(post_ba_step_guard_confidence_warmup_marginalizations_));
     if (stage == StepGuardStage::kPostBa &&
+      confidence_warmup_ready &&
       post_ba_step_guard_confidence_max_pose_step_m_ > allowed_step_m)
     {
       confidence_score = post_ba_step_guard_confidence_score();
@@ -4735,6 +4745,7 @@ private:
   double pre_lio_tracking_max_pose_step_m_{0.0};
   double post_ba_tracking_max_pose_step_m_{0.0};
   double post_ba_step_guard_confidence_max_pose_step_m_{0.0};
+  int post_ba_step_guard_confidence_warmup_marginalizations_{0};
   double post_ba_step_guard_min_lidar_confidence_{0.6};
   double post_ba_step_guard_min_visual_inlier_ratio_{0.85};
   double post_ba_step_guard_max_visual_residual_{0.3};

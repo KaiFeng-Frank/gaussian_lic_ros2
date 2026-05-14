@@ -320,6 +320,9 @@ def generate_launch_description():
     post_ba_step_guard_confidence_max_pose_step_m = LaunchConfiguration(
         "post_ba_step_guard_confidence_max_pose_step_m"
     )
+    post_ba_step_guard_confidence_warmup_marginalizations = LaunchConfiguration(
+        "post_ba_step_guard_confidence_warmup_marginalizations"
+    )
     post_ba_step_guard_min_lidar_confidence = LaunchConfiguration(
         "post_ba_step_guard_min_lidar_confidence"
     )
@@ -468,6 +471,10 @@ def generate_launch_description():
             DeclareLaunchArgument("pre_lio_tracking_max_pose_step_m", default_value="0.0"),
             DeclareLaunchArgument("post_ba_tracking_max_pose_step_m", default_value="0.0"),
             DeclareLaunchArgument("post_ba_step_guard_confidence_max_pose_step_m", default_value="0.0"),
+            DeclareLaunchArgument(
+                "post_ba_step_guard_confidence_warmup_marginalizations",
+                default_value="0",
+            ),
             DeclareLaunchArgument("post_ba_step_guard_min_lidar_confidence", default_value="0.6"),
             DeclareLaunchArgument("post_ba_step_guard_min_visual_inlier_ratio", default_value="0.85"),
             DeclareLaunchArgument("post_ba_step_guard_max_visual_residual", default_value="0.3"),
@@ -706,6 +713,9 @@ def generate_launch_description():
                         "post_ba_tracking_max_pose_step_m": post_ba_tracking_max_pose_step_m,
                         "post_ba_step_guard_confidence_max_pose_step_m": (
                             post_ba_step_guard_confidence_max_pose_step_m
+                        ),
+                        "post_ba_step_guard_confidence_warmup_marginalizations": (
+                            post_ba_step_guard_confidence_warmup_marginalizations
                         ),
                         "post_ba_step_guard_min_lidar_confidence": (
                             post_ba_step_guard_min_lidar_confidence

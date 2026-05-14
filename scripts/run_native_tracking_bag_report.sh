@@ -45,6 +45,7 @@ ENABLE_POST_BA_TRACKING_STEP_GUARD=true
 PRE_LIO_TRACKING_MAX_POSE_STEP_M=0.0
 POST_BA_TRACKING_MAX_POSE_STEP_M=0.0
 POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M=0.0
+POST_BA_STEP_GUARD_CONFIDENCE_WARMUP_MARGINALIZATIONS=0
 POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE=0.6
 POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO=0.85
 POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL=0.3
@@ -311,6 +312,8 @@ Options:
                                Override only the post-BA step guard limit. Default: 0.0, use --tracking-max-pose-step-m.
   --post-ba-step-guard-confidence-max-pose-step-m M
                                Let high-confidence post-BA frames interpolate up to this step limit. Default: 0.0 disabled.
+  --post-ba-step-guard-confidence-warmup-marginalizations N
+                               Require at least N Schur marginalizations before confidence-gated post-BA release. Default: 0.
   --post-ba-step-guard-min-lidar-confidence C
                                LiDAR confidence needed for full confidence-gated post-BA allowance. Default: 0.6.
   --post-ba-step-guard-min-visual-inlier-ratio R
@@ -757,6 +760,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --post-ba-step-guard-confidence-max-pose-step-m)
       POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-confidence-warmup-marginalizations)
+      POST_BA_STEP_GUARD_CONFIDENCE_WARMUP_MARGINALIZATIONS="$2"
       shift 2
       ;;
     --post-ba-step-guard-min-lidar-confidence)
@@ -1571,6 +1578,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   pre_lio_tracking_max_pose_step_m:="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
   post_ba_tracking_max_pose_step_m:="${POST_BA_TRACKING_MAX_POSE_STEP_M}" \
   post_ba_step_guard_confidence_max_pose_step_m:="${POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M}" \
+  post_ba_step_guard_confidence_warmup_marginalizations:="${POST_BA_STEP_GUARD_CONFIDENCE_WARMUP_MARGINALIZATIONS}" \
   post_ba_step_guard_min_lidar_confidence:="${POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE}" \
   post_ba_step_guard_min_visual_inlier_ratio:="${POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO}" \
   post_ba_step_guard_max_visual_residual:="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
@@ -1811,6 +1819,7 @@ ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
 POST_BA_TRACKING_MAX_POSE_STEP_M_REPORT="${POST_BA_TRACKING_MAX_POSE_STEP_M}" \
 POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M_REPORT="${POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M}" \
+POST_BA_STEP_GUARD_CONFIDENCE_WARMUP_MARGINALIZATIONS_REPORT="${POST_BA_STEP_GUARD_CONFIDENCE_WARMUP_MARGINALIZATIONS}" \
 POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE_REPORT="${POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE}" \
 POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_INLIER_RATIO}" \
 POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL_REPORT="${POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL}" \
@@ -2052,6 +2061,9 @@ pre_lio_tracking_max_pose_step_m = float(os.environ["PRE_LIO_TRACKING_MAX_POSE_S
 post_ba_tracking_max_pose_step_m = float(os.environ["POST_BA_TRACKING_MAX_POSE_STEP_M_REPORT"])
 post_ba_step_guard_confidence_max_pose_step_m = float(
     os.environ["POST_BA_STEP_GUARD_CONFIDENCE_MAX_POSE_STEP_M_REPORT"]
+)
+post_ba_step_guard_confidence_warmup_marginalizations = int(
+    os.environ["POST_BA_STEP_GUARD_CONFIDENCE_WARMUP_MARGINALIZATIONS_REPORT"]
 )
 post_ba_step_guard_min_lidar_confidence = float(
     os.environ["POST_BA_STEP_GUARD_MIN_LIDAR_CONFIDENCE_REPORT"]
@@ -2635,6 +2647,9 @@ report = {
         "post_ba_tracking_max_pose_step_m": post_ba_tracking_max_pose_step_m,
         "post_ba_step_guard_confidence_max_pose_step_m": (
             post_ba_step_guard_confidence_max_pose_step_m
+        ),
+        "post_ba_step_guard_confidence_warmup_marginalizations": (
+            post_ba_step_guard_confidence_warmup_marginalizations
         ),
         "post_ba_step_guard_min_lidar_confidence": (
             post_ba_step_guard_min_lidar_confidence
