@@ -39,7 +39,13 @@
     "total_visual_factors": 1015,
     "total_se3_photometric_factors": 1015,
     "dense_prior_rank": 180,
-    "dense_prior_cols": 180
+    "dense_prior_cols": 180,
+    "history_samples_retained": 1186,
+    "status_bin_count": 8,
+    "status_binned_summary_finalized": true,
+    "min_status_bin_sample_count": 148,
+    "min_visual_factor_delta_per_bin": 111,
+    "min_se3_photometric_factor_delta_per_bin": 111
   },
   "rejected_evidence": [
     {

@@ -45,6 +45,15 @@ def number_at_path(data: dict[str, Any], dotted_path: str) -> float:
     return value
 
 
+def value_at_path(data: dict[str, Any], dotted_path: str) -> Any:
+    current: Any = data
+    for part in dotted_path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            raise KeyError(dotted_path)
+        current = current[part]
+    return current
+
+
 def approx_equal(lhs: float, rhs: float, *, tolerance: float = 1e-9) -> bool:
     return abs(lhs - rhs) <= tolerance
 
@@ -138,6 +147,7 @@ def verify_report_metrics(
     root: Path,
     report_path_text: str,
     expected: dict[str, Any],
+    production_preset: dict[str, Any],
     errors: list[str],
     *,
     require_local_evidence: bool,
@@ -150,6 +160,7 @@ def verify_report_metrics(
         return False
 
     report = load_json(report_path)
+    check_report_gate_config(report, production_preset, errors, label=label)
     checks = {
         "matched_poses": "trajectory_compare.matched_poses",
         "coverage": "trajectory_compare.coverage",
@@ -163,6 +174,8 @@ def verify_report_metrics(
         ),
         "dense_prior_rank": "metrics.tracking_status.last.sliding_window_dense_prior_rank",
         "dense_prior_cols": "metrics.tracking_status.last.sliding_window_dense_prior_cols",
+        "history_samples_retained": "metrics.tracking_status.history_samples_retained",
+        "status_bin_count": "metrics.tracking_status.status_bin_count",
     }
     for expected_key, report_key in checks.items():
         if expected_key not in expected:
@@ -173,7 +186,97 @@ def verify_report_metrics(
             errors.append(
                 f"{label} {report_key}={actual:g} does not match manifest {wanted:g}"
             )
+
+    if "status_binned_summary_finalized" in expected:
+        actual = value_at_path(report, "metrics.tracking_status.binned_summary_finalized")
+        wanted = bool(expected["status_binned_summary_finalized"])
+        if actual is not wanted:
+            errors.append(
+                f"{label} metrics.tracking_status.binned_summary_finalized={actual!r} "
+                f"does not match manifest {wanted!r}"
+            )
+
+    check_report_binned_factor_continuity(report, expected, errors, label=label)
     return True
+
+
+def equivalent_gate_config_value(actual: Any, wanted: Any) -> bool:
+    if actual is None and wanted in (0, 0.0, False):
+        return True
+    if isinstance(wanted, bool):
+        return actual is wanted
+    if isinstance(wanted, (int, float)) and not isinstance(wanted, bool):
+        return isinstance(actual, (int, float)) and not isinstance(actual, bool) and approx_equal(
+            float(actual), float(wanted)
+        )
+    return actual == wanted
+
+
+def check_report_gate_config(
+    report: dict[str, Any],
+    preset: dict[str, Any],
+    errors: list[str],
+    *,
+    label: str,
+) -> None:
+    gate_config = report.get("gate_config")
+    if not isinstance(gate_config, dict):
+        errors.append(f"{label} is missing gate_config")
+        return
+
+    for key, wanted in preset.items():
+        if key in {"id", "script"}:
+            continue
+        if key not in gate_config:
+            if equivalent_gate_config_value(None, wanted):
+                continue
+            errors.append(f"{label} gate_config is missing {key}")
+            continue
+        actual = gate_config[key]
+        if not equivalent_gate_config_value(actual, wanted):
+            errors.append(
+                f"{label} gate_config.{key}={actual!r} does not match production preset {wanted!r}"
+            )
+
+
+def check_report_binned_factor_continuity(
+    report: dict[str, Any], expected: dict[str, Any], errors: list[str], *, label: str
+) -> None:
+    bins = value_at_path(report, "metrics.tracking_status.binned_summary")
+    if not isinstance(bins, list) or not bins:
+        errors.append(f"{label} metrics.tracking_status.binned_summary is missing or empty")
+        return
+
+    min_bin_sample_count = min(float(bin_item.get("sample_count", 0.0)) for bin_item in bins)
+    min_visual_delta = min(
+        number_at_path(bin_item, "summary.sliding_window_total_visual_factors.delta")
+        for bin_item in bins
+    )
+    min_se3_delta = min(
+        number_at_path(bin_item, "summary.sliding_window_total_se3_photometric_factors.delta")
+        for bin_item in bins
+    )
+
+    expected_sample_count = expected.get("min_status_bin_sample_count")
+    if expected_sample_count is not None and min_bin_sample_count < float(expected_sample_count):
+        errors.append(
+            f"{label} min status bin sample count {min_bin_sample_count:g} is below "
+            f"manifest {float(expected_sample_count):g}"
+        )
+
+    expected_visual = expected.get("min_visual_factor_delta_per_bin")
+    if expected_visual is not None and min_visual_delta < float(expected_visual):
+        errors.append(
+            f"{label} min visual-factor bin delta {min_visual_delta:g} is below "
+            f"manifest {float(expected_visual):g}"
+        )
+
+    expected_se3 = expected.get("min_se3_photometric_factor_delta_per_bin")
+    if expected_se3 is not None and min_se3_delta < float(expected_se3):
+        errors.append(
+            f"{label} min SE3 photometric bin delta {min_se3_delta:g} is below "
+            f"manifest {float(expected_se3):g}"
+        )
 
 
 def check_local_evidence(
@@ -184,6 +287,7 @@ def check_local_evidence(
         root,
         str(accepted["report"]),
         accepted,
+        manifest["production_preset"],
         errors,
         require_local_evidence=require_local_evidence,
         label="accepted evidence",
