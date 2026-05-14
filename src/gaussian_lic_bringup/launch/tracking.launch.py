@@ -19,6 +19,9 @@ def generate_launch_description():
     pointcloud_imu_wait_queue_size = LaunchConfiguration("pointcloud_imu_wait_queue_size")
     tracking_status_topic = LaunchConfiguration("tracking_status_topic")
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
+    rendered_image_qos_reliability = LaunchConfiguration("rendered_image_qos_reliability")
+    rendered_image_qos_durability = LaunchConfiguration("rendered_image_qos_durability")
+    rendered_image_qos_depth = LaunchConfiguration("rendered_image_qos_depth")
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     serialize_callbacks = LaunchConfiguration("serialize_callbacks")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
@@ -380,6 +383,9 @@ def generate_launch_description():
             DeclareLaunchArgument("pointcloud_imu_wait_queue_size", default_value="4"),
             DeclareLaunchArgument("tracking_status_topic", default_value="/gaussian_lic/frontend/status"),
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
+            DeclareLaunchArgument("rendered_image_qos_reliability", default_value="reliable"),
+            DeclareLaunchArgument("rendered_image_qos_durability", default_value="transient_local"),
+            DeclareLaunchArgument("rendered_image_qos_depth", default_value="1"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("serialize_callbacks", default_value="true"),
             DeclareLaunchArgument("sensor_qos_reliability", default_value="best_effort"),
@@ -596,6 +602,9 @@ def generate_launch_description():
                         "pointcloud_imu_wait_queue_size": pointcloud_imu_wait_queue_size,
                         "tracking_status_topic": tracking_status_topic,
                         "rendered_image_topic": rendered_image_topic,
+                        "rendered_image_qos_reliability": rendered_image_qos_reliability,
+                        "rendered_image_qos_durability": rendered_image_qos_durability,
+                        "rendered_image_qos_depth": rendered_image_qos_depth,
                         "gaussian_map_topic": gaussian_map_topic,
                         "serialize_callbacks": serialize_callbacks,
                         "sensor_qos_reliability": sensor_qos_reliability,

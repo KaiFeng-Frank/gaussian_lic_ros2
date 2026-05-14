@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cinttypes>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -145,6 +146,14 @@ public:
     tracking_status_topic_ = declare_parameter<std::string>(
       "tracking_status_topic", "/gaussian_lic/frontend/status");
     rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
+    rendered_image_qos_reliability_ =
+      declare_parameter<std::string>("rendered_image_qos_reliability", "reliable");
+    rendered_image_qos_durability_ =
+      declare_parameter<std::string>("rendered_image_qos_durability", "transient_local");
+    rendered_image_qos_depth_ = integer_parameter_at_least(
+      "rendered_image_qos_depth",
+      declare_parameter<int>("rendered_image_qos_depth", 1),
+      1);
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     gaussian_snapshot_qos_depth_ = integer_parameter_at_least(
       "gaussian_snapshot_qos_depth",
@@ -797,7 +806,7 @@ public:
     tracking_status_pub_ = create_publisher<gaussian_lic_msgs::msg::TrackingStatus>(
       tracking_status_topic_, rclcpp::QoS(1).transient_local().reliable());
     rendered_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
-      rendered_image_topic_, rclcpp::QoS(1).transient_local().reliable(),
+      rendered_image_topic_, make_rendered_image_qos(),
       [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
         run_serialized_callback([this, msg]() {
           handle_rendered_image(*msg);
@@ -895,6 +904,19 @@ private:
     int depth{5};
   };
 
+  static std::string normalized_qos_token(std::string value)
+  {
+    std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    value.erase(
+      std::remove_if(
+        value.begin(), value.end(),
+        [](const char c) { return c == '-' || c == ' ' || c == '_'; }),
+      value.end());
+    return value;
+  }
+
   struct ExternalPosePrior
   {
     int64_t stamp_ns{0};
@@ -948,6 +970,35 @@ private:
         std::string(stream_name) + "_qos_reliability must be best_effort or reliable, got " +
         params.reliability);
     }
+    return qos;
+  }
+
+  rclcpp::QoS make_rendered_image_qos() const
+  {
+    rclcpp::QoS qos{rclcpp::KeepLast(static_cast<size_t>(rendered_image_qos_depth_))};
+
+    const std::string durability = normalized_qos_token(rendered_image_qos_durability_);
+    if (durability == "transientlocal") {
+      qos.transient_local();
+    } else if (durability == "volatile") {
+      qos.durability_volatile();
+    } else {
+      throw std::runtime_error(
+              "rendered_image_qos_durability must be transient_local or volatile, got " +
+              rendered_image_qos_durability_);
+    }
+
+    const std::string reliability = normalized_qos_token(rendered_image_qos_reliability_);
+    if (reliability == "reliable") {
+      qos.reliable();
+    } else if (reliability == "besteffort") {
+      qos.best_effort();
+    } else {
+      throw std::runtime_error(
+              "rendered_image_qos_reliability must be reliable or best_effort, got " +
+              rendered_image_qos_reliability_);
+    }
+
     return qos;
   }
 
@@ -4620,6 +4671,9 @@ private:
   QosProfileParams pointcloud_qos_;
   QosProfileParams pose_qos_;
   QosProfileParams frontend_odometry_qos_;
+  std::string rendered_image_qos_reliability_{"reliable"};
+  std::string rendered_image_qos_durability_{"transient_local"};
+  int rendered_image_qos_depth_{1};
   bool serialize_callbacks_{true};
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};

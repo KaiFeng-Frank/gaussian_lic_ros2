@@ -94,6 +94,11 @@ public:
     path_topic_ = declare_parameter<std::string>("path_topic", "/gaussian_lic/path");
     map_points_topic_ = declare_parameter<std::string>("map_points_topic", "/gaussian_lic/map_points");
     rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
+    rendered_image_qos_reliability_ =
+      declare_parameter<std::string>("rendered_image_qos_reliability", "reliable");
+    rendered_image_qos_durability_ =
+      declare_parameter<std::string>("rendered_image_qos_durability", "transient_local");
+    rendered_image_qos_depth_ = declare_parameter<int>("rendered_image_qos_depth", 1);
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     save_map_service_ = declare_parameter<std::string>("save_map_service", "/gaussian_lic/save_map");
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
@@ -313,7 +318,7 @@ public:
       path_topic_, rclcpp::QoS(1).transient_local().reliable());
     map_points_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(map_points_topic_, 10);
     rendered_image_pub_ = create_publisher<sensor_msgs::msg::Image>(
-      rendered_image_topic_, rclcpp::QoS(1).transient_local().reliable());
+      rendered_image_topic_, make_rendered_image_qos());
     gaussian_map_pub_ = create_publisher<gaussian_lic_msgs::msg::GaussianArray>(
       gaussian_map_topic_,
       rclcpp::QoS(static_cast<size_t>(std::max(gaussian_map_qos_depth_, 1)))
@@ -585,6 +590,36 @@ private:
       throw std::runtime_error(
         std::string(stream_name) + "_qos_history must be keep_last or keep_all, got " +
         params.history);
+    }
+
+    return qos;
+  }
+
+  rclcpp::QoS make_rendered_image_qos() const
+  {
+    const auto depth = static_cast<size_t>(std::max(rendered_image_qos_depth_, 1));
+    rclcpp::QoS qos{rclcpp::KeepLast(depth)};
+
+    const std::string durability = normalized_qos_token(rendered_image_qos_durability_);
+    if (durability == "transientlocal") {
+      qos.transient_local();
+    } else if (durability == "volatile") {
+      qos.durability_volatile();
+    } else {
+      throw std::runtime_error(
+              "rendered_image_qos_durability must be transient_local or volatile, got " +
+              rendered_image_qos_durability_);
+    }
+
+    const std::string reliability = normalized_qos_token(rendered_image_qos_reliability_);
+    if (reliability == "reliable") {
+      qos.reliable();
+    } else if (reliability == "besteffort") {
+      qos.best_effort();
+    } else {
+      throw std::runtime_error(
+              "rendered_image_qos_reliability must be reliable or best_effort, got " +
+              rendered_image_qos_reliability_);
     }
 
     return qos;
@@ -2314,6 +2349,9 @@ private:
   QosProfileParams camera_info_qos_;
   QosProfileParams depth_qos_;
   QosProfileParams imu_qos_;
+  std::string rendered_image_qos_reliability_{"reliable"};
+  std::string rendered_image_qos_durability_{"transient_local"};
+  int rendered_image_qos_depth_{1};
   int process_period_ms_{5};
   int select_every_k_frame_{8};
   int test_frame_stride_{1};

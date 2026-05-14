@@ -175,6 +175,9 @@ MAPPER_FEEDBACK_ROTATION_LR=0.001
 MAPPER_FEEDBACK_LR_EXPLICIT=false
 MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND=400000
 MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY=uniform
+RENDERED_IMAGE_QOS_RELIABILITY=reliable
+RENDERED_IMAGE_QOS_DURABILITY=transient_local
+RENDERED_IMAGE_QOS_DEPTH=1
 VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
@@ -490,6 +493,12 @@ Options:
                                Keep mapper feedback Gaussian extension alpha-hole filtering enabled. The production Gaussian feedback preset disables it so the map can keep growing under skybox/rasterizer feedback.
   --mapper-feedback-disable-extend-visibility-filter
                                Disable mapper feedback Gaussian extension alpha-hole filtering.
+  --rendered-image-qos-reliability MODE
+                               QoS reliability for /gaussian_lic/rendered_image feedback: reliable or best_effort. Default: reliable.
+  --rendered-image-qos-durability MODE
+                               QoS durability for /gaussian_lic/rendered_image feedback: transient_local or volatile. Default: transient_local.
+  --rendered-image-qos-depth N
+                               QoS keep-last depth for /gaussian_lic/rendered_image feedback. Default: 1.
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
@@ -1222,6 +1231,18 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=false
       shift
       ;;
+    --rendered-image-qos-reliability)
+      RENDERED_IMAGE_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --rendered-image-qos-durability)
+      RENDERED_IMAGE_QOS_DURABILITY="$2"
+      shift 2
+      ;;
+    --rendered-image-qos-depth)
+      RENDERED_IMAGE_QOS_DEPTH="$2"
+      shift 2
+      ;;
     --visual-factor-max-dt-ns)
       VISUAL_FACTOR_MAX_DT_NS="$2"
       shift 2
@@ -1486,6 +1507,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
+  rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
+  rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
+  rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
   visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
@@ -1643,6 +1667,9 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p require_projected_point_color:="${MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR}" \
     -p zbuffer_projected_points:="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
+    -p rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
+    -p rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
+    -p rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
     -p sync_tolerance_sec:="${MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC}" \
     -p select_every_k_frame:="${MAPPER_FEEDBACK_SELECT_EVERY_K_FRAME}" \
     -p require_depth_topic:=false \
@@ -1834,6 +1861,9 @@ SE3_PHOTOMETRIC_POSE_CORRECTION_GAIN_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_G
 SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_TRANSLATION_M}" \
 SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_ROTATION_RAD}" \
 SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS}" \
+RENDERED_IMAGE_QOS_RELIABILITY_REPORT="${RENDERED_IMAGE_QOS_RELIABILITY}" \
+RENDERED_IMAGE_QOS_DURABILITY_REPORT="${RENDERED_IMAGE_QOS_DURABILITY}" \
+RENDERED_IMAGE_QOS_DEPTH_REPORT="${RENDERED_IMAGE_QOS_DEPTH}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -2383,6 +2413,9 @@ report = {
     "ok": not errors,
     "errors": errors,
     "gate_config": {
+        "rendered_image_qos_reliability": os.environ["RENDERED_IMAGE_QOS_RELIABILITY_REPORT"],
+        "rendered_image_qos_durability": os.environ["RENDERED_IMAGE_QOS_DURABILITY_REPORT"],
+        "rendered_image_qos_depth": int(os.environ["RENDERED_IMAGE_QOS_DEPTH_REPORT"]),
         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
         "visual_depth_dilation_px": visual_depth_dilation_px,
