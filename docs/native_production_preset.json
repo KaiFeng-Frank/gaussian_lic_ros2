@@ -1,0 +1,79 @@
+{
+  "schema": "gaussian_lic_native_production_preset/v1",
+  "updated": "2026-05-14",
+  "profile": "fastlivo2",
+  "sequence": "CBD_Building_01",
+  "production_preset": {
+    "id": "gaussian_feedback_rate0p25_agree0045_full122",
+    "script": "scripts/run_native_tracking_bag_report.sh",
+    "enable_gaussian_map_feedback": true,
+    "playback_rate": 0.25,
+    "tracking_max_pose_step_m": 0.0265,
+    "post_ba_step_guard_pre_ba_agreement_max_pose_step_m": 0.045,
+    "post_ba_step_guard_pre_ba_agreement_min_cosine": 0.95,
+    "post_ba_step_guard_pre_ba_agreement_max_delta_m": 0.02,
+    "post_ba_step_guard_confidence_max_pose_step_m": 0.0,
+    "post_ba_step_guard_confidence_warmup_marginalizations": 0,
+    "sliding_window_relative_translation_weight": 0.1,
+    "sliding_window_relative_rotation_weight": 0.01,
+    "sliding_window_multihop_relative_translation_weight": 0.03,
+    "sliding_window_multihop_relative_translation_max_factors": 6,
+    "sliding_window_multihop_relative_rotation_weight": 0.005,
+    "visual_alignment_window_weight": 0.25,
+    "se3_photometric_window_weight": 0.5,
+    "lidar_window_plane_factor_weight": 4.0,
+    "sliding_window_max_feedback_gyro_bias_step": 0.02,
+    "sliding_window_max_feedback_accel_bias_step": 0.12,
+    "mapper_feedback_render_mode": "rasterizer",
+    "mapper_feedback_pointcloud_coordinates": "sensor",
+    "mapper_feedback_max_depth": 20.0
+  },
+  "accepted_evidence": {
+    "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
+    "matched_poses": 1174,
+    "coverage": 0.9536961819658814,
+    "translation_rmse_m": 1.346406829241492,
+    "translation_mean_m": 1.2192888317728046,
+    "translation_max_m": 2.8291660614508656,
+    "path_drift": 0.04999138669741478,
+    "total_visual_factors": 1015,
+    "total_se3_photometric_factors": 1015,
+    "dense_prior_rank": 180,
+    "dense_prior_cols": 180
+  },
+  "rejected_evidence": [
+    {
+      "id": "confidence_release_0065",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_conf0065_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.6924729865107202,
+      "path_drift": 0.004393547846530273,
+      "reason": "path drift improves, but RMSE regresses from the production preset"
+    },
+    {
+      "id": "confidence_release_0065_warm700",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_conf0065_warm700_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5067708939320352,
+      "path_drift": 0.020415026819100974,
+      "reason": "late-only release still regresses RMSE"
+    },
+    {
+      "id": "confidence_release_0065_warm1000",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_conf0065_warm1000_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.4754541700364934,
+      "path_drift": 0.04240020318248945,
+      "reason": "later release still regresses RMSE"
+    },
+    {
+      "id": "visual05_se3w1",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_visual05_se3w1_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5264069864448988,
+      "path_drift": 0.04672463367560196,
+      "reason": "stronger visual/SE3 weights regress RMSE"
+    }
+  ],
+  "forbidden_readme_snippets": [
+    "strict feedback replay now slows to `--rate 0.5`",
+    "current best 1.756 m / 2.26% checkpoint",
+    "current best full122 Gaussian-feedback checkpoint at `results/fastlivo2/CBD_Building_01_gaussian_feedback_biasstep_g02_a12_repeat_full122_diagnostic"
+  ]
+}

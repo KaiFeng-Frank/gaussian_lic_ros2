@@ -31,6 +31,7 @@ jobs:
           /usr/bin/python3 -m py_compile scripts/*.py
           ./scripts/check_profiles.py
           ./scripts/check_ros2_semantics_contract.py
+          ./scripts/check_native_production_preset.py
 
       - name: Artifact comparison gates
         shell: bash
@@ -97,6 +98,7 @@ jobs:
             src/gaussian_lic_tools/gaussian_lic_tools/*.py
           ./scripts/check_profiles.py
           ./scripts/check_ros2_semantics_contract.py
+          ./scripts/check_native_production_preset.py
 
       - name: Build
         shell: bash
