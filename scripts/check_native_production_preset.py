@@ -129,6 +129,14 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "run_native_tracking_bag_report.sh",
         errors,
     )
+    for option in (
+        "--min-status-bin-sample-count",
+        "--min-visual-factor-delta-per-status-bin",
+        "--min-se3-photometric-factor-delta-per-status-bin",
+        "min_visual_factor_delta_per_status_bin",
+        "min_se3_photometric_factor_delta_per_status_bin",
+    ):
+        require_snippet(script, option, "run_native_tracking_bag_report.sh", errors)
 
 
 def check_docs(manifest: dict[str, Any], readme: str, roadmap: str, errors: list[str]) -> None:

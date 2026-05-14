@@ -15,6 +15,9 @@ TIMEOUT_SEC=30
 POST_PLAY_SETTLE_SEC=8
 MIN_POSES=20
 MIN_STATUS_SAMPLES=1
+MIN_STATUS_BIN_SAMPLE_COUNT=0
+MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN=0
+MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN=0
 MIN_POINT_FRAMES=10
 LIDAR_MIN_POINTS=32
 LIDAR_MAX_FRAME_POINTS=4000
@@ -244,6 +247,12 @@ Options:
   --min-poses N                Minimum recorded frontend odometry poses. Default: 20.
   --min-status-samples N       Minimum TrackingStatus samples. Default: 1.
   --write-status-history       Write per-sample TrackingStatus JSONL for drift diagnostics.
+  --min-status-bin-sample-count N
+                               Minimum samples required in each TrackingStatus time bin. Default: 0 disabled.
+  --min-visual-factor-delta-per-status-bin N
+                               Minimum cumulative visual-factor increase required in each TrackingStatus bin when visual factors are enabled. Default: 0 disabled.
+  --min-se3-photometric-factor-delta-per-status-bin N
+                               Minimum cumulative SE3 photometric-factor increase required in each TrackingStatus bin when visual factors are enabled. Default: 0 disabled.
   --min-point-frames N         Minimum recorded /points_for_gs frames. Default: 10.
   --lidar-min-points N         Tracking LiDAR frame minimum. Default: 32.
   --lidar-max-frame-points N   Max LiDAR points used per frame factor. Default: 4000.
@@ -612,6 +621,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --min-status-samples)
       MIN_STATUS_SAMPLES="$2"
+      shift 2
+      ;;
+    --min-status-bin-sample-count)
+      MIN_STATUS_BIN_SAMPLE_COUNT="$2"
+      shift 2
+      ;;
+    --min-visual-factor-delta-per-status-bin)
+      MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN="$2"
+      shift 2
+      ;;
+    --min-se3-photometric-factor-delta-per-status-bin)
+      MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN="$2"
       shift 2
       ;;
     --write-status-history)
@@ -1784,6 +1805,9 @@ PLAYBACK_RATE_REPORT="${PLAYBACK_RATE}" \
 PLAYBACK_START_OFFSET_REPORT="${PLAYBACK_START_OFFSET}" \
 PLAYBACK_CLOCK_TOPICS_ALL_REPORT="${PLAYBACK_CLOCK_TOPICS_ALL}" \
 MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
+MIN_STATUS_BIN_SAMPLE_COUNT_REPORT="${MIN_STATUS_BIN_SAMPLE_COUNT}" \
+MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN_REPORT="${MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN}" \
+MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN_REPORT="${MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN}" \
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT="${MAPPER_FEEDBACK_POINTCLOUD_COORDINATES}" \
 MAPPER_FEEDBACK_MAX_DEPTH_REPORT="${MAPPER_FEEDBACK_MAX_DEPTH}" \
 MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR_REPORT="${MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR}" \
@@ -2199,6 +2223,11 @@ playback_rate = float(os.environ["PLAYBACK_RATE_REPORT"])
 playback_start_offset = float(os.environ["PLAYBACK_START_OFFSET_REPORT"])
 playback_clock_topics_all = os.environ["PLAYBACK_CLOCK_TOPICS_ALL_REPORT"].lower() == "true"
 max_lidar_invalid_frames = int(os.environ["MAX_LIDAR_INVALID_FRAMES_REPORT"])
+min_status_bin_sample_count = int(os.environ["MIN_STATUS_BIN_SAMPLE_COUNT_REPORT"])
+min_visual_factor_delta_per_status_bin = int(
+    os.environ["MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN_REPORT"])
+min_se3_photometric_factor_delta_per_status_bin = int(
+    os.environ["MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN_REPORT"])
 
 
 def count_tum_poses(path: Path | None) -> int:
@@ -2221,6 +2250,19 @@ status = metrics.get("tracking_status", {})
 last = status.get("last") or {}
 mapping_last = metrics.get("mapping_status", {}).get("last") or {}
 errors = []
+
+
+def summary_delta(bin_summary, key):
+    summary = bin_summary.get("summary", {})
+    if not isinstance(summary, dict):
+        return 0
+    field_summary = summary.get(key, {})
+    if not isinstance(field_summary, dict):
+        return 0
+    try:
+        return int(float(field_summary.get("delta", 0)))
+    except (TypeError, ValueError):
+        return 0
 
 if metrics.get("trajectory_poses", 0) < min_poses:
     errors.append(f"trajectory poses {metrics.get('trajectory_poses', 0)} < {min_poses}")
@@ -2320,6 +2362,53 @@ if enable_visual_factors and int(last.get("sliding_window_total_visual_factors",
     errors.append("sliding_window_total_visual_factors is zero")
 if enable_visual_factors and int(last.get("sliding_window_total_se3_photometric_factors", 0)) <= 0:
     errors.append("sliding_window_total_se3_photometric_factors is zero")
+if (
+    not enable_visual_factors
+    and (
+        min_visual_factor_delta_per_status_bin > 0
+        or min_se3_photometric_factor_delta_per_status_bin > 0
+    )
+):
+    errors.append("per-bin visual factor gates require --enable-visual-factors")
+if (
+    min_status_bin_sample_count > 0
+    or min_visual_factor_delta_per_status_bin > 0
+    or min_se3_photometric_factor_delta_per_status_bin > 0
+):
+    binned_summary = status.get("binned_summary", [])
+    if not bool(status.get("binned_summary_finalized", False)):
+        errors.append("tracking_status.binned_summary_finalized is false")
+    if not isinstance(binned_summary, list) or not binned_summary:
+        errors.append("tracking_status.binned_summary is missing or empty")
+    else:
+        for bin_index, bin_summary in enumerate(binned_summary):
+            if not isinstance(bin_summary, dict):
+                errors.append(f"tracking_status.binned_summary[{bin_index}] is not an object")
+                continue
+            sample_count = int(bin_summary.get("sample_count", 0))
+            if min_status_bin_sample_count > 0 and sample_count < min_status_bin_sample_count:
+                errors.append(
+                    f"tracking_status bin {bin_index} sample_count {sample_count} "
+                    f"< {min_status_bin_sample_count}")
+            if enable_visual_factors:
+                visual_delta = summary_delta(
+                    bin_summary, "sliding_window_total_visual_factors")
+                if (
+                    min_visual_factor_delta_per_status_bin > 0
+                    and visual_delta < min_visual_factor_delta_per_status_bin
+                ):
+                    errors.append(
+                        f"tracking_status bin {bin_index} visual-factor delta "
+                        f"{visual_delta} < {min_visual_factor_delta_per_status_bin}")
+                se3_delta = summary_delta(
+                    bin_summary, "sliding_window_total_se3_photometric_factors")
+                if (
+                    min_se3_photometric_factor_delta_per_status_bin > 0
+                    and se3_delta < min_se3_photometric_factor_delta_per_status_bin
+                ):
+                    errors.append(
+                        f"tracking_status bin {bin_index} SE3 photometric-factor delta "
+                        f"{se3_delta} < {min_se3_photometric_factor_delta_per_status_bin}")
 if enable_visual_factors:
     for key in (
         "visual_alignment_pending_queue_size",
@@ -2477,6 +2566,11 @@ report = {
         "playback_clock_topics_all": playback_clock_topics_all,
         "imu_linear_acceleration_scale": imu_linear_acceleration_scale,
         "max_lidar_invalid_frames": max_lidar_invalid_frames,
+        "min_status_bin_sample_count": min_status_bin_sample_count,
+        "min_visual_factor_delta_per_status_bin": min_visual_factor_delta_per_status_bin,
+        "min_se3_photometric_factor_delta_per_status_bin": (
+            min_se3_photometric_factor_delta_per_status_bin
+        ),
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
         "lidar_window_point_factor_weight": lidar_window_point_factor_weight,
         "lidar_window_plane_factor_weight": lidar_window_plane_factor_weight,
