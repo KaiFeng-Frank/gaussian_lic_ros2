@@ -51,7 +51,8 @@ Eigen::Vector3d smoothness_rotation_residual(
     static_cast<double>(next.stamp_ns - current.stamp_ns) / 1.0e9;
   return std::sqrt(factor.rotation_rate_weight) *
          (relative_rotation_vector(current.q_w_i, next.q_w_i) / next_dt_s -
-         relative_rotation_vector(previous.q_w_i, current.q_w_i) / previous_dt_s);
+         relative_rotation_vector(previous.q_w_i, current.q_w_i) / previous_dt_s -
+         factor.target_rotation_rate_delta);
 }
 
 void apply_left_rotation_delta(Eigen::Quaterniond & q_w_i, const Eigen::Vector3d & dtheta)
@@ -300,6 +301,52 @@ int main()
     summary.numeric_jacobian_column_count != 0U)
   {
     std::cerr << "trajectory smoothness factor failed to recover the constant-rate midpoint\n";
+    return 1;
+  }
+
+  gaussian_lic_tracking::SlidingWindowOptimizer measured_shape_optimizer(config);
+  auto measured_previous = previous;
+  measured_previous.p_w_i = Eigen::Vector3d::Zero();
+  measured_shape_optimizer.add_or_update_state(measured_previous);
+  auto measured_current = current;
+  measured_current.p_w_i = Eigen::Vector3d{1.0, 0.0, 0.0};
+  measured_current.v_w_i = Eigen::Vector3d::Zero();
+  measured_current.gyro_bias = Eigen::Vector3d::Zero();
+  measured_current.accel_bias = Eigen::Vector3d::Zero();
+  measured_shape_optimizer.add_or_update_state(measured_current);
+  auto measured_next = next;
+  measured_next.p_w_i = Eigen::Vector3d{2.0, 0.0, 0.0};
+  measured_shape_optimizer.add_or_update_state(measured_next);
+
+  gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor measured_shape_factor;
+  measured_shape_factor.previous_stamp_ns = measured_previous.stamp_ns;
+  measured_shape_factor.current_stamp_ns = measured_current.stamp_ns;
+  measured_shape_factor.next_stamp_ns = measured_next.stamp_ns;
+  measured_shape_factor.rotation_rate_weight = 0.0;
+  measured_shape_factor.position_rate_weight = 25.0;
+  measured_shape_factor.velocity_acceleration_weight = 0.0;
+  measured_shape_factor.gyro_bias_rate_weight = 0.0;
+  measured_shape_factor.accel_bias_rate_weight = 0.0;
+  measured_shape_factor.target_position_rate_delta = Eigen::Vector3d{0.4, -0.2, 0.1};
+  measured_shape_optimizer.add_trajectory_smoothness_factor(measured_shape_factor);
+  const auto measured_shape_summary = measured_shape_optimizer.optimize();
+  gaussian_lic_tracking::SlidingWindowState measured_optimized;
+  if (!measured_shape_optimizer.get_state(measured_current.stamp_ns, measured_optimized)) {
+    std::cerr << "measured-shape optimized middle state is missing\n";
+    return 1;
+  }
+  const Eigen::Vector3d expected_measured_position =
+    0.5 * (
+    measured_previous.p_w_i + measured_next.p_w_i -
+    measured_shape_factor.target_position_rate_delta);
+  const double measured_shape_position_error =
+    (measured_optimized.p_w_i - expected_measured_position).norm();
+  if (!measured_shape_summary.converged ||
+    measured_shape_position_error > 1.0e-8 ||
+    measured_shape_summary.numeric_jacobian_block_count != 0U)
+  {
+    std::cerr << "measured smoothness target failed to recover local trajectory shape: "
+              << measured_shape_position_error << "\n";
     return 1;
   }
 

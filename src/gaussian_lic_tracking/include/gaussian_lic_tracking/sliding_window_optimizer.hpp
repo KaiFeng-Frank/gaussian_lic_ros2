@@ -149,6 +149,11 @@ struct SlidingWindowTrajectorySmoothnessFactor
   int64_t previous_stamp_ns{0};
   int64_t current_stamp_ns{0};
   int64_t next_stamp_ns{0};
+  Eigen::Vector3d target_rotation_rate_delta{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d target_position_rate_delta{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d target_velocity_acceleration_delta{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d target_gyro_bias_rate_delta{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d target_accel_bias_rate_delta{Eigen::Vector3d::Zero()};
   double rotation_rate_weight{1.0};
   double position_rate_weight{1.0};
   double velocity_acceleration_weight{1.0};

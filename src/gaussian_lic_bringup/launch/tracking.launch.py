@@ -217,6 +217,9 @@ def generate_launch_description():
         "sliding_window_smoothness_position_velocity_weight"
     )
     sliding_window_smoothness_bias_weight = LaunchConfiguration("sliding_window_smoothness_bias_weight")
+    sliding_window_smoothness_use_motion_targets = LaunchConfiguration(
+        "sliding_window_smoothness_use_motion_targets"
+    )
     enable_sliding_window_relative_translation_factor = LaunchConfiguration(
         "enable_sliding_window_relative_translation_factor"
     )
@@ -531,6 +534,7 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_smoothness_velocity_weight", default_value="0.1"),
             DeclareLaunchArgument("sliding_window_smoothness_position_velocity_weight", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_smoothness_bias_weight", default_value="0.1"),
+            DeclareLaunchArgument("sliding_window_smoothness_use_motion_targets", default_value="false"),
             DeclareLaunchArgument("enable_sliding_window_relative_translation_factor", default_value="false"),
             DeclareLaunchArgument("sliding_window_relative_translation_weight", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_relative_translation_huber_delta_m", default_value="0.1"),
@@ -807,6 +811,9 @@ def generate_launch_description():
                             sliding_window_smoothness_position_velocity_weight
                         ),
                         "sliding_window_smoothness_bias_weight": sliding_window_smoothness_bias_weight,
+                        "sliding_window_smoothness_use_motion_targets": (
+                            sliding_window_smoothness_use_motion_targets
+                        ),
                         "enable_sliding_window_relative_translation_factor": (
                             enable_sliding_window_relative_translation_factor
                         ),

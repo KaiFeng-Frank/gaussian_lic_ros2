@@ -381,14 +381,16 @@ Eigen::Matrix<double, kSmoothnessResidualDof, 1> smoothness_residual(
   const Eigen::Vector3d next_rotation_rate =
     relative_rotation_vector(current.q_w_i, next.q_w_i) / next_dt_s;
   residual.template segment<3>(0) =
-    std::sqrt(factor.rotation_rate_weight) * (next_rotation_rate - previous_rotation_rate);
+    std::sqrt(factor.rotation_rate_weight) *
+    (next_rotation_rate - previous_rotation_rate - factor.target_rotation_rate_delta);
 
   const Eigen::Vector3d previous_position_rate =
     (current.p_w_i - previous.p_w_i) / previous_dt_s;
   const Eigen::Vector3d next_position_rate =
     (next.p_w_i - current.p_w_i) / next_dt_s;
   residual.template segment<3>(3) =
-    std::sqrt(factor.position_rate_weight) * (next_position_rate - previous_position_rate);
+    std::sqrt(factor.position_rate_weight) *
+    (next_position_rate - previous_position_rate - factor.target_position_rate_delta);
 
   const Eigen::Vector3d previous_velocity_acceleration =
     (current.v_w_i - previous.v_w_i) / previous_dt_s;
@@ -396,7 +398,8 @@ Eigen::Matrix<double, kSmoothnessResidualDof, 1> smoothness_residual(
     (next.v_w_i - current.v_w_i) / next_dt_s;
   residual.template segment<3>(6) =
     std::sqrt(factor.velocity_acceleration_weight) *
-    (next_velocity_acceleration - previous_velocity_acceleration);
+    (next_velocity_acceleration - previous_velocity_acceleration -
+    factor.target_velocity_acceleration_delta);
 
   residual.template segment<3>(15) =
     std::sqrt(factor.position_velocity_consistency_weight) *
@@ -408,7 +411,7 @@ Eigen::Matrix<double, kSmoothnessResidualDof, 1> smoothness_residual(
     (next.gyro_bias - current.gyro_bias) / next_dt_s;
   residual.template segment<3>(9) =
     std::sqrt(factor.gyro_bias_rate_weight) *
-    (next_gyro_bias_rate - previous_gyro_bias_rate);
+    (next_gyro_bias_rate - previous_gyro_bias_rate - factor.target_gyro_bias_rate_delta);
 
   const Eigen::Vector3d previous_accel_bias_rate =
     (current.accel_bias - previous.accel_bias) / previous_dt_s;
@@ -416,7 +419,7 @@ Eigen::Matrix<double, kSmoothnessResidualDof, 1> smoothness_residual(
     (next.accel_bias - current.accel_bias) / next_dt_s;
   residual.template segment<3>(12) =
     std::sqrt(factor.accel_bias_rate_weight) *
-    (next_accel_bias_rate - previous_accel_bias_rate);
+    (next_accel_bias_rate - previous_accel_bias_rate - factor.target_accel_bias_rate_delta);
   return residual;
 }
 
@@ -948,13 +951,19 @@ void SlidingWindowOptimizer::add_trajectory_smoothness_factor(
     !std::isfinite(factor.position_velocity_consistency_weight) ||
     !std::isfinite(factor.gyro_bias_rate_weight) ||
     !std::isfinite(factor.accel_bias_rate_weight) ||
+    !factor.target_rotation_rate_delta.allFinite() ||
+    !factor.target_position_rate_delta.allFinite() ||
+    !factor.target_velocity_acceleration_delta.allFinite() ||
+    !factor.target_gyro_bias_rate_delta.allFinite() ||
+    !factor.target_accel_bias_rate_delta.allFinite() ||
     factor.rotation_rate_weight < 0.0 || factor.position_rate_weight < 0.0 ||
     factor.velocity_acceleration_weight < 0.0 ||
     factor.position_velocity_consistency_weight < 0.0 ||
     factor.gyro_bias_rate_weight < 0.0 ||
     factor.accel_bias_rate_weight < 0.0)
   {
-    throw std::runtime_error("trajectory smoothness factor weights must be finite and non-negative");
+    throw std::runtime_error(
+            "trajectory smoothness factor targets must be finite and weights must be non-negative");
   }
   if (factor.rotation_rate_weight == 0.0 && factor.position_rate_weight == 0.0 &&
     factor.velocity_acceleration_weight == 0.0 &&

@@ -23,6 +23,7 @@
 #include <gaussian_lic_tracking/lidar_deskew.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
+#include <gaussian_lic_tracking/spline/so3_ops.hpp>
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
@@ -632,6 +633,8 @@ public:
     sliding_window_smoothness_bias_weight_ = finite_nonnegative_parameter(
       "sliding_window_smoothness_bias_weight",
       declare_parameter<double>("sliding_window_smoothness_bias_weight", 0.1));
+    sliding_window_smoothness_use_motion_targets_ =
+      declare_parameter<bool>("sliding_window_smoothness_use_motion_targets", false);
     enable_sliding_window_relative_translation_factor_ =
       declare_parameter<bool>("enable_sliding_window_relative_translation_factor", false);
     sliding_window_relative_translation_weight_ = finite_nonnegative_parameter(
@@ -2380,6 +2383,68 @@ private:
     }
   }
 
+  std::optional<gaussian_lic_tracking::TrajectoryPose> find_relative_motion_pose(
+    const int64_t stamp_ns) const
+  {
+    const auto it = std::find_if(
+      relative_motion_pose_history_.begin(), relative_motion_pose_history_.end(),
+      [stamp_ns](const gaussian_lic_tracking::TrajectoryPose & pose) {
+        return pose.stamp_ns == stamp_ns;
+      });
+    if (it == relative_motion_pose_history_.end()) {
+      return std::nullopt;
+    }
+    return *it;
+  }
+
+  void apply_relative_motion_smoothness_targets(
+    gaussian_lic_tracking::SlidingWindowTrajectorySmoothnessFactor & factor,
+    const gaussian_lic_tracking::TrajectoryPose & next_pose) const
+  {
+    if (!sliding_window_smoothness_use_motion_targets_) {
+      return;
+    }
+    const auto previous_pose = find_relative_motion_pose(factor.previous_stamp_ns);
+    const auto current_pose = find_relative_motion_pose(factor.current_stamp_ns);
+    if (!previous_pose.has_value() || !current_pose.has_value() ||
+      next_pose.stamp_ns != factor.next_stamp_ns)
+    {
+      return;
+    }
+    const double previous_dt_s =
+      static_cast<double>(current_pose->stamp_ns - previous_pose->stamp_ns) /
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond);
+    const double next_dt_s =
+      static_cast<double>(next_pose.stamp_ns - current_pose->stamp_ns) /
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond);
+    if (previous_dt_s <= 0.0 || next_dt_s <= 0.0) {
+      return;
+    }
+    const auto rotation_rate = [](const Eigen::Quaterniond & from,
+        const Eigen::Quaterniond & to,
+        const double dt_s) {
+        return gaussian_lic_tracking::spline::quaternion_log(
+          from.normalized().inverse() * to.normalized()) / dt_s;
+      };
+    factor.target_rotation_rate_delta =
+      rotation_rate(current_pose->q_w_i, next_pose.q_w_i, next_dt_s) -
+      rotation_rate(previous_pose->q_w_i, current_pose->q_w_i, previous_dt_s);
+    factor.target_position_rate_delta =
+      (next_pose.p_w_i - current_pose->p_w_i) / next_dt_s -
+      (current_pose->p_w_i - previous_pose->p_w_i) / previous_dt_s;
+    factor.target_velocity_acceleration_delta =
+      (next_pose.v_w_i - current_pose->v_w_i) / next_dt_s -
+      (current_pose->v_w_i - previous_pose->v_w_i) / previous_dt_s;
+    if (!factor.target_rotation_rate_delta.allFinite() ||
+      !factor.target_position_rate_delta.allFinite() ||
+      !factor.target_velocity_acceleration_delta.allFinite())
+    {
+      factor.target_rotation_rate_delta.setZero();
+      factor.target_position_rate_delta.setZero();
+      factor.target_velocity_acceleration_delta.setZero();
+    }
+  }
+
   gaussian_lic_tracking::TrajectoryPose update_sliding_window(
     const gaussian_lic_tracking::TrajectoryPose & input_pose,
     const std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> & point_factors,
@@ -2537,6 +2602,7 @@ private:
         sliding_window_smoothness_position_velocity_weight_;
       factor.gyro_bias_rate_weight = sliding_window_smoothness_bias_weight_;
       factor.accel_bias_rate_weight = sliding_window_smoothness_bias_weight_;
+      apply_relative_motion_smoothness_targets(factor, input_pose);
       try {
         sliding_window_optimizer_.add_trajectory_smoothness_factor(factor);
         window_factor_added = true;
@@ -4830,6 +4896,7 @@ private:
   double sliding_window_smoothness_velocity_weight_{0.1};
   double sliding_window_smoothness_position_velocity_weight_{0.0};
   double sliding_window_smoothness_bias_weight_{0.1};
+  bool sliding_window_smoothness_use_motion_targets_{false};
   bool enable_sliding_window_relative_translation_factor_{false};
   double sliding_window_relative_translation_weight_{0.0};
   double sliding_window_relative_translation_huber_delta_m_{0.1};

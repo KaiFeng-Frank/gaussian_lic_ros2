@@ -102,6 +102,7 @@ SLIDING_WINDOW_SMOOTHNESS_POSITION_WEIGHT=0.1
 SLIDING_WINDOW_SMOOTHNESS_VELOCITY_WEIGHT=0.1
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT=0.0
 SLIDING_WINDOW_SMOOTHNESS_BIAS_WEIGHT=0.1
+SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS=false
 ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR=false
 SLIDING_WINDOW_RELATIVE_TRANSLATION_WEIGHT=0.0
 SLIDING_WINDOW_RELATIVE_TRANSLATION_HUBER_DELTA_M=0.1
@@ -426,6 +427,8 @@ Options:
                                Position-rate to state-velocity consistency weight. Default: 0.0 disabled.
   --sliding-window-smoothness-bias-weight W
                                Bias smoothness weight. Default: 0.1.
+  --sliding-window-smoothness-use-motion-targets
+                               Use pre-BA local motion curvature as the smoothness target instead of forcing zero curvature. Default: disabled.
   --enable-sliding-window-relative-translation-factor
                                Add an internal adjacent-pose relative translation prior from raw IMU/pre-LIO propagation. Default: disabled.
   --sliding-window-relative-translation-weight W
@@ -984,6 +987,10 @@ while [[ $# -gt 0 ]]; do
     --sliding-window-smoothness-bias-weight)
       SLIDING_WINDOW_SMOOTHNESS_BIAS_WEIGHT="$2"
       shift 2
+      ;;
+    --sliding-window-smoothness-use-motion-targets)
+      SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS=true
+      shift
       ;;
     --enable-sliding-window-relative-translation-factor)
       ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR=true
@@ -1694,6 +1701,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_smoothness_velocity_weight:="${SLIDING_WINDOW_SMOOTHNESS_VELOCITY_WEIGHT}" \
   sliding_window_smoothness_position_velocity_weight:="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
   sliding_window_smoothness_bias_weight:="${SLIDING_WINDOW_SMOOTHNESS_BIAS_WEIGHT}" \
+  sliding_window_smoothness_use_motion_targets:="${SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS}" \
   enable_sliding_window_relative_translation_factor:="${ENABLE_SLIDING_WINDOW_RELATIVE_TRANSLATION_FACTOR}" \
   sliding_window_relative_translation_weight:="${SLIDING_WINDOW_RELATIVE_TRANSLATION_WEIGHT}" \
   sliding_window_relative_translation_huber_delta_m:="${SLIDING_WINDOW_RELATIVE_TRANSLATION_HUBER_DELTA_M}" \
@@ -1888,6 +1896,7 @@ SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK
 SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
 SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS_REPORT="${SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
+SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS_REPORT="${SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS}" \
 SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT}" \
 SLIDING_WINDOW_GYRO_BIAS_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_GYRO_BIAS_PRIOR_WEIGHT}" \
 SLIDING_WINDOW_ACCEL_BIAS_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_ACCEL_BIAS_PRIOR_WEIGHT}" \
@@ -2138,6 +2147,10 @@ post_ba_step_guard_reject_to_pre_ba_over_m = float(
 )
 sliding_window_smoothness_position_velocity_weight = float(
     os.environ["SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT"]
+)
+sliding_window_smoothness_use_motion_targets = (
+    os.environ["SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS_REPORT"].lower()
+    == "true"
 )
 sliding_window_imu_velocity_prior_weight = float(
     os.environ["SLIDING_WINDOW_IMU_VELOCITY_PRIOR_WEIGHT_REPORT"]
@@ -2720,6 +2733,9 @@ report = {
         ),
         "sliding_window_smoothness_position_velocity_weight": (
             sliding_window_smoothness_position_velocity_weight
+        ),
+        "sliding_window_smoothness_use_motion_targets": (
+            sliding_window_smoothness_use_motion_targets
         ),
         "sliding_window_imu_velocity_prior_weight": sliding_window_imu_velocity_prior_weight,
         "sliding_window_gyro_bias_prior_weight": sliding_window_gyro_bias_prior_weight,
