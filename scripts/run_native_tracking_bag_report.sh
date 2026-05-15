@@ -88,6 +88,7 @@ SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP=0.0
 SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_EXPLICIT=false
 SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_EXPLICIT=false
 SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS=0
+SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE=false
 SLIDING_WINDOW_IMU_WEIGHT=1.0
 SLIDING_WINDOW_IMU_ROTATION_WEIGHT=1.0
 SLIDING_WINDOW_IMU_VELOCITY_WEIGHT=1.0
@@ -482,6 +483,8 @@ Options:
                                Max per-feedback accel-bias delta applied back to online IMU propagation. Default: 0.0 disabled.
   --sliding-window-min-bias-feedback-visual-factors N
                                Hold optimized bias feedback unless the current BA update added at least N visual/SE3 factors. Default: 0 disabled.
+  --sliding-window-sync-guarded-pose-state
+                               Experimental: after post-BA step guard clamps/rejects a pose, synchronize the same sliding-window state to the final published pose. Default: disabled.
   --sliding-window-imu-weight W
                                IMU residual weight. Default: 1.0.
   --sliding-window-imu-rotation-weight W
@@ -1040,6 +1043,10 @@ while [[ $# -gt 0 ]]; do
     --sliding-window-min-bias-feedback-visual-factors)
       SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS="$2"
       shift 2
+      ;;
+    --sliding-window-sync-guarded-pose-state)
+      SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE=true
+      shift
       ;;
     --sliding-window-imu-weight)
       SLIDING_WINDOW_IMU_WEIGHT="$2"
@@ -1856,6 +1863,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_max_feedback_gyro_bias_step:="${SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP}" \
   sliding_window_max_feedback_accel_bias_step:="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
   sliding_window_min_bias_feedback_visual_factors:="${SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS}" \
+  sliding_window_sync_guarded_pose_state:="${SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE}" \
   sliding_window_imu_weight:="${SLIDING_WINDOW_IMU_WEIGHT}" \
   sliding_window_imu_rotation_weight:="${SLIDING_WINDOW_IMU_ROTATION_WEIGHT}" \
   sliding_window_imu_velocity_weight:="${SLIDING_WINDOW_IMU_VELOCITY_WEIGHT}" \
@@ -2090,6 +2098,7 @@ POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${POST_BA_TRACKING_STEP_GUARD
 SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP}" \
 SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
 SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS_REPORT="${SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS}" \
+SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE_REPORT="${SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
 SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS_REPORT="${SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS}" \
 SLIDING_WINDOW_SMOOTHNESS_MOTION_TARGET_MIN_VISUAL_FACTORS_REPORT="${SLIDING_WINDOW_SMOOTHNESS_MOTION_TARGET_MIN_VISUAL_FACTORS}" \
@@ -2402,6 +2411,9 @@ sliding_window_max_feedback_accel_bias_step = float(
 )
 sliding_window_min_bias_feedback_visual_factors = int(
     os.environ["SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS_REPORT"]
+)
+sliding_window_sync_guarded_pose_state = (
+    os.environ["SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE_REPORT"].lower() == "true"
 )
 sliding_window_bias_weight = float(os.environ["SLIDING_WINDOW_BIAS_WEIGHT_REPORT"])
 sliding_window_gyro_bias_weight = float(os.environ["SLIDING_WINDOW_GYRO_BIAS_WEIGHT_REPORT"])
@@ -2934,6 +2946,7 @@ report = {
         "sliding_window_marginalization_prior_weight": (
             sliding_window_marginalization_prior_weight
         ),
+        "sliding_window_sync_guarded_pose_state": sliding_window_sync_guarded_pose_state,
         "enable_gaussian_map_feedback": enable_gaussian_map_feedback,
         "require_gaussian_snapshot": require_gaussian_snapshot,
         "gaussian_snapshot_lidar_factor_weight": gaussian_snapshot_lidar_factor_weight,

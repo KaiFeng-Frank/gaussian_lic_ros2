@@ -539,6 +539,12 @@ def main() -> int:
         errors.append("tracking_node must reject invalid optimized sliding-window states before feedback")
     if "sliding_window_feedback_update_count_" not in tracking_node_text or "last_sliding_window_feedback_stamp_ns_" not in tracking_node_text:
         errors.append("tracking_node must publish accepted sliding-window feedback health")
+    if 'declare_parameter<bool>("sliding_window_sync_guarded_pose_state", false)' not in tracking_node_text:
+        errors.append("tracking_node must keep guarded-pose state sync default-off until full-window evidence passes")
+    if "sliding_window_guarded_state_syncs" not in tracking_status_msg_text or "status.sliding_window_guarded_state_syncs" not in tracking_node_text:
+        errors.append("TrackingStatus must publish guarded-pose state sync count")
+    if "sliding_window_sync_guarded_pose_state" not in tracking_launch_text or "--sliding-window-sync-guarded-pose-state" not in native_tracking_report_text:
+        errors.append("guarded-pose state sync must be exposed only as an explicit report/launch hypothesis")
     if "invalid_candidate_steps" not in sliding_window_text or "states_are_finite(candidate_states)" not in sliding_window_text:
         errors.append("sliding_window_optimizer must explicitly reject invalid candidate states")
     if "linearization_failure_count" not in sliding_window_text or "linear_solve_failure_count" not in sliding_window_text:

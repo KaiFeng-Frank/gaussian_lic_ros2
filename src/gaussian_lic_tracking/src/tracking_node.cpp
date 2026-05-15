@@ -562,6 +562,8 @@ public:
     sliding_window_min_bias_feedback_visual_factors_ = integer_parameter_at_least(
       "sliding_window_min_bias_feedback_visual_factors",
       declare_parameter<int>("sliding_window_min_bias_feedback_visual_factors", 0), 0);
+    sliding_window_sync_guarded_pose_state_ =
+      declare_parameter<bool>("sliding_window_sync_guarded_pose_state", false);
     sliding_window_max_normal_equation_condition_ = finite_positive_parameter(
       "sliding_window_max_normal_equation_condition",
       declare_parameter<double>("sliding_window_max_normal_equation_condition", 1.0e13));
@@ -2060,9 +2062,13 @@ private:
         se3_photometric_factors,
         relative_translation_factors);
     }
+    bool post_ba_guard_adjusted_pose = false;
     if (enable_post_ba_tracking_step_guard_) {
-      apply_tracking_step_guard(
+      post_ba_guard_adjusted_pose = apply_tracking_step_guard(
         tracking_pose, true, StepGuardStage::kPostBa, &pre_ba_tracking_pose);
+    }
+    if (post_ba_guard_adjusted_pose && sliding_window_sync_guarded_pose_state_) {
+      sync_guarded_pose_to_sliding_window_state(tracking_pose);
     }
     append_trajectory_control_pose(tracking_pose);
 
@@ -3140,6 +3146,29 @@ private:
       pose.q_w_i = state.q_w_i;
       pose.v_w_i = state.v_w_i;
       append_trajectory_control_pose(pose);
+    }
+  }
+
+  void sync_guarded_pose_to_sliding_window_state(
+    const gaussian_lic_tracking::TrajectoryPose & pose)
+  {
+    gaussian_lic_tracking::SlidingWindowState guarded_state;
+    if (!sliding_window_optimizer_.get_state(pose.stamp_ns, guarded_state)) {
+      return;
+    }
+    guarded_state.p_w_i = pose.p_w_i;
+    guarded_state.q_w_i = pose.q_w_i.normalized();
+    guarded_state.v_w_i = pose.v_w_i;
+    guarded_state.gyro_bias = sliding_window_bias_.gyro;
+    guarded_state.accel_bias = sliding_window_bias_.accel;
+    try {
+      sliding_window_optimizer_.add_or_update_state(guarded_state);
+      ++sliding_window_guarded_state_sync_count_;
+    } catch (const std::exception & ex) {
+      ++sliding_window_invalid_optimized_states_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "guarded sliding-window state sync skipped: %s", ex.what());
     }
   }
 
@@ -4650,6 +4679,7 @@ private:
     status.sliding_window_last_optimization_duration_ms =
       last_sliding_window_optimization_duration_ms_;
     status.sliding_window_feedback_updates = sliding_window_feedback_update_count_;
+    status.sliding_window_guarded_state_syncs = sliding_window_guarded_state_sync_count_;
     status.sliding_window_last_feedback_stamp_ns = last_sliding_window_feedback_stamp_ns_;
     status.sliding_window_last_feedback_translation_delta_m =
       last_sliding_window_feedback_translation_delta_m_;
@@ -5064,6 +5094,7 @@ private:
   double sliding_window_max_feedback_gyro_bias_step_{0.0};
   double sliding_window_max_feedback_accel_bias_step_{0.0};
   int sliding_window_min_bias_feedback_visual_factors_{0};
+  bool sliding_window_sync_guarded_pose_state_{false};
   double sliding_window_max_normal_equation_condition_{1.0e13};
   double sliding_window_min_normal_equation_rank_ratio_{0.8};
   double sliding_window_max_state_gap_s_{1.0};
@@ -5202,6 +5233,7 @@ private:
   uint64_t sliding_window_imu_factor_skip_count_{0};
   uint64_t sliding_window_imu_time_gap_skip_count_{0};
   uint64_t sliding_window_feedback_update_count_{0};
+  uint64_t sliding_window_guarded_state_sync_count_{0};
   uint64_t sliding_window_bias_feedback_hold_count_{0};
   int64_t last_sliding_window_feedback_stamp_ns_{0};
   double last_sliding_window_feedback_translation_delta_m_{0.0};
