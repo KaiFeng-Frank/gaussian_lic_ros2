@@ -180,6 +180,13 @@
       "translation_rmse_m": 1.518596480188449,
       "path_drift": 0.033053948210257436,
       "reason": "quality weighting preserves the no-trim diagnostic path and lowers path drift, but it weakens visual/SE3 constraints enough to miss the drain target at 934 and regress aggregate RMSE"
+    },
+    {
+      "id": "current_default_revalidation",
+      "report": "results/fastlivo2/CBD_Building_01_current_default_revalidation_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.3931810744531736,
+      "path_drift": 0.04861846485032347,
+      "reason": "current defaults keep the diagnostic quality paths disabled and preserve trajectory-shape drift, but this replay does not reproduce the accepted visual/SE3 drain and reaches only 912/1015 factors"
     }
   ],
   "forbidden_readme_snippets": [
