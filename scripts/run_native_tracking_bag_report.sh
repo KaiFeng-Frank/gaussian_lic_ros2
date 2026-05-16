@@ -628,9 +628,9 @@ Options:
   --mapper-feedback-sync-anchor STREAM
                                mapping_node synchronization anchor stream for mapper feedback: pointcloud or image. Default: pointcloud.
   --mapper-feedback-image-qos-reliability MODE
-                               mapping_node image input QoS reliability for mapper feedback. Default: best_effort; Gaussian feedback strict replay promotes to reliable unless explicitly set.
+                               mapping_node image input QoS reliability for mapper feedback. Default: best_effort. Use only with a compatible rosbag/player QoS override.
   --mapper-feedback-image-qos-depth N
-                               mapping_node image input QoS depth for mapper feedback. Default: 5; Gaussian feedback strict replay promotes to 512 unless explicitly set.
+                               mapping_node image input QoS depth for mapper feedback. Default: 5.
   --mapper-feedback-render-mode MODE
                                mapping_node rendered image mode for feedback. Default: debug_input; --enable-gaussian-map-feedback promotes this to rasterizer unless explicitly set.
   --mapper-feedback-pointcloud-coordinates MODE
@@ -1343,12 +1343,6 @@ while [[ $# -gt 0 ]]; do
       fi
       if [[ "${MAPPER_FEEDBACK_MAX_DEPTH_EXPLICIT}" != "true" ]]; then
         MAPPER_FEEDBACK_MAX_DEPTH=20.0
-      fi
-      if [[ "${MAPPER_FEEDBACK_IMAGE_QOS_RELIABILITY_EXPLICIT}" != "true" ]]; then
-        MAPPER_FEEDBACK_IMAGE_QOS_RELIABILITY=reliable
-      fi
-      if [[ "${MAPPER_FEEDBACK_IMAGE_QOS_DEPTH_EXPLICIT}" != "true" ]]; then
-        MAPPER_FEEDBACK_IMAGE_QOS_DEPTH=512
       fi
       if [[ "${PLAYBACK_RATE_EXPLICIT}" != "true" ]]; then
         PLAYBACK_RATE=0.25
