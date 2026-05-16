@@ -1709,10 +1709,12 @@ private:
       last_processed_visual_observed_stamp_ns_.value() == observed.stamp_ns &&
       last_processed_visual_rendered_stamp_ns_.value() == rendered.stamp_ns)
     {
+      ++visual_pair_duplicate_count_;
       return;
     }
     last_processed_visual_observed_stamp_ns_ = observed.stamp_ns;
     last_processed_visual_rendered_stamp_ns_ = rendered.stamp_ns;
+    ++visual_pair_processed_count_;
 
     last_visual_residual_ = visual_factor_.evaluate(rendered, observed);
     last_visual_alignment_ = visual_factor_.estimate_translation(
@@ -5190,6 +5192,8 @@ private:
       static_cast<uint64_t>(pending_visual_se3_photometric_factors_.size());
     status.visual_alignment_pending_stale_drops = visual_alignment_pending_stale_drops_;
     status.visual_se3_photometric_pending_stale_drops = visual_se3_photometric_pending_stale_drops_;
+    status.visual_pair_processed_count = visual_pair_processed_count_;
+    status.visual_pair_duplicate_count = visual_pair_duplicate_count_;
     status.visual_alignment_valid = last_visual_alignment_.valid;
     status.visual_alignment_saturated = last_visual_alignment_saturated_;
     status.visual_alignment_saturated_count = visual_alignment_saturated_count_;
@@ -5717,6 +5721,8 @@ private:
   size_t last_observed_image_height_{0};
   uint64_t visual_alignment_pending_stale_drops_{0};
   uint64_t visual_se3_photometric_pending_stale_drops_{0};
+  uint64_t visual_pair_processed_count_{0};
+  uint64_t visual_pair_duplicate_count_{0};
   uint64_t visual_alignment_saturated_count_{0};
   uint64_t visual_se3_photometric_total_batches_{0};
   uint64_t visual_se3_photometric_valid_batches_{0};

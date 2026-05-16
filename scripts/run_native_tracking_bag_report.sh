@@ -2785,6 +2785,8 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_se3_photometric_degenerate_batches",
     "visual_se3_photometric_quality_rejected_batches",
     "visual_alignment_saturated_count",
+    "visual_pair_processed_count",
+    "visual_pair_duplicate_count",
 )
 
 

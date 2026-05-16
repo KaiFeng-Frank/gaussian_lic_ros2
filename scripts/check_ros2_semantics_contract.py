@@ -448,6 +448,8 @@ def main() -> int:
         "visual_observed_miss_count",
         "visual_observed_stale_count",
         "visual_observed_size_mismatch_count",
+        "visual_pair_processed_count",
+        "visual_pair_duplicate_count",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
             errors.append(f"TrackingStatus must publish rendered-to-observed cache diagnostics: {field_name}")
