@@ -96,6 +96,13 @@
       "translation_rmse_m": 1.6185734267186553,
       "path_drift": 0.04689757531806384,
       "reason": "saturated-only photometric-step visual factor source misses the visual/SE3 drain target and regresses RMSE"
+    },
+    {
+      "id": "visual_factor_source_id_full64",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_sourceid64_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.4899746686564719,
+      "path_drift": 0.04015028007957489,
+      "reason": "full 64-bit visual source ids lower path drift but miss the visual/SE3 drain target and regress RMSE"
     }
   ],
   "forbidden_readme_snippets": [

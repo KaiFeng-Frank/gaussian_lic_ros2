@@ -215,6 +215,7 @@ VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 VISUAL_ALIGNMENT_MAX_SHIFT_PX=8
 VISUAL_ALIGNMENT_SCORE_MODE=rmse
 VISUAL_ALIGNMENT_FACTOR_SOURCE=search
+VISUAL_FACTOR_SOURCE_ID_MODE=legacy_8bit
 VISUAL_ALIGNMENT_WINDOW_WEIGHT=1.0
 VISUAL_ALIGNMENT_SATURATION_MARGIN_PX=0.0
 VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE=1.0
@@ -677,6 +678,8 @@ Options:
                                2D visual alignment objective. rmse preserves the legacy raw-intensity cost; zncc uses zero-mean normalized cross-correlation. Default: rmse.
   --visual-alignment-factor-source search|photometric_step|saturated_photometric_step
                                Measurement source for the sliding-window 2D visual factor. Default: search.
+  --visual-factor-source-id-mode legacy_8bit|full_64bit
+                               Source-id hash width for rendered/observed visual factors. Default: legacy_8bit.
   --visual-alignment-window-weight W
                                Sliding-window 2D visual alignment factor weight. Default: 1.0.
   --visual-alignment-saturation-margin-px PX
@@ -1567,6 +1570,10 @@ while [[ $# -gt 0 ]]; do
       VISUAL_ALIGNMENT_FACTOR_SOURCE="$2"
       shift 2
       ;;
+    --visual-factor-source-id-mode)
+      VISUAL_FACTOR_SOURCE_ID_MODE="$2"
+      shift 2
+      ;;
     --visual-alignment-window-weight)
       VISUAL_ALIGNMENT_WINDOW_WEIGHT="$2"
       shift 2
@@ -1887,6 +1894,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_alignment_max_shift_px:="${VISUAL_ALIGNMENT_MAX_SHIFT_PX}" \
   visual_alignment_score_mode:="${VISUAL_ALIGNMENT_SCORE_MODE}" \
   visual_alignment_factor_source:="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
+  visual_factor_source_id_mode:="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
   visual_alignment_window_weight:="${VISUAL_ALIGNMENT_WINDOW_WEIGHT}" \
   visual_alignment_saturation_margin_px:="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
   visual_alignment_saturated_weight_scale:="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
@@ -2304,6 +2312,7 @@ OBSERVED_FRAME_CACHE_SIZE_REPORT="${OBSERVED_FRAME_CACHE_SIZE}" \
 VISUAL_ALIGNMENT_MAX_SHIFT_PX_REPORT="${VISUAL_ALIGNMENT_MAX_SHIFT_PX}" \
 VISUAL_ALIGNMENT_SCORE_MODE_REPORT="${VISUAL_ALIGNMENT_SCORE_MODE}" \
 VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
+VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
 VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
 VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE_REPORT="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
@@ -2364,6 +2373,7 @@ visual_alignment_window_weight = float(sys.argv[16])
 visual_alignment_max_shift_px = int(os.environ["VISUAL_ALIGNMENT_MAX_SHIFT_PX_REPORT"])
 visual_alignment_score_mode = os.environ["VISUAL_ALIGNMENT_SCORE_MODE_REPORT"]
 visual_alignment_factor_source = os.environ["VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT"]
+visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
 visual_alignment_saturation_margin_px = float(
     os.environ["VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT"]
 )
@@ -3148,6 +3158,7 @@ report = {
         "visual_alignment_max_shift_px": visual_alignment_max_shift_px,
         "visual_alignment_score_mode": visual_alignment_score_mode,
         "visual_alignment_factor_source": visual_alignment_factor_source,
+        "visual_factor_source_id_mode": visual_factor_source_id_mode,
         "visual_alignment_window_weight": visual_alignment_window_weight,
         "visual_alignment_saturation_margin_px": visual_alignment_saturation_margin_px,
         "visual_alignment_saturated_weight_scale": visual_alignment_saturated_weight_scale,

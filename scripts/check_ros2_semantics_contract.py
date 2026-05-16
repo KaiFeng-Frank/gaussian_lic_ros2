@@ -185,6 +185,7 @@ def main() -> int:
         "rendered_frame_cache_size",
         "visual_alignment_score_mode",
         "visual_alignment_factor_source",
+        "visual_factor_source_id_mode",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -336,8 +337,10 @@ def main() -> int:
         errors.append("tracking_node must default visual alignment score mode to rmse")
     if 'declare_parameter<std::string>("visual_alignment_factor_source", "search")' not in tracking_node_text:
         errors.append("tracking_node must default visual alignment factor source to search")
-    if "static uint64_t visual_factor_source_id" not in tracking_node_text or "mixed % 254U" in tracking_node_text:
-        errors.append("visual factor source ids must use the full 64-bit stamp hash, not an 8-bit bucket")
+    if 'declare_parameter<std::string>("visual_factor_source_id_mode", "legacy_8bit")' not in tracking_node_text:
+        errors.append("tracking_node must default visual source-id hashing to the accepted legacy_8bit mode")
+    if "uint64_t visual_factor_source_id" not in tracking_node_text or "VisualFactorSourceIdMode::kFull64Bit" not in tracking_node_text:
+        errors.append("tracking_node must keep a default-off full_64bit visual source-id diagnostic")
     if "uint64_t source_id{0}" not in sliding_window_header_text:
         errors.append("sliding-window factors must carry 64-bit source ids to avoid replacement collisions")
     if 'DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05")' not in tracking_launch_text:
@@ -346,6 +349,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose visual alignment score mode")
     if 'DeclareLaunchArgument("visual_alignment_factor_source", default_value="search")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose visual alignment factor source")
+    if 'DeclareLaunchArgument("visual_factor_source_id_mode", default_value="legacy_8bit")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose the default-off visual source-id mode")
     if "visual_factor_continuity" not in native_tracking_report_text:
         errors.append("native tracking report must summarize per-bin visual/SE3 factor continuity")
     if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:

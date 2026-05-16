@@ -123,6 +123,12 @@ enum class VisualAlignmentFactorSource
   kSaturatedPhotometricStep,
 };
 
+enum class VisualFactorSourceIdMode
+{
+  kLegacy8Bit,
+  kFull64Bit,
+};
+
 VisualAlignmentFactorSource parse_visual_alignment_factor_source(
   const std::string & value)
 {
@@ -142,6 +148,21 @@ VisualAlignmentFactorSource parse_visual_alignment_factor_source(
   throw std::runtime_error(
     "visual_alignment_factor_source must be 'search', 'photometric_step', or "
     "'saturated_photometric_step'");
+}
+
+VisualFactorSourceIdMode parse_visual_factor_source_id_mode(const std::string & value)
+{
+  std::string lower = value;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](const unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  if (lower == "legacy_8bit") {
+    return VisualFactorSourceIdMode::kLegacy8Bit;
+  }
+  if (lower == "full_64bit") {
+    return VisualFactorSourceIdMode::kFull64Bit;
+  }
+  throw std::runtime_error("visual_factor_source_id_mode must be 'legacy_8bit' or 'full_64bit'");
 }
 
 struct GaussianSnapshotPoseCorrection
@@ -270,6 +291,10 @@ public:
       declare_parameter<std::string>("visual_alignment_factor_source", "search");
     visual_alignment_factor_source_ =
       parse_visual_alignment_factor_source(visual_alignment_factor_source_name_);
+    visual_factor_source_id_mode_name_ =
+      declare_parameter<std::string>("visual_factor_source_id_mode", "legacy_8bit");
+    visual_factor_source_id_mode_ =
+      parse_visual_factor_source_id_mode(visual_factor_source_id_mode_name_);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
     visual_alignment_meters_per_pixel_ = finite_positive_parameter(
@@ -3675,9 +3700,9 @@ private:
     return true;
   }
 
-  static uint64_t visual_factor_source_id(
+  uint64_t visual_factor_source_id(
     const int64_t observed_stamp_ns,
-    const int64_t rendered_stamp_ns)
+    const int64_t rendered_stamp_ns) const
   {
     uint64_t mixed = static_cast<uint64_t>(observed_stamp_ns);
     mixed ^= static_cast<uint64_t>(rendered_stamp_ns) + 0x9e3779b97f4a7c15ULL +
@@ -3687,6 +3712,9 @@ private:
     mixed ^= mixed >> 27U;
     mixed *= 0x94d049bb133111ebULL;
     mixed ^= mixed >> 31U;
+    if (visual_factor_source_id_mode_ == VisualFactorSourceIdMode::kLegacy8Bit) {
+      return 1U + (mixed % 254U);
+    }
     return mixed == 0U ? 1U : mixed;
   }
 
@@ -5344,6 +5372,8 @@ private:
     gaussian_lic_tracking::VisualAlignmentMetric::kRmse};
   std::string visual_alignment_factor_source_name_{"search"};
   VisualAlignmentFactorSource visual_alignment_factor_source_{VisualAlignmentFactorSource::kSearch};
+  std::string visual_factor_source_id_mode_name_{"legacy_8bit"};
+  VisualFactorSourceIdMode visual_factor_source_id_mode_{VisualFactorSourceIdMode::kLegacy8Bit};
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
