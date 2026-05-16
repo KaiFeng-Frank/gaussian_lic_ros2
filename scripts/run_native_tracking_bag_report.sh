@@ -680,6 +680,8 @@ Options:
                                tracking_node rendered-image cache size for delayed mapper feedback. Default: 64.
   --observed-frame-cache-size N
                                tracking_node observed-image cache size for delayed mapper feedback. Default: 128.
+  --visual-pending-factor-queue-size N
+                               tracking_node pending visual/SE3 factor queue size before BA ingestion. Default: 128.
   --visual-alignment-max-shift-px N
                                Exhaustive 2D visual alignment search radius. Default: 8.
   --visual-alignment-score-mode rmse|zncc
@@ -1574,6 +1576,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --observed-frame-cache-size)
       OBSERVED_FRAME_CACHE_SIZE="$2"
+      shift 2
+      ;;
+    --visual-pending-factor-queue-size)
+      VISUAL_PENDING_FACTOR_QUEUE_SIZE="$2"
       shift 2
       ;;
     --visual-alignment-max-shift-px)

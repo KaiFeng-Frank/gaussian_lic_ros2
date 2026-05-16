@@ -124,6 +124,20 @@
       "translation_rmse_m": 1.494477321097692,
       "path_drift": 0.04786329930677757,
       "reason": "dual-endpoint reliable mapper image QoS produces 1019 renders with only two image drops, but tracker visual/rendered pairing still misses the 1015 visual/SE3 drain target at 718 and regresses RMSE"
+    },
+    {
+      "id": "reliable_internal_image_rendered_depth64",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_reliable_internal_image_rendered_depth64_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.7409677902987353,
+      "path_drift": 0.06728131523992402,
+      "reason": "rendered-image QoS depth 64 nearly restores visual/SE3 drain at 1008/1015 but overfeeds pending visual factors, drops 50 queued factors, and regresses RMSE/path drift"
+    },
+    {
+      "id": "reliable_internal_image_rendered_depth64_pending256",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_reliable_internal_image_rendered_depth64_pending256_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5675565860887344,
+      "path_drift": 0.06140175581933941,
+      "reason": "larger pending visual-factor queue does not fix BA/window ingestion; it still misses visual/SE3 drain at 881/1015, drops 150 queued factors, and regresses RMSE/path drift"
     }
   ],
   "forbidden_readme_snippets": [
