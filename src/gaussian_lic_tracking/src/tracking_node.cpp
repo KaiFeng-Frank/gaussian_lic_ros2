@@ -100,6 +100,22 @@ double inverse_ratio_score(const double value, const double threshold)
   return std::clamp(threshold / value, 0.0, 1.0);
 }
 
+gaussian_lic_tracking::VisualAlignmentMetric parse_visual_alignment_metric(
+  const std::string & value)
+{
+  std::string lower = value;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](const unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  if (lower == "rmse") {
+    return gaussian_lic_tracking::VisualAlignmentMetric::kRmse;
+  }
+  if (lower == "zncc") {
+    return gaussian_lic_tracking::VisualAlignmentMetric::kZncc;
+  }
+  throw std::runtime_error("visual_alignment_score_mode must be 'rmse' or 'zncc'");
+}
+
 struct GaussianSnapshotPoseCorrection
 {
   bool applied{false};
@@ -219,6 +235,9 @@ public:
     visual_alignment_max_shift_px_ = integer_parameter_at_least(
       "visual_alignment_max_shift_px",
       declare_parameter<int>("visual_alignment_max_shift_px", 8), 0);
+    visual_alignment_score_mode_ =
+      declare_parameter<std::string>("visual_alignment_score_mode", "rmse");
+    visual_alignment_metric_ = parse_visual_alignment_metric(visual_alignment_score_mode_);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
     visual_alignment_meters_per_pixel_ = finite_positive_parameter(
@@ -1642,7 +1661,8 @@ private:
     last_visual_alignment_ = visual_factor_.estimate_translation(
       rendered,
       observed,
-      visual_alignment_max_shift_px_);
+      visual_alignment_max_shift_px_,
+      visual_alignment_metric_);
     last_visual_alignment_saturated_ =
       visual_alignment_is_saturated(last_visual_alignment_);
     last_visual_alignment_effective_weight_ =
@@ -5262,6 +5282,9 @@ private:
   Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};
+  std::string visual_alignment_score_mode_{"rmse"};
+  gaussian_lic_tracking::VisualAlignmentMetric visual_alignment_metric_{
+    gaussian_lic_tracking::VisualAlignmentMetric::kRmse};
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};

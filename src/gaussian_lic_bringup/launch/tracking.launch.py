@@ -98,6 +98,7 @@ def generate_launch_description():
     camera_to_imu_translation_m = LaunchConfiguration("camera_to_imu_translation_m")
     camera_to_imu_rpy_rad = LaunchConfiguration("camera_to_imu_rpy_rad")
     visual_alignment_max_shift_px = LaunchConfiguration("visual_alignment_max_shift_px")
+    visual_alignment_score_mode = LaunchConfiguration("visual_alignment_score_mode")
     enable_visual_alignment_window_factor = LaunchConfiguration("enable_visual_alignment_window_factor")
     visual_alignment_meters_per_pixel = LaunchConfiguration("visual_alignment_meters_per_pixel")
     visual_alignment_window_weight = LaunchConfiguration("visual_alignment_window_weight")
@@ -501,6 +502,7 @@ def generate_launch_description():
             DeclareLaunchArgument("camera_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("camera_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("visual_alignment_max_shift_px", default_value="8"),
+            DeclareLaunchArgument("visual_alignment_score_mode", default_value="rmse"),
             DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="true"),
             DeclareLaunchArgument("visual_alignment_meters_per_pixel", default_value="0.01"),
             DeclareLaunchArgument("visual_alignment_window_weight", default_value="1.0"),
@@ -781,6 +783,7 @@ def generate_launch_description():
                         "camera_to_imu_translation_m": camera_to_imu_translation_m,
                         "camera_to_imu_rpy_rad": camera_to_imu_rpy_rad,
                         "visual_alignment_max_shift_px": visual_alignment_max_shift_px,
+                        "visual_alignment_score_mode": visual_alignment_score_mode,
                         "enable_visual_alignment_window_factor": enable_visual_alignment_window_factor,
                         "visual_alignment_meters_per_pixel": visual_alignment_meters_per_pixel,
                         "visual_alignment_window_weight": visual_alignment_window_weight,

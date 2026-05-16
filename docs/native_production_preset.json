@@ -82,6 +82,13 @@
       "translation_rmse_m": 1.5900934478709468,
       "path_drift": 0.06259037716047797,
       "reason": "wider 2D visual search radius misses the visual/SE3 drain target and regresses RMSE/path drift"
+    },
+    {
+      "id": "visual_alignment_zncc",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_zncc_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.4958084762212192,
+      "path_drift": 0.03161781183867799,
+      "reason": "ZNCC lowers path drift but misses the visual/SE3 drain target and regresses RMSE"
     }
   ],
   "forbidden_readme_snippets": [

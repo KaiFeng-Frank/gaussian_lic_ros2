@@ -40,6 +40,12 @@ struct VisualAlignment
   double rmse{0.0};
 };
 
+enum class VisualAlignmentMetric
+{
+  kRmse,
+  kZncc,
+};
+
 struct VisualPhotometricLinearization
 {
   bool valid{false};
@@ -128,7 +134,8 @@ public:
   VisualAlignment estimate_translation(
     const VisualFrame & reference,
     const VisualFrame & candidate,
-    int max_shift_px) const;
+    int max_shift_px,
+    VisualAlignmentMetric metric = VisualAlignmentMetric::kRmse) const;
 
 private:
   VisualResidual evaluate_shifted(

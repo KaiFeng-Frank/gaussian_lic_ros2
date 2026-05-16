@@ -82,6 +82,54 @@ int main()
     return 1;
   }
 
+  gaussian_lic_tracking::VisualFrame zncc_reference;
+  zncc_reference.width = 24;
+  zncc_reference.height = 24;
+  zncc_reference.gray.resize(zncc_reference.width * zncc_reference.height);
+  for (size_t y = 0; y < zncc_reference.height; ++y) {
+    for (size_t x = 0; x < zncc_reference.width; ++x) {
+      zncc_reference.gray[y * zncc_reference.width + x] =
+        static_cast<float>(
+        0.5 + 0.3 * std::sin(0.37 * static_cast<double>(x)) +
+        0.2 * std::cos(0.29 * static_cast<double>(y)) +
+        0.05 * static_cast<double>((x * y) % 7U));
+    }
+  }
+  gaussian_lic_tracking::VisualFrame zncc_candidate = zncc_reference;
+  zncc_candidate.gray.assign(zncc_reference.gray.size(), 0.0F);
+  constexpr int expected_zncc_dx = 2;
+  constexpr int expected_zncc_dy = -1;
+  for (size_t y = 0; y < zncc_reference.height; ++y) {
+    for (size_t x = 0; x < zncc_reference.width; ++x) {
+      const int target_x = static_cast<int>(x) + expected_zncc_dx;
+      const int target_y = static_cast<int>(y) + expected_zncc_dy;
+      if (target_x < 0 || target_y < 0 ||
+        target_x >= static_cast<int>(zncc_reference.width) ||
+        target_y >= static_cast<int>(zncc_reference.height))
+      {
+        continue;
+      }
+      zncc_candidate.gray[
+        static_cast<size_t>(target_y) * zncc_candidate.width + static_cast<size_t>(target_x)] =
+        static_cast<float>(0.35 + 1.4 * zncc_reference.gray[y * zncc_reference.width + x]);
+    }
+  }
+  gaussian_lic_tracking::VisualFactor zncc_factor(zncc_reference.width * zncc_reference.height);
+  const auto zncc_alignment = zncc_factor.estimate_translation(
+    zncc_reference,
+    zncc_candidate,
+    4,
+    gaussian_lic_tracking::VisualAlignmentMetric::kZncc);
+  std::cout << " zncc_alignment dx=" << zncc_alignment.dx
+            << " dy=" << zncc_alignment.dy;
+  if (!zncc_alignment.valid ||
+    zncc_alignment.dx != expected_zncc_dx ||
+    zncc_alignment.dy != expected_zncc_dy)
+  {
+    std::cerr << "ZNCC visual alignment failed to recover affine-brightness translation\n";
+    return 1;
+  }
+
   gaussian_lic_tracking::VisualFrame subpixel_reference;
   subpixel_reference.width = 32;
   subpixel_reference.height = 32;

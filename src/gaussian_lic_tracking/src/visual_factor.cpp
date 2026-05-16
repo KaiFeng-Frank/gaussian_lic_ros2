@@ -41,6 +41,14 @@ double parabolic_subpixel_offset(
   const double offset = 0.5 * (minus_cost - plus_cost) / denominator;
   return std::clamp(offset, -0.5, 0.5);
 }
+
+struct ShiftAlignmentScore
+{
+  bool valid{false};
+  VisualResidual residual;
+  double objective{0.0};
+  double subpixel_cost{0.0};
+};
 }  // namespace
 
 VisualFactor::VisualFactor(const size_t max_pixels)
@@ -349,45 +357,151 @@ VisualResidual VisualFactor::evaluate_shifted(
   return residual;
 }
 
+ShiftAlignmentScore evaluate_shifted_alignment_score(
+  const VisualFactor & factor,
+  const VisualFrame & reference,
+  const VisualFrame & candidate,
+  const int dx,
+  const int dy,
+  const VisualAlignmentMetric metric)
+{
+  ShiftAlignmentScore score;
+  if (reference.width == 0U || reference.height == 0U ||
+    reference.width != candidate.width || reference.height != candidate.height)
+  {
+    return score;
+  }
+  const int width = static_cast<int>(reference.width);
+  const int height = static_cast<int>(reference.height);
+  if (std::abs(dx) >= width || std::abs(dy) >= height) {
+    return score;
+  }
+  const size_t pixel_count = reference.width * reference.height;
+  if (reference.gray.size() != pixel_count || candidate.gray.size() != pixel_count) {
+    return score;
+  }
+
+  const size_t stride = pixel_count > factor.max_pixels()
+    ? static_cast<size_t>(
+        std::ceil(static_cast<double>(pixel_count) / static_cast<double>(factor.max_pixels())))
+    : 1U;
+  double reference_sum = 0.0;
+  double candidate_sum = 0.0;
+  double reference_sq_sum = 0.0;
+  double candidate_sq_sum = 0.0;
+  double cross_sum = 0.0;
+  double abs_sum = 0.0;
+  double sq_sum = 0.0;
+  size_t compared = 0U;
+  for (size_t index = 0; index < pixel_count; index += stride) {
+    const int x = static_cast<int>(index % reference.width);
+    const int y = static_cast<int>(index / reference.width);
+    const int candidate_x = x + dx;
+    const int candidate_y = y + dy;
+    if (candidate_x < 0 || candidate_x >= width || candidate_y < 0 || candidate_y >= height) {
+      continue;
+    }
+    const size_t candidate_index =
+      static_cast<size_t>(candidate_y) * candidate.width + static_cast<size_t>(candidate_x);
+    const double reference_value = static_cast<double>(reference.gray[index]);
+    const double candidate_value = static_cast<double>(candidate.gray[candidate_index]);
+    if (!std::isfinite(reference_value) || !std::isfinite(candidate_value)) {
+      continue;
+    }
+    const double diff = candidate_value - reference_value;
+    reference_sum += reference_value;
+    candidate_sum += candidate_value;
+    reference_sq_sum += reference_value * reference_value;
+    candidate_sq_sum += candidate_value * candidate_value;
+    cross_sum += reference_value * candidate_value;
+    abs_sum += std::abs(diff);
+    sq_sum += diff * diff;
+    ++compared;
+  }
+  if (compared == 0U) {
+    return score;
+  }
+  score.residual.valid = true;
+  score.residual.compared_pixels = compared;
+  score.residual.mean_abs_error = abs_sum / static_cast<double>(compared);
+  score.residual.rmse = std::sqrt(sq_sum / static_cast<double>(compared));
+  if (metric == VisualAlignmentMetric::kRmse) {
+    score.valid = true;
+    score.objective = -score.residual.rmse;
+    score.subpixel_cost = score.residual.rmse;
+    return score;
+  }
+  if (compared < 4U) {
+    score.valid = false;
+    return score;
+  }
+  const double count = static_cast<double>(compared);
+  const double reference_var = reference_sq_sum - reference_sum * reference_sum / count;
+  const double candidate_var = candidate_sq_sum - candidate_sum * candidate_sum / count;
+  if (reference_var <= 1.0e-12 || candidate_var <= 1.0e-12) {
+    return score;
+  }
+  const double covariance = cross_sum - reference_sum * candidate_sum / count;
+  const double zncc = std::clamp(covariance / std::sqrt(reference_var * candidate_var), -1.0, 1.0);
+  score.valid = std::isfinite(zncc);
+  score.objective = zncc;
+  score.subpixel_cost = 1.0 - zncc;
+  return score;
+}
+
 VisualAlignment VisualFactor::estimate_translation(
   const VisualFrame & reference,
   const VisualFrame & candidate,
-  const int max_shift_px) const
+  const int max_shift_px,
+  const VisualAlignmentMetric metric) const
 {
   VisualAlignment best;
   if (max_shift_px < 0) {
     return best;
   }
+  double best_objective = -std::numeric_limits<double>::infinity();
   for (int dy = -max_shift_px; dy <= max_shift_px; ++dy) {
     for (int dx = -max_shift_px; dx <= max_shift_px; ++dx) {
-      const auto residual = evaluate_shifted(reference, candidate, dx, dy);
-      if (!residual.valid) {
+      const auto score =
+        evaluate_shifted_alignment_score(*this, reference, candidate, dx, dy, metric);
+      if (!score.valid) {
         continue;
       }
-      if (!best.valid || residual.rmse < best.rmse) {
+      if (!best.valid || score.objective > best_objective) {
         best.valid = true;
+        best_objective = score.objective;
         best.dx = dx;
         best.dy = dy;
         best.subpixel_dx = static_cast<double>(dx);
         best.subpixel_dy = static_cast<double>(dy);
-        best.compared_pixels = residual.compared_pixels;
-        best.mean_abs_error = residual.mean_abs_error;
-        best.rmse = residual.rmse;
+        best.compared_pixels = score.residual.compared_pixels;
+        best.mean_abs_error = score.residual.mean_abs_error;
+        best.rmse = score.residual.rmse;
       }
     }
   }
   if (best.valid && best.rmse > 1.0e-9) {
-    const auto x_minus = evaluate_shifted(reference, candidate, best.dx - 1, best.dy);
-    const auto x_plus = evaluate_shifted(reference, candidate, best.dx + 1, best.dy);
+    const auto center =
+      evaluate_shifted_alignment_score(*this, reference, candidate, best.dx, best.dy, metric);
+    const auto x_minus =
+      evaluate_shifted_alignment_score(*this, reference, candidate, best.dx - 1, best.dy, metric);
+    const auto x_plus =
+      evaluate_shifted_alignment_score(*this, reference, candidate, best.dx + 1, best.dy, metric);
     if (x_minus.valid && x_plus.valid) {
       best.subpixel_dx =
-        static_cast<double>(best.dx) + parabolic_subpixel_offset(x_minus.rmse, best.rmse, x_plus.rmse);
+        static_cast<double>(best.dx) +
+        parabolic_subpixel_offset(
+          x_minus.subpixel_cost, center.subpixel_cost, x_plus.subpixel_cost);
     }
-    const auto y_minus = evaluate_shifted(reference, candidate, best.dx, best.dy - 1);
-    const auto y_plus = evaluate_shifted(reference, candidate, best.dx, best.dy + 1);
+    const auto y_minus =
+      evaluate_shifted_alignment_score(*this, reference, candidate, best.dx, best.dy - 1, metric);
+    const auto y_plus =
+      evaluate_shifted_alignment_score(*this, reference, candidate, best.dx, best.dy + 1, metric);
     if (y_minus.valid && y_plus.valid) {
       best.subpixel_dy =
-        static_cast<double>(best.dy) + parabolic_subpixel_offset(y_minus.rmse, best.rmse, y_plus.rmse);
+        static_cast<double>(best.dy) +
+        parabolic_subpixel_offset(
+          y_minus.subpixel_cost, center.subpixel_cost, y_plus.subpixel_cost);
     }
   }
   return best;
