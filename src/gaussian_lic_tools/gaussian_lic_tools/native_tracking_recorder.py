@@ -147,6 +147,9 @@ def compute_time_binned_summary(records, bin_count):
         record for record in records
         if isinstance(record.get("stamp"), (int, float)) and math.isfinite(float(record["stamp"]))
     ]
+    positive_stamped_records = [record for record in stamped_records if float(record["stamp"]) > 0.0]
+    if positive_stamped_records:
+        stamped_records = positive_stamped_records
     if not stamped_records:
         return []
 
