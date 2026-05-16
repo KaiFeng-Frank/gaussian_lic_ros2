@@ -1201,9 +1201,15 @@ feedback baseline (`1.510 m` / `6.82%`). The `0.050` release lowers drift to
 `3.52%` but regresses RMSE to `1.426 m`, so the production preset chooses
 ATE-first `0.045`. The latest visual-saturation downweight probe is archived but
 not promoted because it keeps RMSE flat while missing the visual/SE3 continuity
-drain target and raising path drift to `5.16%`. The strict native Coco-LIC2
-parity gap is now trajectory length/shape under continuous visual feedback, not
-missing CBD data.
+drain target and raising path drift to `5.16%`. The latest source-id/pair-count
+diagnostic at
+`results/fastlivo2/CBD_Building_01_gaussian_feedback_legacy_sourceid_pair_counts_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_drain1015_probe/`
+records `876` processed visual pairs, `876` visual/SE3 factors, and `0`
+duplicate pairs, while mapper feedback emits only `1040` rendered previews with
+`144` dropped pointcloud/pose messages and zero render errors. That rejects
+source-id collisions and duplicate-pair suppression as the blocker; the next
+strict native Coco-LIC2 gap is mapper-feedback throughput/pairing continuity plus
+trajectory length/shape under continuous visual feedback, not missing CBD data.
 
 See [docs/BASELINE_DATA.md](docs/BASELINE_DATA.md), [docs/RELEASE_MILESTONES.md](docs/RELEASE_MILESTONES.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 
