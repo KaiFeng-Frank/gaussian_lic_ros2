@@ -116,6 +116,34 @@ gaussian_lic_tracking::VisualAlignmentMetric parse_visual_alignment_metric(
   throw std::runtime_error("visual_alignment_score_mode must be 'rmse' or 'zncc'");
 }
 
+enum class VisualAlignmentFactorSource
+{
+  kSearch,
+  kPhotometricStep,
+  kSaturatedPhotometricStep,
+};
+
+VisualAlignmentFactorSource parse_visual_alignment_factor_source(
+  const std::string & value)
+{
+  std::string lower = value;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](const unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  if (lower == "search") {
+    return VisualAlignmentFactorSource::kSearch;
+  }
+  if (lower == "photometric_step") {
+    return VisualAlignmentFactorSource::kPhotometricStep;
+  }
+  if (lower == "saturated_photometric_step") {
+    return VisualAlignmentFactorSource::kSaturatedPhotometricStep;
+  }
+  throw std::runtime_error(
+    "visual_alignment_factor_source must be 'search', 'photometric_step', or "
+    "'saturated_photometric_step'");
+}
+
 struct GaussianSnapshotPoseCorrection
 {
   bool applied{false};
@@ -238,6 +266,10 @@ public:
     visual_alignment_score_mode_ =
       declare_parameter<std::string>("visual_alignment_score_mode", "rmse");
     visual_alignment_metric_ = parse_visual_alignment_metric(visual_alignment_score_mode_);
+    visual_alignment_factor_source_name_ =
+      declare_parameter<std::string>("visual_alignment_factor_source", "search");
+    visual_alignment_factor_source_ =
+      parse_visual_alignment_factor_source(visual_alignment_factor_source_name_);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
     visual_alignment_meters_per_pixel_ = finite_positive_parameter(
@@ -1737,11 +1769,12 @@ private:
         }
       }
     }
-    if (last_visual_alignment_.valid) {
+    const auto window_alignment = visual_alignment_for_window_factor();
+    if (window_alignment.has_value()) {
       PendingVisualAlignmentFactor pending;
       pending.stamp_ns = observed.stamp_ns;
       pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
-      pending.alignment = last_visual_alignment_;
+      pending.alignment = window_alignment.value();
       pending_visual_alignment_factors_.push_back(std::move(pending));
       trim_pending_visual_factor_queues();
     }
@@ -3500,6 +3533,30 @@ private:
       weight *= visual_alignment_saturated_weight_scale_;
     }
     return std::max(weight, 1.0e-9);
+  }
+
+  std::optional<gaussian_lic_tracking::VisualAlignment> visual_alignment_for_window_factor() const
+  {
+    if (!last_visual_alignment_.valid) {
+      return std::nullopt;
+    }
+    if (visual_alignment_factor_source_ == VisualAlignmentFactorSource::kSearch ||
+      (visual_alignment_factor_source_ == VisualAlignmentFactorSource::kSaturatedPhotometricStep &&
+      !last_visual_alignment_saturated_))
+    {
+      return last_visual_alignment_;
+    }
+    if (!last_visual_photometric_linearization_.valid ||
+      !last_visual_photometric_linearization_.gauss_newton_step.allFinite())
+    {
+      return last_visual_alignment_;
+    }
+    gaussian_lic_tracking::VisualAlignment alignment = last_visual_alignment_;
+    alignment.subpixel_dx = last_visual_photometric_linearization_.gauss_newton_step.x();
+    alignment.subpixel_dy = last_visual_photometric_linearization_.gauss_newton_step.y();
+    alignment.dx = static_cast<int>(std::lround(alignment.subpixel_dx));
+    alignment.dy = static_cast<int>(std::lround(alignment.subpixel_dy));
+    return alignment;
   }
 
   static double se3_photometric_sample_inlier_ratio(const Se3PhotometricSampleBatch & batch)
@@ -5285,6 +5342,8 @@ private:
   std::string visual_alignment_score_mode_{"rmse"};
   gaussian_lic_tracking::VisualAlignmentMetric visual_alignment_metric_{
     gaussian_lic_tracking::VisualAlignmentMetric::kRmse};
+  std::string visual_alignment_factor_source_name_{"search"};
+  VisualAlignmentFactorSource visual_alignment_factor_source_{VisualAlignmentFactorSource::kSearch};
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};

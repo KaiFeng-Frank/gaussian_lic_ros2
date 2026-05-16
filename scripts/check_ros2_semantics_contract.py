@@ -184,6 +184,7 @@ def main() -> int:
         "sparse_lidar_depth_dilation_px",
         "rendered_frame_cache_size",
         "visual_alignment_score_mode",
+        "visual_alignment_factor_source",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -333,10 +334,14 @@ def main() -> int:
         errors.append("tracking_node must default visual alignment Huber delta to 0.05m")
     if 'declare_parameter<std::string>("visual_alignment_score_mode", "rmse")' not in tracking_node_text:
         errors.append("tracking_node must default visual alignment score mode to rmse")
+    if 'declare_parameter<std::string>("visual_alignment_factor_source", "search")' not in tracking_node_text:
+        errors.append("tracking_node must default visual alignment factor source to search")
     if 'DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose visual alignment Huber delta")
     if 'DeclareLaunchArgument("visual_alignment_score_mode", default_value="rmse")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose visual alignment score mode")
+    if 'DeclareLaunchArgument("visual_alignment_factor_source", default_value="search")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose visual alignment factor source")
     if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default SE3 photometric window factors to true")
     if 'declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL)' not in tracking_node_text:

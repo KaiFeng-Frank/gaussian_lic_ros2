@@ -142,6 +142,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_alignment_max_shift_px",
         "--visual-alignment-score-mode",
         "visual_alignment_score_mode",
+        "--visual-alignment-factor-source",
+        "visual_alignment_factor_source",
     ):
         require_snippet(script, option, "run_native_tracking_bag_report.sh", errors)
 
