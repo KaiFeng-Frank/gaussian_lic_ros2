@@ -2756,6 +2756,84 @@ def summary_delta(bin_summary, key):
     except (TypeError, ValueError):
         return 0
 
+
+VISUAL_FACTOR_CONTINUITY_FIELDS = (
+    "sliding_window_total_visual_factors",
+    "sliding_window_total_se3_photometric_factors",
+    "visual_rendered_miss_count",
+    "visual_rendered_stale_count",
+    "visual_rendered_size_mismatch_count",
+    "visual_observed_miss_count",
+    "visual_observed_stale_count",
+    "visual_observed_size_mismatch_count",
+    "visual_depth_miss_count",
+    "visual_depth_stale_count",
+    "visual_depth_size_mismatch_count",
+    "visual_se3_photometric_total_batches",
+    "visual_se3_photometric_valid_batches",
+    "visual_se3_photometric_insufficient_sample_batches",
+    "visual_se3_photometric_degenerate_batches",
+    "visual_se3_photometric_quality_rejected_batches",
+    "visual_alignment_saturated_count",
+)
+
+
+def build_visual_factor_continuity(status):
+    bins = []
+    for bin_summary in status.get("binned_summary", []):
+        if not isinstance(bin_summary, dict):
+            continue
+        item = {
+            "index": int(bin_summary.get("index", len(bins))),
+            "sample_count": int(bin_summary.get("sample_count", 0) or 0),
+        }
+        for field_name in VISUAL_FACTOR_CONTINUITY_FIELDS:
+            item[f"{field_name}_delta"] = summary_delta(bin_summary, field_name)
+        bins.append(item)
+
+    if not bins:
+        return {
+            "available": False,
+            "reason": "tracking_status.binned_summary is missing or empty",
+            "bins": [],
+        }
+
+    def min_delta(field_name):
+        return min(item[f"{field_name}_delta"] for item in bins)
+
+    def max_delta(field_name):
+        return max(item[f"{field_name}_delta"] for item in bins)
+
+    worst_by_factor = sorted(
+        bins,
+        key=lambda item: (
+            item["sliding_window_total_visual_factors_delta"] +
+            item["sliding_window_total_se3_photometric_factors_delta"],
+            item["sample_count"],
+            item["index"],
+        ),
+    )[:3]
+    return {
+        "available": True,
+        "binned_summary_finalized": bool(status.get("binned_summary_finalized", False)),
+        "bin_count": len(bins),
+        "min_visual_factor_delta": min_delta("sliding_window_total_visual_factors"),
+        "min_se3_photometric_factor_delta": min_delta(
+            "sliding_window_total_se3_photometric_factors"),
+        "min_se3_valid_batch_delta": min_delta("visual_se3_photometric_valid_batches"),
+        "max_rendered_stale_delta": max_delta("visual_rendered_stale_count"),
+        "max_observed_stale_delta": max_delta("visual_observed_stale_count"),
+        "max_depth_stale_delta": max_delta("visual_depth_stale_count"),
+        "max_se3_quality_rejected_delta": max_delta(
+            "visual_se3_photometric_quality_rejected_batches"),
+        "max_visual_alignment_saturated_delta": max_delta("visual_alignment_saturated_count"),
+        "worst_factor_bins": worst_by_factor,
+        "bins": bins,
+    }
+
+
+visual_factor_continuity = build_visual_factor_continuity(status)
+
 if metrics.get("trajectory_poses", 0) < min_poses:
     errors.append(f"trajectory poses {metrics.get('trajectory_poses', 0)} < {min_poses}")
 if (
@@ -3057,6 +3135,7 @@ if require_deskew and int(last.get("trajectory_deskew_hits", 0)) <= 0:
 report = {
     "ok": not errors,
     "errors": errors,
+    "visual_factor_continuity": visual_factor_continuity,
     "gate_config": {
         "rendered_image_qos_reliability": os.environ["RENDERED_IMAGE_QOS_RELIABILITY_REPORT"],
         "rendered_image_qos_durability": os.environ["RENDERED_IMAGE_QOS_DURABILITY_REPORT"],

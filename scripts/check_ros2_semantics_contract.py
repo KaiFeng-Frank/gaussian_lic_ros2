@@ -342,6 +342,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose visual alignment score mode")
     if 'DeclareLaunchArgument("visual_alignment_factor_source", default_value="search")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose visual alignment factor source")
+    if "visual_factor_continuity" not in native_tracking_report_text:
+        errors.append("native tracking report must summarize per-bin visual/SE3 factor continuity")
     if 'DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must default SE3 photometric window factors to true")
     if 'declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL)' not in tracking_node_text:
