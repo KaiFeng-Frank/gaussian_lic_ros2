@@ -230,6 +230,12 @@ public:
     visual_alignment_huber_delta_m_ = finite_nonnegative_parameter(
       "visual_alignment_huber_delta_m",
       declare_parameter<double>("visual_alignment_huber_delta_m", 0.05));
+    visual_alignment_saturation_margin_px_ = finite_nonnegative_parameter(
+      "visual_alignment_saturation_margin_px",
+      declare_parameter<double>("visual_alignment_saturation_margin_px", 0.0));
+    visual_alignment_saturated_weight_scale_ = finite_nonnegative_parameter(
+      "visual_alignment_saturated_weight_scale",
+      declare_parameter<double>("visual_alignment_saturated_weight_scale", 1.0));
     enable_se3_photometric_window_factor_ =
       declare_parameter<bool>("enable_se3_photometric_window_factor", true);
     se3_photometric_window_weight_ = finite_positive_parameter(
@@ -1637,6 +1643,13 @@ private:
       rendered,
       observed,
       visual_alignment_max_shift_px_);
+    last_visual_alignment_saturated_ =
+      visual_alignment_is_saturated(last_visual_alignment_);
+    last_visual_alignment_effective_weight_ =
+      visual_alignment_effective_weight(last_visual_alignment_);
+    if (last_visual_alignment_saturated_) {
+      ++visual_alignment_saturated_count_;
+    }
     last_visual_photometric_linearization_ =
       visual_factor_.linearize_translation(rendered, observed);
     if (enable_se3_photometric_window_factor_) {
@@ -2096,7 +2109,7 @@ private:
           pending.alignment.subpixel_dx,
           pending.alignment.subpixel_dy};
         visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
-        visual_factor.weight = visual_alignment_window_weight_;
+        visual_factor.weight = visual_alignment_effective_weight(pending.alignment);
         visual_factor.huber_delta_m = visual_alignment_huber_delta_m_;
         visual_window_factors.push_back(visual_factor);
       }
@@ -3444,6 +3457,29 @@ private:
       return false;
     }
     return true;
+  }
+
+  bool visual_alignment_is_saturated(
+    const gaussian_lic_tracking::VisualAlignment & alignment) const
+  {
+    if (!alignment.valid || visual_alignment_max_shift_px_ <= 0) {
+      return false;
+    }
+    const double limit =
+      static_cast<double>(visual_alignment_max_shift_px_) + 0.5 -
+      visual_alignment_saturation_margin_px_;
+    return std::abs(alignment.subpixel_dx) >= limit ||
+           std::abs(alignment.subpixel_dy) >= limit;
+  }
+
+  double visual_alignment_effective_weight(
+    const gaussian_lic_tracking::VisualAlignment & alignment) const
+  {
+    double weight = visual_alignment_window_weight_;
+    if (visual_alignment_is_saturated(alignment)) {
+      weight *= visual_alignment_saturated_weight_scale_;
+    }
+    return std::max(weight, 1.0e-9);
   }
 
   static double se3_photometric_sample_inlier_ratio(const Se3PhotometricSampleBatch & batch)
@@ -5050,6 +5086,9 @@ private:
     status.visual_alignment_pending_stale_drops = visual_alignment_pending_stale_drops_;
     status.visual_se3_photometric_pending_stale_drops = visual_se3_photometric_pending_stale_drops_;
     status.visual_alignment_valid = last_visual_alignment_.valid;
+    status.visual_alignment_saturated = last_visual_alignment_saturated_;
+    status.visual_alignment_saturated_count = visual_alignment_saturated_count_;
+    status.visual_alignment_effective_weight = last_visual_alignment_effective_weight_;
     status.visual_rmse = last_visual_residual_.valid ? last_visual_residual_.rmse : 0.0;
     status.visual_subpixel_dx = last_visual_alignment_.valid ? last_visual_alignment_.subpixel_dx : 0.0;
     status.visual_subpixel_dy = last_visual_alignment_.valid ? last_visual_alignment_.subpixel_dy : 0.0;
@@ -5227,6 +5266,8 @@ private:
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
   double visual_alignment_huber_delta_m_{0.05};
+  double visual_alignment_saturation_margin_px_{0.0};
+  double visual_alignment_saturated_weight_scale_{1.0};
   bool enable_se3_photometric_window_factor_{true};
   double se3_photometric_window_weight_{1.0};
   double se3_photometric_factor_huber_delta_{1.0};
@@ -5518,6 +5559,8 @@ private:
   gaussian_lic_tracking::VisualResidual last_visual_residual_;
   gaussian_lic_tracking::VisualAlignment last_visual_alignment_;
   gaussian_lic_tracking::VisualPhotometricLinearization last_visual_photometric_linearization_;
+  bool last_visual_alignment_saturated_{false};
+  double last_visual_alignment_effective_weight_{0.0};
   gaussian_lic_tracking::VisualSe3PhotometricLinearization last_visual_se3_photometric_linearization_;
   std::deque<PendingVisualAlignmentFactor> pending_visual_alignment_factors_;
   std::deque<PendingSe3PhotometricFactor> pending_visual_se3_photometric_factors_;
@@ -5562,6 +5605,7 @@ private:
   size_t last_observed_image_height_{0};
   uint64_t visual_alignment_pending_stale_drops_{0};
   uint64_t visual_se3_photometric_pending_stale_drops_{0};
+  uint64_t visual_alignment_saturated_count_{0};
   uint64_t visual_se3_photometric_total_batches_{0};
   uint64_t visual_se3_photometric_valid_batches_{0};
   uint64_t visual_se3_photometric_insufficient_sample_batches_{0};

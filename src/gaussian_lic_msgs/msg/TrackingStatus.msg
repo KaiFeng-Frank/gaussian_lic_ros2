@@ -234,6 +234,9 @@ uint64 visual_se3_photometric_pending_queue_size
 uint64 visual_alignment_pending_stale_drops
 uint64 visual_se3_photometric_pending_stale_drops
 bool visual_alignment_valid
+bool visual_alignment_saturated
+uint64 visual_alignment_saturated_count
+float64 visual_alignment_effective_weight
 float64 visual_rmse
 float64 visual_subpixel_dx
 float64 visual_subpixel_dy

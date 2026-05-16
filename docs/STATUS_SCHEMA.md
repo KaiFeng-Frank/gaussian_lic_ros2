@@ -229,6 +229,9 @@ visual_se3_photometric_pending_queue_size
 visual_alignment_pending_stale_drops
 visual_se3_photometric_pending_stale_drops
 visual_alignment_valid
+visual_alignment_saturated
+visual_alignment_saturated_count
+visual_alignment_effective_weight
 visual_rmse
 visual_subpixel_dx
 visual_subpixel_dy
@@ -320,7 +323,11 @@ rebuilds during every linearization.
 The visual gate replays a 32x32 Gaussian-pattern image bag while a
 transient-local rendered-image publisher supplies the mapper-render reference,
 then checks both subpixel alignment, Huber-robust visual-alignment factors, and
-photometric Gauss-Newton linearization status, plus nonzero Huber-robust SE3 photometric window factors extracted from
+photometric Gauss-Newton linearization status. Visual alignment status also
+reports whether the subpixel shift hit the configured search boundary, the
+cumulative saturated count, and the effective factor weight after optional
+saturation downweighting, so search-edge matches cannot masquerade as ordinary
+high-confidence image constraints. The gate also checks nonzero Huber-robust SE3 photometric window factors extracted from
 nearest-fresh-render/current/depth images. The SE3 status fields expose candidate pixels,
 accepted robust samples, inlier ratio, mean absolute residual, cost,
 Gauss-Newton step norm, current and last-accepted sparse-depth sample inlier

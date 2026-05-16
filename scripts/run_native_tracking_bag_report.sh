@@ -213,6 +213,8 @@ RENDERED_FRAME_CACHE_SIZE=64
 OBSERVED_FRAME_CACHE_SIZE=128
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 VISUAL_ALIGNMENT_WINDOW_WEIGHT=1.0
+VISUAL_ALIGNMENT_SATURATION_MARGIN_PX=0.0
+VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE=1.0
 SE3_PHOTOMETRIC_WINDOW_WEIGHT=0.5
 SE3_PHOTOMETRIC_MAX_SAMPLES=2000
 SE3_PHOTOMETRIC_MIN_SAMPLES=8
@@ -668,6 +670,10 @@ Options:
                                tracking_node observed-image cache size for delayed mapper feedback. Default: 128.
   --visual-alignment-window-weight W
                                Sliding-window 2D visual alignment factor weight. Default: 1.0.
+  --visual-alignment-saturation-margin-px PX
+                               Treat visual alignment shifts within PX of the search edge as saturated. Default: 0.0.
+  --visual-alignment-saturated-weight-scale S
+                               Multiply saturated visual alignment factor weight by S while keeping factor continuity. Default: 1.0.
   --se3-photometric-window-weight W
                                Sliding-window SE3 photometric factor weight. Default: 0.5.
   --se3-photometric-max-samples N
@@ -1544,6 +1550,14 @@ while [[ $# -gt 0 ]]; do
       VISUAL_ALIGNMENT_WINDOW_WEIGHT="$2"
       shift 2
       ;;
+    --visual-alignment-saturation-margin-px)
+      VISUAL_ALIGNMENT_SATURATION_MARGIN_PX="$2"
+      shift 2
+      ;;
+    --visual-alignment-saturated-weight-scale)
+      VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE="$2"
+      shift 2
+      ;;
     --se3-photometric-window-weight)
       SE3_PHOTOMETRIC_WINDOW_WEIGHT="$2"
       shift 2
@@ -1850,6 +1864,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
   visual_alignment_window_weight:="${VISUAL_ALIGNMENT_WINDOW_WEIGHT}" \
+  visual_alignment_saturation_margin_px:="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
+  visual_alignment_saturated_weight_scale:="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
   se3_photometric_window_weight:="${SE3_PHOTOMETRIC_WINDOW_WEIGHT}" \
   rendered_frame_cache_size:="${RENDERED_FRAME_CACHE_SIZE}" \
   observed_frame_cache_size:="${OBSERVED_FRAME_CACHE_SIZE}" \
@@ -2261,6 +2277,8 @@ RENDERED_IMAGE_QOS_DEPTH_REPORT="${RENDERED_IMAGE_QOS_DEPTH}" \
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM_REPORT="${MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM}" \
 RENDERED_FRAME_CACHE_SIZE_REPORT="${RENDERED_FRAME_CACHE_SIZE}" \
 OBSERVED_FRAME_CACHE_SIZE_REPORT="${OBSERVED_FRAME_CACHE_SIZE}" \
+VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
+VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE_REPORT="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -2316,6 +2334,12 @@ visual_factor_max_dt_ns = int(sys.argv[13])
 visual_depth_max_dt_ns = int(sys.argv[14])
 visual_depth_dilation_px = int(sys.argv[15])
 visual_alignment_window_weight = float(sys.argv[16])
+visual_alignment_saturation_margin_px = float(
+    os.environ["VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT"]
+)
+visual_alignment_saturated_weight_scale = float(
+    os.environ["VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE_REPORT"]
+)
 se3_photometric_window_weight = float(sys.argv[17])
 se3_photometric_max_samples = int(os.environ["SE3_PHOTOMETRIC_MAX_SAMPLES_REPORT"])
 se3_photometric_min_samples = int(sys.argv[18])
@@ -3013,6 +3037,8 @@ report = {
         "rendered_frame_cache_size": int(os.environ["RENDERED_FRAME_CACHE_SIZE_REPORT"]),
         "observed_frame_cache_size": int(os.environ["OBSERVED_FRAME_CACHE_SIZE_REPORT"]),
         "visual_alignment_window_weight": visual_alignment_window_weight,
+        "visual_alignment_saturation_margin_px": visual_alignment_saturation_margin_px,
+        "visual_alignment_saturated_weight_scale": visual_alignment_saturated_weight_scale,
         "se3_photometric_window_weight": se3_photometric_window_weight,
         "se3_photometric_max_samples": se3_photometric_max_samples,
         "mapper_feedback_sync_tolerance_sec": mapper_feedback_sync_tolerance_sec,

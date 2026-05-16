@@ -102,6 +102,12 @@ def generate_launch_description():
     visual_alignment_meters_per_pixel = LaunchConfiguration("visual_alignment_meters_per_pixel")
     visual_alignment_window_weight = LaunchConfiguration("visual_alignment_window_weight")
     visual_alignment_huber_delta_m = LaunchConfiguration("visual_alignment_huber_delta_m")
+    visual_alignment_saturation_margin_px = LaunchConfiguration(
+        "visual_alignment_saturation_margin_px"
+    )
+    visual_alignment_saturated_weight_scale = LaunchConfiguration(
+        "visual_alignment_saturated_weight_scale"
+    )
     enable_se3_photometric_window_factor = LaunchConfiguration("enable_se3_photometric_window_factor")
     se3_photometric_window_weight = LaunchConfiguration("se3_photometric_window_weight")
     se3_photometric_factor_huber_delta = LaunchConfiguration("se3_photometric_factor_huber_delta")
@@ -499,6 +505,8 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_alignment_meters_per_pixel", default_value="0.01"),
             DeclareLaunchArgument("visual_alignment_window_weight", default_value="1.0"),
             DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05"),
+            DeclareLaunchArgument("visual_alignment_saturation_margin_px", default_value="0.0"),
+            DeclareLaunchArgument("visual_alignment_saturated_weight_scale", default_value="1.0"),
             DeclareLaunchArgument("enable_se3_photometric_window_factor", default_value="true"),
             DeclareLaunchArgument("se3_photometric_window_weight", default_value="0.5"),
             DeclareLaunchArgument("se3_photometric_factor_huber_delta", default_value="1.0"),
@@ -777,6 +785,8 @@ def generate_launch_description():
                         "visual_alignment_meters_per_pixel": visual_alignment_meters_per_pixel,
                         "visual_alignment_window_weight": visual_alignment_window_weight,
                         "visual_alignment_huber_delta_m": visual_alignment_huber_delta_m,
+                        "visual_alignment_saturation_margin_px": visual_alignment_saturation_margin_px,
+                        "visual_alignment_saturated_weight_scale": visual_alignment_saturated_weight_scale,
                         "enable_se3_photometric_window_factor": enable_se3_photometric_window_factor,
                         "se3_photometric_window_weight": se3_photometric_window_weight,
                         "se3_photometric_factor_huber_delta": se3_photometric_factor_huber_delta,
