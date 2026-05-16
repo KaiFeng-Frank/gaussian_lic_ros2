@@ -138,6 +138,20 @@
       "translation_rmse_m": 1.5675565860887344,
       "path_drift": 0.06140175581933941,
       "reason": "larger pending visual-factor queue does not fix BA/window ingestion; it still misses visual/SE3 drain at 881/1015, drops 150 queued factors, and regresses RMSE/path drift"
+    },
+    {
+      "id": "quality_selected_max2_rendered_depth64",
+      "report": "results/fastlivo2/CBD_Building_01_quality_selected_max2_rendered_depth64_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5054999063620074,
+      "path_drift": 0.07038383833296183,
+      "reason": "quality-ranked visual/SE3 selection with max 2 factors per reference fixes early queue churn but misses the 1015 visual/SE3 drain target at 956, drops 44 queued factors, and regresses RMSE/path drift"
+    },
+    {
+      "id": "quality_selected_max3_rendered_depth64",
+      "report": "results/fastlivo2/CBD_Building_01_quality_selected_max3_rendered_depth64_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.7120785012275666,
+      "path_drift": 0.07016512894901034,
+      "reason": "raising quality-ranked selection to max 3 reaches total visual/SE3 drain at 1018 but still starves bin 7, drops 61 queued factors, and regresses RMSE/path drift"
     }
   ],
   "forbidden_readme_snippets": [

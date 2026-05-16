@@ -95,6 +95,12 @@ def generate_launch_description():
     rendered_frame_cache_size = LaunchConfiguration("rendered_frame_cache_size")
     observed_frame_cache_size = LaunchConfiguration("observed_frame_cache_size")
     visual_pending_factor_queue_size = LaunchConfiguration("visual_pending_factor_queue_size")
+    enable_visual_factor_quality_selection = LaunchConfiguration(
+        "enable_visual_factor_quality_selection"
+    )
+    visual_factor_quality_selection_max_per_reference = LaunchConfiguration(
+        "visual_factor_quality_selection_max_per_reference"
+    )
     camera_to_imu_translation_m = LaunchConfiguration("camera_to_imu_translation_m")
     camera_to_imu_rpy_rad = LaunchConfiguration("camera_to_imu_rpy_rad")
     visual_alignment_max_shift_px = LaunchConfiguration("visual_alignment_max_shift_px")
@@ -501,6 +507,10 @@ def generate_launch_description():
             DeclareLaunchArgument("rendered_frame_cache_size", default_value="8"),
             DeclareLaunchArgument("observed_frame_cache_size", default_value="64"),
             DeclareLaunchArgument("visual_pending_factor_queue_size", default_value="64"),
+            DeclareLaunchArgument("enable_visual_factor_quality_selection", default_value="false"),
+            DeclareLaunchArgument(
+                "visual_factor_quality_selection_max_per_reference", default_value="2"
+            ),
             DeclareLaunchArgument("camera_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("camera_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("visual_alignment_max_shift_px", default_value="8"),
@@ -784,6 +794,10 @@ def generate_launch_description():
                         "rendered_frame_cache_size": rendered_frame_cache_size,
                         "observed_frame_cache_size": observed_frame_cache_size,
                         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
+                        "enable_visual_factor_quality_selection": enable_visual_factor_quality_selection,
+                        "visual_factor_quality_selection_max_per_reference": (
+                            visual_factor_quality_selection_max_per_reference
+                        ),
                         "camera_to_imu_translation_m": camera_to_imu_translation_m,
                         "camera_to_imu_rpy_rad": camera_to_imu_rpy_rad,
                         "visual_alignment_max_shift_px": visual_alignment_max_shift_px,

@@ -216,6 +216,8 @@ VISUAL_DEPTH_DILATION_PX=5
 RENDERED_FRAME_CACHE_SIZE=64
 OBSERVED_FRAME_CACHE_SIZE=128
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
+ENABLE_VISUAL_FACTOR_QUALITY_SELECTION=false
+VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE=2
 VISUAL_ALIGNMENT_MAX_SHIFT_PX=8
 VISUAL_ALIGNMENT_SCORE_MODE=rmse
 VISUAL_ALIGNMENT_FACTOR_SOURCE=search
@@ -682,6 +684,12 @@ Options:
                                tracking_node observed-image cache size for delayed mapper feedback. Default: 128.
   --visual-pending-factor-queue-size N
                                tracking_node pending visual/SE3 factor queue size before BA ingestion. Default: 128.
+  --enable-visual-factor-quality-selection
+                               Enable quality-ranked pending visual/SE3 selection before BA ingestion. Default: disabled.
+  --disable-visual-factor-quality-selection
+                               Disable quality-ranked pending visual/SE3 selection and restore FIFO queue trimming.
+  --visual-factor-quality-selection-max-per-reference N
+                               Maximum quality-ranked visual/SE3 factors retained per reference state. Default: 2.
   --visual-alignment-max-shift-px N
                                Exhaustive 2D visual alignment search radius. Default: 8.
   --visual-alignment-score-mode rmse|zncc
@@ -1582,6 +1590,18 @@ while [[ $# -gt 0 ]]; do
       VISUAL_PENDING_FACTOR_QUEUE_SIZE="$2"
       shift 2
       ;;
+    --enable-visual-factor-quality-selection)
+      ENABLE_VISUAL_FACTOR_QUALITY_SELECTION=true
+      shift
+      ;;
+    --disable-visual-factor-quality-selection)
+      ENABLE_VISUAL_FACTOR_QUALITY_SELECTION=false
+      shift
+      ;;
+    --visual-factor-quality-selection-max-per-reference)
+      VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE="$2"
+      shift 2
+      ;;
     --visual-alignment-max-shift-px)
       VISUAL_ALIGNMENT_MAX_SHIFT_PX="$2"
       shift 2
@@ -1936,6 +1956,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   rendered_frame_cache_size:="${RENDERED_FRAME_CACHE_SIZE}" \
   observed_frame_cache_size:="${OBSERVED_FRAME_CACHE_SIZE}" \
   visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
+  enable_visual_factor_quality_selection:="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
+  visual_factor_quality_selection_max_per_reference:="${VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE}" \
   se3_photometric_max_samples:="${SE3_PHOTOMETRIC_MAX_SAMPLES}" \
   se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
   se3_photometric_min_hessian_rank:="${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" \
@@ -2351,6 +2373,8 @@ VISUAL_ALIGNMENT_MAX_SHIFT_PX_REPORT="${VISUAL_ALIGNMENT_MAX_SHIFT_PX}" \
 VISUAL_ALIGNMENT_SCORE_MODE_REPORT="${VISUAL_ALIGNMENT_SCORE_MODE}" \
 VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
 VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
+ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
+VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE_REPORT="${VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE}" \
 VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
 VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE_REPORT="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
@@ -2412,6 +2436,12 @@ visual_alignment_max_shift_px = int(os.environ["VISUAL_ALIGNMENT_MAX_SHIFT_PX_RE
 visual_alignment_score_mode = os.environ["VISUAL_ALIGNMENT_SCORE_MODE_REPORT"]
 visual_alignment_factor_source = os.environ["VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT"]
 visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
+enable_visual_factor_quality_selection = (
+    os.environ["ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT"].lower() == "true"
+)
+visual_factor_quality_selection_max_per_reference = int(
+    os.environ["VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE_REPORT"]
+)
 visual_alignment_saturation_margin_px = float(
     os.environ["VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT"]
 )
@@ -3298,6 +3328,10 @@ report = {
         "mapper_feedback_image_qos_reliability": mapper_feedback_image_qos_reliability,
         "mapper_feedback_image_qos_depth": mapper_feedback_image_qos_depth,
         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
+        "enable_visual_factor_quality_selection": enable_visual_factor_quality_selection,
+        "visual_factor_quality_selection_max_per_reference": (
+            visual_factor_quality_selection_max_per_reference
+        ),
         "se3_photometric_min_samples": se3_photometric_min_samples,
         "se3_photometric_min_hessian_rank": se3_photometric_min_hessian_rank,
         "se3_photometric_max_hessian_condition": se3_photometric_max_hessian_condition,
