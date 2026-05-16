@@ -98,8 +98,14 @@ def generate_launch_description():
     enable_visual_factor_quality_selection = LaunchConfiguration(
         "enable_visual_factor_quality_selection"
     )
+    enable_visual_factor_quality_reference_cap = LaunchConfiguration(
+        "enable_visual_factor_quality_reference_cap"
+    )
     visual_factor_quality_selection_max_per_reference = LaunchConfiguration(
         "visual_factor_quality_selection_max_per_reference"
+    )
+    visual_factor_quality_selection_start_after_s = LaunchConfiguration(
+        "visual_factor_quality_selection_start_after_s"
     )
     camera_to_imu_translation_m = LaunchConfiguration("camera_to_imu_translation_m")
     camera_to_imu_rpy_rad = LaunchConfiguration("camera_to_imu_rpy_rad")
@@ -508,9 +514,11 @@ def generate_launch_description():
             DeclareLaunchArgument("observed_frame_cache_size", default_value="64"),
             DeclareLaunchArgument("visual_pending_factor_queue_size", default_value="64"),
             DeclareLaunchArgument("enable_visual_factor_quality_selection", default_value="false"),
+            DeclareLaunchArgument("enable_visual_factor_quality_reference_cap", default_value="true"),
             DeclareLaunchArgument(
                 "visual_factor_quality_selection_max_per_reference", default_value="2"
             ),
+            DeclareLaunchArgument("visual_factor_quality_selection_start_after_s", default_value="0.0"),
             DeclareLaunchArgument("camera_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("camera_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("visual_alignment_max_shift_px", default_value="8"),
@@ -795,8 +803,17 @@ def generate_launch_description():
                         "observed_frame_cache_size": observed_frame_cache_size,
                         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
                         "enable_visual_factor_quality_selection": enable_visual_factor_quality_selection,
+                        "enable_visual_factor_quality_reference_cap": (
+                            enable_visual_factor_quality_reference_cap
+                        ),
                         "visual_factor_quality_selection_max_per_reference": (
                             visual_factor_quality_selection_max_per_reference
+                        ),
+                        "visual_factor_quality_selection_start_after_s": (
+                            ParameterValue(
+                                visual_factor_quality_selection_start_after_s,
+                                value_type=float,
+                            )
                         ),
                         "camera_to_imu_translation_m": camera_to_imu_translation_m,
                         "camera_to_imu_rpy_rad": camera_to_imu_rpy_rad,

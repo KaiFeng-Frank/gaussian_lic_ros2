@@ -152,6 +152,20 @@
       "translation_rmse_m": 1.7120785012275666,
       "path_drift": 0.07016512894901034,
       "reason": "raising quality-ranked selection to max 3 reaches total visual/SE3 drain at 1018 but still starves bin 7, drops 61 queued factors, and regresses RMSE/path drift"
+    },
+    {
+      "id": "quality_selected_max2_after100_rendered_depth64",
+      "report": "results/fastlivo2/CBD_Building_01_quality_selected_max2_after100_typed_rendered_depth64_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.409022588583841,
+      "path_drift": 0.07127563795052283,
+      "reason": "late-only quality-ranked selection after 100 s still misses the 1015 visual/SE3 drain target at 994, starves bins 6/7, drops 64 queued factors, and regresses RMSE/path drift"
+    },
+    {
+      "id": "quality_trim_no_refcap_after100_rendered_depth64",
+      "report": "results/fastlivo2/CBD_Building_01_quality_trim_no_refcap_after100_rendered_depth64_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.3961753383080708,
+      "path_drift": 0.04410072920135246,
+      "reason": "disabling the per-reference quality cap improves path drift but still misses pose and visual/SE3 drains, starves bins 6/7, drops 78 queued factors, and regresses aggregate RMSE"
     }
   ],
   "forbidden_readme_snippets": [

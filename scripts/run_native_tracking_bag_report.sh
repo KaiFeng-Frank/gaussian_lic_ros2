@@ -217,7 +217,9 @@ RENDERED_FRAME_CACHE_SIZE=64
 OBSERVED_FRAME_CACHE_SIZE=128
 VISUAL_PENDING_FACTOR_QUEUE_SIZE=128
 ENABLE_VISUAL_FACTOR_QUALITY_SELECTION=false
+ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP=true
 VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE=2
+VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S=0.0
 VISUAL_ALIGNMENT_MAX_SHIFT_PX=8
 VISUAL_ALIGNMENT_SCORE_MODE=rmse
 VISUAL_ALIGNMENT_FACTOR_SOURCE=search
@@ -688,8 +690,14 @@ Options:
                                Enable quality-ranked pending visual/SE3 selection before BA ingestion. Default: disabled.
   --disable-visual-factor-quality-selection
                                Disable quality-ranked pending visual/SE3 selection and restore FIFO queue trimming.
+  --enable-visual-factor-quality-reference-cap
+                               Limit quality-selected visual/SE3 factors retained per reference state. Default: enabled.
+  --disable-visual-factor-quality-reference-cap
+                               Keep quality-ranked queue trimming active without capping factors per reference state.
   --visual-factor-quality-selection-max-per-reference N
                                Maximum quality-ranked visual/SE3 factors retained per reference state. Default: 2.
+  --visual-factor-quality-selection-start-after-s SEC
+                               Delay quality-ranked visual/SE3 selection until SEC after the first sliding-window state. Default: 0.
   --visual-alignment-max-shift-px N
                                Exhaustive 2D visual alignment search radius. Default: 8.
   --visual-alignment-score-mode rmse|zncc
@@ -1598,8 +1606,20 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_FACTOR_QUALITY_SELECTION=false
       shift
       ;;
+    --enable-visual-factor-quality-reference-cap)
+      ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP=true
+      shift
+      ;;
+    --disable-visual-factor-quality-reference-cap)
+      ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP=false
+      shift
+      ;;
     --visual-factor-quality-selection-max-per-reference)
       VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE="$2"
+      shift 2
+      ;;
+    --visual-factor-quality-selection-start-after-s)
+      VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S="$2"
       shift 2
       ;;
     --visual-alignment-max-shift-px)
@@ -1957,7 +1977,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   observed_frame_cache_size:="${OBSERVED_FRAME_CACHE_SIZE}" \
   visual_pending_factor_queue_size:="${VISUAL_PENDING_FACTOR_QUEUE_SIZE}" \
   enable_visual_factor_quality_selection:="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
+  enable_visual_factor_quality_reference_cap:="${ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP}" \
   visual_factor_quality_selection_max_per_reference:="${VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE}" \
+  visual_factor_quality_selection_start_after_s:="${VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S}" \
   se3_photometric_max_samples:="${SE3_PHOTOMETRIC_MAX_SAMPLES}" \
   se3_photometric_min_samples:="${SE3_PHOTOMETRIC_MIN_SAMPLES}" \
   se3_photometric_min_hessian_rank:="${SE3_PHOTOMETRIC_MIN_HESSIAN_RANK}" \
@@ -2374,7 +2396,9 @@ VISUAL_ALIGNMENT_SCORE_MODE_REPORT="${VISUAL_ALIGNMENT_SCORE_MODE}" \
 VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
 VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
 ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
+ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP}" \
 VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE_REPORT="${VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE}" \
+VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S_REPORT="${VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S}" \
 VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
 VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE_REPORT="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
@@ -2439,8 +2463,14 @@ visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
 enable_visual_factor_quality_selection = (
     os.environ["ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT"].lower() == "true"
 )
+enable_visual_factor_quality_reference_cap = (
+    os.environ["ENABLE_VISUAL_FACTOR_QUALITY_REFERENCE_CAP_REPORT"].lower() == "true"
+)
 visual_factor_quality_selection_max_per_reference = int(
     os.environ["VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE_REPORT"]
+)
+visual_factor_quality_selection_start_after_s = float(
+    os.environ["VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S_REPORT"]
 )
 visual_alignment_saturation_margin_px = float(
     os.environ["VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT"]
@@ -3329,8 +3359,14 @@ report = {
         "mapper_feedback_image_qos_depth": mapper_feedback_image_qos_depth,
         "visual_pending_factor_queue_size": visual_pending_factor_queue_size,
         "enable_visual_factor_quality_selection": enable_visual_factor_quality_selection,
+        "enable_visual_factor_quality_reference_cap": (
+            enable_visual_factor_quality_reference_cap
+        ),
         "visual_factor_quality_selection_max_per_reference": (
             visual_factor_quality_selection_max_per_reference
+        ),
+        "visual_factor_quality_selection_start_after_s": (
+            visual_factor_quality_selection_start_after_s
         ),
         "se3_photometric_min_samples": se3_photometric_min_samples,
         "se3_photometric_min_hessian_rank": se3_photometric_min_hessian_rank,

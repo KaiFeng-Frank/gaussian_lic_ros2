@@ -280,6 +280,11 @@ public:
     visual_factor_quality_selection_max_per_reference_ = integer_parameter_at_least(
       "visual_factor_quality_selection_max_per_reference",
       declare_parameter<int>("visual_factor_quality_selection_max_per_reference", 2), 1);
+    enable_visual_factor_quality_reference_cap_ =
+      declare_parameter<bool>("enable_visual_factor_quality_reference_cap", true);
+    visual_factor_quality_selection_start_after_s_ = finite_nonnegative_parameter(
+      "visual_factor_quality_selection_start_after_s",
+      declare_parameter<double>("visual_factor_quality_selection_start_after_s", 0.0));
     const auto camera_to_imu_translation = declare_parameter<std::vector<double>>(
       "camera_to_imu_translation_m", std::vector<double>{0.0, 0.0, 0.0});
     const auto camera_to_imu_rpy = declare_parameter<std::vector<double>>(
@@ -1895,11 +1900,28 @@ private:
     return score;
   }
 
+  bool visual_factor_quality_selection_is_active(const int64_t stamp_ns) const
+  {
+    if (!enable_visual_factor_quality_selection_) {
+      return false;
+    }
+    if (visual_factor_quality_selection_start_after_s_ <= 0.0) {
+      return true;
+    }
+    if (!sliding_window_start_stamp_ns_.has_value()) {
+      return false;
+    }
+    const int64_t start_after_ns = static_cast<int64_t>(
+      visual_factor_quality_selection_start_after_s_ *
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+    return stamp_ns >= sliding_window_start_stamp_ns_.value() + start_after_ns;
+  }
+
   void trim_pending_visual_factor_queues()
   {
     const auto max_queue_size = static_cast<size_t>(visual_pending_factor_queue_size_);
     while (pending_visual_alignment_factors_.size() > max_queue_size) {
-      if (enable_visual_factor_quality_selection_) {
+      if (visual_factor_quality_selection_is_active(pending_visual_alignment_factors_.back().stamp_ns)) {
         const auto worst = std::max_element(
           pending_visual_alignment_factors_.begin(),
           pending_visual_alignment_factors_.end(),
@@ -1915,7 +1937,9 @@ private:
       ++visual_alignment_pending_stale_drops_;
     }
     while (pending_visual_se3_photometric_factors_.size() > max_queue_size) {
-      if (enable_visual_factor_quality_selection_) {
+      if (visual_factor_quality_selection_is_active(
+          pending_visual_se3_photometric_factors_.back().stamp_ns))
+      {
         const auto worst = std::max_element(
           pending_visual_se3_photometric_factors_.begin(),
           pending_visual_se3_photometric_factors_.end(),
@@ -2264,11 +2288,13 @@ private:
     std::vector<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor> se3_photometric_factors;
     std::vector<double> visual_window_factor_scores;
     std::vector<double> se3_photometric_factor_scores;
+    const bool quality_selection_active =
+      visual_factor_quality_selection_is_active(tracking_pose.stamp_ns);
     const auto add_visual_window_factor =
-      [this, &visual_window_factors, &visual_window_factor_scores](
+      [this, quality_selection_active, &visual_window_factors, &visual_window_factor_scores](
         gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor factor,
         const double score) {
-        if (!enable_visual_factor_quality_selection_) {
+        if (!quality_selection_active || !enable_visual_factor_quality_reference_cap_) {
           visual_window_factors.push_back(std::move(factor));
           return;
         }
@@ -2298,10 +2324,10 @@ private:
         visual_window_factor_scores.push_back(score);
       };
     const auto add_se3_photometric_factor =
-      [this, &se3_photometric_factors, &se3_photometric_factor_scores](
+      [this, quality_selection_active, &se3_photometric_factors, &se3_photometric_factor_scores](
         gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor,
         const double score) {
-        if (!enable_visual_factor_quality_selection_) {
+        if (!quality_selection_active || !enable_visual_factor_quality_reference_cap_) {
           se3_photometric_factors.push_back(std::move(factor));
           return;
         }
@@ -5530,7 +5556,9 @@ private:
   int observed_frame_cache_size_{64};
   int visual_pending_factor_queue_size_{64};
   bool enable_visual_factor_quality_selection_{false};
+  bool enable_visual_factor_quality_reference_cap_{true};
   int visual_factor_quality_selection_max_per_reference_{2};
+  double visual_factor_quality_selection_start_after_s_{0.0};
   Eigen::Vector3d p_i_c_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_c_{Eigen::Quaterniond::Identity()};
   int visual_alignment_max_shift_px_{8};
