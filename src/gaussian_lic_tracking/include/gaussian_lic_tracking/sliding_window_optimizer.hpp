@@ -88,7 +88,7 @@ struct SlidingWindowStatePrior
 struct SlidingWindowPointToPointFactor
 {
   int64_t stamp_ns{0};
-  uint8_t source_id{0};
+  uint64_t source_id{0};
   std::vector<Eigen::Vector3d> frame_points_i;
   std::vector<Eigen::Vector3d> target_points_w;
   std::vector<double> point_weights;
@@ -99,7 +99,7 @@ struct SlidingWindowPointToPointFactor
 struct SlidingWindowPointToPlaneFactor
 {
   int64_t stamp_ns{0};
-  uint8_t source_id{0};
+  uint64_t source_id{0};
   std::vector<Eigen::Vector3d> frame_points_i;
   std::vector<Eigen::Vector3d> target_points_w;
   std::vector<Eigen::Vector3d> target_normals_w;
@@ -111,7 +111,7 @@ struct SlidingWindowPointToPlaneFactor
 struct SlidingWindowVisualAlignmentFactor
 {
   int64_t stamp_ns{0};
-  uint8_t source_id{0};
+  uint64_t source_id{0};
   Eigen::Vector2d measured_shift_px{Eigen::Vector2d::Zero()};
   Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
   double meters_per_pixel{0.01};
@@ -122,7 +122,7 @@ struct SlidingWindowVisualAlignmentFactor
 struct SlidingWindowSe3PhotometricFactor
 {
   int64_t stamp_ns{0};
-  uint8_t source_id{0};
+  uint64_t source_id{0};
   Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond reference_q_w_i{Eigen::Quaterniond::Identity()};
   Eigen::Matrix<double, 6, 1> target_delta{Eigen::Matrix<double, 6, 1>::Zero()};
@@ -135,7 +135,7 @@ struct SlidingWindowRelativeTranslationFactor
 {
   int64_t from_stamp_ns{0};
   int64_t to_stamp_ns{0};
-  uint8_t source_id{0};
+  uint64_t source_id{0};
   Eigen::Vector3d delta_p_w{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond delta_q_from_to{Eigen::Quaterniond::Identity()};
   bool translation_in_from_frame{false};

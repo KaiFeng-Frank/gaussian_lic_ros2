@@ -336,6 +336,10 @@ def main() -> int:
         errors.append("tracking_node must default visual alignment score mode to rmse")
     if 'declare_parameter<std::string>("visual_alignment_factor_source", "search")' not in tracking_node_text:
         errors.append("tracking_node must default visual alignment factor source to search")
+    if "static uint64_t visual_factor_source_id" not in tracking_node_text or "mixed % 254U" in tracking_node_text:
+        errors.append("visual factor source ids must use the full 64-bit stamp hash, not an 8-bit bucket")
+    if "uint64_t source_id{0}" not in sliding_window_header_text:
+        errors.append("sliding-window factors must carry 64-bit source ids to avoid replacement collisions")
     if 'DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose visual alignment Huber delta")
     if 'DeclareLaunchArgument("visual_alignment_score_mode", default_value="rmse")' not in tracking_launch_text:

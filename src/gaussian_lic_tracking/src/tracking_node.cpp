@@ -1027,14 +1027,14 @@ private:
   struct PendingVisualAlignmentFactor
   {
     int64_t stamp_ns{0};
-    uint8_t source_id{0};
+    uint64_t source_id{0};
     gaussian_lic_tracking::VisualAlignment alignment;
   };
 
   struct PendingSe3PhotometricFactor
   {
     int64_t stamp_ns{0};
-    uint8_t source_id{0};
+    uint64_t source_id{0};
     gaussian_lic_tracking::VisualSe3PhotometricLinearization linearization;
   };
 
@@ -2322,7 +2322,7 @@ private:
   make_multihop_relative_translation_factor(
     const gaussian_lic_tracking::TrajectoryPose & from_pose,
     const gaussian_lic_tracking::TrajectoryPose & to_pose,
-    const uint8_t source_id = 0U) const
+    const uint64_t source_id = 0U) const
   {
     if (from_pose.stamp_ns >= to_pose.stamp_ns ||
       !from_pose.p_w_i.allFinite() || !to_pose.p_w_i.allFinite() ||
@@ -3675,7 +3675,7 @@ private:
     return true;
   }
 
-  static uint8_t visual_factor_source_id(
+  static uint64_t visual_factor_source_id(
     const int64_t observed_stamp_ns,
     const int64_t rendered_stamp_ns)
   {
@@ -3687,7 +3687,7 @@ private:
     mixed ^= mixed >> 27U;
     mixed *= 0x94d049bb133111ebULL;
     mixed ^= mixed >> 31U;
-    return static_cast<uint8_t>(1U + (mixed % 254U));
+    return mixed == 0U ? 1U : mixed;
   }
 
   static bool stamp_delta_is_within(
@@ -5671,7 +5671,7 @@ private:
   double last_se3_photometric_pose_correction_translation_m_{0.0};
   double last_se3_photometric_pose_correction_rotation_rad_{0.0};
   std::optional<int64_t> last_applied_se3_photometric_pose_correction_stamp_ns_;
-  uint8_t last_applied_se3_photometric_pose_correction_source_id_{0};
+  uint64_t last_applied_se3_photometric_pose_correction_source_id_{0};
   gaussian_lic_tracking::VisualCameraIntrinsics camera_intrinsics_;
   std::deque<DepthFrame> depth_frame_cache_;
   std::deque<gaussian_lic_tracking::VisualFrame> observed_frame_cache_;
