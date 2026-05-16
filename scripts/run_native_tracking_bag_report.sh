@@ -1913,6 +1913,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
   rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
   rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
+  image_qos_reliability:="${MAPPER_FEEDBACK_IMAGE_QOS_RELIABILITY}" \
+  image_qos_depth:="${MAPPER_FEEDBACK_IMAGE_QOS_DEPTH}" \
   visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
