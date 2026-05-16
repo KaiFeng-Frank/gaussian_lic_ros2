@@ -1,6 +1,6 @@
 {
   "schema": "gaussian_lic_native_production_preset/v1",
-  "updated": "2026-05-14",
+  "updated": "2026-05-16",
   "profile": "fastlivo2",
   "sequence": "CBD_Building_01",
   "production_preset": {
@@ -75,6 +75,13 @@
       "translation_rmse_m": 1.5264069864448988,
       "path_drift": 0.04672463367560196,
       "reason": "stronger visual/SE3 weights regress RMSE"
+    },
+    {
+      "id": "visual_alignment_maxshift12",
+      "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_maxshift12_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5900934478709468,
+      "path_drift": 0.06259037716047797,
+      "reason": "wider 2D visual search radius misses the visual/SE3 drain target and regresses RMSE/path drift"
     }
   ],
   "forbidden_readme_snippets": [

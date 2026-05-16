@@ -138,6 +138,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "--reference-max-error-bin-rmse-m",
         "--reference-max-error-bin-bias-norm-m",
         "reference_max_error_bin_bias_norm_m",
+        "--visual-alignment-max-shift-px",
+        "visual_alignment_max_shift_px",
     ):
         require_snippet(script, option, "run_native_tracking_bag_report.sh", errors)
 
