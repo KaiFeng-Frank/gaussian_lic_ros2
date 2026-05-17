@@ -2426,9 +2426,37 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
       const SlidingWindowNormalEquation & normal) {
       summary.gyro_bias_norm = 0.0;
       summary.accel_bias_norm = 0.0;
+      summary.gyro_bias_random_walk_sqrt_info_mean = 0.0;
+      summary.accel_bias_random_walk_sqrt_info_mean = 0.0;
+      summary.gyro_bias_random_walk_sqrt_info_max = 0.0;
+      summary.accel_bias_random_walk_sqrt_info_max = 0.0;
       for (const auto & state : states_) {
         summary.gyro_bias_norm = std::max(summary.gyro_bias_norm, state.gyro_bias.norm());
         summary.accel_bias_norm = std::max(summary.accel_bias_norm, state.accel_bias.norm());
+      }
+      double gyro_bias_sqrt_info_sum = 0.0;
+      double accel_bias_sqrt_info_sum = 0.0;
+      size_t bias_sqrt_info_count = 0U;
+      for (const auto & factor : imu_factors_) {
+        const Eigen::Matrix<double, 6, 1> sqrt_information =
+          effective_bias_sqrt_information(factor).cwiseAbs();
+        const double gyro_sqrt_info = sqrt_information.template segment<3>(0).maxCoeff();
+        const double accel_sqrt_info = sqrt_information.template segment<3>(3).maxCoeff();
+        if (std::isfinite(gyro_sqrt_info) && std::isfinite(accel_sqrt_info)) {
+          gyro_bias_sqrt_info_sum += gyro_sqrt_info;
+          accel_bias_sqrt_info_sum += accel_sqrt_info;
+          summary.gyro_bias_random_walk_sqrt_info_max =
+            std::max(summary.gyro_bias_random_walk_sqrt_info_max, gyro_sqrt_info);
+          summary.accel_bias_random_walk_sqrt_info_max =
+            std::max(summary.accel_bias_random_walk_sqrt_info_max, accel_sqrt_info);
+          ++bias_sqrt_info_count;
+        }
+      }
+      if (bias_sqrt_info_count > 0U) {
+        summary.gyro_bias_random_walk_sqrt_info_mean =
+          gyro_bias_sqrt_info_sum / static_cast<double>(bias_sqrt_info_count);
+        summary.accel_bias_random_walk_sqrt_info_mean =
+          accel_bias_sqrt_info_sum / static_cast<double>(bias_sqrt_info_count);
       }
       summary.gyro_bias_observability = 0.0;
       summary.accel_bias_observability = 0.0;

@@ -58,6 +58,8 @@ int main()
   factor.preintegration = preintegration;
   factor.weight = 100.0;
   factor.bias_weight = 100.0;
+  factor.gyro_bias_random_walk_sigma = 0.5;
+  factor.accel_bias_random_walk_sigma = 2.0;
   optimizer.add_imu_factor(factor);
 
   const auto summary = optimizer.optimize();
@@ -77,6 +79,10 @@ int main()
   std::cout << "sliding_window_bias_observability_probe iterations=" << summary.iterations
             << " initial_cost=" << summary.initial_cost
             << " final_cost=" << summary.final_cost
+            << " gyro_bias_rw_sqrt_info_mean="
+            << summary.gyro_bias_random_walk_sqrt_info_mean
+            << " accel_bias_rw_sqrt_info_mean="
+            << summary.accel_bias_random_walk_sqrt_info_mean
             << " gyro_observability=" << summary.gyro_bias_observability
             << " accel_observability=" << summary.accel_bias_observability
             << " start_gyro_error=" << start_gyro_error
@@ -84,8 +90,28 @@ int main()
             << " end_gyro_error=" << end_gyro_error
             << " end_accel_error=" << end_accel_error << "\n";
 
+  double gyro_covariance = 0.0;
+  double accel_covariance = 0.0;
+  int64_t previous_stamp_ns = preintegration.start_stamp_ns();
+  for (const auto & sample : preintegration.samples()) {
+    const double sample_dt_s = static_cast<double>(sample.stamp_ns - previous_stamp_ns) / 1.0e9;
+    gyro_covariance += sample_dt_s * sample_dt_s *
+      factor.gyro_bias_random_walk_sigma * factor.gyro_bias_random_walk_sigma;
+    accel_covariance += sample_dt_s * sample_dt_s *
+      factor.accel_bias_random_walk_sigma * factor.accel_bias_random_walk_sigma;
+    previous_stamp_ns = sample.stamp_ns;
+  }
+  const double expected_gyro_sqrt_info =
+    std::sqrt(factor.bias_weight * factor.gyro_bias_weight) / std::sqrt(gyro_covariance);
+  const double expected_accel_sqrt_info =
+    std::sqrt(factor.bias_weight * factor.accel_bias_weight) / std::sqrt(accel_covariance);
+
   if (!summary.converged || summary.final_cost >= summary.initial_cost ||
     summary.gyro_bias_observability <= 0.0 || summary.accel_bias_observability <= 0.0 ||
+    std::abs(summary.gyro_bias_random_walk_sqrt_info_mean - expected_gyro_sqrt_info) > 1.0e-9 ||
+    std::abs(summary.accel_bias_random_walk_sqrt_info_mean - expected_accel_sqrt_info) > 1.0e-9 ||
+    std::abs(summary.gyro_bias_random_walk_sqrt_info_max - expected_gyro_sqrt_info) > 1.0e-9 ||
+    std::abs(summary.accel_bias_random_walk_sqrt_info_max - expected_accel_sqrt_info) > 1.0e-9 ||
     start_gyro_error > 1.0e-4 || start_accel_error > 1.0e-4 ||
     end_gyro_error > 1.0e-4 || end_accel_error > 1.0e-4)
   {

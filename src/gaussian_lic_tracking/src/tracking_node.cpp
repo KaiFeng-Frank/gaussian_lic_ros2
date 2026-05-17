@@ -5394,6 +5394,14 @@ private:
     status.sliding_window_accel_bias_x = sliding_window_bias_.accel.x();
     status.sliding_window_accel_bias_y = sliding_window_bias_.accel.y();
     status.sliding_window_accel_bias_z = sliding_window_bias_.accel.z();
+    status.sliding_window_gyro_bias_random_walk_sqrt_info_mean =
+      summary.gyro_bias_random_walk_sqrt_info_mean;
+    status.sliding_window_accel_bias_random_walk_sqrt_info_mean =
+      summary.accel_bias_random_walk_sqrt_info_mean;
+    status.sliding_window_gyro_bias_random_walk_sqrt_info_max =
+      summary.gyro_bias_random_walk_sqrt_info_max;
+    status.sliding_window_accel_bias_random_walk_sqrt_info_max =
+      summary.accel_bias_random_walk_sqrt_info_max;
     status.sliding_window_gyro_bias_observability = summary.gyro_bias_observability;
     status.sliding_window_accel_bias_observability = summary.accel_bias_observability;
     status.sliding_window_converged = summary.converged;

@@ -250,6 +250,10 @@ struct SlidingWindowSummary
   double normal_equation_condition_number{0.0};
   double gyro_bias_norm{0.0};
   double accel_bias_norm{0.0};
+  double gyro_bias_random_walk_sqrt_info_mean{0.0};
+  double accel_bias_random_walk_sqrt_info_mean{0.0};
+  double gyro_bias_random_walk_sqrt_info_max{0.0};
+  double accel_bias_random_walk_sqrt_info_max{0.0};
   double gyro_bias_observability{0.0};
   double accel_bias_observability{0.0};
   bool converged{false};
