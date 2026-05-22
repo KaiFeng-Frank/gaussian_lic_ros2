@@ -198,6 +198,13 @@
       "translation_rmse_m": 3.0225900861610735,
       "path_drift": 0.4466017450160848,
       "reason": "directly applying upstream Coco-LIC gyro/accel random-walk sigmas keeps coverage and factor continuity but over-constrains the ROS2 bias residual units, shortening the current path to 18.46 m vs 33.35 m reference"
+    },
+    {
+      "id": "relative_distance_w005_mh002",
+      "report": "results/fastlivo2/CBD_Building_01_relative_distance_w005_mh002_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 2.087148429144873,
+      "path_drift": 0.053674051368305005,
+      "reason": "distance-only motion-length factors are live and keep path drift near the accepted preset, but they underfeed visual/SE3 continuity at 930/1015, introduce one invalid LiDAR frame, and regress aggregate RMSE"
     }
   ],
   "forbidden_readme_snippets": [
