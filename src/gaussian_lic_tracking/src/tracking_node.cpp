@@ -814,6 +814,14 @@ public:
     sliding_window_relative_rotation_huber_delta_rad_ = finite_nonnegative_parameter(
       "sliding_window_relative_rotation_huber_delta_rad",
       declare_parameter<double>("sliding_window_relative_rotation_huber_delta_rad", 0.05));
+    enable_sliding_window_relative_distance_factor_ =
+      declare_parameter<bool>("enable_sliding_window_relative_distance_factor", false);
+    sliding_window_relative_distance_weight_ = finite_nonnegative_parameter(
+      "sliding_window_relative_distance_weight",
+      declare_parameter<double>("sliding_window_relative_distance_weight", 0.0));
+    sliding_window_relative_distance_huber_delta_m_ = finite_nonnegative_parameter(
+      "sliding_window_relative_distance_huber_delta_m",
+      declare_parameter<double>("sliding_window_relative_distance_huber_delta_m", 0.1));
     enable_sliding_window_multihop_relative_translation_factor_ =
       declare_parameter<bool>("enable_sliding_window_multihop_relative_translation_factor", false);
     sliding_window_multihop_relative_translation_weight_ = finite_nonnegative_parameter(
@@ -830,6 +838,14 @@ public:
     sliding_window_multihop_relative_rotation_huber_delta_rad_ = finite_nonnegative_parameter(
       "sliding_window_multihop_relative_rotation_huber_delta_rad",
       declare_parameter<double>("sliding_window_multihop_relative_rotation_huber_delta_rad", 0.08));
+    enable_sliding_window_multihop_relative_distance_factor_ =
+      declare_parameter<bool>("enable_sliding_window_multihop_relative_distance_factor", false);
+    sliding_window_multihop_relative_distance_weight_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_distance_weight",
+      declare_parameter<double>("sliding_window_multihop_relative_distance_weight", 0.0));
+    sliding_window_multihop_relative_distance_huber_delta_m_ = finite_nonnegative_parameter(
+      "sliding_window_multihop_relative_distance_huber_delta_m",
+      declare_parameter<double>("sliding_window_multihop_relative_distance_huber_delta_m", 0.15));
     sliding_window_multihop_relative_translation_min_dt_s_ = finite_nonnegative_parameter(
       "sliding_window_multihop_relative_translation_min_dt_s",
       declare_parameter<double>("sliding_window_multihop_relative_translation_min_dt_s", 0.45));
@@ -2142,6 +2158,8 @@ private:
     apply_se3_photometric_pose_correction(tracking_pose);
     std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor>
       relative_translation_factors;
+    std::vector<gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor>
+      relative_distance_factors;
     if (enable_sliding_window_relative_translation_factor_ &&
       sliding_window_relative_translation_weight_ > 0.0 &&
       last_output_tracking_pose_.has_value() &&
@@ -2164,6 +2182,23 @@ private:
         factor.rotation_weight = sliding_window_relative_rotation_weight_;
         factor.rotation_huber_delta_rad = sliding_window_relative_rotation_huber_delta_rad_;
         relative_translation_factors.push_back(factor);
+      }
+    }
+    if (enable_sliding_window_relative_distance_factor_ &&
+      sliding_window_relative_distance_weight_ > 0.0 &&
+      last_output_tracking_pose_.has_value() &&
+      tracking_pose.stamp_ns > last_output_tracking_pose_->stamp_ns)
+    {
+      const auto & previous_pose = last_output_tracking_pose_.value();
+      const Eigen::Vector3d raw_delta_p_w = tracking_pose.p_w_i - previous_pose.p_w_i;
+      if (raw_delta_p_w.allFinite()) {
+        gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor factor;
+        factor.from_stamp_ns = previous_pose.stamp_ns;
+        factor.to_stamp_ns = tracking_pose.stamp_ns;
+        factor.distance_m = raw_delta_p_w.norm();
+        factor.weight = sliding_window_relative_distance_weight_;
+        factor.huber_delta_m = sliding_window_relative_distance_huber_delta_m_;
+        relative_distance_factors.push_back(factor);
       }
     }
     if (enable_pre_lio_tracking_step_guard_) {
@@ -2485,6 +2520,7 @@ private:
       pending_visual_se3_photometric_factors_ = std::move(retained_pending);
     }
     append_multihop_relative_translation_factors(tracking_pose, relative_translation_factors);
+    append_multihop_relative_distance_factors(tracking_pose, relative_distance_factors);
 
     const auto pre_ba_tracking_pose = tracking_pose;
     if (enable_sliding_window_optimizer_) {
@@ -2494,7 +2530,8 @@ private:
         window_plane_factors,
         visual_window_factors,
         se3_photometric_factors,
-        relative_translation_factors);
+        relative_translation_factors,
+        relative_distance_factors);
     }
     bool post_ba_guard_adjusted_pose = false;
     if (enable_post_ba_tracking_step_guard_) {
@@ -2630,6 +2667,70 @@ private:
     factor.rotation_weight = sliding_window_multihop_relative_rotation_weight_;
     factor.rotation_huber_delta_rad =
       sliding_window_multihop_relative_rotation_huber_delta_rad_;
+    return factor;
+  }
+
+  void append_multihop_relative_distance_factors(
+    const gaussian_lic_tracking::TrajectoryPose & pre_ba_pose,
+    std::vector<gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor> & factors) const
+  {
+    if (!enable_sliding_window_multihop_relative_distance_factor_ ||
+      sliding_window_multihop_relative_distance_weight_ <= 0.0 ||
+      relative_motion_pose_history_.empty())
+    {
+      return;
+    }
+    const int64_t min_dt_ns = static_cast<int64_t>(
+      sliding_window_multihop_relative_translation_min_dt_s_ *
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+    const int64_t max_dt_ns = static_cast<int64_t>(
+      sliding_window_multihop_relative_translation_max_dt_s_ *
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond));
+    size_t added_factors = 0U;
+    for (const auto & history_pose : relative_motion_pose_history_) {
+      if (history_pose.stamp_ns >= pre_ba_pose.stamp_ns) {
+        continue;
+      }
+      const int64_t dt_ns = pre_ba_pose.stamp_ns - history_pose.stamp_ns;
+      if (dt_ns < min_dt_ns || dt_ns > max_dt_ns) {
+        continue;
+      }
+      const auto factor = make_multihop_relative_distance_factor(history_pose, pre_ba_pose);
+      if (!factor.has_value()) {
+        continue;
+      }
+      factors.push_back(factor.value());
+      ++added_factors;
+      if (added_factors >=
+        static_cast<size_t>(sliding_window_multihop_relative_translation_max_factors_))
+      {
+        return;
+      }
+    }
+  }
+
+  std::optional<gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor>
+  make_multihop_relative_distance_factor(
+    const gaussian_lic_tracking::TrajectoryPose & from_pose,
+    const gaussian_lic_tracking::TrajectoryPose & to_pose,
+    const uint64_t source_id = 0U) const
+  {
+    if (from_pose.stamp_ns >= to_pose.stamp_ns ||
+      !from_pose.p_w_i.allFinite() || !to_pose.p_w_i.allFinite())
+    {
+      return std::nullopt;
+    }
+    const Eigen::Vector3d delta_p_w = to_pose.p_w_i - from_pose.p_w_i;
+    if (!delta_p_w.allFinite()) {
+      return std::nullopt;
+    }
+    gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor factor;
+    factor.from_stamp_ns = from_pose.stamp_ns;
+    factor.to_stamp_ns = to_pose.stamp_ns;
+    factor.source_id = source_id;
+    factor.distance_m = delta_p_w.norm();
+    factor.weight = sliding_window_multihop_relative_distance_weight_;
+    factor.huber_delta_m = sliding_window_multihop_relative_distance_huber_delta_m_;
     return factor;
   }
 
@@ -3153,7 +3254,9 @@ private:
     const std::vector<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor> & visual_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor> & se3_photometric_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor> &
-      relative_translation_factors)
+      relative_translation_factors,
+    const std::vector<gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor> &
+      relative_distance_factors)
   {
     gaussian_lic_tracking::TrajectoryPose output_pose = input_pose;
     gaussian_lic_tracking::ImuState imu_state;
@@ -3290,6 +3393,16 @@ private:
         RCLCPP_WARN_THROTTLE(
           get_logger(), *get_clock(), 2000,
           "sliding window relative translation factor skipped: %s", ex.what());
+      }
+    }
+    for (const auto & relative_factor : relative_distance_factors) {
+      try {
+        sliding_window_optimizer_.add_relative_distance_factor(relative_factor);
+        window_factor_added = true;
+      } catch (const std::exception & ex) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window relative distance factor skipped: %s", ex.what());
       }
     }
     update_motion_target_support_history(visual_factors.size(), se3_photometric_factors.size());
@@ -5233,6 +5346,8 @@ private:
       static_cast<uint64_t>(summary.se3_photometric_factor_count);
     status.sliding_window_relative_translation_factors =
       static_cast<uint64_t>(summary.relative_translation_factor_count);
+    status.sliding_window_relative_distance_factors =
+      static_cast<uint64_t>(summary.relative_distance_factor_count);
     status.sliding_window_smoothness_factors =
       static_cast<uint64_t>(summary.smoothness_factor_count);
     status.sliding_window_imu_factor_replacement_count =
@@ -5247,6 +5362,8 @@ private:
       static_cast<uint64_t>(summary.se3_photometric_factor_replacement_count);
     status.sliding_window_relative_translation_factor_replacement_count =
       static_cast<uint64_t>(summary.relative_translation_factor_replacement_count);
+    status.sliding_window_relative_distance_factor_replacement_count =
+      static_cast<uint64_t>(summary.relative_distance_factor_replacement_count);
     status.sliding_window_smoothness_factor_replacement_count =
       static_cast<uint64_t>(summary.smoothness_factor_replacement_count);
     status.sliding_window_orphan_factors = static_cast<uint64_t>(summary.orphan_factor_count);
@@ -5356,6 +5473,8 @@ private:
       summary.se3_photometric_factor_cost;
     status.sliding_window_relative_translation_factor_cost =
       summary.relative_translation_factor_cost;
+    status.sliding_window_relative_distance_factor_cost =
+      summary.relative_distance_factor_cost;
     status.sliding_window_smoothness_factor_cost = summary.smoothness_factor_cost;
     status.sliding_window_smoothness_motion_target_last_rotation_rate_delta_norm =
       last_sliding_window_smoothness_motion_target_rotation_rate_delta_norm_;
@@ -5800,12 +5919,18 @@ private:
   bool sliding_window_relative_translation_in_from_frame_{false};
   double sliding_window_relative_rotation_weight_{0.0};
   double sliding_window_relative_rotation_huber_delta_rad_{0.05};
+  bool enable_sliding_window_relative_distance_factor_{false};
+  double sliding_window_relative_distance_weight_{0.0};
+  double sliding_window_relative_distance_huber_delta_m_{0.1};
   bool enable_sliding_window_multihop_relative_translation_factor_{false};
   double sliding_window_multihop_relative_translation_weight_{0.0};
   double sliding_window_multihop_relative_translation_huber_delta_m_{0.15};
   bool sliding_window_multihop_relative_translation_in_from_frame_{false};
   double sliding_window_multihop_relative_rotation_weight_{0.0};
   double sliding_window_multihop_relative_rotation_huber_delta_rad_{0.08};
+  bool enable_sliding_window_multihop_relative_distance_factor_{false};
+  double sliding_window_multihop_relative_distance_weight_{0.0};
+  double sliding_window_multihop_relative_distance_huber_delta_m_{0.15};
   double sliding_window_multihop_relative_translation_min_dt_s_{0.45};
   double sliding_window_multihop_relative_translation_max_dt_s_{1.05};
   int sliding_window_multihop_relative_translation_max_factors_{1};

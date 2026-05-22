@@ -127,12 +127,18 @@ SLIDING_WINDOW_RELATIVE_TRANSLATION_HUBER_DELTA_M=0.1
 SLIDING_WINDOW_RELATIVE_TRANSLATION_IN_FROM_FRAME=false
 SLIDING_WINDOW_RELATIVE_ROTATION_WEIGHT=0.0
 SLIDING_WINDOW_RELATIVE_ROTATION_HUBER_DELTA_RAD=0.05
+ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR=false
+SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT=0.0
+SLIDING_WINDOW_RELATIVE_DISTANCE_HUBER_DELTA_M=0.1
 ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_FACTOR=false
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT=0.0
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M=0.15
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_IN_FROM_FRAME=false
 SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_WEIGHT=0.0
 SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_HUBER_DELTA_RAD=0.08
+ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR=false
+SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT=0.0
+SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_HUBER_DELTA_M=0.15
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S=0.45
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S=1.05
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS=1
@@ -413,6 +419,18 @@ Options:
                                Optional multi-hop relative rotation weight. Default: 0.0.
   --sliding-window-multihop-relative-rotation-huber-delta-rad R
                                Huber delta for multi-hop relative rotation. Default: 0.08.
+  --enable-sliding-window-relative-distance-factor
+                               Add an adjacent distance-only motion-length factor. Default: disabled.
+  --sliding-window-relative-distance-weight W
+                               Weight for the adjacent distance-only factor. Default: 0.0.
+  --sliding-window-relative-distance-huber-delta-m M
+                               Huber delta for the adjacent distance-only factor. Default: 0.1.
+  --enable-sliding-window-multihop-relative-distance-factor
+                               Add multi-hop distance-only motion-length factors. Default: disabled.
+  --sliding-window-multihop-relative-distance-weight W
+                               Weight for the multi-hop distance-only factors. Default: 0.0.
+  --sliding-window-multihop-relative-distance-huber-delta-m M
+                               Huber delta for the multi-hop distance-only factors. Default: 0.15.
   --sliding-window-multihop-relative-translation-min-dt-s SEC
                                Minimum span for the multi-hop relative translation factor. Default: 0.45.
   --sliding-window-multihop-relative-translation-max-dt-s SEC
@@ -1288,6 +1306,18 @@ while [[ $# -gt 0 ]]; do
       SLIDING_WINDOW_RELATIVE_ROTATION_HUBER_DELTA_RAD="$2"
       shift 2
       ;;
+    --enable-sliding-window-relative-distance-factor)
+      ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR=true
+      shift
+      ;;
+    --sliding-window-relative-distance-weight)
+      SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT="$2"
+      shift 2
+      ;;
+    --sliding-window-relative-distance-huber-delta-m)
+      SLIDING_WINDOW_RELATIVE_DISTANCE_HUBER_DELTA_M="$2"
+      shift 2
+      ;;
     --enable-sliding-window-multihop-relative-translation-factor)
       ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_FACTOR=true
       shift
@@ -1310,6 +1340,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sliding-window-multihop-relative-rotation-huber-delta-rad)
       SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_HUBER_DELTA_RAD="$2"
+      shift 2
+      ;;
+    --enable-sliding-window-multihop-relative-distance-factor)
+      ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR=true
+      shift
+      ;;
+    --sliding-window-multihop-relative-distance-weight)
+      SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT="$2"
+      shift 2
+      ;;
+    --sliding-window-multihop-relative-distance-huber-delta-m)
+      SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_HUBER_DELTA_M="$2"
       shift 2
       ;;
     --sliding-window-multihop-relative-translation-min-dt-s)
@@ -2156,12 +2198,18 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_relative_translation_in_from_frame:="${SLIDING_WINDOW_RELATIVE_TRANSLATION_IN_FROM_FRAME}" \
   sliding_window_relative_rotation_weight:="${SLIDING_WINDOW_RELATIVE_ROTATION_WEIGHT}" \
   sliding_window_relative_rotation_huber_delta_rad:="${SLIDING_WINDOW_RELATIVE_ROTATION_HUBER_DELTA_RAD}" \
+  enable_sliding_window_relative_distance_factor:="${ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR}" \
+  sliding_window_relative_distance_weight:="${SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT}" \
+  sliding_window_relative_distance_huber_delta_m:="${SLIDING_WINDOW_RELATIVE_DISTANCE_HUBER_DELTA_M}" \
   enable_sliding_window_multihop_relative_translation_factor:="${ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_FACTOR}" \
   sliding_window_multihop_relative_translation_weight:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT}" \
   sliding_window_multihop_relative_translation_huber_delta_m:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M}" \
   sliding_window_multihop_relative_translation_in_from_frame:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_IN_FROM_FRAME}" \
   sliding_window_multihop_relative_rotation_weight:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_WEIGHT}" \
   sliding_window_multihop_relative_rotation_huber_delta_rad:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_HUBER_DELTA_RAD}" \
+  enable_sliding_window_multihop_relative_distance_factor:="${ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR}" \
+  sliding_window_multihop_relative_distance_weight:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT}" \
+  sliding_window_multihop_relative_distance_huber_delta_m:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_HUBER_DELTA_M}" \
   sliding_window_multihop_relative_translation_min_dt_s:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S}" \
   sliding_window_multihop_relative_translation_max_dt_s:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S}" \
   sliding_window_multihop_relative_translation_max_factors:="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS}" \
@@ -2395,12 +2443,18 @@ SLIDING_WINDOW_RELATIVE_TRANSLATION_HUBER_DELTA_M_REPORT="${SLIDING_WINDOW_RELAT
 SLIDING_WINDOW_RELATIVE_TRANSLATION_IN_FROM_FRAME_REPORT="${SLIDING_WINDOW_RELATIVE_TRANSLATION_IN_FROM_FRAME}" \
 SLIDING_WINDOW_RELATIVE_ROTATION_WEIGHT_REPORT="${SLIDING_WINDOW_RELATIVE_ROTATION_WEIGHT}" \
 SLIDING_WINDOW_RELATIVE_ROTATION_HUBER_DELTA_RAD_REPORT="${SLIDING_WINDOW_RELATIVE_ROTATION_HUBER_DELTA_RAD}" \
+ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR_REPORT="${ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR}" \
+SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT_REPORT="${SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT}" \
+SLIDING_WINDOW_RELATIVE_DISTANCE_HUBER_DELTA_M_REPORT="${SLIDING_WINDOW_RELATIVE_DISTANCE_HUBER_DELTA_M}" \
 ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_FACTOR_REPORT="${ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_FACTOR}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_HUBER_DELTA_M}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_IN_FROM_FRAME_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_IN_FROM_FRAME}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_WEIGHT_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_WEIGHT}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_HUBER_DELTA_RAD_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_HUBER_DELTA_RAD}" \
+ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR_REPORT="${ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR}" \
+SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT}" \
+SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_HUBER_DELTA_M_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_HUBER_DELTA_M}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_DT_S}" \
 SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS_REPORT="${SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MAX_FACTORS}" \
@@ -2774,6 +2828,15 @@ sliding_window_relative_rotation_weight = float(
 sliding_window_relative_rotation_huber_delta_rad = float(
     os.environ["SLIDING_WINDOW_RELATIVE_ROTATION_HUBER_DELTA_RAD_REPORT"]
 )
+enable_sliding_window_relative_distance_factor = (
+    os.environ["ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR_REPORT"] == "true"
+)
+sliding_window_relative_distance_weight = float(
+    os.environ["SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT_REPORT"]
+)
+sliding_window_relative_distance_huber_delta_m = float(
+    os.environ["SLIDING_WINDOW_RELATIVE_DISTANCE_HUBER_DELTA_M_REPORT"]
+)
 enable_sliding_window_multihop_relative_translation_factor = (
     os.environ["ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_FACTOR_REPORT"] == "true"
 )
@@ -2794,6 +2857,15 @@ sliding_window_multihop_relative_rotation_weight = float(
 )
 sliding_window_multihop_relative_rotation_huber_delta_rad = float(
     os.environ["SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_HUBER_DELTA_RAD_REPORT"]
+)
+enable_sliding_window_multihop_relative_distance_factor = (
+    os.environ["ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR_REPORT"] == "true"
+)
+sliding_window_multihop_relative_distance_weight = float(
+    os.environ["SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT_REPORT"]
+)
+sliding_window_multihop_relative_distance_huber_delta_m = float(
+    os.environ["SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_HUBER_DELTA_M_REPORT"]
 )
 sliding_window_multihop_relative_translation_min_dt_s = float(
     os.environ["SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_MIN_DT_S_REPORT"]
@@ -3660,6 +3732,15 @@ report = {
         "sliding_window_relative_rotation_huber_delta_rad": (
             sliding_window_relative_rotation_huber_delta_rad
         ),
+        "enable_sliding_window_relative_distance_factor": (
+            enable_sliding_window_relative_distance_factor
+        ),
+        "sliding_window_relative_distance_weight": (
+            sliding_window_relative_distance_weight
+        ),
+        "sliding_window_relative_distance_huber_delta_m": (
+            sliding_window_relative_distance_huber_delta_m
+        ),
         "enable_sliding_window_multihop_relative_translation_factor": (
             enable_sliding_window_multihop_relative_translation_factor
         ),
@@ -3677,6 +3758,15 @@ report = {
         ),
         "sliding_window_multihop_relative_rotation_huber_delta_rad": (
             sliding_window_multihop_relative_rotation_huber_delta_rad
+        ),
+        "enable_sliding_window_multihop_relative_distance_factor": (
+            enable_sliding_window_multihop_relative_distance_factor
+        ),
+        "sliding_window_multihop_relative_distance_weight": (
+            sliding_window_multihop_relative_distance_weight
+        ),
+        "sliding_window_multihop_relative_distance_huber_delta_m": (
+            sliding_window_multihop_relative_distance_huber_delta_m
         ),
         "sliding_window_multihop_relative_translation_min_dt_s": (
             sliding_window_multihop_relative_translation_min_dt_s

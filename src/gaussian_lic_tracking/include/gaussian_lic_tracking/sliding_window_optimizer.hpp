@@ -147,6 +147,16 @@ struct SlidingWindowRelativeTranslationFactor
   double rotation_huber_delta_rad{0.0};
 };
 
+struct SlidingWindowRelativeDistanceFactor
+{
+  int64_t from_stamp_ns{0};
+  int64_t to_stamp_ns{0};
+  uint64_t source_id{0};
+  double distance_m{0.0};
+  double weight{1.0};
+  double huber_delta_m{0.0};
+};
+
 struct SlidingWindowTrajectorySmoothnessFactor
 {
   int64_t previous_stamp_ns{0};
@@ -184,6 +194,7 @@ struct SlidingWindowCostBreakdown
   double visual_factor_cost{0.0};
   double se3_photometric_factor_cost{0.0};
   double relative_translation_factor_cost{0.0};
+  double relative_distance_factor_cost{0.0};
   double smoothness_factor_cost{0.0};
 };
 
@@ -199,6 +210,7 @@ struct SlidingWindowSummary
   size_t visual_factor_count{0};
   size_t se3_photometric_factor_count{0};
   size_t relative_translation_factor_count{0};
+  size_t relative_distance_factor_count{0};
   size_t smoothness_factor_count{0};
   size_t imu_factor_replacement_count{0};
   size_t point_factor_replacement_count{0};
@@ -206,6 +218,7 @@ struct SlidingWindowSummary
   size_t visual_factor_replacement_count{0};
   size_t se3_photometric_factor_replacement_count{0};
   size_t relative_translation_factor_replacement_count{0};
+  size_t relative_distance_factor_replacement_count{0};
   size_t smoothness_factor_replacement_count{0};
   size_t orphan_factor_count{0};
   size_t marginalized_state_count{0};
@@ -237,6 +250,7 @@ struct SlidingWindowSummary
   double visual_factor_cost{0.0};
   double se3_photometric_factor_cost{0.0};
   double relative_translation_factor_cost{0.0};
+  double relative_distance_factor_cost{0.0};
   double smoothness_factor_cost{0.0};
   double last_step_norm{0.0};
   double last_step_scale{0.0};
@@ -311,6 +325,7 @@ public:
   void add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor);
   void add_se3_photometric_factor(const SlidingWindowSe3PhotometricFactor & factor);
   void add_relative_translation_factor(const SlidingWindowRelativeTranslationFactor & factor);
+  void add_relative_distance_factor(const SlidingWindowRelativeDistanceFactor & factor);
   void add_trajectory_smoothness_factor(const SlidingWindowTrajectorySmoothnessFactor & factor);
 
   SlidingWindowNormalEquation build_normal_equation(double damping = 0.0) const;
@@ -374,6 +389,7 @@ private:
   std::vector<SlidingWindowVisualAlignmentFactor> visual_factors_;
   std::vector<SlidingWindowSe3PhotometricFactor> se3_photometric_factors_;
   std::vector<SlidingWindowRelativeTranslationFactor> relative_translation_factors_;
+  std::vector<SlidingWindowRelativeDistanceFactor> relative_distance_factors_;
   std::vector<SlidingWindowTrajectorySmoothnessFactor> smoothness_factors_;
   size_t imu_factor_replacement_count_{0};
   size_t point_factor_replacement_count_{0};
@@ -381,6 +397,7 @@ private:
   size_t visual_factor_replacement_count_{0};
   size_t se3_photometric_factor_replacement_count_{0};
   size_t relative_translation_factor_replacement_count_{0};
+  size_t relative_distance_factor_replacement_count_{0};
   size_t smoothness_factor_replacement_count_{0};
   size_t marginalized_state_count_{0};
   size_t schur_marginalization_count_{0};

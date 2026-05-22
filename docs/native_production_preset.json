@@ -1,6 +1,6 @@
 {
   "schema": "gaussian_lic_native_production_preset/v1",
-  "updated": "2026-05-17",
+  "updated": "2026-05-23",
   "profile": "fastlivo2",
   "sequence": "CBD_Building_01",
   "production_preset": {
@@ -16,9 +16,13 @@
     "post_ba_step_guard_confidence_warmup_marginalizations": 0,
     "sliding_window_relative_translation_weight": 0.1,
     "sliding_window_relative_rotation_weight": 0.01,
+    "enable_sliding_window_relative_distance_factor": false,
+    "sliding_window_relative_distance_weight": 0.0,
     "sliding_window_multihop_relative_translation_weight": 0.03,
     "sliding_window_multihop_relative_translation_max_factors": 6,
     "sliding_window_multihop_relative_rotation_weight": 0.005,
+    "enable_sliding_window_multihop_relative_distance_factor": false,
+    "sliding_window_multihop_relative_distance_weight": 0.0,
     "visual_alignment_window_weight": 0.25,
     "se3_photometric_window_weight": 0.5,
     "lidar_window_plane_factor_weight": 4.0,

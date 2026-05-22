@@ -96,6 +96,12 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "SLIDING_WINDOW_RELATIVE_ROTATION_WEIGHT": (
             preset["sliding_window_relative_rotation_weight"]
         ),
+        "ENABLE_SLIDING_WINDOW_RELATIVE_DISTANCE_FACTOR": (
+            preset["enable_sliding_window_relative_distance_factor"]
+        ),
+        "SLIDING_WINDOW_RELATIVE_DISTANCE_WEIGHT": (
+            preset["sliding_window_relative_distance_weight"]
+        ),
         "SLIDING_WINDOW_MULTIHOP_RELATIVE_TRANSLATION_WEIGHT": (
             preset["sliding_window_multihop_relative_translation_weight"]
         ),
@@ -104,6 +110,12 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         ),
         "SLIDING_WINDOW_MULTIHOP_RELATIVE_ROTATION_WEIGHT": (
             preset["sliding_window_multihop_relative_rotation_weight"]
+        ),
+        "ENABLE_SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_FACTOR": (
+            preset["enable_sliding_window_multihop_relative_distance_factor"]
+        ),
+        "SLIDING_WINDOW_MULTIHOP_RELATIVE_DISTANCE_WEIGHT": (
+            preset["sliding_window_multihop_relative_distance_weight"]
         ),
         "VISUAL_ALIGNMENT_WINDOW_WEIGHT": preset["visual_alignment_window_weight"],
         "SE3_PHOTOMETRIC_WINDOW_WEIGHT": preset["se3_photometric_window_weight"],
@@ -146,6 +158,10 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_alignment_factor_source",
         "--visual-factor-source-id-mode",
         "visual_factor_source_id_mode",
+        "--enable-sliding-window-relative-distance-factor",
+        "sliding_window_relative_distance_weight",
+        "--enable-sliding-window-multihop-relative-distance-factor",
+        "sliding_window_multihop_relative_distance_weight",
         "--mapper-feedback-image-qos-reliability",
         "mapper_feedback_image_qos_reliability",
         "visual_factor_continuity",

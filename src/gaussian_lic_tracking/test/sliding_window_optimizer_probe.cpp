@@ -192,6 +192,43 @@ int main()
               << "\n";
     return 1;
   }
+
+  gaussian_lic_tracking::SlidingWindowOptimizer distance_optimizer;
+  gaussian_lic_tracking::SlidingWindowState distance_start;
+  distance_start.stamp_ns = 0;
+  distance_start.fixed = true;
+  distance_optimizer.add_or_update_state(distance_start);
+  gaussian_lic_tracking::SlidingWindowState distance_end;
+  distance_end.stamp_ns = dt_ns;
+  distance_end.p_w_i = Eigen::Vector3d{0.1, 0.0, 0.0};
+  distance_optimizer.add_or_update_state(distance_end);
+  gaussian_lic_tracking::SlidingWindowRelativeDistanceFactor distance_factor;
+  distance_factor.from_stamp_ns = distance_start.stamp_ns;
+  distance_factor.to_stamp_ns = distance_end.stamp_ns;
+  distance_factor.distance_m = 0.5;
+  distance_factor.weight = 25.0;
+  distance_factor.huber_delta_m = 0.0;
+  distance_optimizer.add_relative_distance_factor(distance_factor);
+  const auto distance_summary = distance_optimizer.optimize();
+  gaussian_lic_tracking::SlidingWindowState distance_optimized;
+  if (!distance_optimizer.get_state(distance_end.stamp_ns, distance_optimized)) {
+    std::cerr << "relative distance endpoint is missing\n";
+    return 1;
+  }
+  const double distance_error = std::abs(distance_optimized.p_w_i.norm() - 0.5);
+  if (!distance_summary.converged ||
+    distance_summary.relative_distance_factor_count != 1U ||
+    distance_summary.relative_distance_factor_cost >= distance_summary.initial_cost ||
+    distance_summary.numeric_jacobian_block_count != 0U ||
+    distance_summary.numeric_jacobian_column_count != 0U ||
+    distance_error > 1.0e-8)
+  {
+    std::cerr << "relative distance BA factor failed, distance_error="
+              << distance_error
+              << " numeric_blocks=" << distance_summary.numeric_jacobian_block_count
+              << " numeric_columns=" << distance_summary.numeric_jacobian_column_count << "\n";
+    return 1;
+  }
   std::cout << "sliding_window_optimizer_probe OK\n";
   return 0;
 }
