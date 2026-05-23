@@ -59,6 +59,8 @@ POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL=0.3
 POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES=8
 POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M=0.0
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M=0.0
+POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS=0
+POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M=0.0
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE=0.85
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M=0.05
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M=0.0
@@ -493,6 +495,10 @@ Options:
                                Reject over-large post-BA candidates to the pre-BA LiDAR/IMU pose instead of clamping their direction. Default: 0.0 disabled.
   --post-ba-step-guard-pre-ba-agreement-max-pose-step-m M
                                Allow a larger post-BA step up to M only when it agrees with the pre-BA LiDAR/IMU step. Default: 0.0 disabled.
+  --post-ba-step-guard-pre-ba-agreement-late-start-marginalizations N
+                               After N Schur marginalizations, use the late pre-BA agreement cap when larger. Default: 0 disabled.
+  --post-ba-step-guard-pre-ba-agreement-late-max-pose-step-m M
+                               Late-window pre-BA agreement pose-step cap. Default: 0.0 disabled.
   --post-ba-step-guard-pre-ba-agreement-min-cosine C
                                Direction cosine required for pre-BA agreement. Default: 0.85.
   --post-ba-step-guard-pre-ba-agreement-max-delta-m M
@@ -1061,6 +1067,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --post-ba-step-guard-pre-ba-agreement-max-pose-step-m)
       POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-pre-ba-agreement-late-start-marginalizations)
+      POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS="$2"
+      shift 2
+      ;;
+    --post-ba-step-guard-pre-ba-agreement-late-max-pose-step-m)
+      POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M="$2"
       shift 2
       ;;
     --post-ba-step-guard-pre-ba-agreement-min-cosine)
@@ -2117,6 +2131,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   post_ba_step_guard_min_visual_coverage_tiles:="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
   post_ba_step_guard_reject_to_pre_ba_over_m:="${POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M}" \
   post_ba_step_guard_pre_ba_agreement_max_pose_step_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M}" \
+  post_ba_step_guard_pre_ba_agreement_late_start_marginalizations:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS}" \
+  post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M}" \
   post_ba_step_guard_pre_ba_agreement_min_cosine:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE}" \
   post_ba_step_guard_pre_ba_agreement_max_delta_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M}" \
   post_ba_step_guard_pre_ba_agreement_margin_m:="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M}" \
@@ -2405,6 +2421,8 @@ POST_BA_STEP_GUARD_MAX_VISUAL_RESIDUAL_REPORT="${POST_BA_STEP_GUARD_MAX_VISUAL_R
 POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES_REPORT="${POST_BA_STEP_GUARD_MIN_VISUAL_COVERAGE_TILES}" \
 POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M_REPORT="${POST_BA_STEP_GUARD_REJECT_TO_PRE_BA_OVER_M}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M}" \
+POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS}" \
+POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_DELTA_M}" \
 POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M_REPORT="${POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MARGIN_M}" \
@@ -2896,6 +2914,12 @@ sliding_window_relative_motion_history_published_after_s = float(
 )
 post_ba_step_guard_pre_ba_agreement_max_pose_step_m = float(
     os.environ["POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M_REPORT"]
+)
+post_ba_step_guard_pre_ba_agreement_late_start_marginalizations = int(
+    os.environ["POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS_REPORT"]
+)
+post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m = float(
+    os.environ["POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M_REPORT"]
 )
 post_ba_step_guard_pre_ba_agreement_min_cosine = float(
     os.environ["POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE_REPORT"]
@@ -3820,6 +3844,12 @@ report = {
         ),
         "post_ba_step_guard_pre_ba_agreement_max_pose_step_m": (
             post_ba_step_guard_pre_ba_agreement_max_pose_step_m
+        ),
+        "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations": (
+            post_ba_step_guard_pre_ba_agreement_late_start_marginalizations
+        ),
+        "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m": (
+            post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m
         ),
         "post_ba_step_guard_pre_ba_agreement_min_cosine": (
             post_ba_step_guard_pre_ba_agreement_min_cosine

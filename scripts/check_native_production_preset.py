@@ -78,6 +78,12 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MAX_POSE_STEP_M": (
             preset["post_ba_step_guard_pre_ba_agreement_max_pose_step_m"]
         ),
+        "POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_START_MARGINALIZATIONS": (
+            preset["post_ba_step_guard_pre_ba_agreement_late_start_marginalizations"]
+        ),
+        "POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_LATE_MAX_POSE_STEP_M": (
+            preset["post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m"]
+        ),
         "POST_BA_STEP_GUARD_PRE_BA_AGREEMENT_MIN_COSINE": (
             preset["post_ba_step_guard_pre_ba_agreement_min_cosine"]
         ),
@@ -142,6 +148,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         errors,
     )
     for option in (
+        "--post-ba-step-guard-pre-ba-agreement-late-start-marginalizations",
+        "--post-ba-step-guard-pre-ba-agreement-late-max-pose-step-m",
         "--min-status-bin-sample-count",
         "--min-visual-factor-delta-per-status-bin",
         "--min-se3-photometric-factor-delta-per-status-bin",

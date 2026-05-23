@@ -457,6 +457,12 @@ def generate_launch_description():
     post_ba_step_guard_pre_ba_agreement_max_pose_step_m = LaunchConfiguration(
         "post_ba_step_guard_pre_ba_agreement_max_pose_step_m"
     )
+    post_ba_step_guard_pre_ba_agreement_late_start_marginalizations = LaunchConfiguration(
+        "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations"
+    )
+    post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m = LaunchConfiguration(
+        "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m"
+    )
     post_ba_step_guard_pre_ba_agreement_min_cosine = LaunchConfiguration(
         "post_ba_step_guard_pre_ba_agreement_min_cosine"
     )
@@ -610,6 +616,14 @@ def generate_launch_description():
             DeclareLaunchArgument("post_ba_step_guard_min_visual_coverage_tiles", default_value="8"),
             DeclareLaunchArgument("post_ba_step_guard_reject_to_pre_ba_over_m", default_value="0.0"),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_max_pose_step_m", default_value="0.0"),
+            DeclareLaunchArgument(
+                "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations",
+                default_value="0",
+            ),
+            DeclareLaunchArgument(
+                "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m",
+                default_value="0.0",
+            ),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_min_cosine", default_value="0.85"),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_max_delta_m", default_value="0.05"),
             DeclareLaunchArgument("post_ba_step_guard_pre_ba_agreement_margin_m", default_value="0.0"),
@@ -957,6 +971,12 @@ def generate_launch_description():
                         ),
                         "post_ba_step_guard_pre_ba_agreement_max_pose_step_m": (
                             post_ba_step_guard_pre_ba_agreement_max_pose_step_m
+                        ),
+                        "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations": (
+                            post_ba_step_guard_pre_ba_agreement_late_start_marginalizations
+                        ),
+                        "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m": (
+                            post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m
                         ),
                         "post_ba_step_guard_pre_ba_agreement_min_cosine": (
                             post_ba_step_guard_pre_ba_agreement_min_cosine

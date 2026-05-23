@@ -530,6 +530,17 @@ public:
     post_ba_step_guard_pre_ba_agreement_max_pose_step_m_ = finite_nonnegative_parameter(
       "post_ba_step_guard_pre_ba_agreement_max_pose_step_m",
       declare_parameter<double>("post_ba_step_guard_pre_ba_agreement_max_pose_step_m", 0.0));
+    post_ba_step_guard_pre_ba_agreement_late_start_marginalizations_ =
+      integer_parameter_at_least(
+      "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations",
+      declare_parameter<int>(
+        "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations", 0),
+      0);
+    post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m_ =
+      finite_nonnegative_parameter(
+      "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m",
+      declare_parameter<double>(
+        "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m", 0.0));
     post_ba_step_guard_pre_ba_agreement_min_cosine_ = finite_unit_interval_parameter(
       "post_ba_step_guard_pre_ba_agreement_min_cosine",
       declare_parameter<double>("post_ba_step_guard_pre_ba_agreement_min_cosine", 0.85));
@@ -5081,8 +5092,16 @@ private:
           std::max(stage_base_step_m, hard_velocity_step_m));
       }
     }
+    const bool late_pre_ba_agreement_active =
+      stage == StepGuardStage::kPostBa && post_ba_pre_ba_agreement_late_is_ready();
+    const double pre_ba_agreement_max_pose_step_m =
+      post_ba_pre_ba_agreement_max_pose_step_m();
+    last_tracking_step_guard_pre_ba_agreement_limit_m_ =
+      stage == StepGuardStage::kPostBa ? pre_ba_agreement_max_pose_step_m : 0.0;
+    last_tracking_step_guard_pre_ba_agreement_late_active_ =
+      late_pre_ba_agreement_active;
     if (stage == StepGuardStage::kPostBa &&
-      post_ba_step_guard_pre_ba_agreement_max_pose_step_m_ > allowed_step_m &&
+      pre_ba_agreement_max_pose_step_m > allowed_step_m &&
       fallback_pose != nullptr &&
       fallback_pose->stamp_ns == pose.stamp_ns &&
       valid_trajectory_pose(*fallback_pose))
@@ -5098,10 +5117,17 @@ private:
         if (std::isfinite(agreement_cosine) &&
           agreement_cosine >= post_ba_step_guard_pre_ba_agreement_min_cosine_)
         {
+          const double previous_allowed_step_m = allowed_step_m;
           const double agreed_limit = std::min(
-            post_ba_step_guard_pre_ba_agreement_max_pose_step_m_,
+            pre_ba_agreement_max_pose_step_m,
             pre_ba_step_m + post_ba_step_guard_pre_ba_agreement_margin_m_);
           allowed_step_m = std::max(allowed_step_m, agreed_limit);
+          if (allowed_step_m > previous_allowed_step_m) {
+            ++tracking_step_guard_pre_ba_agreement_release_count_;
+            if (late_pre_ba_agreement_active) {
+              ++tracking_step_guard_late_pre_ba_agreement_release_count_;
+            }
+          }
         }
       }
     }
@@ -5229,6 +5255,25 @@ private:
       }
     }
     return has_signal ? std::clamp(score, 0.0, 1.0) : 0.0;
+  }
+
+  bool post_ba_pre_ba_agreement_late_is_ready() const
+  {
+    return post_ba_step_guard_pre_ba_agreement_late_start_marginalizations_ > 0 &&
+           post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m_ >
+           post_ba_step_guard_pre_ba_agreement_max_pose_step_m_ &&
+           has_last_sliding_window_summary_ &&
+           last_sliding_window_summary_.schur_marginalization_count >=
+           static_cast<size_t>(
+             post_ba_step_guard_pre_ba_agreement_late_start_marginalizations_);
+  }
+
+  double post_ba_pre_ba_agreement_max_pose_step_m() const
+  {
+    if (post_ba_pre_ba_agreement_late_is_ready()) {
+      return post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m_;
+    }
+    return post_ba_step_guard_pre_ba_agreement_max_pose_step_m_;
   }
 
   void publish_tracking_status(const builtin_interfaces::msg::Time & stamp)
@@ -5536,6 +5581,10 @@ private:
     status.tracking_step_guard_post_ba_clamps = tracking_step_guard_post_ba_clamp_count_;
     status.tracking_step_guard_post_ba_rejections =
       tracking_step_guard_post_ba_rejection_count_;
+    status.tracking_step_guard_pre_ba_agreement_releases =
+      tracking_step_guard_pre_ba_agreement_release_count_;
+    status.tracking_step_guard_late_pre_ba_agreement_releases =
+      tracking_step_guard_late_pre_ba_agreement_release_count_;
     status.tracking_step_guard_last_raw_step_m = last_tracking_step_guard_raw_step_m_;
     status.tracking_step_guard_last_allowed_step_m = last_tracking_step_guard_allowed_step_m_;
     status.tracking_step_guard_last_dt_s = last_tracking_step_guard_dt_s_;
@@ -5543,6 +5592,10 @@ private:
       last_tracking_step_guard_reference_speed_mps_;
     status.tracking_step_guard_last_confidence_score =
       last_tracking_step_guard_confidence_score_;
+    status.tracking_step_guard_last_pre_ba_agreement_limit_m =
+      last_tracking_step_guard_pre_ba_agreement_limit_m_;
+    status.tracking_step_guard_last_pre_ba_agreement_late_active =
+      last_tracking_step_guard_pre_ba_agreement_late_active_;
 
     status.gaussian_snapshot_points = static_cast<uint64_t>(gaussian_snapshot_.point_count());
     status.gaussian_snapshot_expected_total = last_gaussian_total_count_;
@@ -5820,6 +5873,8 @@ private:
   int post_ba_step_guard_min_visual_coverage_tiles_{8};
   double post_ba_step_guard_reject_to_pre_ba_over_m_{0.0};
   double post_ba_step_guard_pre_ba_agreement_max_pose_step_m_{0.0};
+  int post_ba_step_guard_pre_ba_agreement_late_start_marginalizations_{0};
+  double post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m_{0.0};
   double post_ba_step_guard_pre_ba_agreement_min_cosine_{0.85};
   double post_ba_step_guard_pre_ba_agreement_max_delta_m_{0.05};
   double post_ba_step_guard_pre_ba_agreement_margin_m_{0.0};
@@ -6043,11 +6098,15 @@ private:
   std::deque<std::pair<size_t, size_t>> motion_target_support_history_;
   uint64_t tracking_step_guard_post_ba_clamp_count_{0};
   uint64_t tracking_step_guard_post_ba_rejection_count_{0};
+  uint64_t tracking_step_guard_pre_ba_agreement_release_count_{0};
+  uint64_t tracking_step_guard_late_pre_ba_agreement_release_count_{0};
   double last_tracking_step_guard_raw_step_m_{0.0};
   double last_tracking_step_guard_allowed_step_m_{0.0};
   double last_tracking_step_guard_dt_s_{0.0};
   double last_tracking_step_guard_reference_speed_mps_{0.0};
   double last_tracking_step_guard_confidence_score_{0.0};
+  double last_tracking_step_guard_pre_ba_agreement_limit_m_{0.0};
+  bool last_tracking_step_guard_pre_ba_agreement_late_active_{false};
   gaussian_lic_tracking::LidarFactor lidar_factor_;
   gaussian_lic_tracking::TrajectoryPose last_lidar_keyframe_pose_;
   std::optional<gaussian_lic_tracking::TrajectoryPose> last_output_tracking_pose_;

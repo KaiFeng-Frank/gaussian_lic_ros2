@@ -10,6 +10,8 @@
     "playback_rate": 0.25,
     "tracking_max_pose_step_m": 0.0265,
     "post_ba_step_guard_pre_ba_agreement_max_pose_step_m": 0.045,
+    "post_ba_step_guard_pre_ba_agreement_late_start_marginalizations": 0,
+    "post_ba_step_guard_pre_ba_agreement_late_max_pose_step_m": 0.0,
     "post_ba_step_guard_pre_ba_agreement_min_cosine": 0.95,
     "post_ba_step_guard_pre_ba_agreement_max_delta_m": 0.02,
     "post_ba_step_guard_confidence_max_pose_step_m": 0.0,
@@ -205,6 +207,13 @@
       "translation_rmse_m": 2.087148429144873,
       "path_drift": 0.053674051368305005,
       "reason": "distance-only motion-length factors are live and keep path drift near the accepted preset, but they underfeed visual/SE3 continuity at 930/1015, introduce one invalid LiDAR frame, and regress aggregate RMSE"
+    },
+    {
+      "id": "late_pre_ba_agreement_start700_max005",
+      "report": "results/fastlivo2/CBD_Building_01_late_agreement_start700_max005_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 2.2138446509322978,
+      "path_drift": 0.04728234263858191,
+      "reason": "late-only pre-BA agreement release is live and improves final-bin/path-length shape, but it underfeeds visual/SE3 continuity at 794/1015 and moves the worst RMSE into bins 5/6"
     }
   ],
   "forbidden_readme_snippets": [
