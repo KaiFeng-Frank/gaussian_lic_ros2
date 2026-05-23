@@ -2,6 +2,7 @@
 
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -137,6 +138,15 @@ int main()
   interpolation_factor.meters_per_pixel = 0.01;
   interpolation_factor.weight = 50.0;
   interpolation_optimizer.add_visual_alignment_factor(interpolation_factor);
+  const auto interpolation_normal = interpolation_optimizer.build_normal_equation();
+  const double interpolation_scale = std::sqrt(interpolation_factor.weight);
+  const double interpolation_jacobian_error = std::max(
+    std::max(
+      std::abs(interpolation_normal.jacobian(0, 6) - 0.25 * interpolation_scale),
+      std::abs(interpolation_normal.jacobian(1, 7) - 0.25 * interpolation_scale)),
+    std::max(
+      std::abs(interpolation_normal.jacobian(0, 21) - 0.75 * interpolation_scale),
+      std::abs(interpolation_normal.jacobian(1, 22) - 0.75 * interpolation_scale)));
   const auto interpolation_summary = interpolation_optimizer.optimize();
   gaussian_lic_tracking::SlidingWindowState interpolation_a_out;
   gaussian_lic_tracking::SlidingWindowState interpolation_b_out;
@@ -152,13 +162,15 @@ int main()
   const double interpolation_error = (interpolation_xy - interpolation_target).norm();
   std::cout << " interpolated_xy_error=" << interpolation_error
             << " interpolated_numeric_blocks="
-            << interpolation_summary.numeric_jacobian_block_count;
-  if (!interpolation_summary.converged ||
-    interpolation_summary.numeric_jacobian_block_count < 2U ||
+            << interpolation_summary.numeric_jacobian_block_count
+            << " interpolated_jacobian_error=" << interpolation_jacobian_error;
+  if (!interpolation_normal.valid || interpolation_normal.numeric_jacobian_block_count != 0U ||
+    interpolation_jacobian_error > 1.0e-12 || !interpolation_summary.converged ||
+    interpolation_summary.numeric_jacobian_block_count != 0U ||
     interpolation_summary.final_cost >= interpolation_summary.initial_cost ||
     interpolation_error > 1.0e-7)
   {
-    std::cerr << "\ninterpolated visual factor failed continuous-time support solve\n";
+    std::cerr << "\ninterpolated visual factor failed analytic continuous-time support solve\n";
     return 1;
   }
   std::cout << "sliding_window_visual_factor_probe OK\n";

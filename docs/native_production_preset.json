@@ -68,9 +68,53 @@
       "dense_prior_cols": 180,
       "orphan_factors": 0,
       "promotion_status": "diagnostic only until full-window RMSE evidence beats the accepted production preset"
+    },
+    {
+      "id": "visual_factor_time_interpolation_analytic_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_analytic_12s_probe/native_tracking_report.json",
+      "scope": "default-off analytic continuous-time visual/SE3 support interpolation smoke",
+      "trajectory_poses": 119,
+      "total_visual_factors": 84,
+      "total_se3_photometric_factors": 84,
+      "visual_alignment_interpolated_factors": 42,
+      "visual_se3_photometric_interpolated_factors": 42,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "numeric_jacobian_columns": 0,
+      "promotion_status": "diagnostic only until full-window continuity and path-drift evidence beat the accepted production preset"
+    },
+    {
+      "id": "visual_factor_time_interpolation_analytic_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_analytic_full122_probe/native_tracking_report.json",
+      "scope": "default-off analytic continuous-time visual/SE3 support interpolation full-window evidence",
+      "matched_poses": 1098,
+      "coverage": 0.8919577579203899,
+      "translation_rmse_m": 1.3335335887577333,
+      "translation_mean_m": 1.2674091292839027,
+      "translation_max_m": 2.715258859772529,
+      "path_drift": 0.052130460600003106,
+      "total_visual_factors": 870,
+      "total_se3_photometric_factors": 870,
+      "visual_alignment_interpolated_factors": 461,
+      "visual_se3_photometric_interpolated_factors": 461,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "numeric_jacobian_columns": 0,
+      "promotion_status": "not promoted: aggregate RMSE improves, but coverage, visual/SE3 factor continuity, and path drift regress versus accepted production preset"
     }
   ],
   "rejected_evidence": [
+    {
+      "id": "visual_factor_time_interpolation_numeric_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 2.226570606270977,
+      "path_drift": 0.053168986639345064,
+      "reason": "initial continuous-time visual/SE3 support interpolation relied on numeric Jacobian blocks, underfed the full-window visual/SE3 stream at 591/1015, recorded one invalid LiDAR frame, and regressed RMSE"
+    },
     {
       "id": "confidence_release_0065",
       "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_conf0065_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",

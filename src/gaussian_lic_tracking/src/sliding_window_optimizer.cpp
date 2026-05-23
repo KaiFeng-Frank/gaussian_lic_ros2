@@ -2029,25 +2029,20 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     if (!rows_available(row, 2)) {
       return fallback_to_numeric();
     }
-    if (factor.support_stamp_ns.empty()) {
-      const int index = support.front().first;
-      const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    Eigen::Vector2d target_xy;
+    target_xy.x() = factor.reference_p_w_i.x() + factor.measured_shift_px.x() * factor.meters_per_pixel;
+    target_xy.y() = factor.reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
+    Eigen::Vector2d predicted_xy = Eigen::Vector2d::Zero();
+    for (const auto & item : support) {
+      predicted_xy += item.second * states[static_cast<size_t>(item.first)].p_w_i.head<2>();
+    }
+    const Eigen::Vector2d residual = predicted_xy - target_xy;
+    const double scale = std::sqrt(factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
+    for (const auto & item : support) {
+      const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
       if (offset >= 0) {
-        const auto & state = states[static_cast<size_t>(index)];
-        Eigen::Vector2d target_xy;
-        target_xy.x() = factor.reference_p_w_i.x() + factor.measured_shift_px.x() * factor.meters_per_pixel;
-        target_xy.y() = factor.reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
-        const Eigen::Vector2d residual = state.p_w_i.head<2>() - target_xy;
-        const double scale = std::sqrt(factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
-        jacobian(row, offset + 6) = scale;
-        jacobian(row + 1, offset + 7) = scale;
-      }
-    } else {
-      for (const auto & item : support) {
-        const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
-        if (offset >= 0) {
-          mark_numeric(row, 2, offset, static_cast<Eigen::Index>(kStateDof));
-        }
+        jacobian(row, offset + 6) = scale * item.second;
+        jacobian(row + 1, offset + 7) = scale * item.second;
       }
     }
     row += 2;
@@ -2062,31 +2057,36 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
     if (!rows_available(row, 6)) {
       return fallback_to_numeric();
     }
-    if (factor.support_stamp_ns.empty()) {
-      const int index = support.front().first;
-      const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    for (const auto & item : support) {
+      position += item.second * states[static_cast<size_t>(item.first)].p_w_i;
+    }
+    Eigen::Quaterniond orientation = Eigen::Quaterniond::Identity();
+    if (support.size() == 1U) {
+      orientation = states[static_cast<size_t>(support.front().first)].q_w_i.normalized();
+    } else {
+      const auto & first = states[static_cast<size_t>(support[0].first)];
+      const auto & second = states[static_cast<size_t>(support[1].first)];
+      orientation = first.q_w_i.normalized().slerp(
+        support[1].second, second.q_w_i.normalized()).normalized();
+    }
+    Eigen::Matrix<double, 6, 1> delta;
+    delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, orientation);
+    delta.template segment<3>(3) = position - factor.reference_p_w_i;
+    const Eigen::Matrix<double, 6, 1> whitened_residual =
+      factor.sqrt_information * (delta - factor.target_delta);
+    const double robust_scale =
+      std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
+    const Eigen::Matrix3d rotation_jacobian =
+      rotation_residual_left_perturbation_jacobian(factor.reference_q_w_i, orientation);
+    for (const auto & item : support) {
+      const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
       if (offset >= 0) {
-        const auto & state = states[static_cast<size_t>(index)];
-        Eigen::Matrix<double, 6, 1> delta;
-        delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, state.q_w_i);
-        delta.template segment<3>(3) = state.p_w_i - factor.reference_p_w_i;
-        const Eigen::Matrix<double, 6, 1> whitened_residual =
-          factor.sqrt_information * (delta - factor.target_delta);
-        const double robust_scale =
-          std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
         Eigen::Matrix<double, 6, 15> delta_jacobian = Eigen::Matrix<double, 6, 15>::Zero();
-        delta_jacobian.template block<3, 3>(0, 0) =
-          rotation_residual_left_perturbation_jacobian(factor.reference_q_w_i, state.q_w_i);
-        delta_jacobian.template block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
+        delta_jacobian.template block<3, 3>(0, 0) = item.second * rotation_jacobian;
+        delta_jacobian.template block<3, 3>(3, 6) = item.second * Eigen::Matrix3d::Identity();
         jacobian.block(row, offset, 6, static_cast<Eigen::Index>(kStateDof)) =
           robust_scale * factor.sqrt_information * delta_jacobian;
-      }
-    } else {
-      for (const auto & item : support) {
-        const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
-        if (offset >= 0) {
-          mark_numeric(row, 6, offset, static_cast<Eigen::Index>(kStateDof));
-        }
       }
     }
     row += 6;

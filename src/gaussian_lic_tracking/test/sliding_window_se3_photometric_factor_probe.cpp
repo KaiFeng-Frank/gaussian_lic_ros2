@@ -2,6 +2,7 @@
 
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -118,6 +119,15 @@ int main()
   interpolation_factor.sqrt_information.setIdentity();
   interpolation_factor.weight = 30.0;
   interpolation_optimizer.add_se3_photometric_factor(interpolation_factor);
+  const auto interpolation_normal = interpolation_optimizer.build_normal_equation();
+  const double interpolation_scale = std::sqrt(interpolation_factor.weight);
+  const double interpolation_jacobian_error = std::max(
+    std::max(
+      std::abs(interpolation_normal.jacobian(3, 6) - 0.4 * interpolation_scale),
+      std::abs(interpolation_normal.jacobian(4, 7) - 0.4 * interpolation_scale)),
+    std::max(
+      std::abs(interpolation_normal.jacobian(3, 21) - 0.6 * interpolation_scale),
+      std::abs(interpolation_normal.jacobian(5, 23) - 0.6 * interpolation_scale)));
   const auto interpolation_summary = interpolation_optimizer.optimize();
   gaussian_lic_tracking::SlidingWindowState interpolation_a_out;
   gaussian_lic_tracking::SlidingWindowState interpolation_b_out;
@@ -134,13 +144,15 @@ int main()
   std::cout << " interpolated_se3_translation_error="
             << interpolation_translation_error
             << " interpolated_numeric_blocks="
-            << interpolation_summary.numeric_jacobian_block_count;
-  if (!interpolation_summary.converged ||
-    interpolation_summary.numeric_jacobian_block_count < 2U ||
+            << interpolation_summary.numeric_jacobian_block_count
+            << " interpolated_jacobian_error=" << interpolation_jacobian_error;
+  if (!interpolation_normal.valid || interpolation_normal.numeric_jacobian_block_count != 0U ||
+    interpolation_jacobian_error > 1.0e-12 || !interpolation_summary.converged ||
+    interpolation_summary.numeric_jacobian_block_count != 0U ||
     interpolation_summary.final_cost >= interpolation_summary.initial_cost ||
     interpolation_translation_error > 1.0e-7)
   {
-    std::cerr << "\ninterpolated SE3 photometric factor failed continuous-time support solve\n";
+    std::cerr << "\ninterpolated SE3 photometric factor failed analytic continuous-time support solve\n";
     return 1;
   }
 
