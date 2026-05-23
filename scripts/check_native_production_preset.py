@@ -199,6 +199,7 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "mapper_feedback_image_qos_reliability",
         "visual_factor_continuity",
         "mapper_feedback_continuity",
+        "rendered_delivery_continuity",
     ):
         require_snippet(script, option, "run_native_tracking_bag_report.sh", errors)
 

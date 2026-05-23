@@ -31,6 +31,16 @@ BINNED_STATUS_PREFIXES = (
     "visual_",
 )
 
+BINNED_STATUS_FIELDS = {
+    "stamp",
+    "stamp_ns",
+    "num_raw_images",
+    "num_rendered_images",
+    "num_raw_pointclouds",
+    "num_raw_imus",
+    "num_published_poses",
+}
+
 BINNED_MAPPING_STATUS_FIELDS = {
     "stamp",
     "stamp_ns",
@@ -125,7 +135,7 @@ def update_numeric_summary(summary, record):
 
 
 def is_binned_status_field(name):
-    return name == "stamp" or name == "stamp_ns" or name.startswith(BINNED_STATUS_PREFIXES)
+    return name in BINNED_STATUS_FIELDS or name.startswith(BINNED_STATUS_PREFIXES)
 
 
 def compact_numeric_record(record, field_selector):

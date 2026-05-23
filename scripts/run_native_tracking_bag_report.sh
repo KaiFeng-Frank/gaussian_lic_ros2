@@ -3132,6 +3132,8 @@ def summary_value(bin_summary, key, statistic, default=0.0):
 
 
 VISUAL_FACTOR_CONTINUITY_FIELDS = (
+    "num_raw_images",
+    "num_rendered_images",
     "sliding_window_total_visual_factors",
     "sliding_window_total_se3_photometric_factors",
     "visual_rendered_miss_count",
@@ -3449,6 +3451,66 @@ def build_mapper_feedback_continuity(mapping_status):
 
 
 mapper_feedback_continuity = build_mapper_feedback_continuity(mapping_status)
+
+
+def build_rendered_delivery_continuity(status, mapping_status):
+    status_bins = status.get("binned_summary", [])
+    mapping_bins = mapping_status.get("binned_summary", [])
+    bins = []
+    for index, (status_bin, mapping_bin) in enumerate(zip(status_bins, mapping_bins)):
+        if not isinstance(status_bin, dict) or not isinstance(mapping_bin, dict):
+            continue
+        produced_delta = summary_delta(mapping_bin, "rendered_preview_count")
+        received_delta = summary_delta(status_bin, "num_rendered_images")
+        consumed_delta = summary_delta(status_bin, "visual_pair_processed_count")
+        bins.append({
+            "index": int(status_bin.get("index", index)),
+            "tracking_sample_count": int(status_bin.get("sample_count", 0) or 0),
+            "mapping_sample_count": int(mapping_bin.get("sample_count", 0) or 0),
+            "rendered_preview_count_delta": produced_delta,
+            "num_rendered_images_delta": received_delta,
+            "visual_pair_processed_count_delta": consumed_delta,
+            "produced_minus_received_delta": produced_delta - received_delta,
+            "received_minus_consumed_delta": received_delta - consumed_delta,
+        })
+
+    tracking_last = status.get("last") or {}
+    mapping_last = mapping_status.get("last") or {}
+    produced_total = int(mapping_last.get("rendered_preview_count", 0) or 0)
+    received_total = int(tracking_last.get("num_rendered_images", 0) or 0)
+    consumed_total = int(tracking_last.get("visual_pair_processed_count", 0) or 0)
+    result = {
+        "produced_total": produced_total,
+        "received_total": received_total,
+        "consumed_total": consumed_total,
+        "produced_minus_received_total": produced_total - received_total,
+        "received_minus_consumed_total": received_total - consumed_total,
+        "available": bool(bins),
+        "binned_summary_finalized": bool(
+            status.get("binned_summary_finalized", False) and
+            mapping_status.get("binned_summary_finalized", False)),
+        "bin_count": len(bins),
+        "bins": bins,
+    }
+    if not bins:
+        result["reason"] = "tracking or mapping binned summary is missing or empty"
+        return result
+    result["max_produced_minus_received_delta"] = max(
+        item["produced_minus_received_delta"] for item in bins)
+    result["max_received_minus_consumed_delta"] = max(
+        item["received_minus_consumed_delta"] for item in bins)
+    result["worst_delivery_bins"] = sorted(
+        bins,
+        key=lambda item: (
+            -item["produced_minus_received_delta"],
+            -item["received_minus_consumed_delta"],
+            item["index"],
+        ),
+    )[:3]
+    return result
+
+
+rendered_delivery_continuity = build_rendered_delivery_continuity(status, mapping_status)
 
 if metrics.get("trajectory_poses", 0) < min_poses:
     errors.append(f"trajectory poses {metrics.get('trajectory_poses', 0)} < {min_poses}")
@@ -3769,6 +3831,7 @@ report = {
     "visual_factor_continuity": visual_factor_continuity,
     "estimator_observability_continuity": estimator_observability_continuity,
     "mapper_feedback_continuity": mapper_feedback_continuity,
+    "rendered_delivery_continuity": rendered_delivery_continuity,
     "gate_config": {
         "rendered_image_qos_reliability": os.environ["RENDERED_IMAGE_QOS_RELIABILITY_REPORT"],
         "rendered_image_qos_durability": os.environ["RENDERED_IMAGE_QOS_DURABILITY_REPORT"],

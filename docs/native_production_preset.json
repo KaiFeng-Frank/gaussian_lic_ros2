@@ -440,6 +440,20 @@
             "min_observed_nearest_signed_delta_ns": 0,
             "max_observed_nearest_signed_delta_ns": 23540497,
             "promotion_status": "reporting support; exposes callback-direction render latency before changing visual-pairing semantics"
+        },
+        {
+            "id": "rendered_delivery_continuity_12s",
+            "report": "results/fastlivo2/CBD_Building_01_rendered_delivery_continuity_12s_probe/native_tracking_report.json",
+            "scope": "native report mapper-produced vs tracker-received rendered-image delivery diagnostic",
+            "trajectory_poses": 115,
+            "mapper_rendered_previews": 90,
+            "tracker_rendered_images": 85,
+            "visual_pair_processed_count": 97,
+            "produced_minus_received_total": 5,
+            "received_minus_consumed_total": -12,
+            "max_produced_minus_received_delta": 2,
+            "max_received_minus_consumed_delta": 0,
+            "promotion_status": "reporting support; separates rendered-image delivery gaps from one-rendered-to-many-observed visual pairing"
         }
     ],
     "rejected_evidence": [
