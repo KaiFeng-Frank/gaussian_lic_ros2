@@ -571,6 +571,13 @@
       "reason": "current defaults keep the diagnostic quality paths disabled and preserve trajectory-shape drift, but this replay does not reproduce the accepted visual/SE3 drain and reaches only 912/1015 factors"
     },
     {
+      "id": "mapper_nearest_sync_full122",
+      "report": "results/fastlivo2/CBD_Building_01_mapper_nearest_sync_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5372081557398536,
+      "path_drift": 0.04129508090683312,
+      "reason": "nearest-sample mapper synchronization lowers path drift but misses the visual/SE3 drain at 928/1015, records one invalid LiDAR frame, and regresses aggregate RMSE versus the accepted strict FIFO synchronizer"
+    },
+    {
       "id": "cocolic_raw_bias_random_walk_sigma",
       "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_cocolic_bias_sigma_raw_full122_probe/native_tracking_report.json",
       "translation_rmse_m": 3.0225900861610735,
