@@ -152,6 +152,21 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_CALLBACK_FACTOR_INGEST": (
             preset["enable_visual_callback_factor_ingest"]
         ),
+        "ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION": (
+            preset["enable_visual_adaptive_state_retention"]
+        ),
+        "VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES": (
+            preset["visual_adaptive_state_retention_margin_states"]
+        ),
+        "VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES": (
+            preset["visual_adaptive_state_retention_max_states"]
+        ),
+        "ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION": (
+            preset["enable_visual_expired_factor_projection"]
+        ),
+        "VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S": (
+            preset["visual_expired_factor_projection_max_age_s"]
+        ),
         "ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD": (
             preset["visual_cache_reconciliation_defer_to_pointcloud"]
         ),
@@ -197,6 +212,16 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_pair_monotonic_unique",
         "--enable-visual-callback-factor-ingest",
         "enable_visual_callback_factor_ingest",
+        "--enable-visual-adaptive-state-retention",
+        "enable_visual_adaptive_state_retention",
+        "--visual-adaptive-state-retention-margin-states",
+        "visual_adaptive_state_retention_margin_states",
+        "--visual-adaptive-state-retention-max-states",
+        "visual_adaptive_state_retention_max_states",
+        "--enable-visual-expired-factor-projection",
+        "enable_visual_expired_factor_projection",
+        "--visual-expired-factor-projection-max-age-s",
+        "visual_expired_factor_projection_max_age_s",
         "--enable-visual-cache-reconciliation-defer-to-pointcloud",
         "visual_cache_reconciliation_defer_to_pointcloud",
         "--enable-visual-pair-processing-defer-to-pointcloud",
@@ -311,6 +336,20 @@ def check_report_gate_config(
         if key in {"id", "script"}:
             continue
         if key not in gate_config:
+            if (
+                key
+                in {
+                    "visual_adaptive_state_retention_margin_states",
+                    "visual_adaptive_state_retention_max_states",
+                }
+                and not bool(gate_config.get("enable_visual_adaptive_state_retention", False))
+            ):
+                continue
+            if (
+                key == "visual_expired_factor_projection_max_age_s"
+                and not bool(gate_config.get("enable_visual_expired_factor_projection", False))
+            ):
+                continue
             if equivalent_gate_config_value(None, wanted):
                 continue
             errors.append(f"{label} gate_config is missing {key}")

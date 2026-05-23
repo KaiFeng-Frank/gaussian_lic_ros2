@@ -158,6 +158,11 @@ ENABLE_VISUAL_CACHE_RECONCILIATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
 ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
 ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
+ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=false
+VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES=4
+VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES=64
+ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
+VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S=5.0
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
 ENABLE_MAPPER_FEEDBACK=false
@@ -658,6 +663,20 @@ Options:
                                Ingest visual/SE3 factors from image/render callbacks when their sliding-window reference is still active.
   --disable-visual-callback-factor-ingest
                                Queue visual/SE3 factors until point-cloud callbacks ingest them.
+  --enable-visual-adaptive-state-retention
+                               Increase sliding-window state retention from rendered-feedback backlog so late visual factors can still bind active states.
+  --disable-visual-adaptive-state-retention
+                               Keep the fixed configured sliding-window max-state count.
+  --visual-adaptive-state-retention-margin-states N
+                               Extra state margin added above measured rendered-feedback backlog. Default: 4.
+  --visual-adaptive-state-retention-max-states N
+                               Upper bound for adaptive visual state retention. Default: 64.
+  --enable-visual-expired-factor-projection
+                               Project late rendered-feedback visual/SE3 factors onto the current active state instead of dropping them after their original state expires.
+  --disable-visual-expired-factor-projection
+                               Drop expired visual/SE3 factors when their original active-window state is gone.
+  --visual-expired-factor-projection-max-age-s SEC
+                               Maximum age for projected expired visual/SE3 factors. Use <=0 for unlimited. Default: 5.0.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
                                Launch mapping_node with Torch Gaussian init/extend, rasterizer rendered-image feedback, and GaussianArray publication so tracking can consume map anchors and real Gaussian photometric BA.
@@ -1493,6 +1512,36 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
       shift
       ;;
+    --enable-visual-adaptive-state-retention)
+      ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-adaptive-state-retention)
+      ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=false
+      shift
+      ;;
+    --visual-adaptive-state-retention-margin-states)
+      VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES="$2"
+      shift 2
+      ;;
+    --visual-adaptive-state-retention-max-states)
+      VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES="$2"
+      shift 2
+      ;;
+    --enable-visual-expired-factor-projection)
+      ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-expired-factor-projection)
+      ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
+      shift
+      ;;
+    --visual-expired-factor-projection-max-age-s)
+      VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S="$2"
+      shift 2
+      ;;
     --enable-visual-cache-reconciliation-defer-to-pointcloud)
       ENABLE_VISUAL_CACHE_RECONCILIATION=true
       ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=true
@@ -2158,6 +2207,11 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_cache_reconciliation_monotonic_unique:="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
   visual_pair_monotonic_unique:="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
   enable_visual_callback_factor_ingest:="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
+  enable_visual_adaptive_state_retention:="${ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION}" \
+  visual_adaptive_state_retention_margin_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
+  visual_adaptive_state_retention_max_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
+  enable_visual_expired_factor_projection:="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
+  visual_expired_factor_projection_max_age_s:="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
@@ -2620,6 +2674,11 @@ ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
 ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
 ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
+ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION_REPORT="${ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION}" \
+VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
+VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
+ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION_REPORT="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
+VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING}" \
@@ -2704,6 +2763,21 @@ visual_pair_monotonic_unique = (
 )
 enable_visual_callback_factor_ingest = (
     os.environ["ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT"].lower() == "true"
+)
+enable_visual_adaptive_state_retention = (
+    os.environ["ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION_REPORT"].lower() == "true"
+)
+visual_adaptive_state_retention_margin_states = int(
+    os.environ["VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES_REPORT"]
+)
+visual_adaptive_state_retention_max_states = int(
+    os.environ["VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES_REPORT"]
+)
+enable_visual_expired_factor_projection = (
+    os.environ["ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION_REPORT"].lower() == "true"
+)
+visual_expired_factor_projection_max_age_s = float(
+    os.environ["VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT"]
 )
 visual_cache_reconciliation_defer_to_pointcloud = (
     os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT"].lower() == "true"
@@ -3763,6 +3837,12 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
+        "visual_adaptive_state_retention_enabled",
+        "visual_render_backlog_frames",
+        "visual_expired_factor_projection_enabled",
+        "visual_alignment_expired_projected_factors",
+        "visual_se3_photometric_expired_projected_factors",
+        "visual_expired_projection_skipped_factors",
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
         "visual_se3_photometric_degenerate_batches",
@@ -3894,6 +3974,17 @@ report = {
         ),
         "visual_pair_monotonic_unique": visual_pair_monotonic_unique,
         "enable_visual_callback_factor_ingest": enable_visual_callback_factor_ingest,
+        "enable_visual_adaptive_state_retention": enable_visual_adaptive_state_retention,
+        "visual_adaptive_state_retention_margin_states": (
+            visual_adaptive_state_retention_margin_states
+        ),
+        "visual_adaptive_state_retention_max_states": (
+            visual_adaptive_state_retention_max_states
+        ),
+        "enable_visual_expired_factor_projection": enable_visual_expired_factor_projection,
+        "visual_expired_factor_projection_max_age_s": (
+            visual_expired_factor_projection_max_age_s
+        ),
         "visual_cache_reconciliation_defer_to_pointcloud": (
             visual_cache_reconciliation_defer_to_pointcloud
         ),

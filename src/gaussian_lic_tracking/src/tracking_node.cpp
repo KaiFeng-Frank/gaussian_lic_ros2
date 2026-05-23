@@ -270,6 +270,21 @@ public:
       declare_parameter<bool>("visual_pair_monotonic_unique", false);
     enable_visual_callback_factor_ingest_ =
       declare_parameter<bool>("enable_visual_callback_factor_ingest", false);
+    enable_visual_adaptive_state_retention_ =
+      declare_parameter<bool>("enable_visual_adaptive_state_retention", false);
+    visual_adaptive_state_retention_margin_states_ = integer_parameter_at_least(
+      "visual_adaptive_state_retention_margin_states",
+      declare_parameter<int>("visual_adaptive_state_retention_margin_states", 4), 0);
+    visual_adaptive_state_retention_max_states_ = integer_parameter_at_least(
+      "visual_adaptive_state_retention_max_states",
+      declare_parameter<int>("visual_adaptive_state_retention_max_states", 64), 2);
+    enable_visual_expired_factor_projection_ =
+      declare_parameter<bool>("enable_visual_expired_factor_projection", false);
+    visual_expired_factor_projection_max_age_s_ =
+      declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
+    if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
+      throw std::runtime_error("visual_expired_factor_projection_max_age_s must be finite");
+    }
     visual_cache_reconciliation_defer_to_pointcloud_ =
       declare_parameter<bool>("visual_cache_reconciliation_defer_to_pointcloud", false);
     visual_pair_processing_defer_to_pointcloud_ =
@@ -939,6 +954,7 @@ public:
     trajectory_manager_.set_control_interval_ns(trajectory_control_interval_ns_);
     gaussian_lic_tracking::SlidingWindowConfig window_config;
     window_config.max_states = static_cast<size_t>(sliding_window_max_states_);
+    sliding_window_effective_max_states_ = window_config.max_states;
     window_config.max_iterations = static_cast<size_t>(sliding_window_max_iterations_);
     window_config.max_rotation_step_rad = sliding_window_max_rotation_step_rad_;
     window_config.max_translation_step_m = sliding_window_max_translation_step_m_;
@@ -2066,6 +2082,91 @@ private:
     return bounded_visual_factor_quality_weight(weight);
   }
 
+  bool visual_expired_factor_projection_age_allowed(
+    const int64_t factor_stamp_ns,
+    const int64_t reference_stamp_ns) const
+  {
+    if (!enable_visual_expired_factor_projection_) {
+      return false;
+    }
+    if (factor_stamp_ns > reference_stamp_ns) {
+      return false;
+    }
+    if (visual_expired_factor_projection_max_age_s_ <= 0.0) {
+      return true;
+    }
+    const double age_s =
+      static_cast<double>(reference_stamp_ns - factor_stamp_ns) /
+      static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond);
+    return age_s <= visual_expired_factor_projection_max_age_s_;
+  }
+
+  std::optional<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor>
+  make_projected_expired_visual_factor(
+    const PendingVisualAlignmentFactor & pending,
+    const gaussian_lic_tracking::TrajectoryPose & reference_pose) const
+  {
+    if (!visual_expired_factor_projection_age_allowed(pending.stamp_ns, reference_pose.stamp_ns) ||
+      !reference_pose.p_w_i.allFinite())
+    {
+      return std::nullopt;
+    }
+    gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor factor;
+    factor.stamp_ns = reference_pose.stamp_ns;
+    factor.source_id = pending.source_id;
+    factor.support_stamp_ns = {reference_pose.stamp_ns};
+    factor.support_weights = {1.0};
+    factor.reference_p_w_i = reference_pose.p_w_i;
+    factor.measured_shift_px = Eigen::Vector2d{
+      pending.alignment.subpixel_dx,
+      pending.alignment.subpixel_dy};
+    factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
+    factor.weight =
+      visual_alignment_effective_weight(pending.alignment) *
+      visual_alignment_quality_weight_scale(pending);
+    factor.huber_delta_m = visual_alignment_huber_delta_m_;
+    return factor;
+  }
+
+  std::optional<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor>
+  make_projected_expired_se3_factor(
+    const PendingSe3PhotometricFactor & pending,
+    const gaussian_lic_tracking::TrajectoryPose & reference_pose) const
+  {
+    if (!visual_expired_factor_projection_age_allowed(pending.stamp_ns, reference_pose.stamp_ns) ||
+      !reference_pose.p_w_i.allFinite() ||
+      !reference_pose.q_w_i.coeffs().allFinite() ||
+      reference_pose.q_w_i.norm() <= std::numeric_limits<double>::epsilon())
+    {
+      return std::nullopt;
+    }
+    gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
+    factor.stamp_ns = reference_pose.stamp_ns;
+    factor.source_id = pending.source_id;
+    factor.support_stamp_ns = {reference_pose.stamp_ns};
+    factor.support_weights = {1.0};
+    factor.reference_p_w_i = reference_pose.p_w_i;
+    factor.reference_q_w_i = reference_pose.q_w_i.normalized();
+    factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
+      q_i_c_,
+      p_i_c_,
+      pending.linearization.gauss_newton_step);
+    const Eigen::Matrix<double, 6, 6> body_hessian =
+      gaussian_lic_tracking::transform_camera_information_to_body(
+      q_i_c_,
+      p_i_c_,
+      pending.linearization.hessian);
+    factor.sqrt_information =
+      gaussian_lic_tracking::sqrt_information_from_hessian(body_hessian);
+    factor.weight =
+      se3_photometric_window_weight_ * se3_photometric_quality_weight_scale(pending);
+    factor.huber_delta = se3_photometric_factor_huber_delta_;
+    if (factor.sqrt_information.norm() <= std::numeric_limits<double>::epsilon()) {
+      return std::nullopt;
+    }
+    return factor;
+  }
+
   bool visual_factor_quality_selection_is_active(const int64_t stamp_ns) const
   {
     if (!enable_visual_factor_quality_selection_) {
@@ -2136,8 +2237,26 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
-            ++visual_alignment_pending_stale_drops_;
-            ++visual_alignment_pending_expired_drops_;
+            const auto projected =
+              make_projected_expired_visual_factor(pending, tracking_pose);
+            if (projected.has_value()) {
+              try {
+                sliding_window_optimizer_.add_visual_alignment_factor(projected.value());
+                ++sliding_window_total_visual_factors_;
+                ++visual_callback_ingested_visual_factors_;
+                ++visual_alignment_expired_projected_factors_;
+              } catch (const std::exception & ex) {
+                ++sliding_window_visual_factor_skip_count_;
+                ++visual_expired_projection_skipped_factors_;
+                RCLCPP_WARN_THROTTLE(
+                  get_logger(), *get_clock(), 2000,
+                  "projected expired visual factor skipped: %s", ex.what());
+              }
+            } else {
+              ++visual_alignment_pending_stale_drops_;
+              ++visual_alignment_pending_expired_drops_;
+              ++visual_expired_projection_skipped_factors_;
+            }
           } else {
             retained_pending.push_back(pending);
           }
@@ -2179,8 +2298,26 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
-            ++visual_se3_photometric_pending_stale_drops_;
-            ++visual_se3_photometric_pending_expired_drops_;
+            const auto projected =
+              make_projected_expired_se3_factor(pending, tracking_pose);
+            if (projected.has_value()) {
+              try {
+                sliding_window_optimizer_.add_se3_photometric_factor(projected.value());
+                ++sliding_window_total_se3_photometric_factors_;
+                ++visual_callback_ingested_se3_photometric_factors_;
+                ++visual_se3_photometric_expired_projected_factors_;
+              } catch (const std::exception & ex) {
+                ++sliding_window_se3_photometric_factor_skip_count_;
+                ++visual_expired_projection_skipped_factors_;
+                RCLCPP_WARN_THROTTLE(
+                  get_logger(), *get_clock(), 2000,
+                  "projected expired SE3 photometric factor skipped: %s", ex.what());
+              }
+            } else {
+              ++visual_se3_photometric_pending_stale_drops_;
+              ++visual_se3_photometric_pending_expired_drops_;
+              ++visual_expired_projection_skipped_factors_;
+            }
           } else {
             retained_pending.push_back(pending);
           }
@@ -2659,8 +2796,16 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
-            ++visual_alignment_pending_stale_drops_;
-            ++visual_alignment_pending_expired_drops_;
+            const auto projected =
+              make_projected_expired_visual_factor(pending, tracking_pose);
+            if (projected.has_value()) {
+              add_visual_window_factor(projected.value(), visual_alignment_candidate_score(pending));
+              ++visual_alignment_expired_projected_factors_;
+            } else {
+              ++visual_alignment_pending_stale_drops_;
+              ++visual_alignment_pending_expired_drops_;
+              ++visual_expired_projection_skipped_factors_;
+            }
           } else {
             retained_pending.push_back(pending);
           }
@@ -2693,8 +2838,16 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
-            ++visual_se3_photometric_pending_stale_drops_;
-            ++visual_se3_photometric_pending_expired_drops_;
+            const auto projected =
+              make_projected_expired_se3_factor(pending, tracking_pose);
+            if (projected.has_value()) {
+              add_se3_photometric_factor(projected.value(), se3_photometric_candidate_score(pending));
+              ++visual_se3_photometric_expired_projected_factors_;
+            } else {
+              ++visual_se3_photometric_pending_stale_drops_;
+              ++visual_se3_photometric_pending_expired_drops_;
+              ++visual_expired_projection_skipped_factors_;
+            }
           } else {
             retained_pending.push_back(pending);
           }
@@ -3479,6 +3632,7 @@ private:
       }
       imu_state = imu_propagator_.state();
     }
+    update_sliding_window_effective_config();
 
     gaussian_lic_tracking::SlidingWindowState state;
     state.stamp_ns = input_pose.stamp_ns;
@@ -3966,6 +4120,30 @@ private:
     last_sliding_window_imu_preintegration_dt_s_ = preintegration.delta_t_s();
     last_sliding_window_imu_preintegration_start_stamp_ns_ = preintegration.start_stamp_ns();
     last_sliding_window_imu_preintegration_end_stamp_ns_ = preintegration.end_stamp_ns();
+  }
+
+  void update_sliding_window_effective_config()
+  {
+    size_t effective_max_states = static_cast<size_t>(sliding_window_max_states_);
+    visual_render_backlog_frames_ = 0U;
+    if (enable_visual_adaptive_state_retention_ && enable_visual_factor_) {
+      if (num_raw_images_ > num_rendered_images_) {
+        visual_render_backlog_frames_ = num_raw_images_ - num_rendered_images_;
+      }
+      const size_t requested_max_states = effective_max_states +
+        static_cast<size_t>(visual_render_backlog_frames_) +
+        static_cast<size_t>(visual_adaptive_state_retention_margin_states_);
+      const size_t capped_max_states = std::min(
+        requested_max_states,
+        static_cast<size_t>(visual_adaptive_state_retention_max_states_));
+      effective_max_states = std::max(effective_max_states, capped_max_states);
+    }
+    sliding_window_effective_max_states_ = effective_max_states;
+    auto config = sliding_window_optimizer_.config();
+    if (config.max_states != effective_max_states) {
+      config.max_states = effective_max_states;
+      sliding_window_optimizer_.set_config(config);
+    }
   }
 
   void append_trajectory_control_pose(const gaussian_lic_tracking::TrajectoryPose & pose)
@@ -5798,6 +5976,8 @@ private:
     status.sliding_window_states = has_last_sliding_window_summary_
       ? static_cast<uint64_t>(summary.state_count)
       : static_cast<uint64_t>(sliding_window_optimizer_.states().size());
+    status.sliding_window_effective_max_states =
+      static_cast<uint32_t>(sliding_window_effective_max_states_);
     status.sliding_window_imu_factors = static_cast<uint64_t>(summary.imu_factor_count);
     status.sliding_window_total_imu_factors = sliding_window_total_imu_factors_;
     status.sliding_window_total_imu_preintegration_samples =
@@ -6041,6 +6221,17 @@ private:
     status.visual_cache_reconciliation_enabled = enable_visual_cache_reconciliation_;
     status.visual_pair_monotonic_unique_enabled = visual_pair_monotonic_unique_;
     status.visual_callback_factor_ingest_enabled = enable_visual_callback_factor_ingest_;
+    status.visual_adaptive_state_retention_enabled =
+      enable_visual_adaptive_state_retention_;
+    status.visual_render_backlog_frames = visual_render_backlog_frames_;
+    status.visual_expired_factor_projection_enabled =
+      enable_visual_expired_factor_projection_;
+    status.visual_alignment_expired_projected_factors =
+      visual_alignment_expired_projected_factors_;
+    status.visual_se3_photometric_expired_projected_factors =
+      visual_se3_photometric_expired_projected_factors_;
+    status.visual_expired_projection_skipped_factors =
+      visual_expired_projection_skipped_factors_;
     status.visual_alignment_interpolated_factors = visual_alignment_interpolated_factor_count_;
     status.visual_se3_photometric_interpolated_factors =
       visual_se3_photometric_interpolated_factor_count_;
@@ -6263,6 +6454,11 @@ private:
   bool visual_cache_reconciliation_monotonic_unique_{false};
   bool visual_pair_monotonic_unique_{false};
   bool enable_visual_callback_factor_ingest_{false};
+  bool enable_visual_adaptive_state_retention_{false};
+  int visual_adaptive_state_retention_margin_states_{4};
+  int visual_adaptive_state_retention_max_states_{64};
+  bool enable_visual_expired_factor_projection_{false};
+  double visual_expired_factor_projection_max_age_s_{5.0};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   bool visual_pair_processing_defer_to_pointcloud_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
@@ -6365,6 +6561,7 @@ private:
   int64_t external_odometry_prior_max_dt_ns_{100000000LL};
   int external_odometry_prior_cache_size_{128};
   int sliding_window_max_states_{12};
+  size_t sliding_window_effective_max_states_{12U};
   int sliding_window_optimize_every_n_frames_{1};
   int sliding_window_max_iterations_{3};
   double sliding_window_max_rotation_step_rad_{0.5};
@@ -6655,6 +6852,10 @@ private:
   uint64_t visual_se3_photometric_pending_expired_drops_{0};
   uint64_t visual_callback_ingested_visual_factors_{0};
   uint64_t visual_callback_ingested_se3_photometric_factors_{0};
+  uint64_t visual_render_backlog_frames_{0};
+  uint64_t visual_alignment_expired_projected_factors_{0};
+  uint64_t visual_se3_photometric_expired_projected_factors_{0};
+  uint64_t visual_expired_projection_skipped_factors_{0};
   uint64_t visual_alignment_interpolated_factor_count_{0};
   uint64_t visual_se3_photometric_interpolated_factor_count_{0};
   uint64_t visual_cache_reconciled_pairs_{0};

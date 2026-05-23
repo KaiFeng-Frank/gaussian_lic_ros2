@@ -456,6 +456,13 @@ def main() -> int:
         "visual_cache_reconciliation_enabled",
         "visual_pair_monotonic_unique_enabled",
         "visual_callback_factor_ingest_enabled",
+        "visual_adaptive_state_retention_enabled",
+        "visual_render_backlog_frames",
+        "visual_expired_factor_projection_enabled",
+        "visual_alignment_expired_projected_factors",
+        "visual_se3_photometric_expired_projected_factors",
+        "visual_expired_projection_skipped_factors",
+        "sliding_window_effective_max_states",
         "visual_alignment_pending_queue_trim_drops",
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
@@ -476,14 +483,26 @@ def main() -> int:
         errors.append("tracking_node must expose direct visual-pair one-to-one semantics as default-off")
     if 'declare_parameter<bool>("enable_visual_callback_factor_ingest", false)' not in tracking_node_text:
         errors.append("tracking_node must expose callback-time visual factor ingestion as default-off")
+    if 'declare_parameter<bool>("enable_visual_adaptive_state_retention", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose adaptive visual state retention as default-off")
+    if 'declare_parameter<bool>("enable_visual_expired_factor_projection", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose expired visual factor projection as default-off")
     if 'DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose direct visual-pair one-to-one semantics")
     if 'DeclareLaunchArgument("enable_visual_callback_factor_ingest", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose callback-time visual factor ingestion")
+    if 'DeclareLaunchArgument("enable_visual_adaptive_state_retention", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose adaptive visual state retention")
+    if 'DeclareLaunchArgument("enable_visual_expired_factor_projection", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose expired visual factor projection")
     if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
         errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
     if "--enable-visual-callback-factor-ingest" not in native_tracking_report_text:
         errors.append("native tracking report must expose callback-time visual factor ingestion")
+    if "--enable-visual-adaptive-state-retention" not in native_tracking_report_text:
+        errors.append("native tracking report must expose adaptive visual state retention")
+    if "--enable-visual-expired-factor-projection" not in native_tracking_report_text:
+        errors.append("native tracking report must expose expired visual factor projection")
     if "OBSERVED_FRAME_CACHE_SIZE=128" not in native_tracking_report_text or \
             'observed_frame_cache_size:="${OBSERVED_FRAME_CACHE_SIZE}"' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must expose the enlarged observed-frame cache")
