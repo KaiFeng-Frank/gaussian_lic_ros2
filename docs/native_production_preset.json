@@ -188,6 +188,26 @@
       "orphan_factors": 0,
       "numeric_jacobian_blocks": 0,
       "promotion_status": "diagnostic only until full-window RMSE evidence beats the accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_photostep_agreement_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_photostep_agreement_12s_probe/native_tracking_report.json",
+      "scope": "default-off reconciled saturated-alignment photometric agreement smoke",
+      "trajectory_poses": 96,
+      "visual_cache_reconciled_pairs": 108,
+      "visual_cache_reconciled_saturated_pairs": 3,
+      "visual_cache_reconciled_alignment_photometric_fallback_pairs": 0,
+      "visual_cache_reconciled_alignment_photometric_disagreement_pairs": 3,
+      "visual_cache_reconciled_alignment_skipped_pairs": 3,
+      "total_visual_factors": 182,
+      "total_se3_photometric_factors": 185,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "diagnostic only until full-window RMSE evidence beats the accepted production preset"
     }
   ],
   "rejected_evidence": [
@@ -218,6 +238,13 @@
       "translation_rmse_m": 1.7229639223558553,
       "path_drift": 0.038123659076705514,
       "reason": "local photometric fallback restores visual/SE3 support to 1083/1015 and lowers drift, but misses one pose drain and still regresses RMSE versus the accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_photostep_agreement_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_photostep_agreement_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 2.2843988708447434,
+      "path_drift": 0.0220075251733883,
+      "reason": "same-direction search/photometric agreement reaches 1252/1015 visual factors and improves path drift, but overfeeds the window and regresses RMSE"
     },
     {
       "id": "confidence_release_0065",

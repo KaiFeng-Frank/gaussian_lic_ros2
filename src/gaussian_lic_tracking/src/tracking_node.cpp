@@ -1888,9 +1888,13 @@ private:
       visual_alignment_is_saturated(window_alignment.value()))
     {
       const auto fallback = visual_alignment_with_photometric_step(window_alignment.value());
-      if (fallback.has_value()) {
+      if (fallback.has_value() &&
+        visual_alignment_photometric_step_agrees(window_alignment.value(), fallback.value()))
+      {
         window_alignment = fallback;
         ++visual_cache_reconciled_alignment_photometric_fallback_pairs_;
+      } else if (fallback.has_value()) {
+        ++visual_cache_reconciled_alignment_photometric_disagreement_pairs_;
       }
     }
     if (window_alignment.has_value()) {
@@ -4068,6 +4072,25 @@ private:
     return alignment;
   }
 
+  static bool visual_alignment_photometric_step_agrees(
+    const gaussian_lic_tracking::VisualAlignment & search_alignment,
+    const gaussian_lic_tracking::VisualAlignment & photometric_alignment)
+  {
+    const Eigen::Vector2d search{
+      search_alignment.subpixel_dx,
+      search_alignment.subpixel_dy};
+    const Eigen::Vector2d photometric{
+      photometric_alignment.subpixel_dx,
+      photometric_alignment.subpixel_dy};
+    if (!search.allFinite() || !photometric.allFinite()) {
+      return false;
+    }
+    if (search.squaredNorm() <= 1.0e-12 || photometric.squaredNorm() <= 1.0e-12) {
+      return false;
+    }
+    return search.dot(photometric) > 0.0;
+  }
+
   static double se3_photometric_sample_inlier_ratio(const Se3PhotometricSampleBatch & batch)
   {
     return batch.sampled_depth_pixels > 0U
@@ -5785,6 +5808,8 @@ private:
       visual_cache_reconciled_alignment_skipped_pairs_;
     status.visual_cache_reconciled_alignment_photometric_fallback_pairs =
       visual_cache_reconciled_alignment_photometric_fallback_pairs_;
+    status.visual_cache_reconciled_alignment_photometric_disagreement_pairs =
+      visual_cache_reconciled_alignment_photometric_disagreement_pairs_;
     status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
     status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
     status.visual_rendered_miss_count = visual_rendered_miss_count_;
@@ -6365,6 +6390,7 @@ private:
   uint64_t visual_cache_reconciled_saturated_pairs_{0};
   uint64_t visual_cache_reconciled_alignment_skipped_pairs_{0};
   uint64_t visual_cache_reconciled_alignment_photometric_fallback_pairs_{0};
+  uint64_t visual_cache_reconciled_alignment_photometric_disagreement_pairs_{0};
   uint64_t visual_pair_processed_count_{0};
   uint64_t visual_pair_duplicate_count_{0};
   uint64_t visual_alignment_saturated_count_{0};
