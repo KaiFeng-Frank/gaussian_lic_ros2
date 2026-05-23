@@ -260,6 +260,30 @@
       "promotion_status": "not promoted: combining the typed feedback queue with current continuous-time interpolation keeps causal ownership but further underfeeds short-window factors, so the remaining gap is not solved by interpolation alone"
     },
     {
+      "id": "rendered_feedback_direct_watermark_queue_full122_rejection",
+      "scope": "default-off typed rendered-feedback watermark queue full-window replay",
+      "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_direct_watermark_queue_full122_drain1015_probe/native_tracking_report.json",
+      "ok": false,
+      "matched_poses": 1174,
+      "coverage": 0.9536961819658814,
+      "translation_rmse_m": 1.423513188019314,
+      "translation_mean_m": 1.2306520215731,
+      "translation_max_m": 3.251481694945391,
+      "path_drift": 0.06355287732061458,
+      "num_rendered_feedbacks": 1014,
+      "rendered_feedback_watermark_processed_pairs": 1014,
+      "rendered_feedback_watermark_deferred_pairs": 372,
+      "rendered_feedback_watermark_queue_drops": 0,
+      "total_visual_factors": 967,
+      "total_se3_photometric_factors": 967,
+      "visual_pair_duplicate_count": 0,
+      "visual_stale_drops": 47,
+      "se3_stale_drops": 47,
+      "bin6_visual_factors": 98,
+      "bin7_visual_factors": 79,
+      "promotion_status": "not promoted: direct queueing removes cache duplication and queue drops, but late-window feedback still expires after marginalization, misses the 1015 visual/SE3 drain, and regresses RMSE/path drift versus the accepted 1.346 m / 5.00% preset"
+    },
+    {
       "id": "rendered_feedback_contract_source_stamp_full122_rejections",
       "scope": "default-off source-stamped RenderedFeedback full-window ownership diagnostics",
       "runs": [
