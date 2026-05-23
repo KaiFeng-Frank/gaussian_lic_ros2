@@ -365,6 +365,26 @@
             "max_abs_gyro_bias_norm_delta": 0.006842189251677592,
             "max_abs_accel_bias_norm_delta": 0.11158716451261522,
             "promotion_status": "reporting support; enables marginalization/bias-observability diagnosis without changing production estimator weights"
+        },
+        {
+            "id": "estimator_observability_accepted_full122_backfill",
+            "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/artifacts/metrics.json",
+            "scope": "backfilled estimator observability summary for the accepted production evidence",
+            "status_bin_count": 8,
+            "binned_summary_finalized": true,
+            "max_normal_equation_condition_number": 678785931.7949882,
+            "min_normal_equation_min_singular_value": 0.0,
+            "min_dense_prior_min_singular_value": 0.0,
+            "max_gyro_bias_norm": 0.05084634097536515,
+            "max_accel_bias_norm": 0.5552727887918742,
+            "max_abs_gyro_bias_norm_delta": 0.036178490834539515,
+            "max_abs_accel_bias_norm_delta": 0.39347456134160547,
+            "worst_bias_bin_indices": [
+                7,
+                5,
+                6
+            ],
+            "promotion_status": "diagnostic baseline; late-window bias concentration remains the next structural frontend target"
         }
     ],
     "rejected_evidence": [
