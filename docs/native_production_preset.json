@@ -454,6 +454,32 @@
             "max_produced_minus_received_delta": 2,
             "max_received_minus_consumed_delta": 0,
             "promotion_status": "reporting support; separates rendered-image delivery gaps from one-rendered-to-many-observed visual pairing"
+        },
+        {
+            "id": "rendered_delivery_continuity_full122",
+            "report": "results/fastlivo2/CBD_Building_01_rendered_delivery_continuity_full122_drain1015_probe/native_tracking_report.json",
+            "scope": "full-window mapper-produced vs tracker-received rendered-image delivery diagnostic",
+            "matched_poses": 1174,
+            "coverage": 0.9536961819658814,
+            "translation_rmse_m": 1.467723278548803,
+            "translation_mean_m": 1.3557140097866895,
+            "translation_max_m": 2.724911412052678,
+            "path_drift": 0.03681161569901315,
+            "post_play_poses": 1185,
+            "post_play_pose_target": 1186,
+            "total_visual_factors": 895,
+            "total_se3_photometric_factors": 895,
+            "visual_factor_target": 1015,
+            "mapper_rendered_previews": 1075,
+            "tracker_rendered_images": 880,
+            "visual_pair_processed_count": 895,
+            "produced_minus_received_total": 195,
+            "received_minus_consumed_total": -15,
+            "max_produced_minus_received_delta": 127,
+            "max_received_minus_consumed_delta": 0,
+            "max_rendered_nearest_delta_ns": 10513931751,
+            "max_observed_nearest_delta_ns": 23385048,
+            "promotion_status": "not promoted: trajectory remains close, but rendered delivery drops/backlog leave visual and SE3 support at 895/1015"
         }
     ],
     "rejected_evidence": [
@@ -463,6 +489,13 @@
       "translation_rmse_m": 1.357160845112835,
       "path_drift": 0.04052213913070414,
       "reason": "full-window dense-prior bias sub-block diagnostic keeps trajectory close to the accepted preset and final bias-prior min singular values at 6.691/6.691, but misses the production visual/SE3 drain at 926/1015 with late bins 6/7 down to 96/90 factors"
+    },
+    {
+      "id": "rendered_delivery_continuity_full122",
+      "report": "results/fastlivo2/CBD_Building_01_rendered_delivery_continuity_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.467723278548803,
+      "path_drift": 0.03681161569901315,
+      "reason": "full-window rendered-delivery diagnostic keeps trajectory close to the accepted preset, but misses post-play drain at 1185/1186 poses and 895/1015 visual/SE3 factors; mapper produced 1075 rendered previews while tracker received 880, with a worst-bin produced-minus-received gap of 127"
     },
     {
       "id": "visual_factor_time_interpolation_numeric_full122",
