@@ -266,6 +266,8 @@ public:
       declare_parameter<bool>("enable_visual_cache_reconciliation", false);
     visual_cache_reconciliation_monotonic_unique_ =
       declare_parameter<bool>("visual_cache_reconciliation_monotonic_unique", false);
+    visual_cache_reconciliation_defer_to_pointcloud_ =
+      declare_parameter<bool>("visual_cache_reconciliation_defer_to_pointcloud", false);
     visual_depth_max_dt_ns_ = integer_parameter_at_least(
       "visual_depth_max_dt_ns",
       declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL), 0LL);
@@ -1731,7 +1733,9 @@ private:
     if (rendered_frame != nullptr) {
       process_visual_pair(*rendered_frame, observed, false);
     }
-    reconcile_visual_frame_caches();
+    if (!visual_cache_reconciliation_defer_to_pointcloud_) {
+      reconcile_visual_frame_caches();
+    }
   }
 
   void handle_rendered_image(const sensor_msgs::msg::Image & msg)
@@ -1772,7 +1776,9 @@ private:
       } else {
         ++visual_observed_stale_count_;
       }
-      reconcile_visual_frame_caches();
+      if (!visual_cache_reconciliation_defer_to_pointcloud_) {
+        reconcile_visual_frame_caches();
+      }
     } else {
       ++rendered_invalid_frames_;
       RCLCPP_WARN_THROTTLE(
@@ -2654,8 +2660,11 @@ private:
       tf.transform.rotation = pose.pose.orientation;
       tf_broadcaster_->sendTransform(tf);
     }
-    publish_tracking_status(msg.header.stamp);
     last_output_tracking_pose_ = tracking_pose;
+    if (visual_cache_reconciliation_defer_to_pointcloud_) {
+      reconcile_visual_frame_caches();
+    }
+    publish_tracking_status(msg.header.stamp);
     cache_relative_motion_pose(
       relative_motion_pose_history_,
       select_relative_motion_history_pose(pre_ba_tracking_pose, tracking_pose));
@@ -6042,6 +6051,7 @@ private:
   bool enable_visual_factor_time_interpolation_{false};
   bool enable_visual_cache_reconciliation_{false};
   bool visual_cache_reconciliation_monotonic_unique_{false};
+  bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
   int depth_frame_cache_size_{8};
   int sparse_lidar_depth_dilation_px_{1};

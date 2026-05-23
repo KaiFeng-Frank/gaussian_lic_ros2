@@ -146,6 +146,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE": (
             preset["visual_cache_reconciliation_monotonic_unique"]
         ),
+        "ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD": (
+            preset["visual_cache_reconciliation_defer_to_pointcloud"]
+        ),
     }
     for name, value in expected_assignments.items():
         require_assignment(script, name, value, errors)
@@ -181,6 +184,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "enable_visual_cache_reconciliation",
         "--enable-visual-cache-reconciliation-monotonic-unique",
         "visual_cache_reconciliation_monotonic_unique",
+        "--enable-visual-cache-reconciliation-defer-to-pointcloud",
+        "visual_cache_reconciliation_defer_to_pointcloud",
         "--enable-sliding-window-relative-distance-factor",
         "sliding_window_relative_distance_weight",
         "--enable-sliding-window-multihop-relative-distance-factor",
@@ -358,6 +363,7 @@ def check_local_evidence(
         return
 
     production_rmse = float(accepted["translation_rmse_m"])
+    production_drift = float(accepted["path_drift"])
     for rejected in manifest.get("rejected_evidence", []):
         report_path = root / str(rejected["report"])
         if not report_path.is_file():
@@ -371,10 +377,17 @@ def check_local_evidence(
             errors.append(
                 f"{rejected['id']} RMSE {rmse:g} does not match manifest {expected_rmse:g}"
             )
-        if rmse <= production_rmse:
+        drift = number_at_path(report, "trajectory_compare.path_length.relative_drift")
+        expected_drift = float(rejected["path_drift"])
+        if not approx_equal(drift, expected_drift):
             errors.append(
-                f"{rejected['id']} is marked rejected but RMSE {rmse:g} <= production "
-                f"{production_rmse:g}"
+                f"{rejected['id']} path drift {drift:g} does not match manifest "
+                f"{expected_drift:g}"
+            )
+        if rmse <= production_rmse and drift <= production_drift:
+            errors.append(
+                f"{rejected['id']} is marked rejected but RMSE/drift {rmse:g}/{drift:g} "
+                f"<= production {production_rmse:g}/{production_drift:g}"
             )
 
 

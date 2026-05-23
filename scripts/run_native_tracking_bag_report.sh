@@ -156,6 +156,7 @@ ENABLE_VISUAL_FACTORS=false
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
+ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_MAPPER_FEEDBACK=false
 MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.05
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM=pointcloud
@@ -638,6 +639,10 @@ Options:
                                In reconciliation mode, consume each observed and rendered stamp at most once.
   --disable-visual-cache-reconciliation-monotonic-unique
                                Allow multiple observed/rendered stamps to share the opposite image stamp.
+  --enable-visual-cache-reconciliation-defer-to-pointcloud
+                               Run cache reconciliation from point-cloud callbacks instead of image/render callbacks.
+  --disable-visual-cache-reconciliation-defer-to-pointcloud
+                               Run cache reconciliation immediately from image/render callbacks.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
                                Launch mapping_node with Torch Gaussian init/extend, rasterizer rendered-image feedback, and GaussianArray publication so tracking can consume map anchors and real Gaussian photometric BA.
@@ -1455,6 +1460,16 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
       shift
       ;;
+    --enable-visual-cache-reconciliation-defer-to-pointcloud)
+      ENABLE_VISUAL_CACHE_RECONCILIATION=true
+      ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-cache-reconciliation-defer-to-pointcloud)
+      ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
+      shift
+      ;;
     --enable-mapper-feedback)
       ENABLE_MAPPER_FEEDBACK=true
       ENABLE_VISUAL_FACTORS=true
@@ -2098,6 +2113,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor_time_interpolation:="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
   enable_visual_cache_reconciliation:="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
   visual_cache_reconciliation_monotonic_unique:="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
+  visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
@@ -2556,6 +2572,7 @@ VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
+ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING}" \
 VISUAL_FACTOR_QUALITY_MIN_WEIGHT_SCALE_REPORT="${VISUAL_FACTOR_QUALITY_MIN_WEIGHT_SCALE}" \
 ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
@@ -2631,6 +2648,9 @@ enable_visual_cache_reconciliation = (
 )
 visual_cache_reconciliation_monotonic_unique = (
     os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT"].lower() == "true"
+)
+visual_cache_reconciliation_defer_to_pointcloud = (
+    os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT"].lower() == "true"
 )
 enable_visual_factor_quality_weighting = (
     os.environ["ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT"].lower() == "true"
@@ -3575,6 +3595,9 @@ report = {
         "enable_visual_cache_reconciliation": enable_visual_cache_reconciliation,
         "visual_cache_reconciliation_monotonic_unique": (
             visual_cache_reconciliation_monotonic_unique
+        ),
+        "visual_cache_reconciliation_defer_to_pointcloud": (
+            visual_cache_reconciliation_defer_to_pointcloud
         ),
         "visual_alignment_window_weight": visual_alignment_window_weight,
         "visual_alignment_saturation_margin_px": visual_alignment_saturation_margin_px,
