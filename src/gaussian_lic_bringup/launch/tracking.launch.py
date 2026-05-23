@@ -99,6 +99,9 @@ def generate_launch_description():
     visual_cache_reconciliation_defer_to_pointcloud = LaunchConfiguration(
         "visual_cache_reconciliation_defer_to_pointcloud"
     )
+    visual_pair_processing_defer_to_pointcloud = LaunchConfiguration(
+        "visual_pair_processing_defer_to_pointcloud"
+    )
     visual_depth_max_dt_ns = LaunchConfiguration("visual_depth_max_dt_ns")
     depth_frame_cache_size = LaunchConfiguration("depth_frame_cache_size")
     sparse_lidar_depth_dilation_px = LaunchConfiguration("sparse_lidar_depth_dilation_px")
@@ -563,6 +566,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_cache_reconciliation", default_value="false"),
             DeclareLaunchArgument("visual_cache_reconciliation_monotonic_unique", default_value="false"),
             DeclareLaunchArgument("visual_cache_reconciliation_defer_to_pointcloud", default_value="false"),
+            DeclareLaunchArgument("visual_pair_processing_defer_to_pointcloud", default_value="false"),
             DeclareLaunchArgument("visual_depth_max_dt_ns", default_value="0"),
             DeclareLaunchArgument("depth_frame_cache_size", default_value="8"),
             DeclareLaunchArgument("sparse_lidar_depth_dilation_px", default_value="1"),
@@ -885,6 +889,9 @@ def generate_launch_description():
                         ),
                         "visual_cache_reconciliation_defer_to_pointcloud": (
                             visual_cache_reconciliation_defer_to_pointcloud
+                        ),
+                        "visual_pair_processing_defer_to_pointcloud": (
+                            visual_pair_processing_defer_to_pointcloud
                         ),
                         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
                         "depth_frame_cache_size": depth_frame_cache_size,

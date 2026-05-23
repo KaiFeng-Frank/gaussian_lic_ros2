@@ -149,6 +149,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD": (
             preset["visual_cache_reconciliation_defer_to_pointcloud"]
         ),
+        "ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD": (
+            preset["visual_pair_processing_defer_to_pointcloud"]
+        ),
     }
     for name, value in expected_assignments.items():
         require_assignment(script, name, value, errors)
@@ -186,6 +189,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_cache_reconciliation_monotonic_unique",
         "--enable-visual-cache-reconciliation-defer-to-pointcloud",
         "visual_cache_reconciliation_defer_to_pointcloud",
+        "--enable-visual-pair-processing-defer-to-pointcloud",
+        "visual_pair_processing_defer_to_pointcloud",
         "--enable-sliding-window-relative-distance-factor",
         "sliding_window_relative_distance_weight",
         "--enable-sliding-window-multihop-relative-distance-factor",

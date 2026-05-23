@@ -268,6 +268,8 @@ public:
       declare_parameter<bool>("visual_cache_reconciliation_monotonic_unique", false);
     visual_cache_reconciliation_defer_to_pointcloud_ =
       declare_parameter<bool>("visual_cache_reconciliation_defer_to_pointcloud", false);
+    visual_pair_processing_defer_to_pointcloud_ =
+      declare_parameter<bool>("visual_pair_processing_defer_to_pointcloud", false);
     visual_depth_max_dt_ns_ = integer_parameter_at_least(
       "visual_depth_max_dt_ns",
       declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL), 0LL);
@@ -1730,10 +1732,12 @@ private:
         ++visual_rendered_stale_count_;
       }
     }
-    if (rendered_frame != nullptr) {
+    if (rendered_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_) {
       process_visual_pair(*rendered_frame, observed, false);
     }
-    if (!visual_cache_reconciliation_defer_to_pointcloud_) {
+    if (!visual_cache_reconciliation_defer_to_pointcloud_ &&
+      !visual_pair_processing_defer_to_pointcloud_)
+    {
       reconcile_visual_frame_caches();
     }
   }
@@ -1765,7 +1769,7 @@ private:
         enable_visual_cache_reconciliation_);
       last_visual_observed_cache_size_ = observed_frame_cache_.size();
       last_visual_observed_match_delta_ns_ = observed_frame == nullptr ? 0 : observed_match_delta_ns;
-      if (observed_frame != nullptr) {
+      if (observed_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_) {
         last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
         last_visual_rendered_match_delta_ns_ = observed_match_delta_ns;
         process_visual_pair(rendered, *observed_frame, false);
@@ -1776,7 +1780,9 @@ private:
       } else {
         ++visual_observed_stale_count_;
       }
-      if (!visual_cache_reconciliation_defer_to_pointcloud_) {
+      if (!visual_cache_reconciliation_defer_to_pointcloud_ &&
+        !visual_pair_processing_defer_to_pointcloud_)
+      {
         reconcile_visual_frame_caches();
       }
     } else {
@@ -2661,7 +2667,9 @@ private:
       tf_broadcaster_->sendTransform(tf);
     }
     last_output_tracking_pose_ = tracking_pose;
-    if (visual_cache_reconciliation_defer_to_pointcloud_) {
+    if (visual_cache_reconciliation_defer_to_pointcloud_ ||
+      visual_pair_processing_defer_to_pointcloud_)
+    {
       reconcile_visual_frame_caches();
     }
     publish_tracking_status(msg.header.stamp);
@@ -6052,6 +6060,7 @@ private:
   bool enable_visual_cache_reconciliation_{false};
   bool visual_cache_reconciliation_monotonic_unique_{false};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
+  bool visual_pair_processing_defer_to_pointcloud_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
   int depth_frame_cache_size_{8};
   int sparse_lidar_depth_dilation_px_{1};

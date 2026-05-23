@@ -36,7 +36,8 @@
     "enable_visual_factor_time_interpolation": false,
     "enable_visual_cache_reconciliation": false,
     "visual_cache_reconciliation_monotonic_unique": false,
-    "visual_cache_reconciliation_defer_to_pointcloud": false
+    "visual_cache_reconciliation_defer_to_pointcloud": false,
+    "visual_pair_processing_defer_to_pointcloud": false
   },
   "accepted_evidence": {
     "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
@@ -256,10 +257,10 @@
       "numeric_jacobian_blocks": 0,
       "promotion_status": "diagnostic only until full-window monotonic-unique evidence preserves visual/SE3 drain, RMSE, and path-drift parity"
     },
-    {
-      "id": "visual_cache_reconciliation_deferred_monotonic_12s",
-      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_deferred_monotonic_12s_probe/native_tracking_report.json",
-      "scope": "default-off pointcloud-callback deferred one-to-one visual-cache pairing smoke",
+        {
+            "id": "visual_cache_reconciliation_deferred_monotonic_12s",
+            "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_deferred_monotonic_12s_probe/native_tracking_report.json",
+            "scope": "default-off pointcloud-callback deferred one-to-one visual-cache pairing smoke",
       "trajectory_poses": 119,
       "raw_images": 106,
       "rendered_images": 103,
@@ -278,12 +279,38 @@
       "visual_se3_photometric_pending_stale_drops": 0,
       "dense_prior_rank": 180,
       "dense_prior_cols": 180,
-      "orphan_factors": 0,
-      "numeric_jacobian_blocks": 0,
-      "promotion_status": "diagnostic only until full-window deferred evidence preserves visual/SE3 drain and path-drift parity"
-    }
-  ],
-  "rejected_evidence": [
+            "orphan_factors": 0,
+            "numeric_jacobian_blocks": 0,
+            "promotion_status": "diagnostic only until full-window deferred evidence preserves visual/SE3 drain and path-drift parity"
+        },
+        {
+            "id": "visual_pair_processing_deferred_monotonic_12s",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_processing_deferred_monotonic_12s_probe/native_tracking_report.json",
+            "scope": "default-off pointcloud-callback visual-pair processing smoke",
+            "trajectory_poses": 119,
+            "raw_images": 106,
+            "rendered_images": 96,
+            "visual_cache_reconciled_pairs": 10,
+            "visual_cache_reconciled_saturated_pairs": 2,
+            "visual_cache_reconciled_alignment_photometric_fallback_pairs": 1,
+            "visual_cache_reconciled_alignment_photometric_disagreement_pairs": 1,
+            "visual_cache_reconciled_alignment_skipped_pairs": 1,
+            "total_visual_factors": 105,
+            "total_se3_photometric_factors": 106,
+            "visual_pair_processed_count": 106,
+            "visual_pair_duplicate_count": 0,
+            "visual_alignment_interpolated_factors": 4,
+            "visual_se3_photometric_interpolated_factors": 5,
+            "visual_alignment_pending_stale_drops": 0,
+            "visual_se3_photometric_pending_stale_drops": 0,
+            "dense_prior_rank": 180,
+            "dense_prior_cols": 180,
+            "orphan_factors": 0,
+            "numeric_jacobian_blocks": 0,
+            "promotion_status": "diagnostic only until full-window visual-pair deferral preserves visual/SE3 drain, RMSE, and path-drift parity"
+        }
+    ],
+    "rejected_evidence": [
     {
       "id": "visual_factor_time_interpolation_numeric_full122",
       "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_full122_probe/native_tracking_report.json",
@@ -333,15 +360,22 @@
       "path_drift": 0.05359988615441546,
       "reason": "one-to-one observed/rendered pairing eliminates duplicate visual pairs and reaches the pose drain, but it drains only 966/1015 visual and 972/1015 SE3 factors, leaves bin 7 at 68/68, and regresses RMSE/path drift versus the accepted production preset"
     },
-    {
-      "id": "visual_cache_reconciliation_deferred_monotonic_full122",
-      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_deferred_monotonic_full122_drain1015_probe/native_tracking_report.json",
-      "translation_rmse_m": 1.3273299166533874,
-      "path_drift": 0.06007076829593547,
-      "reason": "deferring one-to-one reconciliation to point-cloud callbacks improves aggregate RMSE, but misses the 983/1015 visual and 986/1015 SE3 drains, leaves bin 7 at 51/51, and regresses path drift"
-    },
-    {
-      "id": "confidence_release_0065",
+        {
+            "id": "visual_cache_reconciliation_deferred_monotonic_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_deferred_monotonic_full122_drain1015_probe/native_tracking_report.json",
+            "translation_rmse_m": 1.3273299166533874,
+            "path_drift": 0.06007076829593547,
+            "reason": "deferring one-to-one reconciliation to point-cloud callbacks improves aggregate RMSE, but misses the 983/1015 visual and 986/1015 SE3 drains, leaves bin 7 at 51/51, and regresses path drift"
+        },
+        {
+            "id": "visual_pair_processing_deferred_monotonic_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_processing_deferred_monotonic_full122_drain1015_probe/native_tracking_report.json",
+            "translation_rmse_m": 1.838168465150579,
+            "path_drift": 0.06751594116163122,
+            "reason": "deferring direct visual-pair processing to point-cloud callbacks eliminates duplicate visual pairs, but misses the 912/1015 visual and 919/1015 SE3 drains, leaves bin 7 at 57/59, and regresses RMSE/path drift"
+        },
+        {
+            "id": "confidence_release_0065",
       "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_conf0065_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
       "translation_rmse_m": 1.6924729865107202,
       "path_drift": 0.004393547846530273,
