@@ -89,6 +89,9 @@ def generate_launch_description():
     enable_lidar_deskew = LaunchConfiguration("enable_lidar_deskew")
     enable_visual_factor = LaunchConfiguration("enable_visual_factor")
     visual_factor_max_dt_ns = LaunchConfiguration("visual_factor_max_dt_ns")
+    enable_visual_factor_time_interpolation = LaunchConfiguration(
+        "enable_visual_factor_time_interpolation"
+    )
     visual_depth_max_dt_ns = LaunchConfiguration("visual_depth_max_dt_ns")
     depth_frame_cache_size = LaunchConfiguration("depth_frame_cache_size")
     sparse_lidar_depth_dilation_px = LaunchConfiguration("sparse_lidar_depth_dilation_px")
@@ -549,6 +552,7 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_max_abs_point_time_offset_s", default_value="0.25"),
             DeclareLaunchArgument("enable_visual_factor", default_value="true"),
             DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="150000000"),
+            DeclareLaunchArgument("enable_visual_factor_time_interpolation", default_value="false"),
             DeclareLaunchArgument("visual_depth_max_dt_ns", default_value="0"),
             DeclareLaunchArgument("depth_frame_cache_size", default_value="8"),
             DeclareLaunchArgument("sparse_lidar_depth_dilation_px", default_value="1"),
@@ -864,6 +868,7 @@ def generate_launch_description():
                         "lidar_max_abs_point_time_offset_s": lidar_max_abs_point_time_offset_s,
                         "enable_visual_factor": enable_visual_factor,
                         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
+                        "enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation,
                         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
                         "depth_frame_cache_size": depth_frame_cache_size,
                         "sparse_lidar_depth_dilation_px": sparse_lidar_depth_dilation_px,

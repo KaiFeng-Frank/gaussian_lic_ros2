@@ -179,6 +179,7 @@ def main() -> int:
         "camera_to_imu_translation_m",
         "camera_to_imu_rpy_rad",
         "visual_factor_max_dt_ns",
+        "enable_visual_factor_time_interpolation",
         "visual_depth_max_dt_ns",
         "depth_frame_cache_size",
         "sparse_lidar_depth_dilation_px",
@@ -450,6 +451,9 @@ def main() -> int:
         "visual_observed_size_mismatch_count",
         "visual_pair_processed_count",
         "visual_pair_duplicate_count",
+        "visual_factor_time_interpolation_enabled",
+        "visual_alignment_interpolated_factors",
+        "visual_se3_photometric_interpolated_factors",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
             errors.append(f"TrackingStatus must publish rendered-to-observed cache diagnostics: {field_name}")
@@ -523,6 +527,10 @@ def main() -> int:
             'visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}"' not in native_tracking_report_text or \
             '"visual_factor_max_dt_ns": visual_factor_max_dt_ns' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must widen and record the visual BA pairing window")
+    if "ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false" not in native_tracking_report_text or \
+            'enable_visual_factor_time_interpolation:="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}"' not in native_tracking_report_text or \
+            '"enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose and record visual factor time interpolation")
     if "VISUAL_DEPTH_MAX_DT_NS=0" not in native_tracking_report_text or \
             'visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}"' not in native_tracking_report_text or \
             '"visual_depth_max_dt_ns": visual_depth_max_dt_ns' not in native_tracking_report_text:

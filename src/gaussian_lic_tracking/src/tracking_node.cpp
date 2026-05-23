@@ -260,6 +260,8 @@ public:
     visual_factor_max_dt_ns_ = integer_parameter_at_least(
       "visual_factor_max_dt_ns",
       declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL), 0LL);
+    enable_visual_factor_time_interpolation_ =
+      declare_parameter<bool>("enable_visual_factor_time_interpolation", false);
     visual_depth_max_dt_ns_ = integer_parameter_at_least(
       "visual_depth_max_dt_ns",
       declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL), 0LL);
@@ -1117,6 +1119,14 @@ private:
     size_t coverage_tiles{0};
     size_t coverage_total_tiles{0};
     gaussian_lic_tracking::VisualSe3PhotometricLinearization linearization;
+  };
+
+  struct VisualFactorReference
+  {
+    gaussian_lic_tracking::TrajectoryPose pose;
+    std::vector<int64_t> support_stamp_ns;
+    std::vector<double> support_weights;
+    bool interpolated{false};
   };
 
   struct QosProfileParams
@@ -2476,9 +2486,11 @@ private:
           continue;
         }
         gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor visual_factor;
-        visual_factor.stamp_ns = visual_reference->stamp_ns;
+        visual_factor.stamp_ns = visual_reference->pose.stamp_ns;
         visual_factor.source_id = pending.source_id;
-        visual_factor.reference_p_w_i = visual_reference->p_w_i;
+        visual_factor.support_stamp_ns = visual_reference->support_stamp_ns;
+        visual_factor.support_weights = visual_reference->support_weights;
+        visual_factor.reference_p_w_i = visual_reference->pose.p_w_i;
         visual_factor.measured_shift_px = Eigen::Vector2d{
           pending.alignment.subpixel_dx,
           pending.alignment.subpixel_dy};
@@ -2487,6 +2499,9 @@ private:
           visual_alignment_effective_weight(pending.alignment) *
           visual_alignment_quality_weight_scale(pending);
         visual_factor.huber_delta_m = visual_alignment_huber_delta_m_;
+        if (visual_reference->interpolated) {
+          ++visual_alignment_interpolated_factor_count_;
+        }
         add_visual_window_factor(visual_factor, visual_alignment_candidate_score(pending));
       }
       pending_visual_alignment_factors_ = std::move(retained_pending);
@@ -2504,10 +2519,12 @@ private:
           continue;
         }
         gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
-        factor.stamp_ns = visual_reference->stamp_ns;
+        factor.stamp_ns = visual_reference->pose.stamp_ns;
         factor.source_id = pending.source_id;
-        factor.reference_p_w_i = visual_reference->p_w_i;
-        factor.reference_q_w_i = visual_reference->q_w_i;
+        factor.support_stamp_ns = visual_reference->support_stamp_ns;
+        factor.support_weights = visual_reference->support_weights;
+        factor.reference_p_w_i = visual_reference->pose.p_w_i;
+        factor.reference_q_w_i = visual_reference->pose.q_w_i;
         factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
           q_i_c_,
           p_i_c_,
@@ -2523,6 +2540,9 @@ private:
           se3_photometric_window_weight_ * se3_photometric_quality_weight_scale(pending);
         factor.huber_delta = se3_photometric_factor_huber_delta_;
         if (factor.sqrt_information.norm() > std::numeric_limits<double>::epsilon()) {
+          if (visual_reference->interpolated) {
+            ++visual_se3_photometric_interpolated_factor_count_;
+          }
           add_se3_photometric_factor(factor, se3_photometric_candidate_score(pending));
         } else {
           ++sliding_window_se3_photometric_factor_skip_count_;
@@ -3846,12 +3866,67 @@ private:
     }
   }
 
-  std::optional<gaussian_lic_tracking::TrajectoryPose> select_visual_factor_reference(
+  std::optional<VisualFactorReference> select_visual_factor_reference(
     const int64_t factor_stamp_ns,
     const gaussian_lic_tracking::TrajectoryPose & current_pose) const
   {
+    if (enable_visual_factor_time_interpolation_) {
+      const auto & states = sliding_window_optimizer_.states();
+      const gaussian_lic_tracking::SlidingWindowState * before = nullptr;
+      const gaussian_lic_tracking::SlidingWindowState * after = nullptr;
+      for (const auto & state : states) {
+        if (state.stamp_ns <= factor_stamp_ns) {
+          before = &state;
+        }
+        if (state.stamp_ns >= factor_stamp_ns) {
+          after = &state;
+          break;
+        }
+      }
+
+      const int64_t max_delta_ns = max_visual_factor_reference_delta_ns();
+      if (before != nullptr && after != nullptr &&
+        stamp_delta_ns(before->stamp_ns, factor_stamp_ns) <= max_delta_ns &&
+        stamp_delta_ns(after->stamp_ns, factor_stamp_ns) <= max_delta_ns)
+      {
+        VisualFactorReference reference;
+        reference.pose.stamp_ns = factor_stamp_ns;
+        if (before->stamp_ns == after->stamp_ns) {
+          reference.pose.p_w_i = before->p_w_i;
+          reference.pose.q_w_i = before->q_w_i.normalized();
+          reference.pose.v_w_i = before->v_w_i;
+          reference.support_stamp_ns = {before->stamp_ns};
+          reference.support_weights = {1.0};
+          return reference;
+        }
+
+        const double span_ns = static_cast<double>(after->stamp_ns - before->stamp_ns);
+        if (std::isfinite(span_ns) && span_ns > 0.0) {
+          const double alpha =
+            std::clamp(static_cast<double>(factor_stamp_ns - before->stamp_ns) / span_ns, 0.0, 1.0);
+          reference.pose.p_w_i = (1.0 - alpha) * before->p_w_i + alpha * after->p_w_i;
+          reference.pose.q_w_i = before->q_w_i.normalized().slerp(alpha, after->q_w_i.normalized()).normalized();
+          reference.pose.v_w_i = (1.0 - alpha) * before->v_w_i + alpha * after->v_w_i;
+          if (alpha <= 1.0e-9) {
+            reference.support_stamp_ns = {before->stamp_ns};
+            reference.support_weights = {1.0};
+          } else if (alpha >= 1.0 - 1.0e-9) {
+            reference.support_stamp_ns = {after->stamp_ns};
+            reference.support_weights = {1.0};
+          } else {
+            reference.support_stamp_ns = {before->stamp_ns, after->stamp_ns};
+            reference.support_weights = {1.0 - alpha, alpha};
+            reference.interpolated = true;
+          }
+          return reference;
+        }
+      }
+    }
+
     if (stamp_delta_is_within(factor_stamp_ns, current_pose.stamp_ns, visual_factor_max_dt_ns_)) {
-      return current_pose;
+      VisualFactorReference reference;
+      reference.pose = current_pose;
+      return reference;
     }
 
     const auto & states = sliding_window_optimizer_.states();
@@ -3868,11 +3943,11 @@ private:
       return std::nullopt;
     }
 
-    gaussian_lic_tracking::TrajectoryPose reference;
-    reference.stamp_ns = best_state->stamp_ns;
-    reference.p_w_i = best_state->p_w_i;
-    reference.q_w_i = best_state->q_w_i;
-    reference.v_w_i = best_state->v_w_i;
+    VisualFactorReference reference;
+    reference.pose.stamp_ns = best_state->stamp_ns;
+    reference.pose.p_w_i = best_state->p_w_i;
+    reference.pose.q_w_i = best_state->q_w_i;
+    reference.pose.v_w_i = best_state->v_w_i;
     return reference;
   }
 
@@ -5604,6 +5679,10 @@ private:
     status.gaussian_snapshot_complete = gaussian_snapshot_.complete();
 
     status.visual_factor_enabled = enable_visual_factor_;
+    status.visual_factor_time_interpolation_enabled = enable_visual_factor_time_interpolation_;
+    status.visual_alignment_interpolated_factors = visual_alignment_interpolated_factor_count_;
+    status.visual_se3_photometric_interpolated_factors =
+      visual_se3_photometric_interpolated_factor_count_;
     status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
     status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
     status.visual_rendered_miss_count = visual_rendered_miss_count_;
@@ -5796,6 +5875,7 @@ private:
   bool enable_external_odometry_prior_{false};
   int visual_max_pixels_{200000};
   int64_t visual_factor_max_dt_ns_{150000000LL};
+  bool enable_visual_factor_time_interpolation_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
   int depth_frame_cache_size_{8};
   int sparse_lidar_depth_dilation_px_{1};
@@ -6175,6 +6255,8 @@ private:
   size_t last_observed_image_height_{0};
   uint64_t visual_alignment_pending_stale_drops_{0};
   uint64_t visual_se3_photometric_pending_stale_drops_{0};
+  uint64_t visual_alignment_interpolated_factor_count_{0};
+  uint64_t visual_se3_photometric_interpolated_factor_count_{0};
   uint64_t visual_pair_processed_count_{0};
   uint64_t visual_pair_duplicate_count_{0};
   uint64_t visual_alignment_saturated_count_{0};

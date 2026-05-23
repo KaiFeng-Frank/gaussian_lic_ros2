@@ -209,6 +209,7 @@ baseline_manifest.json
 - [x] Gate pending visual/SE3 photometric BA factors by signed-nanosecond image-to-LiDAR and image-to-depth timestamp freshness before consumption.
 - [x] Cache recent depth frames and select the nearest fresh stamp for SE3 photometric sampling instead of relying on latest-frame arrival order.
 - [x] Cache mapper rendered frames and select the nearest fresh stamp for visual residual/alignment/SE3 photometric factors.
+- [x] Add default-off continuous-time visual/SE3 support interpolation so delayed visual observations can constrain the two bracketing sliding-window states instead of being snapped to one state.
 - [x] Add a configurable Huber kernel to visual-alignment sliding-window factors so outlier image shifts are downweighted inside BA.
 - [x] Add a configurable Huber kernel to SE3 photometric window-factor whitened residuals so outlier render/depth deltas are downweighted inside BA.
 - [x] Add configurable LM step limits for rotation, translation, velocity, and biases to prevent BA state jumps from transient outliers.

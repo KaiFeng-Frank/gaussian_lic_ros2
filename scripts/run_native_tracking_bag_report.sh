@@ -153,6 +153,7 @@ REQUIRE_BA_FEEDBACK=false
 REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
+ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
 ENABLE_MAPPER_FEEDBACK=false
 MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.05
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM=pointcloud
@@ -623,6 +624,10 @@ Options:
   --require-ba-feedback        Require accepted sliding-window feedback.
   --require-nondegenerate-ba   Require the last reported BA normal equation and state cadence to be non-degenerate.
   --enable-visual-factors      Require mapper-rendered-image visual factors to be present externally.
+  --enable-visual-factor-time-interpolation
+                               Attach visual/SE3 factors to bracketing continuous-time states instead of one snapped state.
+  --disable-visual-factor-time-interpolation
+                               Keep the legacy single-reference visual/SE3 factor behavior.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
                                Launch mapping_node with Torch Gaussian init/extend, rasterizer rendered-image feedback, and GaussianArray publication so tracking can consume map anchors and real Gaussian photometric BA.
@@ -1408,8 +1413,17 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_NONDEGENERATE_BA=true
       shift
       ;;
-    --enable-visual-factors)
+  --enable-visual-factors)
       ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --enable-visual-factor-time-interpolation)
+      ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-factor-time-interpolation)
+      ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
       shift
       ;;
     --enable-mapper-feedback)
@@ -2052,6 +2066,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   image_qos_reliability:="${MAPPER_FEEDBACK_IMAGE_QOS_RELIABILITY}" \
   image_qos_depth:="${MAPPER_FEEDBACK_IMAGE_QOS_DEPTH}" \
   visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}" \
+  enable_visual_factor_time_interpolation:="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
@@ -2507,6 +2522,7 @@ VISUAL_ALIGNMENT_MAX_SHIFT_PX_REPORT="${VISUAL_ALIGNMENT_MAX_SHIFT_PX}" \
 VISUAL_ALIGNMENT_SCORE_MODE_REPORT="${VISUAL_ALIGNMENT_SCORE_MODE}" \
 VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
 VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
+ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
 ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING}" \
 VISUAL_FACTOR_QUALITY_MIN_WEIGHT_SCALE_REPORT="${VISUAL_FACTOR_QUALITY_MIN_WEIGHT_SCALE}" \
 ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
@@ -2574,6 +2590,9 @@ visual_alignment_max_shift_px = int(os.environ["VISUAL_ALIGNMENT_MAX_SHIFT_PX_RE
 visual_alignment_score_mode = os.environ["VISUAL_ALIGNMENT_SCORE_MODE_REPORT"]
 visual_alignment_factor_source = os.environ["VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT"]
 visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
+enable_visual_factor_time_interpolation = (
+    os.environ["ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT"].lower() == "true"
+)
 enable_visual_factor_quality_weighting = (
     os.environ["ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT"].lower() == "true"
 )
@@ -3239,12 +3258,18 @@ for key in (
     "sliding_window_linearization_failure_count",
     "sliding_window_linear_solve_failure_count",
     "sliding_window_invalid_optimized_states",
-    "sliding_window_numeric_jacobian_blocks",
-    "sliding_window_numeric_jacobian_columns",
     "sliding_window_orphan_factors",
 ):
     if int(last.get(key, 0)) != 0:
         errors.append(f"{key} is {last.get(key)}")
+
+numeric_jacobian_blocks = int(last.get("sliding_window_numeric_jacobian_blocks", 0) or 0)
+numeric_jacobian_columns = int(last.get("sliding_window_numeric_jacobian_columns", 0) or 0)
+if not enable_visual_factor_time_interpolation:
+    if numeric_jacobian_blocks != 0:
+        errors.append(f"sliding_window_numeric_jacobian_blocks is {numeric_jacobian_blocks}")
+    if numeric_jacobian_columns != 0:
+        errors.append(f"sliding_window_numeric_jacobian_columns is {numeric_jacobian_columns}")
 
 lidar_invalid_frames = int(last.get("lidar_invalid_frames", 0))
 if lidar_invalid_frames > max_lidar_invalid_frames:
@@ -3475,6 +3500,11 @@ if (
     and not bool(last.get("visual_se3_photometric_valid", False))
 ):
     errors.append("visual_se3_photometric_valid is false")
+if enable_visual_factor_time_interpolation:
+    interpolated_visual = int(last.get("visual_alignment_interpolated_factors", 0) or 0)
+    interpolated_se3 = int(last.get("visual_se3_photometric_interpolated_factors", 0) or 0)
+    if interpolated_visual + interpolated_se3 <= 0:
+        errors.append("visual factor time interpolation produced no interpolated factors")
 if require_deskew and int(last.get("trajectory_deskew_queries", 0)) <= 0:
     errors.append("trajectory_deskew_queries is zero")
 if require_deskew and int(last.get("trajectory_deskew_hits", 0)) <= 0:
@@ -3498,6 +3528,7 @@ report = {
         "visual_alignment_score_mode": visual_alignment_score_mode,
         "visual_alignment_factor_source": visual_alignment_factor_source,
         "visual_factor_source_id_mode": visual_factor_source_id_mode,
+        "enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation,
         "visual_alignment_window_weight": visual_alignment_window_weight,
         "visual_alignment_saturation_margin_px": visual_alignment_saturation_margin_px,
         "visual_alignment_saturated_weight_scale": visual_alignment_saturated_weight_scale,

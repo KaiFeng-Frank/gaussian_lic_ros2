@@ -117,6 +117,50 @@ int main()
     std::cerr << "\nsliding window translation step limiter failed\n";
     return 1;
   }
+
+  gaussian_lic_tracking::SlidingWindowOptimizer interpolation_optimizer(config);
+  gaussian_lic_tracking::SlidingWindowState interpolation_a;
+  interpolation_a.stamp_ns = 400;
+  interpolation_a.p_w_i = Eigen::Vector3d::Zero();
+  gaussian_lic_tracking::SlidingWindowState interpolation_b = interpolation_a;
+  interpolation_b.stamp_ns = 500;
+  interpolation_optimizer.add_or_update_state(interpolation_a);
+  interpolation_optimizer.add_or_update_state(interpolation_b);
+
+  gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor interpolation_factor;
+  interpolation_factor.stamp_ns = 450;
+  interpolation_factor.source_id = 7U;
+  interpolation_factor.support_stamp_ns = {interpolation_a.stamp_ns, interpolation_b.stamp_ns};
+  interpolation_factor.support_weights = {0.25, 0.75};
+  interpolation_factor.reference_p_w_i = Eigen::Vector3d::Zero();
+  interpolation_factor.measured_shift_px = Eigen::Vector2d{40.0, -20.0};
+  interpolation_factor.meters_per_pixel = 0.01;
+  interpolation_factor.weight = 50.0;
+  interpolation_optimizer.add_visual_alignment_factor(interpolation_factor);
+  const auto interpolation_summary = interpolation_optimizer.optimize();
+  gaussian_lic_tracking::SlidingWindowState interpolation_a_out;
+  gaussian_lic_tracking::SlidingWindowState interpolation_b_out;
+  if (!interpolation_optimizer.get_state(interpolation_a.stamp_ns, interpolation_a_out) ||
+    !interpolation_optimizer.get_state(interpolation_b.stamp_ns, interpolation_b_out))
+  {
+    std::cerr << "\ninterpolated visual-factor states are missing\n";
+    return 1;
+  }
+  const Eigen::Vector2d interpolation_target{0.4, -0.2};
+  const Eigen::Vector2d interpolation_xy =
+    (0.25 * interpolation_a_out.p_w_i + 0.75 * interpolation_b_out.p_w_i).head<2>();
+  const double interpolation_error = (interpolation_xy - interpolation_target).norm();
+  std::cout << " interpolated_xy_error=" << interpolation_error
+            << " interpolated_numeric_blocks="
+            << interpolation_summary.numeric_jacobian_block_count;
+  if (!interpolation_summary.converged ||
+    interpolation_summary.numeric_jacobian_block_count < 2U ||
+    interpolation_summary.final_cost >= interpolation_summary.initial_cost ||
+    interpolation_error > 1.0e-7)
+  {
+    std::cerr << "\ninterpolated visual factor failed continuous-time support solve\n";
+    return 1;
+  }
   std::cout << "sliding_window_visual_factor_probe OK\n";
   return 0;
 }

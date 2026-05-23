@@ -21,6 +21,55 @@ using BiasAutoDiff = Eigen::AutoDiffScalar<BiasDerivativeVector>;
 using Vector3ad = Eigen::Matrix<BiasAutoDiff, 3, 1>;
 using Quaternionad = Eigen::Quaternion<BiasAutoDiff>;
 
+bool visual_support_is_valid(
+  const std::vector<int64_t> & support_stamp_ns,
+  const std::vector<double> & support_weights)
+{
+  if (support_stamp_ns.empty() && support_weights.empty()) {
+    return true;
+  }
+  if (support_stamp_ns.empty() || support_stamp_ns.size() != support_weights.size() ||
+    support_stamp_ns.size() > 2U)
+  {
+    return false;
+  }
+  double weight_sum = 0.0;
+  int64_t previous_stamp_ns = std::numeric_limits<int64_t>::min();
+  for (size_t index = 0; index < support_stamp_ns.size(); ++index) {
+    const double weight = support_weights[index];
+    if (!std::isfinite(weight) || weight < 0.0) {
+      return false;
+    }
+    if (index > 0U && support_stamp_ns[index] <= previous_stamp_ns) {
+      return false;
+    }
+    previous_stamp_ns = support_stamp_ns[index];
+    weight_sum += weight;
+  }
+  return std::isfinite(weight_sum) && std::abs(weight_sum - 1.0) <= 1.0e-6;
+}
+
+template<typename FactorT>
+bool visual_factor_references_stamp(const FactorT & factor, const int64_t stamp_ns)
+{
+  if (!factor.support_stamp_ns.empty()) {
+    return std::find(
+      factor.support_stamp_ns.begin(), factor.support_stamp_ns.end(), stamp_ns) !=
+           factor.support_stamp_ns.end();
+  }
+  return factor.stamp_ns == stamp_ns;
+}
+
+template<typename FactorT, typename PredicateT>
+bool visual_factor_has_stamp_matching(const FactorT & factor, PredicateT predicate)
+{
+  if (!factor.support_stamp_ns.empty()) {
+    return std::any_of(
+      factor.support_stamp_ns.begin(), factor.support_stamp_ns.end(), predicate);
+  }
+  return predicate(factor.stamp_ns);
+}
+
 BiasAutoDiff make_bias_autodiff(const double value, const int derivative_index = -1)
 {
   BiasAutoDiff output(value);
@@ -916,6 +965,9 @@ void SlidingWindowOptimizer::add_visual_alignment_factor(const SlidingWindowVisu
   if (!factor.measured_shift_px.allFinite() || !factor.reference_p_w_i.allFinite()) {
     throw std::runtime_error("visual alignment factor values must be finite");
   }
+  if (!visual_support_is_valid(factor.support_stamp_ns, factor.support_weights)) {
+    throw std::runtime_error("visual alignment factor support stamps/weights must be valid");
+  }
   const auto existing = std::find_if(
     visual_factors_.begin(), visual_factors_.end(),
     [&factor](const SlidingWindowVisualAlignmentFactor & candidate) {
@@ -942,6 +994,9 @@ void SlidingWindowOptimizer::add_se3_photometric_factor(const SlidingWindowSe3Ph
     !quaternion_is_finite_and_nonzero(factor.reference_q_w_i))
   {
     throw std::runtime_error("SE3 photometric factor values must be finite with a non-zero quaternion");
+  }
+  if (!visual_support_is_valid(factor.support_stamp_ns, factor.support_weights)) {
+    throw std::runtime_error("SE3 photometric factor support stamps/weights must be valid");
   }
   SlidingWindowSe3PhotometricFactor normalized = factor;
   normalized.reference_q_w_i.normalize();
@@ -1162,14 +1217,14 @@ size_t SlidingWindowOptimizer::enforce_window_size()
       std::remove_if(
         visual_factors_.begin(), visual_factors_.end(),
         [stamp_ns](const SlidingWindowVisualAlignmentFactor & factor) {
-          return factor.stamp_ns == stamp_ns;
+          return visual_factor_references_stamp(factor, stamp_ns);
         }),
       visual_factors_.end());
     se3_photometric_factors_.erase(
       std::remove_if(
         se3_photometric_factors_.begin(), se3_photometric_factors_.end(),
         [stamp_ns](const SlidingWindowSe3PhotometricFactor & factor) {
-          return factor.stamp_ns == stamp_ns;
+          return visual_factor_references_stamp(factor, stamp_ns);
         }),
       se3_photometric_factors_.end());
     relative_translation_factors_.erase(
@@ -1280,12 +1335,12 @@ size_t SlidingWindowOptimizer::prune_marginalized_factor_references()
   removed += erase_and_count(
     visual_factors_,
     [before_active_window](const SlidingWindowVisualAlignmentFactor & factor) {
-      return before_active_window(factor.stamp_ns);
+      return visual_factor_has_stamp_matching(factor, before_active_window);
     });
   removed += erase_and_count(
     se3_photometric_factors_,
     [before_active_window](const SlidingWindowSe3PhotometricFactor & factor) {
-      return before_active_window(factor.stamp_ns);
+      return visual_factor_has_stamp_matching(factor, before_active_window);
     });
   removed += erase_and_count(
     relative_translation_factors_,
@@ -1391,6 +1446,54 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
         return -1;
       }
       return static_cast<int>(std::distance(states.begin(), it));
+    };
+  auto resolve_support = [&find_local](
+      const int64_t stamp_ns,
+      const std::vector<int64_t> & support_stamp_ns,
+      const std::vector<double> & support_weights) {
+      std::vector<std::pair<int, double>> support;
+      if (support_stamp_ns.empty()) {
+        const int index = find_local(stamp_ns);
+        if (index >= 0) {
+          support.emplace_back(index, 1.0);
+        }
+        return support;
+      }
+      if (!visual_support_is_valid(support_stamp_ns, support_weights)) {
+        return support;
+      }
+      support.reserve(support_stamp_ns.size());
+      for (size_t index = 0; index < support_stamp_ns.size(); ++index) {
+        const int local_index = find_local(support_stamp_ns[index]);
+        if (local_index < 0) {
+          support.clear();
+          return support;
+        }
+        if (support_weights[index] > 1.0e-9) {
+          support.emplace_back(local_index, support_weights[index]);
+        }
+      }
+      return support;
+    };
+  auto interpolated_position = [&states](
+      const std::vector<std::pair<int, double>> & support) {
+      Eigen::Vector3d position = Eigen::Vector3d::Zero();
+      for (const auto & item : support) {
+        position += item.second * states[static_cast<size_t>(item.first)].p_w_i;
+      }
+      return position;
+    };
+  auto interpolated_orientation = [&states](
+      const std::vector<std::pair<int, double>> & support) {
+      if (support.empty()) {
+        return Eigen::Quaterniond::Identity();
+      }
+      if (support.size() == 1U) {
+        return states[static_cast<size_t>(support.front().first)].q_w_i.normalized();
+      }
+      const auto & first = states[static_cast<size_t>(support[0].first)];
+      const auto & second = states[static_cast<size_t>(support[1].first)];
+      return first.q_w_i.normalized().slerp(support[1].second, second.q_w_i.normalized()).normalized();
     };
 
   for (const auto & factor : imu_factors_) {
@@ -1525,17 +1628,18 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   }
 
   for (const auto & factor : visual_factors_) {
-    const int index = find_local(factor.stamp_ns);
-    if (index < 0) {
+    const auto support = resolve_support(
+      factor.stamp_ns, factor.support_stamp_ns, factor.support_weights);
+    if (support.empty()) {
       continue;
     }
-    const auto & state = states[static_cast<size_t>(index)];
+    const Eigen::Vector3d position = interpolated_position(support);
     Eigen::Vector2d target_xy;
     target_xy.x() = factor.reference_p_w_i.x() + factor.measured_shift_px.x() * factor.meters_per_pixel;
     target_xy.y() = factor.reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
     Eigen::Vector2d residual;
-    residual.x() = state.p_w_i.x() - target_xy.x();
-    residual.y() = state.p_w_i.y() - target_xy.y();
+    residual.x() = position.x() - target_xy.x();
+    residual.y() = position.y() - target_xy.y();
     const double robust_weight = huber_weight(residual.norm(), factor.huber_delta_m);
     append(
       std::sqrt(factor.weight * robust_weight) * residual,
@@ -1543,14 +1647,16 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   }
 
   for (const auto & factor : se3_photometric_factors_) {
-    const int index = find_local(factor.stamp_ns);
-    if (index < 0) {
+    const auto support = resolve_support(
+      factor.stamp_ns, factor.support_stamp_ns, factor.support_weights);
+    if (support.empty()) {
       continue;
     }
-    const auto & state = states[static_cast<size_t>(index)];
+    const Eigen::Vector3d position = interpolated_position(support);
+    const Eigen::Quaterniond orientation = interpolated_orientation(support);
     Eigen::Matrix<double, 6, 1> delta;
-    delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, state.q_w_i);
-    delta.template segment<3>(3) = state.p_w_i - factor.reference_p_w_i;
+    delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, orientation);
+    delta.template segment<3>(3) = position - factor.reference_p_w_i;
     const Eigen::Matrix<double, 6, 1> whitened_residual =
       factor.sqrt_information * (delta - factor.target_delta);
     const double robust_weight = huber_weight(whitened_residual.norm(), factor.huber_delta);
@@ -1668,6 +1774,34 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
         return -1;
       }
       return static_cast<int>(std::distance(states.begin(), it));
+    };
+  auto resolve_support = [&find_local](
+      const int64_t stamp_ns,
+      const std::vector<int64_t> & support_stamp_ns,
+      const std::vector<double> & support_weights) {
+      std::vector<std::pair<int, double>> support;
+      if (support_stamp_ns.empty()) {
+        const int index = find_local(stamp_ns);
+        if (index >= 0) {
+          support.emplace_back(index, 1.0);
+        }
+        return support;
+      }
+      if (!visual_support_is_valid(support_stamp_ns, support_weights)) {
+        return support;
+      }
+      support.reserve(support_stamp_ns.size());
+      for (size_t index = 0; index < support_stamp_ns.size(); ++index) {
+        const int local_index = find_local(support_stamp_ns[index]);
+        if (local_index < 0) {
+          support.clear();
+          return support;
+        }
+        if (support_weights[index] > 1.0e-9) {
+          support.emplace_back(local_index, support_weights[index]);
+        }
+      }
+      return support;
     };
 
   std::vector<Eigen::Index> variable_offsets(states.size(), -1);
@@ -1887,51 +2021,73 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
   }
 
   for (const auto & factor : visual_factors_) {
-    const int index = find_local(factor.stamp_ns);
-    if (index < 0) {
+    const auto support = resolve_support(
+      factor.stamp_ns, factor.support_stamp_ns, factor.support_weights);
+    if (support.empty()) {
       continue;
     }
-    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
     if (!rows_available(row, 2)) {
       return fallback_to_numeric();
     }
-    if (offset >= 0) {
-      const auto & state = states[static_cast<size_t>(index)];
-      Eigen::Vector2d target_xy;
-      target_xy.x() = factor.reference_p_w_i.x() + factor.measured_shift_px.x() * factor.meters_per_pixel;
-      target_xy.y() = factor.reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
-      const Eigen::Vector2d residual = state.p_w_i.head<2>() - target_xy;
-      const double scale = std::sqrt(factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
-      jacobian(row, offset + 6) = scale;
-      jacobian(row + 1, offset + 7) = scale;
+    if (factor.support_stamp_ns.empty()) {
+      const int index = support.front().first;
+      const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+      if (offset >= 0) {
+        const auto & state = states[static_cast<size_t>(index)];
+        Eigen::Vector2d target_xy;
+        target_xy.x() = factor.reference_p_w_i.x() + factor.measured_shift_px.x() * factor.meters_per_pixel;
+        target_xy.y() = factor.reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
+        const Eigen::Vector2d residual = state.p_w_i.head<2>() - target_xy;
+        const double scale = std::sqrt(factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
+        jacobian(row, offset + 6) = scale;
+        jacobian(row + 1, offset + 7) = scale;
+      }
+    } else {
+      for (const auto & item : support) {
+        const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
+        if (offset >= 0) {
+          mark_numeric(row, 2, offset, static_cast<Eigen::Index>(kStateDof));
+        }
+      }
     }
     row += 2;
   }
 
   for (const auto & factor : se3_photometric_factors_) {
-    const int index = find_local(factor.stamp_ns);
-    if (index < 0) {
+    const auto support = resolve_support(
+      factor.stamp_ns, factor.support_stamp_ns, factor.support_weights);
+    if (support.empty()) {
       continue;
     }
-    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
     if (!rows_available(row, 6)) {
       return fallback_to_numeric();
     }
-    if (offset >= 0) {
-      const auto & state = states[static_cast<size_t>(index)];
-      Eigen::Matrix<double, 6, 1> delta;
-      delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, state.q_w_i);
-      delta.template segment<3>(3) = state.p_w_i - factor.reference_p_w_i;
-      const Eigen::Matrix<double, 6, 1> whitened_residual =
-        factor.sqrt_information * (delta - factor.target_delta);
-      const double robust_scale =
-        std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
-      Eigen::Matrix<double, 6, 15> delta_jacobian = Eigen::Matrix<double, 6, 15>::Zero();
-      delta_jacobian.template block<3, 3>(0, 0) =
-        rotation_residual_left_perturbation_jacobian(factor.reference_q_w_i, state.q_w_i);
-      delta_jacobian.template block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
-      jacobian.block(row, offset, 6, static_cast<Eigen::Index>(kStateDof)) =
-        robust_scale * factor.sqrt_information * delta_jacobian;
+    if (factor.support_stamp_ns.empty()) {
+      const int index = support.front().first;
+      const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+      if (offset >= 0) {
+        const auto & state = states[static_cast<size_t>(index)];
+        Eigen::Matrix<double, 6, 1> delta;
+        delta.template segment<3>(0) = rotation_residual(factor.reference_q_w_i, state.q_w_i);
+        delta.template segment<3>(3) = state.p_w_i - factor.reference_p_w_i;
+        const Eigen::Matrix<double, 6, 1> whitened_residual =
+          factor.sqrt_information * (delta - factor.target_delta);
+        const double robust_scale =
+          std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
+        Eigen::Matrix<double, 6, 15> delta_jacobian = Eigen::Matrix<double, 6, 15>::Zero();
+        delta_jacobian.template block<3, 3>(0, 0) =
+          rotation_residual_left_perturbation_jacobian(factor.reference_q_w_i, state.q_w_i);
+        delta_jacobian.template block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
+        jacobian.block(row, offset, 6, static_cast<Eigen::Index>(kStateDof)) =
+          robust_scale * factor.sqrt_information * delta_jacobian;
+      }
+    } else {
+      for (const auto & item : support) {
+        const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
+        if (offset >= 0) {
+          mark_numeric(row, 6, offset, static_cast<Eigen::Index>(kStateDof));
+        }
+      }
     }
     row += 6;
   }
@@ -2259,12 +2415,12 @@ size_t SlidingWindowOptimizer::count_orphan_factors() const
     }
   }
   for (const auto & factor : visual_factors_) {
-    if (missing_state(factor.stamp_ns)) {
+    if (visual_factor_has_stamp_matching(factor, missing_state)) {
       ++count;
     }
   }
   for (const auto & factor : se3_photometric_factors_) {
-    if (missing_state(factor.stamp_ns)) {
+    if (visual_factor_has_stamp_matching(factor, missing_state)) {
       ++count;
     }
   }

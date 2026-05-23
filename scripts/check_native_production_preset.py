@@ -137,6 +137,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
             preset["mapper_feedback_pointcloud_coordinates"]
         ),
         "MAPPER_FEEDBACK_MAX_DEPTH": preset["mapper_feedback_max_depth"],
+        "ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION": (
+            preset["enable_visual_factor_time_interpolation"]
+        ),
     }
     for name, value in expected_assignments.items():
         require_assignment(script, name, value, errors)
@@ -166,6 +169,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_alignment_factor_source",
         "--visual-factor-source-id-mode",
         "visual_factor_source_id_mode",
+        "--enable-visual-factor-time-interpolation",
+        "enable_visual_factor_time_interpolation",
         "--enable-sliding-window-relative-distance-factor",
         "sliding_window_relative_distance_weight",
         "--enable-sliding-window-multihop-relative-distance-factor",

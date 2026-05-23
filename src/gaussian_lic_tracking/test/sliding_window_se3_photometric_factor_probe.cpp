@@ -97,6 +97,53 @@ int main()
     return 1;
   }
 
+  gaussian_lic_tracking::SlidingWindowOptimizer interpolation_optimizer(config);
+  gaussian_lic_tracking::SlidingWindowState interpolation_a;
+  interpolation_a.stamp_ns = 3000000000LL;
+  gaussian_lic_tracking::SlidingWindowState interpolation_b = interpolation_a;
+  interpolation_b.stamp_ns = 3100000000LL;
+  interpolation_optimizer.add_or_update_state(interpolation_a);
+  interpolation_optimizer.add_or_update_state(interpolation_b);
+
+  gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor interpolation_factor;
+  interpolation_factor.stamp_ns = 3050000000LL;
+  interpolation_factor.source_id = 9U;
+  interpolation_factor.support_stamp_ns = {interpolation_a.stamp_ns, interpolation_b.stamp_ns};
+  interpolation_factor.support_weights = {0.4, 0.6};
+  interpolation_factor.reference_p_w_i = Eigen::Vector3d::Zero();
+  interpolation_factor.reference_q_w_i = Eigen::Quaterniond::Identity();
+  interpolation_factor.target_delta.setZero();
+  interpolation_factor.target_delta.template segment<3>(3) =
+    Eigen::Vector3d{0.12, -0.04, 0.03};
+  interpolation_factor.sqrt_information.setIdentity();
+  interpolation_factor.weight = 30.0;
+  interpolation_optimizer.add_se3_photometric_factor(interpolation_factor);
+  const auto interpolation_summary = interpolation_optimizer.optimize();
+  gaussian_lic_tracking::SlidingWindowState interpolation_a_out;
+  gaussian_lic_tracking::SlidingWindowState interpolation_b_out;
+  if (!interpolation_optimizer.get_state(interpolation_a.stamp_ns, interpolation_a_out) ||
+    !interpolation_optimizer.get_state(interpolation_b.stamp_ns, interpolation_b_out))
+  {
+    std::cerr << "\ninterpolated SE3 photometric states are missing\n";
+    return 1;
+  }
+  const Eigen::Vector3d interpolation_translation =
+    0.4 * interpolation_a_out.p_w_i + 0.6 * interpolation_b_out.p_w_i;
+  const double interpolation_translation_error =
+    (interpolation_translation - interpolation_factor.target_delta.template segment<3>(3)).norm();
+  std::cout << " interpolated_se3_translation_error="
+            << interpolation_translation_error
+            << " interpolated_numeric_blocks="
+            << interpolation_summary.numeric_jacobian_block_count;
+  if (!interpolation_summary.converged ||
+    interpolation_summary.numeric_jacobian_block_count < 2U ||
+    interpolation_summary.final_cost >= interpolation_summary.initial_cost ||
+    interpolation_translation_error > 1.0e-7)
+  {
+    std::cerr << "\ninterpolated SE3 photometric factor failed continuous-time support solve\n";
+    return 1;
+  }
+
   std::cout << "sliding_window_se3_photometric_factor_probe OK\n";
   return 0;
 }
