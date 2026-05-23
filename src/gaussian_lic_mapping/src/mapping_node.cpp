@@ -2009,6 +2009,44 @@ private:
     return image;
   }
 
+  sensor_msgs::msg::Image make_observed_feedback_image_message(
+    const gaussian_lic_mapping::CameraFrameRecord & frame) const
+  {
+    sensor_msgs::msg::Image image;
+    image.header.stamp = frame.image_stamp;
+    image.header.frame_id = camera_frame_;
+    image.height = static_cast<uint32_t>(std::max(frame.height, 0));
+    image.width = static_cast<uint32_t>(std::max(frame.width, 0));
+    image.encoding = sensor_msgs::image_encodings::RGB8;
+    image.is_bigendian = false;
+    image.step = image.width * 3U;
+    image.data.resize(static_cast<size_t>(image.height) * image.step);
+
+    if (frame.image_rgb_float.empty()) {
+      return image;
+    }
+    if (
+      frame.image_rgb_float.type() != CV_32FC3 ||
+      frame.image_rgb_float.rows != static_cast<int>(image.height) ||
+      frame.image_rgb_float.cols != static_cast<int>(image.width))
+    {
+      throw std::runtime_error("observed feedback image expects RGB float image data");
+    }
+
+    for (uint32_t row = 0; row < image.height; ++row) {
+      const auto * src = frame.image_rgb_float.ptr<cv::Vec3f>(static_cast<int>(row));
+      uint8_t * dst = image.data.data() + static_cast<size_t>(row) * image.step;
+      for (uint32_t col = 0; col < image.width; ++col) {
+        const cv::Vec3f & rgb = src[col];
+        dst[col * 3U + 0U] = color_channel_to_u8(rgb[0]);
+        dst[col * 3U + 1U] = color_channel_to_u8(rgb[1]);
+        dst[col * 3U + 2U] = color_channel_to_u8(rgb[2]);
+      }
+    }
+
+    return image;
+  }
+
   sensor_msgs::msg::Image make_projected_map_preview_message(
     const builtin_interfaces::msg::Time & stamp,
     const bool fallback_to_input = true) const
@@ -2281,6 +2319,7 @@ private:
     gaussian_lic_msgs::msg::RenderedFeedback feedback;
     feedback.header = image.header;
     feedback.image = image;
+    feedback.observed_image = make_observed_feedback_image_message(frame);
     feedback.observed_stamp = frame.image_stamp;
     feedback.pose_stamp = frame.pose_stamp;
     feedback.pointcloud_stamp = frame.pointcloud_stamp;

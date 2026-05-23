@@ -35,6 +35,7 @@ uint64 num_raw_images
 uint64 num_rendered_images
 bool rendered_feedback_contract_enabled
 uint64 num_rendered_feedbacks
+uint64 rendered_feedback_embedded_observed_pairs
 int64 last_rendered_feedback_observed_delta_ns
 int64 last_rendered_feedback_pose_delta_ns
 int64 last_rendered_feedback_pointcloud_delta_ns

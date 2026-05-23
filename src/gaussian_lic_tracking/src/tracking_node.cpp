@@ -1876,12 +1876,89 @@ private:
         ++rendered_feedback_stamp_mismatches_;
         image.header.stamp = msg.header.stamp;
       }
-      handle_rendered_image_with_metadata(image, metadata);
+      auto observed_image = msg.observed_image;
+      if (!observed_image.data.empty() && observed_image.width > 0U && observed_image.height > 0U) {
+        if (
+          gaussian_lic_tracking::stamp_to_nanoseconds(observed_image.header.stamp) !=
+          metadata.observed_stamp_ns)
+        {
+          ++rendered_feedback_stamp_mismatches_;
+          observed_image.header.stamp = msg.observed_stamp;
+        }
+        handle_rendered_feedback_pair(image, observed_image, metadata);
+      } else {
+        handle_rendered_image_with_metadata(image, metadata);
+      }
     } catch (const std::exception & ex) {
       ++rendered_invalid_frames_;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "dropping rendered feedback with invalid source stamps: %s", ex.what());
+    }
+  }
+
+  void handle_rendered_feedback_pair(
+    const sensor_msgs::msg::Image & rendered_msg,
+    const sensor_msgs::msg::Image & observed_msg,
+    const RenderedFeedbackMetadata & metadata)
+  {
+    if (!enable_visual_factor_) {
+      return;
+    }
+    const int64_t stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(rendered_msg.header.stamp);
+    if (!accept_stream_stamp(
+        "rendered_image", stamp_ns, last_rendered_input_stamp_ns_, rendered_stamp_regressions_, true))
+    {
+      return;
+    }
+
+    gaussian_lic_tracking::VisualFrame rendered;
+    gaussian_lic_tracking::VisualFrame observed;
+    if (!decode_image_gray(rendered_msg, rendered)) {
+      ++rendered_invalid_frames_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping rendered feedback image with unsupported encoding, layout, or dimensions");
+      return;
+    }
+    if (!decode_image_gray(observed_msg, observed)) {
+      ++image_invalid_frames_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping rendered feedback observed image with unsupported encoding, layout, or dimensions");
+      return;
+    }
+
+    ++num_rendered_images_;
+    ++rendered_feedback_embedded_observed_pairs_;
+    rendered.has_rendered_feedback_metadata = true;
+    rendered.rendered_feedback_observed_stamp_ns = metadata.observed_stamp_ns;
+    rendered.rendered_feedback_pose_stamp_ns = metadata.pose_stamp_ns;
+    rendered.rendered_feedback_pointcloud_stamp_ns = metadata.pointcloud_stamp_ns;
+    rendered.rendered_feedback_frame_index = metadata.frame_index;
+    rendered.rendered_feedback_preview_index = metadata.rendered_preview_index;
+    cache_rendered_frame(rendered);
+    cache_observed_frame(observed);
+    last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
+    last_visual_observed_cache_size_ = observed_frame_cache_.size();
+    last_visual_rendered_match_delta_ns_ = 0;
+    last_visual_rendered_nearest_delta_ns_ = 0;
+    last_visual_rendered_nearest_signed_delta_ns_ = 0;
+    last_visual_observed_match_delta_ns_ = 0;
+    last_visual_observed_nearest_delta_ns_ = 0;
+    last_visual_observed_nearest_signed_delta_ns_ = 0;
+
+    if (!visual_pair_processing_defer_to_pointcloud_ && !enable_visual_watermark_pair_scheduler_) {
+      process_visual_pair(rendered, observed, false, true);
+    }
+    if (!visual_cache_reconciliation_defer_to_pointcloud_ &&
+      !visual_pair_processing_defer_to_pointcloud_ &&
+      !enable_visual_watermark_pair_scheduler_)
+    {
+      reconcile_visual_frame_caches();
+    }
+    if (enable_visual_watermark_pair_scheduler_ && last_pointcloud_stamp_ns_ > 0) {
+      process_visual_pairs_up_to_watermark(last_pointcloud_stamp_ns_, true);
     }
   }
 
@@ -1961,7 +2038,8 @@ private:
   void process_visual_pair(
     const gaussian_lic_tracking::VisualFrame & rendered,
     const gaussian_lic_tracking::VisualFrame & observed,
-    const bool reconciled_pair)
+    const bool reconciled_pair,
+    const bool force_callback_ingest = false)
   {
     if (visual_pair_was_processed(
         observed.stamp_ns,
@@ -2098,7 +2176,10 @@ private:
         trim_pending_visual_factor_queues();
       }
     }
-    if (enable_visual_callback_factor_ingest_ && last_output_tracking_pose_.has_value()) {
+    if (
+      (enable_visual_callback_factor_ingest_ || force_callback_ingest) &&
+      last_output_tracking_pose_.has_value())
+    {
       ingest_pending_visual_factors_into_optimizer(last_output_tracking_pose_.value());
     }
     if (last_visual_residual_.valid) {
@@ -6221,6 +6302,8 @@ private:
     status.num_rendered_images = num_rendered_images_;
     status.rendered_feedback_contract_enabled = enable_rendered_feedback_contract_;
     status.num_rendered_feedbacks = num_rendered_feedbacks_;
+    status.rendered_feedback_embedded_observed_pairs =
+      rendered_feedback_embedded_observed_pairs_;
     status.last_rendered_feedback_observed_delta_ns =
       last_rendered_feedback_observed_delta_ns_;
     status.last_rendered_feedback_pose_delta_ns =
@@ -7199,6 +7282,7 @@ private:
   uint64_t num_raw_images_{0};
   uint64_t num_rendered_images_{0};
   uint64_t num_rendered_feedbacks_{0};
+  uint64_t rendered_feedback_embedded_observed_pairs_{0};
   uint64_t rendered_feedback_stamp_mismatches_{0};
   int64_t last_rendered_feedback_observed_delta_ns_{0};
   int64_t last_rendered_feedback_pose_delta_ns_{0};

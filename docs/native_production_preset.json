@@ -92,6 +92,30 @@
       "promotion_status": "diagnostic only until full-window rendered-feedback ownership and strict parity evidence beat the accepted production preset"
     },
     {
+      "id": "rendered_feedback_embedded_observed_full122_rejection",
+      "scope": "default-off self-contained RenderedFeedback observed/rendered pair diagnostics",
+      "smoke_report": "results/fastlivo2/CBD_Building_01_rendered_feedback_embedded_observed_forced_ingest_12s_probe/native_tracking_report.json",
+      "smoke_rendered_feedbacks": 94,
+      "smoke_embedded_observed_pairs": 94,
+      "smoke_total_visual_factors": 94,
+      "smoke_total_se3_photometric_factors": 94,
+      "smoke_max_observed_nearest_delta_ns": 0.0,
+      "full_report": "results/fastlivo2/CBD_Building_01_rendered_feedback_embedded_observed_forced_ingest_full122_drain1015_probe/native_tracking_report.json",
+      "matched_poses": 1173,
+      "coverage": 0.9528838342810723,
+      "num_rendered_feedbacks": 1015,
+      "embedded_observed_pairs": 1015,
+      "visual_pair_processed_count": 1015,
+      "total_visual_factors": 946,
+      "total_se3_photometric_factors": 946,
+      "visual_alignment_pending_stale_drops": 69,
+      "visual_se3_photometric_pending_stale_drops": 69,
+      "max_observed_nearest_delta_ns": 0.0,
+      "translation_rmse_m": 1.4783590500093622,
+      "path_drift": 0.06161359101704506,
+      "promotion_status": "not promoted: embedded observed images remove raw-image cache matching error, but source-time factors still expire before they can bind to retained sliding-window support"
+    },
+    {
       "id": "rendered_feedback_contract_source_stamp_full122_rejections",
       "scope": "default-off source-stamped RenderedFeedback full-window ownership diagnostics",
       "runs": [
