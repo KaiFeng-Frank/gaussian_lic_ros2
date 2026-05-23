@@ -350,6 +350,21 @@
             "last_aligned_pointcloud_pose_delta_ns": 0,
             "max_abs_aligned_pointcloud_pose_delta_ns": 0,
             "promotion_status": "diagnostic only; exposes mapper/render latency root cause before changing production synchronization"
+        },
+        {
+            "id": "estimator_observability_report_12s_rerun",
+            "report": "results/fastlivo2/CBD_Building_01_observability_report_12s_rerun_probe/native_tracking_report.json",
+            "scope": "native report binned estimator observability, bias, and factor-continuity diagnostics",
+            "status_bin_count": 8,
+            "binned_summary_finalized": true,
+            "max_normal_equation_condition_number": 553469622.0982646,
+            "min_normal_equation_min_singular_value": 0.0,
+            "min_dense_prior_min_singular_value": 0.0,
+            "max_gyro_bias_norm": 0.013450637419916244,
+            "max_accel_bias_norm": 0.20548393895936498,
+            "max_abs_gyro_bias_norm_delta": 0.006842189251677592,
+            "max_abs_accel_bias_norm_delta": 0.11158716451261522,
+            "promotion_status": "reporting support; enables marginalization/bias-observability diagnosis without changing production estimator weights"
         }
     ],
     "rejected_evidence": [

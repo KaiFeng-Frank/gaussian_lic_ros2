@@ -2633,6 +2633,7 @@ python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${REFERENCE_MAX_RMSE_M}" "${REFERENCE_MAX_MEAN_M}" \
   "${REFERENCE_MAX_ERROR_M}" "${REFERENCE_MAX_PATH_DRIFT}" <<'PY'
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -3116,6 +3117,20 @@ def summary_delta(bin_summary, key):
         return 0
 
 
+def summary_value(bin_summary, key, statistic, default=0.0):
+    summary = bin_summary.get("summary", {})
+    if not isinstance(summary, dict):
+        return default
+    field_summary = summary.get(key, {})
+    if not isinstance(field_summary, dict):
+        return default
+    try:
+        value = float(field_summary.get(statistic, default))
+    except (TypeError, ValueError):
+        return default
+    return value if math.isfinite(value) else default
+
+
 VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "sliding_window_total_visual_factors",
     "sliding_window_total_se3_photometric_factors",
@@ -3194,6 +3209,111 @@ def build_visual_factor_continuity(status):
 
 
 visual_factor_continuity = build_visual_factor_continuity(status)
+
+
+ESTIMATOR_FACTOR_DELTA_FIELDS = (
+    "sliding_window_total_imu_factors",
+    "sliding_window_total_visual_factors",
+    "sliding_window_total_se3_photometric_factors",
+    "sliding_window_point_factors",
+    "sliding_window_plane_factors",
+    "sliding_window_relative_translation_factors",
+    "sliding_window_relative_distance_factors",
+    "sliding_window_smoothness_factors",
+    "sliding_window_dense_priors",
+)
+
+ESTIMATOR_OBSERVABILITY_VALUE_FIELDS = (
+    "sliding_window_normal_equation_min_singular_value",
+    "sliding_window_normal_equation_max_singular_value",
+    "sliding_window_normal_equation_condition_number",
+    "sliding_window_dense_prior_min_singular_value",
+    "sliding_window_dense_prior_max_singular_value",
+    "sliding_window_gyro_bias_norm",
+    "sliding_window_accel_bias_norm",
+    "sliding_window_gyro_bias_x",
+    "sliding_window_gyro_bias_y",
+    "sliding_window_gyro_bias_z",
+    "sliding_window_accel_bias_x",
+    "sliding_window_accel_bias_y",
+    "sliding_window_accel_bias_z",
+    "sliding_window_gyro_bias_observability",
+    "sliding_window_accel_bias_observability",
+)
+
+
+def build_estimator_observability_continuity(status):
+    bins = []
+    for bin_summary in status.get("binned_summary", []):
+        if not isinstance(bin_summary, dict):
+            continue
+        item = {
+            "index": int(bin_summary.get("index", len(bins))),
+            "sample_count": int(bin_summary.get("sample_count", 0) or 0),
+        }
+        for field_name in ESTIMATOR_FACTOR_DELTA_FIELDS:
+            item[f"{field_name}_delta"] = summary_delta(bin_summary, field_name)
+        for field_name in ESTIMATOR_OBSERVABILITY_VALUE_FIELDS:
+            item[f"{field_name}_min"] = summary_value(bin_summary, field_name, "min")
+            item[f"{field_name}_max"] = summary_value(bin_summary, field_name, "max")
+            item[f"{field_name}_last"] = summary_value(bin_summary, field_name, "last")
+            item[f"{field_name}_delta"] = summary_value(bin_summary, field_name, "delta")
+        bins.append(item)
+
+    if not bins:
+        return {
+            "available": False,
+            "reason": "tracking_status.binned_summary is missing or empty",
+            "bins": [],
+        }
+
+    def min_value(field_name, statistic):
+        return min(item[f"{field_name}_{statistic}"] for item in bins)
+
+    def max_value(field_name, statistic):
+        return max(item[f"{field_name}_{statistic}"] for item in bins)
+
+    def max_abs_delta(field_name):
+        return max(abs(item[f"{field_name}_delta"]) for item in bins)
+
+    worst_information_bins = sorted(
+        bins,
+        key=lambda item: (
+            item["sliding_window_normal_equation_min_singular_value_min"],
+            -item["sliding_window_normal_equation_condition_number_max"],
+            item["sample_count"],
+            item["index"],
+        ),
+    )[:3]
+    worst_bias_bins = sorted(
+        bins,
+        key=lambda item: (
+            -item["sliding_window_gyro_bias_norm_max"],
+            -item["sliding_window_accel_bias_norm_max"],
+            item["index"],
+        ),
+    )[:3]
+    return {
+        "available": True,
+        "binned_summary_finalized": bool(status.get("binned_summary_finalized", False)),
+        "bin_count": len(bins),
+        "min_normal_equation_min_singular_value": min_value(
+            "sliding_window_normal_equation_min_singular_value", "min"),
+        "max_normal_equation_condition_number": max_value(
+            "sliding_window_normal_equation_condition_number", "max"),
+        "min_dense_prior_min_singular_value": min_value(
+            "sliding_window_dense_prior_min_singular_value", "min"),
+        "max_gyro_bias_norm": max_value("sliding_window_gyro_bias_norm", "max"),
+        "max_accel_bias_norm": max_value("sliding_window_accel_bias_norm", "max"),
+        "max_abs_gyro_bias_norm_delta": max_abs_delta("sliding_window_gyro_bias_norm"),
+        "max_abs_accel_bias_norm_delta": max_abs_delta("sliding_window_accel_bias_norm"),
+        "worst_information_bins": worst_information_bins,
+        "worst_bias_bins": worst_bias_bins,
+        "bins": bins,
+    }
+
+
+estimator_observability_continuity = build_estimator_observability_continuity(status)
 
 
 MAPPER_FEEDBACK_CONTINUITY_FIELDS = (
@@ -3607,6 +3727,7 @@ report = {
     "ok": not errors,
     "errors": errors,
     "visual_factor_continuity": visual_factor_continuity,
+    "estimator_observability_continuity": estimator_observability_continuity,
     "mapper_feedback_continuity": mapper_feedback_continuity,
     "gate_config": {
         "rendered_image_qos_reliability": os.environ["RENDERED_IMAGE_QOS_RELIABILITY_REPORT"],
