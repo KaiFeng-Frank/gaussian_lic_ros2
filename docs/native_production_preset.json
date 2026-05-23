@@ -124,6 +124,10 @@
       "smoke_translation_rmse_m": 0.10772431500403559,
       "smoke_total_visual_factors": 101,
       "smoke_total_se3_photometric_factors": 101,
+      "source_pointcloud_smoke_report": "results/fastlivo2/CBD_Building_01_rendered_feedback_embedded_observed_preupdate_source_pointcloud_12s_probe/native_tracking_report.json",
+      "source_pointcloud_smoke_translation_rmse_m": 0.11963999705348156,
+      "source_pointcloud_smoke_total_visual_factors": 91,
+      "source_pointcloud_smoke_total_se3_photometric_factors": 91,
       "full_report": "results/fastlivo2/CBD_Building_01_rendered_feedback_embedded_observed_preupdate_full122_drain1015_probe/native_tracking_report.json",
       "health_ok": false,
       "health_error": "post-play trajectory drain target not reached: 1185 < 1186",
@@ -144,7 +148,14 @@
       "translation_mean_m": 1.1455670986694284,
       "translation_max_m": 2.6232422472540637,
       "path_drift": 0.05112080851046273,
-      "promotion_status": "candidate only: publishing rendered feedback before the mapper Torch/Gaussian update closes the visual/SE3 drain and beats accepted RMSE/mean/max error, but it misses the strict pose drain by one and slightly regresses path drift versus the accepted 5.00% preset"
+      "revalidation_report": "results/fastlivo2/CBD_Building_01_rendered_feedback_embedded_observed_preupdate_full122_pose1185_drain1015_probe/native_tracking_report.json",
+      "revalidation_total_visual_factors": 939,
+      "revalidation_total_se3_photometric_factors": 939,
+      "revalidation_visual_alignment_pending_stale_drops": 75,
+      "revalidation_visual_se3_photometric_pending_stale_drops": 75,
+      "revalidation_translation_rmse_m": 1.4681818690448099,
+      "revalidation_path_drift": 0.06450689799412646,
+      "promotion_status": "not promoted: the first pre-update run closes the visual/SE3 drain and beats accepted RMSE/mean/max error, but same-config revalidation misses the visual/SE3 drain and regresses; remaining work is deterministic rendered-feedback timing/ownership"
     },
     {
       "id": "rendered_feedback_contract_source_stamp_full122_rejections",
