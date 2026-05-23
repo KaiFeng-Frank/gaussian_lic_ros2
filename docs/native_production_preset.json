@@ -375,6 +375,13 @@
             "reason": "deferring direct visual-pair processing to point-cloud callbacks eliminates duplicate visual pairs, but misses the 912/1015 visual and 919/1015 SE3 drains, leaves bin 7 at 57/59, and regresses RMSE/path drift"
         },
         {
+            "id": "visual_pair_processing_deferred_depth64_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_processing_deferred_depth64_full122_drain1015_probe/native_tracking_report.json",
+            "translation_rmse_m": 1.7205773156669315,
+            "path_drift": 0.08197536759457466,
+            "reason": "combining point-cloud deferred visual-pair processing with rendered-image QoS depth 64 restores rendered delivery to 943/946, but misses the 790/1015 visual and 794/1015 SE3 drains, records 179/179 pending stale drops, and regresses RMSE/path drift"
+        },
+        {
             "id": "confidence_release_0065",
       "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_conf0065_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
       "translation_rmse_m": 1.6924729865107202,
