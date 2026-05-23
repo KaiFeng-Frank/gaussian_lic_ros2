@@ -765,6 +765,37 @@
             "promotion_status": "not promoted: watermark scheduling reaches pose drain with zero duplicate/stale/expired drops, but under-consumes rendered pairs at 984/1011, misses visual/SE3 drain, and regresses RMSE/path drift; remaining work is producer continuity and late-window visual support, not callback-order scheduling"
         },
         {
+            "id": "visual_watermark_scheduler_catchup_depth64_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_watermark_scheduler_catchup_depth64_full122_drain1015_probe/native_tracking_report.json",
+            "scope": "full-window watermark scheduler with callback catch-up behind the last point-cloud state watermark",
+            "matched_poses": 1173,
+            "coverage": 0.9528838342810723,
+            "translation_rmse_m": 1.4839146478464975,
+            "translation_mean_m": 1.3550682376034986,
+            "translation_max_m": 2.75559506824091,
+            "path_drift": 0.059160412574325014,
+            "post_play_poses": 1185,
+            "post_play_pose_target": 1186,
+            "raw_images": 1067,
+            "rendered_images": 1027,
+            "visual_watermark_pair_scheduler_processed_pairs": 999,
+            "visual_watermark_pair_scheduler_deferred_pairs": 12232,
+            "visual_pair_processed_count": 999,
+            "visual_pair_duplicate_count": 0,
+            "total_visual_factors": 986,
+            "total_se3_photometric_factors": 999,
+            "visual_factor_target": 1015,
+            "min_visual_factor_delta_per_bin": 97,
+            "min_se3_photometric_factor_delta_per_bin": 98,
+            "visual_alignment_pending_stale_drops": 0,
+            "visual_se3_photometric_pending_stale_drops": 0,
+            "visual_alignment_pending_expired_drops": 0,
+            "visual_se3_photometric_pending_expired_drops": 0,
+            "produced_minus_received_total": 2,
+            "received_minus_consumed_total": 28,
+            "promotion_status": "not promoted: callback catch-up behind the point-cloud watermark prevents short-window stale/expired drops, but full-window replay still misses pose, visual, and SE3 drains, consumes only 999/1027 rendered pairs, and regresses RMSE/path drift versus the accepted production preset; remaining work is explicit source-stamped mapper/render feedback ownership"
+        },
+        {
             "id": "visual_adaptive_state_retention_depth64_12s",
             "report": "results/fastlivo2/CBD_Building_01_visual_adaptive_retention_depth64_12s_probe/native_tracking_report.json",
             "scope": "default-off adaptive sliding-window state retention from mapper-render feedback backlog",
@@ -874,6 +905,13 @@
       "translation_rmse_m": 1.7032260457181805,
       "path_drift": 0.05806212677795091,
       "reason": "point-cloud watermark scheduling removes callback-order duplicate/stale/expired drops and reaches pose drain, but under-consumes rendered pairs at 984/1011, drains only 972/1015 visual and 984/1015 SE3 factors, and regresses RMSE/path drift"
+    },
+    {
+      "id": "visual_watermark_scheduler_catchup_depth64_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_watermark_scheduler_catchup_depth64_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.4839146478464975,
+      "path_drift": 0.059160412574325014,
+      "reason": "callback catch-up behind the last point-cloud watermark passes short-window continuity, but full-window replay still misses pose, visual, and SE3 drains, consumes only 999/1027 rendered pairs, and regresses RMSE/path drift; the remaining fix is explicit mapper/source ownership for rendered feedback, not another callback-order scheduler"
     },
     {
       "id": "visual_factor_time_interpolation_numeric_full122",

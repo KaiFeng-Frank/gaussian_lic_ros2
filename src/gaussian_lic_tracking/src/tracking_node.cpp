@@ -1800,6 +1800,9 @@ private:
     {
       reconcile_visual_frame_caches();
     }
+    if (enable_visual_watermark_pair_scheduler_ && last_pointcloud_stamp_ns_ > 0) {
+      process_visual_pairs_up_to_watermark(last_pointcloud_stamp_ns_, true);
+    }
   }
 
   void handle_rendered_image(const sensor_msgs::msg::Image & msg)
@@ -1853,6 +1856,9 @@ private:
         !enable_visual_watermark_pair_scheduler_)
       {
         reconcile_visual_frame_caches();
+      }
+      if (enable_visual_watermark_pair_scheduler_ && last_pointcloud_stamp_ns_ > 0) {
+        process_visual_pairs_up_to_watermark(last_pointcloud_stamp_ns_, true);
       }
     } else {
       ++rendered_invalid_frames_;
@@ -2759,7 +2765,7 @@ private:
     const bool quality_selection_active =
       visual_factor_quality_selection_is_active(tracking_pose.stamp_ns);
     if (enable_visual_watermark_pair_scheduler_) {
-      process_visual_pairs_up_to_watermark(tracking_pose.stamp_ns);
+      process_visual_pairs_up_to_watermark(tracking_pose.stamp_ns, false);
     } else if (visual_cache_reconciliation_defer_to_pointcloud_ ||
       visual_pair_processing_defer_to_pointcloud_)
     {
@@ -4856,7 +4862,9 @@ private:
     }
   }
 
-  void process_visual_pairs_up_to_watermark(const int64_t watermark_stamp_ns)
+  void process_visual_pairs_up_to_watermark(
+    const int64_t watermark_stamp_ns,
+    const bool ingest_after_processing)
   {
     if (!enable_visual_watermark_pair_scheduler_ || !enable_visual_factor_ ||
       rendered_frame_cache_.empty() || observed_frame_cache_.empty())
@@ -4914,7 +4922,7 @@ private:
       }
 
       if (selected_observed == nullptr || selected_rendered == nullptr) {
-        return;
+        break;
       }
       last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
       last_visual_rendered_match_delta_ns_ = selected_rendered_match_delta_ns;
@@ -4922,6 +4930,12 @@ private:
       ++visual_cache_reconciled_pairs_;
       ++visual_watermark_pair_scheduler_processed_pairs_;
       ++processed_this_call;
+    }
+    if (
+      ingest_after_processing && processed_this_call > 0U &&
+      last_output_tracking_pose_.has_value())
+    {
+      ingest_pending_visual_factors_into_optimizer(last_output_tracking_pose_.value());
     }
   }
 
