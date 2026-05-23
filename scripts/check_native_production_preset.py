@@ -149,6 +149,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE": (
             preset["visual_pair_monotonic_unique"]
         ),
+        "ENABLE_VISUAL_CALLBACK_FACTOR_INGEST": (
+            preset["enable_visual_callback_factor_ingest"]
+        ),
         "ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD": (
             preset["visual_cache_reconciliation_defer_to_pointcloud"]
         ),
@@ -192,6 +195,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_cache_reconciliation_monotonic_unique",
         "--enable-visual-pair-monotonic-unique",
         "visual_pair_monotonic_unique",
+        "--enable-visual-callback-factor-ingest",
+        "enable_visual_callback_factor_ingest",
         "--enable-visual-cache-reconciliation-defer-to-pointcloud",
         "visual_cache_reconciliation_defer_to_pointcloud",
         "--enable-visual-pair-processing-defer-to-pointcloud",

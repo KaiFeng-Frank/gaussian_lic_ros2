@@ -157,6 +157,7 @@ ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
 ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
+ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
 ENABLE_MAPPER_FEEDBACK=false
@@ -653,6 +654,10 @@ Options:
                                Cache image/render callbacks and process visual pairs from point-cloud callbacks.
   --disable-visual-pair-processing-defer-to-pointcloud
                                Process direct visual pairs inside image/render callbacks.
+  --enable-visual-callback-factor-ingest
+                               Ingest visual/SE3 factors from image/render callbacks when their sliding-window reference is still active.
+  --disable-visual-callback-factor-ingest
+                               Queue visual/SE3 factors until point-cloud callbacks ingest them.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
                                Launch mapping_node with Torch Gaussian init/extend, rasterizer rendered-image feedback, and GaussianArray publication so tracking can consume map anchors and real Gaussian photometric BA.
@@ -1479,6 +1484,15 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
       shift
       ;;
+    --enable-visual-callback-factor-ingest)
+      ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-callback-factor-ingest)
+      ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
+      shift
+      ;;
     --enable-visual-cache-reconciliation-defer-to-pointcloud)
       ENABLE_VISUAL_CACHE_RECONCILIATION=true
       ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=true
@@ -2143,6 +2157,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_cache_reconciliation:="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
   visual_cache_reconciliation_monotonic_unique:="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
   visual_pair_monotonic_unique:="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
+  enable_visual_callback_factor_ingest:="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
@@ -2604,6 +2619,7 @@ ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTE
 ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
 ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
+ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING}" \
@@ -2685,6 +2701,9 @@ visual_cache_reconciliation_monotonic_unique = (
 )
 visual_pair_monotonic_unique = (
     os.environ["ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT"].lower() == "true"
+)
+enable_visual_callback_factor_ingest = (
+    os.environ["ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT"].lower() == "true"
 )
 visual_cache_reconciliation_defer_to_pointcloud = (
     os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT"].lower() == "true"
@@ -3740,6 +3759,10 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_size",
         "visual_alignment_pending_stale_drops",
         "visual_se3_photometric_pending_stale_drops",
+        "visual_alignment_pending_queue_trim_drops",
+        "visual_se3_photometric_pending_queue_trim_drops",
+        "visual_alignment_pending_expired_drops",
+        "visual_se3_photometric_pending_expired_drops",
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
         "visual_se3_photometric_degenerate_batches",
@@ -3870,6 +3893,7 @@ report = {
             visual_cache_reconciliation_monotonic_unique
         ),
         "visual_pair_monotonic_unique": visual_pair_monotonic_unique,
+        "enable_visual_callback_factor_ingest": enable_visual_callback_factor_ingest,
         "visual_cache_reconciliation_defer_to_pointcloud": (
             visual_cache_reconciliation_defer_to_pointcloud
         ),

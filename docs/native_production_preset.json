@@ -37,6 +37,7 @@
     "enable_visual_cache_reconciliation": false,
     "visual_cache_reconciliation_monotonic_unique": false,
     "visual_pair_monotonic_unique": false,
+    "enable_visual_callback_factor_ingest": false,
     "visual_cache_reconciliation_defer_to_pointcloud": false,
     "visual_pair_processing_defer_to_pointcloud": false
   },
@@ -524,6 +525,48 @@
             "max_received_minus_consumed_delta": 0,
             "lidar_invalid_frames": 1,
             "promotion_status": "not promoted: direct one-to-one removes duplicate pairing, but underfeeds visual/SE3 support at 890/1015 and regresses path drift"
+        },
+        {
+            "id": "visual_callback_ingest_depth64_12s",
+            "report": "results/fastlivo2/CBD_Building_01_visual_callback_ingest_depth64_12s_probe/native_tracking_report.json",
+            "scope": "callback-time visual/SE3 factor ingestion under direct one-to-one rendered feedback",
+            "trajectory_poses": 119,
+            "mapper_rendered_previews": 97,
+            "tracker_rendered_images": 96,
+            "visual_pair_processed_count": 96,
+            "visual_pair_duplicate_count": 0,
+            "total_visual_factors": 96,
+            "total_se3_photometric_factors": 96,
+            "visual_alignment_pending_stale_drops": 0,
+            "visual_alignment_pending_queue_trim_drops": 0,
+            "visual_alignment_pending_expired_drops": 0,
+            "promotion_status": "diagnostic only; proves callback-time ingestion can attach every short-window direct pair without queue-trim or time-expired drops"
+        },
+        {
+            "id": "visual_callback_ingest_depth64_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_callback_ingest_depth64_full122_drain1015_probe/native_tracking_report.json",
+            "scope": "full-window callback-time visual/SE3 factor ingestion under direct one-to-one rendered feedback",
+            "matched_poses": 1174,
+            "coverage": 0.9536961819658814,
+            "translation_rmse_m": 1.5437515999529934,
+            "translation_mean_m": 1.3231107548217955,
+            "translation_max_m": 3.5515098617663123,
+            "path_drift": 0.056753460946982325,
+            "post_play_poses": 1186,
+            "post_play_pose_target": 1186,
+            "total_visual_factors": 949,
+            "total_se3_photometric_factors": 949,
+            "visual_factor_target": 1015,
+            "mapper_rendered_previews": 1008,
+            "tracker_rendered_images": 1006,
+            "visual_pair_processed_count": 1006,
+            "visual_pair_duplicate_count": 0,
+            "visual_alignment_pending_stale_drops": 57,
+            "visual_alignment_pending_queue_trim_drops": 0,
+            "visual_alignment_pending_expired_drops": 57,
+            "produced_minus_received_total": 2,
+            "received_minus_consumed_total": 0,
+            "promotion_status": "not promoted: callback-time ingestion slightly improves depth64 trajectory and factor count, but all remaining drops are time-expired after the active window has moved past the mapper-rendered frame stamps"
         }
     ],
     "rejected_evidence": [
@@ -547,6 +590,13 @@
       "translation_rmse_m": 1.3986018996918714,
       "path_drift": 0.05822579936000708,
       "reason": "direct one-to-one visual pairing eliminates duplicate pairs and keeps rendered-size mismatches at zero, but misses the production visual/SE3 drain at 890/1015, leaves a 177-frame produced-minus-received rendered gap, regresses path drift versus the accepted preset, and records one invalid LiDAR frame"
+    },
+    {
+      "id": "visual_callback_ingest_depth64_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_callback_ingest_depth64_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.5437515999529934,
+      "path_drift": 0.056753460946982325,
+      "reason": "callback-time visual factor ingestion closes the one-cycle executor delay for short windows and improves the depth64 full run slightly, but still misses the production visual/SE3 drain at 949/1015; split counters show 57/57 drops are time-expired with zero queue-trim drops, so the remaining blocker is out-of-sequence mapper-render feedback after active-window state expiry"
     },
     {
       "id": "visual_factor_time_interpolation_numeric_full122",
