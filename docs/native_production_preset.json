@@ -284,6 +284,32 @@
       "promotion_status": "not promoted: direct queueing removes cache duplication and queue drops, but late-window feedback still expires after marginalization, misses the 1015 visual/SE3 drain, and regresses RMSE/path drift versus the accepted 1.346 m / 5.00% preset"
     },
     {
+      "id": "rendered_feedback_direct_watermark_queue_expired_projection_full122_rejection",
+      "scope": "default-off typed rendered-feedback watermark queue plus oldest-active expired-factor projection",
+      "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_direct_watermark_queue_expired_projection_full122_drain1015_probe/native_tracking_report.json",
+      "ok": true,
+      "matched_poses": 1174,
+      "coverage": 0.9536961819658814,
+      "translation_rmse_m": 1.504467832609869,
+      "translation_mean_m": 1.3469324408289192,
+      "translation_max_m": 3.295910702306868,
+      "path_drift": 0.05824646611295016,
+      "num_rendered_feedbacks": 1015,
+      "rendered_feedback_watermark_processed_pairs": 1015,
+      "rendered_feedback_watermark_deferred_pairs": 369,
+      "rendered_feedback_watermark_queue_drops": 0,
+      "total_visual_factors": 1015,
+      "total_se3_photometric_factors": 1015,
+      "visual_expired_projected_factors": 46,
+      "se3_expired_projected_factors": 46,
+      "visual_pair_duplicate_count": 0,
+      "visual_stale_drops": 0,
+      "se3_stale_drops": 0,
+      "bin6_visual_factors": 101,
+      "bin7_visual_factors": 123,
+      "promotion_status": "not promoted: oldest-active projection closes the visual/SE3 drain and removes stale drops, but it over-constrains late trajectory shape and regresses RMSE/path drift; late visual evidence needs a marginalization/global prior, not state projection"
+    },
+    {
       "id": "rendered_feedback_contract_source_stamp_full122_rejections",
       "scope": "default-off source-stamped RenderedFeedback full-window ownership diagnostics",
       "runs": [
