@@ -1883,7 +1883,16 @@ private:
         }
       }
     }
-    const auto window_alignment = visual_alignment_for_window_factor();
+    auto window_alignment = visual_alignment_for_window_factor();
+    if (reconciled_pair && window_alignment.has_value() &&
+      visual_alignment_is_saturated(window_alignment.value()))
+    {
+      const auto fallback = visual_alignment_with_photometric_step(window_alignment.value());
+      if (fallback.has_value()) {
+        window_alignment = fallback;
+        ++visual_cache_reconciled_alignment_photometric_fallback_pairs_;
+      }
+    }
     if (window_alignment.has_value()) {
       if (reconciled_pair && visual_alignment_is_saturated(window_alignment.value())) {
         ++visual_cache_reconciled_alignment_skipped_pairs_;
@@ -4040,12 +4049,18 @@ private:
     {
       return last_visual_alignment_;
     }
+    return visual_alignment_with_photometric_step(last_visual_alignment_).value_or(last_visual_alignment_);
+  }
+
+  std::optional<gaussian_lic_tracking::VisualAlignment> visual_alignment_with_photometric_step(
+    const gaussian_lic_tracking::VisualAlignment & base_alignment) const
+  {
     if (!last_visual_photometric_linearization_.valid ||
       !last_visual_photometric_linearization_.gauss_newton_step.allFinite())
     {
-      return last_visual_alignment_;
+      return std::nullopt;
     }
-    gaussian_lic_tracking::VisualAlignment alignment = last_visual_alignment_;
+    gaussian_lic_tracking::VisualAlignment alignment = base_alignment;
     alignment.subpixel_dx = last_visual_photometric_linearization_.gauss_newton_step.x();
     alignment.subpixel_dy = last_visual_photometric_linearization_.gauss_newton_step.y();
     alignment.dx = static_cast<int>(std::lround(alignment.subpixel_dx));
@@ -5768,6 +5783,8 @@ private:
       visual_cache_reconciled_saturated_pairs_;
     status.visual_cache_reconciled_alignment_skipped_pairs =
       visual_cache_reconciled_alignment_skipped_pairs_;
+    status.visual_cache_reconciled_alignment_photometric_fallback_pairs =
+      visual_cache_reconciled_alignment_photometric_fallback_pairs_;
     status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
     status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
     status.visual_rendered_miss_count = visual_rendered_miss_count_;
@@ -6347,6 +6364,7 @@ private:
   uint64_t visual_cache_reconciled_pairs_{0};
   uint64_t visual_cache_reconciled_saturated_pairs_{0};
   uint64_t visual_cache_reconciled_alignment_skipped_pairs_{0};
+  uint64_t visual_cache_reconciled_alignment_photometric_fallback_pairs_{0};
   uint64_t visual_pair_processed_count_{0};
   uint64_t visual_pair_duplicate_count_{0};
   uint64_t visual_alignment_saturated_count_{0};

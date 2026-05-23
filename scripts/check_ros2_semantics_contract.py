@@ -459,6 +459,7 @@ def main() -> int:
         "visual_cache_reconciled_pairs",
         "visual_cache_reconciled_saturated_pairs",
         "visual_cache_reconciled_alignment_skipped_pairs",
+        "visual_cache_reconciled_alignment_photometric_fallback_pairs",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
             errors.append(f"TrackingStatus must publish rendered-to-observed cache diagnostics: {field_name}")

@@ -167,6 +167,27 @@
       "orphan_factors": 0,
       "numeric_jacobian_blocks": 0,
       "promotion_status": "diagnostic only until full-window visual support and RMSE evidence beat the accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_photostep_fallback_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_photostep_fallback_12s_probe/native_tracking_report.json",
+      "scope": "default-off reconciled saturated-alignment photometric fallback smoke",
+      "trajectory_poses": 98,
+      "visual_cache_reconciled_pairs": 91,
+      "visual_cache_reconciled_saturated_pairs": 1,
+      "visual_cache_reconciled_alignment_photometric_fallback_pairs": 1,
+      "visual_cache_reconciled_alignment_skipped_pairs": 0,
+      "total_visual_factors": 183,
+      "total_se3_photometric_factors": 183,
+      "visual_alignment_interpolated_factors": 41,
+      "visual_se3_photometric_interpolated_factors": 41,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "diagnostic only until full-window RMSE evidence beats the accepted production preset"
     }
   ],
   "rejected_evidence": [
@@ -190,6 +211,13 @@
       "translation_rmse_m": 1.8686811190277848,
       "path_drift": 0.02533378314891025,
       "reason": "skipping saturated 2D visual alignment on reconciled pairs improves path drift and keeps 1107 SE3 factors, but underfeeds visual alignment at 761/1015 and still regresses RMSE"
+    },
+    {
+      "id": "visual_cache_reconciliation_photostep_fallback_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_photostep_fallback_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.7229639223558553,
+      "path_drift": 0.038123659076705514,
+      "reason": "local photometric fallback restores visual/SE3 support to 1083/1015 and lowers drift, but misses one pose drain and still regresses RMSE versus the accepted production preset"
     },
     {
       "id": "confidence_release_0065",
