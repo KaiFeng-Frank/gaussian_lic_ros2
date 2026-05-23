@@ -102,6 +102,9 @@ def generate_launch_description():
     enable_visual_callback_factor_ingest = LaunchConfiguration(
         "enable_visual_callback_factor_ingest"
     )
+    enable_rendered_feedback_watermark_queue = LaunchConfiguration(
+        "enable_rendered_feedback_watermark_queue"
+    )
     defer_future_visual_factors_until_active = LaunchConfiguration(
         "defer_future_visual_factors_until_active"
     )
@@ -598,6 +601,7 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_cache_reconciliation_monotonic_unique", default_value="false"),
             DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false"),
             DeclareLaunchArgument("enable_visual_callback_factor_ingest", default_value="false"),
+            DeclareLaunchArgument("enable_rendered_feedback_watermark_queue", default_value="false"),
             DeclareLaunchArgument("defer_future_visual_factors_until_active", default_value="false"),
             DeclareLaunchArgument("enable_visual_adaptive_state_retention", default_value="false"),
             DeclareLaunchArgument("visual_adaptive_state_retention_margin_states", default_value="4"),
@@ -933,6 +937,7 @@ def generate_launch_description():
                         ),
                         "visual_pair_monotonic_unique": visual_pair_monotonic_unique,
                         "enable_visual_callback_factor_ingest": enable_visual_callback_factor_ingest,
+                        "enable_rendered_feedback_watermark_queue": enable_rendered_feedback_watermark_queue,
                         "defer_future_visual_factors_until_active": (
                             defer_future_visual_factors_until_active
                         ),

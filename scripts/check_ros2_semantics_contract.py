@@ -193,6 +193,7 @@ def main() -> int:
         "visual_factor_reference_stamp_mode",
         "enable_visual_watermark_pair_scheduler",
         "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
+        "enable_rendered_feedback_watermark_queue",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -487,6 +488,11 @@ def main() -> int:
         "visual_watermark_pair_scheduler_processed_pairs",
         "visual_watermark_pair_scheduler_deferred_pairs",
         "visual_callback_factor_ingest_enabled",
+        "rendered_feedback_watermark_queue_enabled",
+        "rendered_feedback_watermark_queue_size",
+        "rendered_feedback_watermark_processed_pairs",
+        "rendered_feedback_watermark_deferred_pairs",
+        "rendered_feedback_watermark_queue_drops",
         "defer_future_visual_factors_until_active_enabled",
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
@@ -519,8 +525,12 @@ def main() -> int:
         errors.append("tracking_node must expose deterministic visual watermark pair scheduling as default-off")
     if 'declare_parameter<bool>("enable_visual_callback_factor_ingest", false)' not in tracking_node_text:
         errors.append("tracking_node must expose callback-time visual factor ingestion as default-off")
+    if 'declare_parameter<bool>("enable_rendered_feedback_watermark_queue", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose typed rendered-feedback watermark queueing as default-off")
     if 'declare_parameter<bool>("defer_future_visual_factors_until_active", false)' not in tracking_node_text:
         errors.append("tracking_node must expose future visual-factor deferral as default-off")
+    if 'DeclareLaunchArgument("enable_rendered_feedback_watermark_queue", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose typed rendered-feedback watermark queueing as default-off")
     if 'DeclareLaunchArgument("defer_future_visual_factors_until_active", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose future visual-factor deferral as default-off")
     if 'declare_parameter<bool>("enable_visual_adaptive_state_retention", false)' not in tracking_node_text:
@@ -543,6 +553,8 @@ def main() -> int:
         errors.append("native tracking report must expose deterministic visual watermark pair scheduling")
     if "--enable-visual-callback-factor-ingest" not in native_tracking_report_text:
         errors.append("native tracking report must expose callback-time visual factor ingestion")
+    if "--enable-rendered-feedback-watermark-queue" not in native_tracking_report_text:
+        errors.append("native tracking report must expose typed rendered-feedback watermark queueing")
     if "--enable-visual-adaptive-state-retention" not in native_tracking_report_text:
         errors.append("native tracking report must expose adaptive visual state retention")
     if "--enable-visual-expired-factor-projection" not in native_tracking_report_text:

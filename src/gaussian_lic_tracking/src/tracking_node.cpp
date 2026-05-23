@@ -315,6 +315,8 @@ public:
       declare_parameter<int>("visual_watermark_pair_scheduler_max_pairs_per_pointcloud", 2), 1);
     enable_visual_callback_factor_ingest_ =
       declare_parameter<bool>("enable_visual_callback_factor_ingest", false);
+    enable_rendered_feedback_watermark_queue_ =
+      declare_parameter<bool>("enable_rendered_feedback_watermark_queue", false);
     defer_future_visual_factors_until_active_ =
       declare_parameter<bool>("defer_future_visual_factors_until_active", false);
     enable_visual_adaptive_state_retention_ =
@@ -1212,6 +1214,13 @@ private:
     int64_t rendered_stamp_ns{0};
   };
 
+  struct QueuedRenderedFeedbackPair
+  {
+    gaussian_lic_tracking::VisualFrame rendered;
+    gaussian_lic_tracking::VisualFrame observed;
+    int64_t reference_stamp_ns{0};
+  };
+
   struct PendingSe3PhotometricFactor
   {
     int64_t stamp_ns{0};
@@ -1941,16 +1950,24 @@ private:
     rendered.rendered_feedback_pointcloud_stamp_ns = metadata.pointcloud_stamp_ns;
     rendered.rendered_feedback_frame_index = metadata.frame_index;
     rendered.rendered_feedback_preview_index = metadata.rendered_preview_index;
-    cache_rendered_frame(rendered);
-    cache_observed_frame(observed);
-    last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
-    last_visual_observed_cache_size_ = observed_frame_cache_.size();
     last_visual_rendered_match_delta_ns_ = 0;
     last_visual_rendered_nearest_delta_ns_ = 0;
     last_visual_rendered_nearest_signed_delta_ns_ = 0;
     last_visual_observed_match_delta_ns_ = 0;
     last_visual_observed_nearest_delta_ns_ = 0;
     last_visual_observed_nearest_signed_delta_ns_ = 0;
+    if (enable_rendered_feedback_watermark_queue_) {
+      queue_rendered_feedback_pair(rendered, observed);
+      if (last_pointcloud_stamp_ns_ > 0) {
+        process_rendered_feedback_pairs_up_to_watermark(last_pointcloud_stamp_ns_, true);
+      }
+      return;
+    }
+
+    cache_rendered_frame(rendered);
+    cache_observed_frame(observed);
+    last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
+    last_visual_observed_cache_size_ = observed_frame_cache_.size();
 
     if (!visual_pair_processing_defer_to_pointcloud_ && !enable_visual_watermark_pair_scheduler_) {
       process_visual_pair(rendered, observed, false, true);
@@ -1963,6 +1980,48 @@ private:
     }
     if (enable_visual_watermark_pair_scheduler_ && last_pointcloud_stamp_ns_ > 0) {
       process_visual_pairs_up_to_watermark(last_pointcloud_stamp_ns_, true);
+    }
+  }
+
+  void queue_rendered_feedback_pair(
+    const gaussian_lic_tracking::VisualFrame & rendered,
+    const gaussian_lic_tracking::VisualFrame & observed)
+  {
+    const auto max_queue_size =
+      static_cast<size_t>(std::max(1, visual_pending_factor_queue_size_));
+    while (rendered_feedback_watermark_queue_.size() >= max_queue_size) {
+      rendered_feedback_watermark_queue_.pop_front();
+      ++rendered_feedback_watermark_queue_drops_;
+    }
+    QueuedRenderedFeedbackPair queued;
+    queued.rendered = rendered;
+    queued.observed = observed;
+    queued.reference_stamp_ns = visual_factor_reference_stamp_ns(observed, rendered);
+    rendered_feedback_watermark_queue_.push_back(std::move(queued));
+  }
+
+  void process_rendered_feedback_pairs_up_to_watermark(
+    const int64_t watermark_stamp_ns,
+    const bool ingest_after_processing)
+  {
+    if (!enable_rendered_feedback_watermark_queue_ || !enable_visual_factor_) {
+      return;
+    }
+    size_t processed = 0U;
+    while (!rendered_feedback_watermark_queue_.empty()) {
+      const auto & queued = rendered_feedback_watermark_queue_.front();
+      if (queued.reference_stamp_ns > watermark_stamp_ns) {
+        ++rendered_feedback_watermark_deferred_pairs_;
+        break;
+      }
+      auto ready = std::move(rendered_feedback_watermark_queue_.front());
+      rendered_feedback_watermark_queue_.pop_front();
+      process_visual_pair(ready.rendered, ready.observed, false);
+      ++rendered_feedback_watermark_processed_pairs_;
+      ++processed;
+    }
+    if (ingest_after_processing && processed > 0U && last_output_tracking_pose_.has_value()) {
+      ingest_pending_visual_factors_into_optimizer(last_output_tracking_pose_.value());
     }
   }
 
@@ -3038,9 +3097,14 @@ private:
       visual_factor_quality_selection_is_active(tracking_pose.stamp_ns);
     if (enable_visual_watermark_pair_scheduler_) {
       process_visual_pairs_up_to_watermark(tracking_pose.stamp_ns, false);
-    } else if (visual_cache_reconciliation_defer_to_pointcloud_ ||
+    }
+    if (enable_rendered_feedback_watermark_queue_) {
+      process_rendered_feedback_pairs_up_to_watermark(tracking_pose.stamp_ns, false);
+    }
+    if (!enable_visual_watermark_pair_scheduler_ &&
+      (visual_cache_reconciliation_defer_to_pointcloud_ ||
       visual_pair_processing_defer_to_pointcloud_)
-    {
+    ) {
       reconcile_visual_frame_caches(tracking_pose.stamp_ns);
     }
     const auto add_visual_window_factor =
@@ -6728,6 +6792,16 @@ private:
     status.visual_watermark_pair_scheduler_deferred_pairs =
       visual_watermark_pair_scheduler_deferred_pairs_;
     status.visual_callback_factor_ingest_enabled = enable_visual_callback_factor_ingest_;
+    status.rendered_feedback_watermark_queue_enabled =
+      enable_rendered_feedback_watermark_queue_;
+    status.rendered_feedback_watermark_queue_size =
+      static_cast<uint64_t>(rendered_feedback_watermark_queue_.size());
+    status.rendered_feedback_watermark_processed_pairs =
+      rendered_feedback_watermark_processed_pairs_;
+    status.rendered_feedback_watermark_deferred_pairs =
+      rendered_feedback_watermark_deferred_pairs_;
+    status.rendered_feedback_watermark_queue_drops =
+      rendered_feedback_watermark_queue_drops_;
     status.defer_future_visual_factors_until_active_enabled =
       defer_future_visual_factors_until_active_;
     status.visual_adaptive_state_retention_enabled =
@@ -6971,6 +7045,7 @@ private:
   bool enable_visual_watermark_pair_scheduler_{false};
   int visual_watermark_pair_scheduler_max_pairs_per_pointcloud_{2};
   bool enable_visual_callback_factor_ingest_{false};
+  bool enable_rendered_feedback_watermark_queue_{false};
   bool defer_future_visual_factors_until_active_{false};
   bool enable_visual_adaptive_state_retention_{false};
   int visual_adaptive_state_retention_margin_states_{4};
@@ -7325,6 +7400,7 @@ private:
   bool last_visual_alignment_saturated_{false};
   double last_visual_alignment_effective_weight_{0.0};
   gaussian_lic_tracking::VisualSe3PhotometricLinearization last_visual_se3_photometric_linearization_;
+  std::deque<QueuedRenderedFeedbackPair> rendered_feedback_watermark_queue_;
   std::deque<PendingVisualAlignmentFactor> pending_visual_alignment_factors_;
   std::deque<PendingSe3PhotometricFactor> pending_visual_se3_photometric_factors_;
   size_t last_visual_se3_photometric_candidate_pixels_{0};
@@ -7358,6 +7434,9 @@ private:
   std::deque<gaussian_lic_tracking::VisualFrame> observed_frame_cache_;
   std::optional<int64_t> last_processed_visual_observed_stamp_ns_;
   std::optional<int64_t> last_processed_visual_rendered_stamp_ns_;
+  uint64_t rendered_feedback_watermark_processed_pairs_{0};
+  uint64_t rendered_feedback_watermark_deferred_pairs_{0};
+  uint64_t rendered_feedback_watermark_queue_drops_{0};
   size_t last_visual_depth_cache_size_{0};
   int64_t last_visual_depth_match_delta_ns_{0};
   uint64_t visual_depth_miss_count_{0};

@@ -162,6 +162,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_CALLBACK_FACTOR_INGEST": (
             preset["enable_visual_callback_factor_ingest"]
         ),
+        "ENABLE_RENDERED_FEEDBACK_WATERMARK_QUEUE": (
+            preset["enable_rendered_feedback_watermark_queue"]
+        ),
         "DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE": (
             preset["defer_future_visual_factors_until_active"]
         ),
@@ -231,6 +234,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
         "--enable-visual-callback-factor-ingest",
         "enable_visual_callback_factor_ingest",
+        "--enable-rendered-feedback-watermark-queue",
+        "enable_rendered_feedback_watermark_queue",
         "--defer-future-visual-factors-until-active",
         "defer_future_visual_factors_until_active",
         "--enable-visual-adaptive-state-retention",
