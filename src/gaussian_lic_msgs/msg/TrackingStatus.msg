@@ -226,8 +226,10 @@ bool gaussian_snapshot_complete
 
 bool visual_factor_enabled
 bool visual_factor_time_interpolation_enabled
+bool visual_cache_reconciliation_enabled
 uint64 visual_alignment_interpolated_factors
 uint64 visual_se3_photometric_interpolated_factors
+uint64 visual_cache_reconciled_pairs
 uint64 visual_rendered_cache_size
 int64 visual_rendered_match_delta_ns
 uint64 visual_rendered_miss_count

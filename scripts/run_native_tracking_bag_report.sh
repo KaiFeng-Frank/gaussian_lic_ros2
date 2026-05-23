@@ -154,6 +154,7 @@ REQUIRE_NONDEGENERATE_BA=false
 REQUIRE_DESKEW=false
 ENABLE_VISUAL_FACTORS=false
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
+ENABLE_VISUAL_CACHE_RECONCILIATION=false
 ENABLE_MAPPER_FEEDBACK=false
 MAPPER_FEEDBACK_SYNC_TOLERANCE_SEC=0.05
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM=pointcloud
@@ -628,6 +629,10 @@ Options:
                                Attach visual/SE3 factors to bracketing continuous-time states instead of one snapped state.
   --disable-visual-factor-time-interpolation
                                Keep the legacy single-reference visual/SE3 factor behavior.
+  --enable-visual-cache-reconciliation
+                               Re-scan observed/rendered caches for unprocessed nearest-stamp visual pairs.
+  --disable-visual-cache-reconciliation
+                               Keep the legacy one-pair-per-arrival cache behavior.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
   --enable-gaussian-map-feedback
                                Launch mapping_node with Torch Gaussian init/extend, rasterizer rendered-image feedback, and GaussianArray publication so tracking can consume map anchors and real Gaussian photometric BA.
@@ -1426,6 +1431,15 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
       shift
       ;;
+    --enable-visual-cache-reconciliation)
+      ENABLE_VISUAL_CACHE_RECONCILIATION=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-cache-reconciliation)
+      ENABLE_VISUAL_CACHE_RECONCILIATION=false
+      shift
+      ;;
     --enable-mapper-feedback)
       ENABLE_MAPPER_FEEDBACK=true
       ENABLE_VISUAL_FACTORS=true
@@ -2067,6 +2081,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   image_qos_depth:="${MAPPER_FEEDBACK_IMAGE_QOS_DEPTH}" \
   visual_factor_max_dt_ns:="${VISUAL_FACTOR_MAX_DT_NS}" \
   enable_visual_factor_time_interpolation:="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
+  enable_visual_cache_reconciliation:="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
   depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}" \
   sparse_lidar_depth_dilation_px:="${VISUAL_DEPTH_DILATION_PX}" \
@@ -2523,6 +2538,7 @@ VISUAL_ALIGNMENT_SCORE_MODE_REPORT="${VISUAL_ALIGNMENT_SCORE_MODE}" \
 VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
 VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
+ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
 ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING}" \
 VISUAL_FACTOR_QUALITY_MIN_WEIGHT_SCALE_REPORT="${VISUAL_FACTOR_QUALITY_MIN_WEIGHT_SCALE}" \
 ENABLE_VISUAL_FACTOR_QUALITY_SELECTION_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_SELECTION}" \
@@ -2592,6 +2608,9 @@ visual_alignment_factor_source = os.environ["VISUAL_ALIGNMENT_FACTOR_SOURCE_REPO
 visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
 enable_visual_factor_time_interpolation = (
     os.environ["ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT"].lower() == "true"
+)
+enable_visual_cache_reconciliation = (
+    os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT"].lower() == "true"
 )
 enable_visual_factor_quality_weighting = (
     os.environ["ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT"].lower() == "true"
@@ -3505,6 +3524,10 @@ if enable_visual_factor_time_interpolation:
     interpolated_se3 = int(last.get("visual_se3_photometric_interpolated_factors", 0) or 0)
     if interpolated_visual + interpolated_se3 <= 0:
         errors.append("visual factor time interpolation produced no interpolated factors")
+if enable_visual_cache_reconciliation:
+    reconciled_pairs = int(last.get("visual_cache_reconciled_pairs", 0) or 0)
+    if reconciled_pairs <= 0:
+        errors.append("visual cache reconciliation produced no reconciled pairs")
 if require_deskew and int(last.get("trajectory_deskew_queries", 0)) <= 0:
     errors.append("trajectory_deskew_queries is zero")
 if require_deskew and int(last.get("trajectory_deskew_hits", 0)) <= 0:
@@ -3529,6 +3552,7 @@ report = {
         "visual_alignment_factor_source": visual_alignment_factor_source,
         "visual_factor_source_id_mode": visual_factor_source_id_mode,
         "enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation,
+        "enable_visual_cache_reconciliation": enable_visual_cache_reconciliation,
         "visual_alignment_window_weight": visual_alignment_window_weight,
         "visual_alignment_saturation_margin_px": visual_alignment_saturation_margin_px,
         "visual_alignment_saturated_weight_scale": visual_alignment_saturated_weight_scale,

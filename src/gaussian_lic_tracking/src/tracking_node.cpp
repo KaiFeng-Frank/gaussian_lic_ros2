@@ -262,6 +262,8 @@ public:
       declare_parameter<int64_t>("visual_factor_max_dt_ns", 150000000LL), 0LL);
     enable_visual_factor_time_interpolation_ =
       declare_parameter<bool>("enable_visual_factor_time_interpolation", false);
+    enable_visual_cache_reconciliation_ =
+      declare_parameter<bool>("enable_visual_cache_reconciliation", false);
     visual_depth_max_dt_ns_ = integer_parameter_at_least(
       "visual_depth_max_dt_ns",
       declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL), 0LL);
@@ -1107,6 +1109,12 @@ private:
     gaussian_lic_tracking::VisualAlignment alignment;
   };
 
+  struct VisualPairKey
+  {
+    int64_t observed_stamp_ns{0};
+    int64_t rendered_stamp_ns{0};
+  };
+
   struct PendingSe3PhotometricFactor
   {
     int64_t stamp_ns{0};
@@ -1720,6 +1728,7 @@ private:
     if (rendered_frame != nullptr) {
       process_visual_pair(*rendered_frame, observed);
     }
+    reconcile_visual_frame_caches();
   }
 
   void handle_rendered_image(const sensor_msgs::msg::Image & msg)
@@ -1759,6 +1768,7 @@ private:
       } else {
         ++visual_observed_stale_count_;
       }
+      reconcile_visual_frame_caches();
     } else {
       ++rendered_invalid_frames_;
       RCLCPP_WARN_THROTTLE(
@@ -1771,14 +1781,11 @@ private:
     const gaussian_lic_tracking::VisualFrame & rendered,
     const gaussian_lic_tracking::VisualFrame & observed)
   {
-    if (last_processed_visual_observed_stamp_ns_.has_value() &&
-      last_processed_visual_rendered_stamp_ns_.has_value() &&
-      last_processed_visual_observed_stamp_ns_.value() == observed.stamp_ns &&
-      last_processed_visual_rendered_stamp_ns_.value() == rendered.stamp_ns)
-    {
+    if (visual_pair_was_processed(observed.stamp_ns, rendered.stamp_ns)) {
       ++visual_pair_duplicate_count_;
       return;
     }
+    remember_visual_pair(observed.stamp_ns, rendered.stamp_ns);
     last_processed_visual_observed_stamp_ns_ = observed.stamp_ns;
     last_processed_visual_rendered_stamp_ns_ = rendered.stamp_ns;
     ++visual_pair_processed_count_;
@@ -4322,6 +4329,70 @@ private:
     }
   }
 
+  bool visual_pair_was_processed(
+    const int64_t observed_stamp_ns,
+    const int64_t rendered_stamp_ns) const
+  {
+    return std::any_of(
+      processed_visual_pairs_.begin(), processed_visual_pairs_.end(),
+      [observed_stamp_ns, rendered_stamp_ns](const VisualPairKey & key) {
+        return key.observed_stamp_ns == observed_stamp_ns &&
+               key.rendered_stamp_ns == rendered_stamp_ns;
+      });
+  }
+
+  void remember_visual_pair(
+    const int64_t observed_stamp_ns,
+    const int64_t rendered_stamp_ns)
+  {
+    processed_visual_pairs_.push_back(VisualPairKey{observed_stamp_ns, rendered_stamp_ns});
+    const auto cache_bound = static_cast<size_t>(
+      std::max(256, 4 * (rendered_frame_cache_size_ + observed_frame_cache_size_)));
+    while (processed_visual_pairs_.size() > cache_bound) {
+      processed_visual_pairs_.pop_front();
+    }
+  }
+
+  void reconcile_visual_frame_caches()
+  {
+    if (!enable_visual_cache_reconciliation_ || !enable_visual_factor_ ||
+      rendered_frame_cache_.empty() || observed_frame_cache_.empty())
+    {
+      return;
+    }
+    constexpr size_t kMaxReconciledPairsPerCallback = 1U;
+    size_t reconciled = 0U;
+    for (const auto & observed : observed_frame_cache_) {
+      if (last_output_tracking_pose_.has_value() &&
+        visual_factor_stamp_is_expired(observed.stamp_ns, last_output_tracking_pose_->stamp_ns))
+      {
+        continue;
+      }
+      int64_t rendered_match_delta_ns = 0;
+      bool rendered_cache_had_size_match = false;
+      const auto * rendered = select_rendered_frame_for_stamp(
+        observed.stamp_ns,
+        observed.width,
+        observed.height,
+        &rendered_match_delta_ns,
+        &rendered_cache_had_size_match);
+      if (rendered == nullptr) {
+        continue;
+      }
+      if (visual_pair_was_processed(observed.stamp_ns, rendered->stamp_ns)) {
+        continue;
+      }
+      last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
+      last_visual_rendered_match_delta_ns_ = rendered_match_delta_ns;
+      process_visual_pair(*rendered, observed);
+      ++visual_cache_reconciled_pairs_;
+      ++reconciled;
+      if (reconciled >= kMaxReconciledPairsPerCallback) {
+        return;
+      }
+    }
+  }
+
   const DepthFrame * select_depth_frame_for_stamp(
     const int64_t image_stamp_ns,
     const size_t width,
@@ -5680,9 +5751,11 @@ private:
 
     status.visual_factor_enabled = enable_visual_factor_;
     status.visual_factor_time_interpolation_enabled = enable_visual_factor_time_interpolation_;
+    status.visual_cache_reconciliation_enabled = enable_visual_cache_reconciliation_;
     status.visual_alignment_interpolated_factors = visual_alignment_interpolated_factor_count_;
     status.visual_se3_photometric_interpolated_factors =
       visual_se3_photometric_interpolated_factor_count_;
+    status.visual_cache_reconciled_pairs = visual_cache_reconciled_pairs_;
     status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
     status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
     status.visual_rendered_miss_count = visual_rendered_miss_count_;
@@ -5876,6 +5949,7 @@ private:
   int visual_max_pixels_{200000};
   int64_t visual_factor_max_dt_ns_{150000000LL};
   bool enable_visual_factor_time_interpolation_{false};
+  bool enable_visual_cache_reconciliation_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
   int depth_frame_cache_size_{8};
   int sparse_lidar_depth_dilation_px_{1};
@@ -6196,6 +6270,7 @@ private:
   gaussian_lic_tracking::GaussianSnapshot gaussian_snapshot_;
   gaussian_lic_tracking::VisualFactor visual_factor_;
   std::deque<gaussian_lic_tracking::VisualFrame> rendered_frame_cache_;
+  std::deque<VisualPairKey> processed_visual_pairs_;
   size_t last_visual_rendered_cache_size_{0};
   int64_t last_visual_rendered_match_delta_ns_{0};
   uint64_t visual_rendered_miss_count_{0};
@@ -6257,6 +6332,7 @@ private:
   uint64_t visual_se3_photometric_pending_stale_drops_{0};
   uint64_t visual_alignment_interpolated_factor_count_{0};
   uint64_t visual_se3_photometric_interpolated_factor_count_{0};
+  uint64_t visual_cache_reconciled_pairs_{0};
   uint64_t visual_pair_processed_count_{0};
   uint64_t visual_pair_duplicate_count_{0};
   uint64_t visual_alignment_saturated_count_{0};

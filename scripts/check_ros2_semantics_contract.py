@@ -180,6 +180,7 @@ def main() -> int:
         "camera_to_imu_rpy_rad",
         "visual_factor_max_dt_ns",
         "enable_visual_factor_time_interpolation",
+        "enable_visual_cache_reconciliation",
         "visual_depth_max_dt_ns",
         "depth_frame_cache_size",
         "sparse_lidar_depth_dilation_px",
@@ -452,8 +453,10 @@ def main() -> int:
         "visual_pair_processed_count",
         "visual_pair_duplicate_count",
         "visual_factor_time_interpolation_enabled",
+        "visual_cache_reconciliation_enabled",
         "visual_alignment_interpolated_factors",
         "visual_se3_photometric_interpolated_factors",
+        "visual_cache_reconciled_pairs",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
             errors.append(f"TrackingStatus must publish rendered-to-observed cache diagnostics: {field_name}")
@@ -531,6 +534,10 @@ def main() -> int:
             'enable_visual_factor_time_interpolation:="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}"' not in native_tracking_report_text or \
             '"enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must expose and record visual factor time interpolation")
+    if "ENABLE_VISUAL_CACHE_RECONCILIATION=false" not in native_tracking_report_text or \
+            'enable_visual_cache_reconciliation:="${ENABLE_VISUAL_CACHE_RECONCILIATION}"' not in native_tracking_report_text or \
+            '"enable_visual_cache_reconciliation": enable_visual_cache_reconciliation' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose and record visual cache reconciliation")
     if "VISUAL_DEPTH_MAX_DT_NS=0" not in native_tracking_report_text or \
             'visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}"' not in native_tracking_report_text or \
             '"visual_depth_max_dt_ns": visual_depth_max_dt_ns' not in native_tracking_report_text:

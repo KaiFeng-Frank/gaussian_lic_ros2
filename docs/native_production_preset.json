@@ -33,7 +33,8 @@
     "mapper_feedback_render_mode": "rasterizer",
     "mapper_feedback_pointcloud_coordinates": "sensor",
     "mapper_feedback_max_depth": 20.0,
-    "enable_visual_factor_time_interpolation": false
+    "enable_visual_factor_time_interpolation": false,
+    "enable_visual_cache_reconciliation": false
   },
   "accepted_evidence": {
     "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
@@ -105,6 +106,47 @@
       "numeric_jacobian_blocks": 0,
       "numeric_jacobian_columns": 0,
       "promotion_status": "not promoted: aggregate RMSE improves, but coverage, visual/SE3 factor continuity, and path drift regress versus accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_causal_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_causal_12s_probe/native_tracking_report.json",
+      "scope": "default-off causal observed/rendered cache reconciliation smoke",
+      "trajectory_poses": 96,
+      "visual_cache_reconciled_pairs": 99,
+      "total_visual_factors": 177,
+      "total_se3_photometric_factors": 177,
+      "visual_alignment_interpolated_factors": 47,
+      "visual_se3_photometric_interpolated_factors": 47,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "diagnostic only until full-window RMSE/path-drift evidence beats the accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_causal_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_causal_full122_drain1015_probe/native_tracking_report.json",
+      "scope": "default-off causal observed/rendered cache reconciliation full-window evidence",
+      "matched_poses": 1174,
+      "coverage": 0.9536961819658814,
+      "translation_rmse_m": 1.8954718444490173,
+      "translation_mean_m": 1.7906346048934039,
+      "translation_max_m": 3.0793376910016304,
+      "path_drift": 0.05349364613993764,
+      "visual_cache_reconciled_pairs": 586,
+      "total_visual_factors": 1039,
+      "total_se3_photometric_factors": 1039,
+      "visual_alignment_interpolated_factors": 487,
+      "visual_se3_photometric_interpolated_factors": 487,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "not promoted: full-window factor continuity improves, but RMSE and path drift regress versus accepted production preset"
     }
   ],
   "rejected_evidence": [
@@ -114,6 +156,13 @@
       "translation_rmse_m": 2.226570606270977,
       "path_drift": 0.053168986639345064,
       "reason": "initial continuous-time visual/SE3 support interpolation relied on numeric Jacobian blocks, underfed the full-window visual/SE3 stream at 591/1015, recorded one invalid LiDAR frame, and regressed RMSE"
+    },
+    {
+      "id": "visual_cache_reconciliation_bulk_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 2.484233342438434,
+      "path_drift": 0.0447681355350525,
+      "reason": "bulk cache backfill reaches 1085/1015 visual and SE3 factors, but creates 43 visual-alignment pending stale drops and regresses RMSE"
     },
     {
       "id": "confidence_release_0065",
