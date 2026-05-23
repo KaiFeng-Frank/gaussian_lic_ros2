@@ -399,9 +399,42 @@
             "max_dense_prior_gyro_bias_max_singular_value": 26.6432293886958,
             "max_dense_prior_accel_bias_max_singular_value": 26.64270764315996,
             "promotion_status": "reporting support; proves short-window dense marginalization retains bias sub-block information"
+        },
+        {
+            "id": "dense_prior_bias_observability_full122",
+            "report": "results/fastlivo2/CBD_Building_01_dense_prior_bias_observability_full122_drain1015_probe/native_tracking_report.json",
+            "scope": "full-window dense-prior gyro/accel bias sub-block singular-value diagnostic",
+            "status_bin_count": 8,
+            "binned_summary_finalized": true,
+            "matched_poses": 1174,
+            "coverage": 0.9536961819658814,
+            "translation_rmse_m": 1.357160845112835,
+            "translation_mean_m": 1.2499932070294175,
+            "translation_max_m": 2.634126428507661,
+            "path_drift": 0.04052213913070414,
+            "total_visual_factors": 926,
+            "total_se3_photometric_factors": 926,
+            "min_visual_factor_delta_per_bin": 90,
+            "min_se3_photometric_factor_delta_per_bin": 90,
+            "last_dense_prior_gyro_bias_min_singular_value": 6.691108412065175,
+            "last_dense_prior_gyro_bias_max_singular_value": 26.53703605702283,
+            "last_dense_prior_accel_bias_min_singular_value": 6.691108412065141,
+            "last_dense_prior_accel_bias_max_singular_value": 26.53649866511427,
+            "max_dense_prior_gyro_bias_max_singular_value": 26.661647123229606,
+            "max_dense_prior_accel_bias_max_singular_value": 26.661113856170378,
+            "max_gyro_bias_norm": 0.09620766776951838,
+            "max_accel_bias_norm": 1.1580869328941923,
+            "promotion_status": "not promoted: dense-prior bias sub-blocks remain observable, but full-window visual/SE3 support stalls at 926/1015 and late bins 6/7 underfeed observations"
         }
     ],
     "rejected_evidence": [
+    {
+      "id": "dense_prior_bias_observability_full122",
+      "report": "results/fastlivo2/CBD_Building_01_dense_prior_bias_observability_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.357160845112835,
+      "path_drift": 0.04052213913070414,
+      "reason": "full-window dense-prior bias sub-block diagnostic keeps trajectory close to the accepted preset and final bias-prior min singular values at 6.691/6.691, but misses the production visual/SE3 drain at 926/1015 with late bins 6/7 down to 96/90 factors"
+    },
     {
       "id": "visual_factor_time_interpolation_numeric_full122",
       "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_full122_probe/native_tracking_report.json",
