@@ -92,6 +92,57 @@
       "promotion_status": "diagnostic only until full-window rendered-feedback ownership and strict parity evidence beat the accepted production preset"
     },
     {
+      "id": "rendered_feedback_contract_source_stamp_full122_rejections",
+      "scope": "default-off source-stamped RenderedFeedback full-window ownership diagnostics",
+      "runs": [
+        {
+          "mode": "rendered_source_pointcloud",
+          "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_pointcloud_full122_drain1015_probe/native_tracking_report.json",
+          "matched_poses": 1174,
+          "coverage": 0.9536961819658814,
+          "total_visual_factors": 946,
+          "total_se3_photometric_factors": 946,
+          "visual_alignment_pending_stale_drops": 64,
+          "translation_rmse_m": 1.5093984794146442,
+          "path_drift": 0.05356661485906807
+        },
+        {
+          "mode": "rendered_source_image",
+          "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_image_full122_drain1015_probe/native_tracking_report.json",
+          "matched_poses": 1174,
+          "coverage": 0.9536961819658814,
+          "total_visual_factors": 960,
+          "total_se3_photometric_factors": 960,
+          "visual_alignment_pending_stale_drops": 62,
+          "translation_rmse_m": 1.4922244210551825,
+          "path_drift": 0.05235192307118491
+        },
+        {
+          "mode": "rendered_source_image_callback_ingest",
+          "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_image_callback_ingest_full122_drain1015_probe/native_tracking_report.json",
+          "matched_poses": 1174,
+          "coverage": 0.9536961819658814,
+          "total_visual_factors": 931,
+          "total_se3_photometric_factors": 931,
+          "visual_alignment_pending_stale_drops": 74,
+          "translation_rmse_m": 1.6261140245282344,
+          "path_drift": 0.05299670612875159
+        },
+        {
+          "mode": "rendered_source_image_expired_projection",
+          "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_image_expired_projection_full122_drain1015_probe/native_tracking_report.json",
+          "matched_poses": 1174,
+          "coverage": 0.9536961819658814,
+          "total_visual_factors": 1047,
+          "total_se3_photometric_factors": 1047,
+          "visual_alignment_expired_projected_factors": 64,
+          "translation_rmse_m": 1.7664462174671252,
+          "path_drift": 0.08015408056259507
+        }
+      ],
+      "promotion_status": "not promoted: source-stamp modes still under-drain, and expired projection restores factor count but worsens trajectory shape versus the accepted production preset"
+    },
+    {
       "id": "visual_factor_time_interpolation_12s",
       "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_12s_maxinvalid1_probe/native_tracking_report.json",
       "scope": "default-off continuous-time visual/SE3 support interpolation smoke",
