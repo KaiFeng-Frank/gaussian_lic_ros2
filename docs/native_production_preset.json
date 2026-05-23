@@ -331,6 +331,25 @@
             "dense_prior_cols": 180,
             "numeric_jacobian_blocks": 0,
             "promotion_status": "diagnostic only until full-window pre-ingest evidence preserves visual/SE3 drain, RMSE, and path-drift parity"
+        },
+        {
+            "id": "mapper_sync_diagnostics_12s_rerun",
+            "report": "results/fastlivo2/CBD_Building_01_mapper_sync_diagnostics_12s_rerun_probe/native_tracking_report.json",
+            "scope": "typed mapper pointcloud/pose/image synchronization diagnostics smoke",
+            "trajectory_poses": 116,
+            "aligned_frames": 99,
+            "converted_frames": 99,
+            "rendered_preview_count": 99,
+            "dropped_pointcloud_messages": 14,
+            "dropped_pose_messages": 14,
+            "dropped_image_messages": 1,
+            "pointcloud_anchor_image_too_new_drops": 14,
+            "pointcloud_anchor_pose_too_new_drops": 0,
+            "last_aligned_pointcloud_image_delta_ns": 22529125,
+            "max_abs_aligned_pointcloud_image_delta_ns": 23385048,
+            "last_aligned_pointcloud_pose_delta_ns": 0,
+            "max_abs_aligned_pointcloud_pose_delta_ns": 0,
+            "promotion_status": "diagnostic only; exposes mapper/render latency root cause before changing production synchronization"
         }
     ],
     "rejected_evidence": [

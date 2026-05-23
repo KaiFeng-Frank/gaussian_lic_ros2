@@ -87,3 +87,20 @@ uint64 pending_image_messages
 uint64 pending_depth_messages
 uint64 rendered_preview_count
 uint64 render_error_count
+
+# Signed synchronization deltas for the last aligned frame, measured as
+# stream_stamp - pointcloud_stamp. These expose ROS2 replay/synchronizer drift
+# without changing the mapper contract.
+int64 last_aligned_pointcloud_pose_delta_ns
+int64 last_aligned_pointcloud_image_delta_ns
+uint64 max_abs_aligned_pointcloud_pose_delta_ns
+uint64 max_abs_aligned_pointcloud_image_delta_ns
+
+# Anchor-side drops caused by another required stream being newer than the
+# current anchor by more than sync_tolerance_sec.
+uint64 pointcloud_anchor_pose_too_new_drops
+uint64 pointcloud_anchor_image_too_new_drops
+uint64 pointcloud_anchor_depth_too_new_drops
+uint64 image_anchor_pointcloud_too_new_drops
+uint64 image_anchor_pose_too_new_drops
+uint64 image_anchor_depth_too_new_drops

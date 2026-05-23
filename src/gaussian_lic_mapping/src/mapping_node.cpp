@@ -722,6 +722,29 @@ private:
     return !queue.empty();
   }
 
+  static uint64_t abs_i64_to_u64(const int64_t value)
+  {
+    if (value >= 0) {
+      return static_cast<uint64_t>(value);
+    }
+    return static_cast<uint64_t>(-(value + 1)) + 1U;
+  }
+
+  void record_alignment_deltas(
+    const int64_t pointcloud_stamp_ns,
+    const int64_t pose_stamp_ns,
+    const int64_t image_stamp_ns)
+  {
+    last_aligned_pointcloud_pose_delta_ns_ = pose_stamp_ns - pointcloud_stamp_ns;
+    last_aligned_pointcloud_image_delta_ns_ = image_stamp_ns - pointcloud_stamp_ns;
+    max_abs_aligned_pointcloud_pose_delta_ns_ = std::max(
+      max_abs_aligned_pointcloud_pose_delta_ns_,
+      abs_i64_to_u64(last_aligned_pointcloud_pose_delta_ns_));
+    max_abs_aligned_pointcloud_image_delta_ns_ = std::max(
+      max_abs_aligned_pointcloud_image_delta_ns_,
+      abs_i64_to_u64(last_aligned_pointcloud_image_delta_ns_));
+  }
+
   enum class AlignResult
   {
     kNoData,
@@ -783,6 +806,7 @@ private:
       } else if (require_depth_topic_) {
         point_buf_.pop_front();
         ++dropped_pointcloud_count_;
+        ++pointcloud_anchor_depth_too_new_drops_;
         return AlignResult::kDropped;
       }
     } else if (require_depth_topic_) {
@@ -795,10 +819,21 @@ private:
       stamp_to_nsec(image_buf_.front()->header.stamp) > frame_time_nsec + sync_tolerance_nsec_;
 
     if (pose_too_new || image_too_new) {
+      if (pose_too_new) {
+        ++pointcloud_anchor_pose_too_new_drops_;
+      }
+      if (image_too_new) {
+        ++pointcloud_anchor_image_too_new_drops_;
+      }
       point_buf_.pop_front();
       ++dropped_pointcloud_count_;
       return AlignResult::kDropped;
     }
+
+    const int64_t pointcloud_stamp_ns = stamp_to_nsec(point_buf_.front()->header.stamp);
+    const int64_t pose_stamp_ns = stamp_to_nsec(pose_buf_.front()->header.stamp);
+    const int64_t image_stamp_ns = stamp_to_nsec(image_buf_.front()->header.stamp);
+    record_alignment_deltas(pointcloud_stamp_ns, pose_stamp_ns, image_stamp_ns);
 
     last_aligned_stamp_ = point_buf_.front()->header.stamp;
     out.stamp = point_buf_.front()->header.stamp;
@@ -845,6 +880,7 @@ private:
       } else if (require_depth_topic_) {
         image_buf_.pop_front();
         ++dropped_image_count_;
+        ++image_anchor_depth_too_new_drops_;
         return AlignResult::kDropped;
       }
     } else if (require_depth_topic_) {
@@ -857,10 +893,21 @@ private:
       stamp_to_nsec(pose_buf_.front()->header.stamp) > frame_time_nsec + sync_tolerance_nsec_;
 
     if (pointcloud_too_new || pose_too_new) {
+      if (pointcloud_too_new) {
+        ++image_anchor_pointcloud_too_new_drops_;
+      }
+      if (pose_too_new) {
+        ++image_anchor_pose_too_new_drops_;
+      }
       image_buf_.pop_front();
       ++dropped_image_count_;
       return AlignResult::kDropped;
     }
+
+    const int64_t pointcloud_stamp_ns = stamp_to_nsec(point_buf_.front()->header.stamp);
+    const int64_t pose_stamp_ns = stamp_to_nsec(pose_buf_.front()->header.stamp);
+    const int64_t image_stamp_ns = stamp_to_nsec(image_buf_.front()->header.stamp);
+    record_alignment_deltas(pointcloud_stamp_ns, pose_stamp_ns, image_stamp_ns);
 
     last_aligned_stamp_ = image_buf_.front()->header.stamp;
     out.stamp = image_buf_.front()->header.stamp;
@@ -2374,6 +2421,16 @@ private:
     msg.pending_depth_messages = static_cast<uint64_t>(q_depth);
     msg.rendered_preview_count = rendered_preview_count_;
     msg.render_error_count = render_error_count_;
+    msg.last_aligned_pointcloud_pose_delta_ns = last_aligned_pointcloud_pose_delta_ns_;
+    msg.last_aligned_pointcloud_image_delta_ns = last_aligned_pointcloud_image_delta_ns_;
+    msg.max_abs_aligned_pointcloud_pose_delta_ns = max_abs_aligned_pointcloud_pose_delta_ns_;
+    msg.max_abs_aligned_pointcloud_image_delta_ns = max_abs_aligned_pointcloud_image_delta_ns_;
+    msg.pointcloud_anchor_pose_too_new_drops = pointcloud_anchor_pose_too_new_drops_;
+    msg.pointcloud_anchor_image_too_new_drops = pointcloud_anchor_image_too_new_drops_;
+    msg.pointcloud_anchor_depth_too_new_drops = pointcloud_anchor_depth_too_new_drops_;
+    msg.image_anchor_pointcloud_too_new_drops = image_anchor_pointcloud_too_new_drops_;
+    msg.image_anchor_pose_too_new_drops = image_anchor_pose_too_new_drops_;
+    msg.image_anchor_depth_too_new_drops = image_anchor_depth_too_new_drops_;
     status_pub_->publish(msg);
 
     const auto intrinsics = current_intrinsics();
@@ -2576,6 +2633,16 @@ private:
   uint64_t dropped_pose_count_{0};
   uint64_t dropped_image_count_{0};
   uint64_t dropped_depth_count_{0};
+  int64_t last_aligned_pointcloud_pose_delta_ns_{0};
+  int64_t last_aligned_pointcloud_image_delta_ns_{0};
+  uint64_t max_abs_aligned_pointcloud_pose_delta_ns_{0};
+  uint64_t max_abs_aligned_pointcloud_image_delta_ns_{0};
+  uint64_t pointcloud_anchor_pose_too_new_drops_{0};
+  uint64_t pointcloud_anchor_image_too_new_drops_{0};
+  uint64_t pointcloud_anchor_depth_too_new_drops_{0};
+  uint64_t image_anchor_pointcloud_too_new_drops_{0};
+  uint64_t image_anchor_pose_too_new_drops_{0};
+  uint64_t image_anchor_depth_too_new_drops_{0};
   uint64_t conversion_error_count_{0};
   uint64_t render_error_count_{0};
   uint64_t rendered_preview_count_{0};
