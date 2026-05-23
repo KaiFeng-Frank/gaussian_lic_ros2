@@ -208,6 +208,27 @@
       "orphan_factors": 0,
       "numeric_jacobian_blocks": 0,
       "promotion_status": "diagnostic only until full-window RMSE evidence beats the accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_observed_dedup_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_observed_dedup_12s_probe/native_tracking_report.json",
+      "scope": "default-off reconciled visual-cache observed-stamp deduplication smoke",
+      "trajectory_poses": 118,
+      "visual_cache_reconciled_pairs": 74,
+      "visual_cache_reconciled_saturated_pairs": 8,
+      "visual_cache_reconciled_alignment_photometric_fallback_pairs": 8,
+      "visual_cache_reconciled_alignment_photometric_disagreement_pairs": 0,
+      "visual_cache_reconciled_alignment_skipped_pairs": 0,
+      "total_visual_factors": 97,
+      "total_se3_photometric_factors": 97,
+      "visual_pair_duplicate_count": 79,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "diagnostic only until full-window observed-dedup evidence preserves visual/SE3 drain, RMSE, and path-drift parity"
     }
   ],
   "rejected_evidence": [
@@ -245,6 +266,13 @@
       "translation_rmse_m": 2.2843988708447434,
       "path_drift": 0.0220075251733883,
       "reason": "same-direction search/photometric agreement reaches 1252/1015 visual factors and improves path drift, but overfeeds the window and regresses RMSE"
+    },
+    {
+      "id": "visual_cache_reconciliation_observed_dedup_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_observed_dedup_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.7265260655876942,
+      "path_drift": 0.0635534857997418,
+      "reason": "observed-stamp deduplication proves duplicate observed-image consumption was real with 636 rejected duplicates, but it drains only 959/1015 visual and 960/1015 SE3 factors and regresses RMSE/path drift"
     },
     {
       "id": "confidence_release_0065",

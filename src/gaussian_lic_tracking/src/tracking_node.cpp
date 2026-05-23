@@ -1782,7 +1782,9 @@ private:
     const gaussian_lic_tracking::VisualFrame & observed,
     const bool reconciled_pair)
   {
-    if (visual_pair_was_processed(observed.stamp_ns, rendered.stamp_ns)) {
+    if (visual_pair_was_processed(
+        observed.stamp_ns, rendered.stamp_ns, enable_visual_cache_reconciliation_))
+    {
       ++visual_pair_duplicate_count_;
       return;
     }
@@ -4377,13 +4379,16 @@ private:
 
   bool visual_pair_was_processed(
     const int64_t observed_stamp_ns,
-    const int64_t rendered_stamp_ns) const
+    const int64_t rendered_stamp_ns,
+    const bool collapse_observed_stamp) const
   {
     return std::any_of(
       processed_visual_pairs_.begin(), processed_visual_pairs_.end(),
-      [observed_stamp_ns, rendered_stamp_ns](const VisualPairKey & key) {
-        return key.observed_stamp_ns == observed_stamp_ns &&
-               key.rendered_stamp_ns == rendered_stamp_ns;
+      [observed_stamp_ns, rendered_stamp_ns, collapse_observed_stamp](const VisualPairKey & key) {
+        if (key.observed_stamp_ns != observed_stamp_ns) {
+          return false;
+        }
+        return collapse_observed_stamp || key.rendered_stamp_ns == rendered_stamp_ns;
       });
   }
 
@@ -4425,7 +4430,7 @@ private:
       if (rendered == nullptr) {
         continue;
       }
-      if (visual_pair_was_processed(observed.stamp_ns, rendered->stamp_ns)) {
+      if (visual_pair_was_processed(observed.stamp_ns, rendered->stamp_ns, true)) {
         continue;
       }
       last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
