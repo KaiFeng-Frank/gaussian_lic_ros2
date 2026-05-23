@@ -20,6 +20,8 @@ def generate_launch_description():
     pointcloud_imu_wait_queue_size = LaunchConfiguration("pointcloud_imu_wait_queue_size")
     tracking_status_topic = LaunchConfiguration("tracking_status_topic")
     rendered_image_topic = LaunchConfiguration("rendered_image_topic")
+    rendered_feedback_topic = LaunchConfiguration("rendered_feedback_topic")
+    enable_rendered_feedback_contract = LaunchConfiguration("enable_rendered_feedback_contract")
     rendered_image_qos_reliability = LaunchConfiguration("rendered_image_qos_reliability")
     rendered_image_qos_durability = LaunchConfiguration("rendered_image_qos_durability")
     rendered_image_qos_depth = LaunchConfiguration("rendered_image_qos_depth")
@@ -545,6 +547,8 @@ def generate_launch_description():
             DeclareLaunchArgument("pointcloud_imu_wait_queue_size", default_value="4"),
             DeclareLaunchArgument("tracking_status_topic", default_value="/gaussian_lic/frontend/status"),
             DeclareLaunchArgument("rendered_image_topic", default_value="/gaussian_lic/rendered_image"),
+            DeclareLaunchArgument("rendered_feedback_topic", default_value="/gaussian_lic/rendered_feedback"),
+            DeclareLaunchArgument("enable_rendered_feedback_contract", default_value="false"),
             DeclareLaunchArgument("rendered_image_qos_reliability", default_value="reliable"),
             DeclareLaunchArgument("rendered_image_qos_durability", default_value="transient_local"),
             DeclareLaunchArgument("rendered_image_qos_depth", default_value="1"),
@@ -871,6 +875,8 @@ def generate_launch_description():
                         "pointcloud_imu_wait_queue_size": pointcloud_imu_wait_queue_size,
                         "tracking_status_topic": tracking_status_topic,
                         "rendered_image_topic": rendered_image_topic,
+                        "rendered_feedback_topic": rendered_feedback_topic,
+                        "enable_rendered_feedback_contract": enable_rendered_feedback_contract,
                         "rendered_image_qos_reliability": rendered_image_qos_reliability,
                         "rendered_image_qos_durability": rendered_image_qos_durability,
                         "rendered_image_qos_depth": rendered_image_qos_depth,

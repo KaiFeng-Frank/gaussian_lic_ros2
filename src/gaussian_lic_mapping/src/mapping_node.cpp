@@ -26,6 +26,7 @@
 #include <gaussian_lic_msgs/msg/gaussian.hpp>
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
 #include <gaussian_lic_msgs/msg/mapping_status.hpp>
+#include <gaussian_lic_msgs/msg/rendered_feedback.hpp>
 #include <gaussian_lic_msgs/srv/save_map.hpp>
 #include <gaussian_lic_mapping/backend_config.hpp>
 #ifdef GAUSSIAN_LIC_ENABLE_TENSORRT
@@ -94,6 +95,8 @@ public:
     path_topic_ = declare_parameter<std::string>("path_topic", "/gaussian_lic/path");
     map_points_topic_ = declare_parameter<std::string>("map_points_topic", "/gaussian_lic/map_points");
     rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
+    rendered_feedback_topic_ =
+      declare_parameter<std::string>("rendered_feedback_topic", "/gaussian_lic/rendered_feedback");
     rendered_image_qos_reliability_ =
       declare_parameter<std::string>("rendered_image_qos_reliability", "reliable");
     rendered_image_qos_durability_ =
@@ -322,6 +325,8 @@ public:
     map_points_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(map_points_topic_, 10);
     rendered_image_pub_ = create_publisher<sensor_msgs::msg::Image>(
       rendered_image_topic_, make_rendered_image_qos());
+    rendered_feedback_pub_ = create_publisher<gaussian_lic_msgs::msg::RenderedFeedback>(
+      rendered_feedback_topic_, make_rendered_image_qos());
     gaussian_map_pub_ = create_publisher<gaussian_lic_msgs::msg::GaussianArray>(
       gaussian_map_topic_,
       rclcpp::QoS(static_cast<size_t>(std::max(gaussian_map_qos_depth_, 1)))
@@ -1019,8 +1024,11 @@ private:
 #endif
     if (publish_rendered_preview_ && normalized_qos_token(render_mode_) != "off") {
       try {
-        rendered_image_pub_->publish(make_rendered_preview_message(frame_stamp));
+        auto rendered_image = make_rendered_preview_message(frame_stamp);
+        auto rendered_feedback = make_rendered_feedback_message(rendered_image, record);
         ++rendered_preview_count_;
+        rendered_image_pub_->publish(std::move(rendered_image));
+        rendered_feedback_pub_->publish(std::move(rendered_feedback));
       } catch (const std::exception & ex) {
         ++render_error_count_;
         RCLCPP_WARN_THROTTLE(
@@ -2266,6 +2274,22 @@ private:
       "render_mode must be debug_cpu, debug_input, rasterizer, or off, got " + render_mode_);
   }
 
+  gaussian_lic_msgs::msg::RenderedFeedback make_rendered_feedback_message(
+    const sensor_msgs::msg::Image & image,
+    const gaussian_lic_mapping::CameraFrameRecord & frame) const
+  {
+    gaussian_lic_msgs::msg::RenderedFeedback feedback;
+    feedback.header = image.header;
+    feedback.image = image;
+    feedback.observed_stamp = frame.image_stamp;
+    feedback.pose_stamp = frame.pose_stamp;
+    feedback.pointcloud_stamp = frame.pointcloud_stamp;
+    feedback.frame_index = frame.frame_index;
+    feedback.rendered_preview_index = rendered_preview_count_ + 1U;
+    feedback.render_mode = render_mode_;
+    return feedback;
+  }
+
   void publish_tracking_outputs(const MapperFrameData & frame_data)
   {
     geometry_msgs::msg::PoseStamped pose;
@@ -2501,6 +2525,7 @@ private:
   std::string path_topic_;
   std::string map_points_topic_;
   std::string rendered_image_topic_;
+  std::string rendered_feedback_topic_;
   std::string gaussian_map_topic_;
   std::string save_map_service_;
   std::string depth_completion_engine_path_;
@@ -2573,6 +2598,7 @@ private:
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_points_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr rendered_image_pub_;
+  rclcpp::Publisher<gaussian_lic_msgs::msg::RenderedFeedback>::SharedPtr rendered_feedback_pub_;
   rclcpp::Publisher<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr gaussian_map_pub_;
   rclcpp::Service<gaussian_lic_msgs::srv::SaveMap>::SharedPtr save_map_srv_;
   rclcpp::TimerBase::SharedPtr status_timer_;

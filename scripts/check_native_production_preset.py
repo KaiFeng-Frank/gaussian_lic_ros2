@@ -365,6 +365,13 @@ def check_report_gate_config(
                 continue
             if key == "visual_factor_reference_stamp_mode" and wanted == "observed":
                 continue
+            if key == "enable_rendered_feedback_contract" and wanted is False:
+                continue
+            if (
+                key == "rendered_feedback_topic"
+                and not bool(gate_config.get("enable_rendered_feedback_contract", False))
+            ):
+                continue
             if (
                 key == "visual_watermark_pair_scheduler_max_pairs_per_pointcloud"
                 and not bool(gate_config.get("enable_visual_watermark_pair_scheduler", False))

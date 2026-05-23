@@ -102,6 +102,7 @@ def generate_launch_description():
     require_depth_topic = LaunchConfiguration("require_depth_topic")
     sync_anchor_stream = LaunchConfiguration("sync_anchor_stream")
     render_mode = LaunchConfiguration("render_mode")
+    rendered_feedback_topic = LaunchConfiguration("rendered_feedback_topic")
     rendered_image_mode = LaunchConfiguration("rendered_image_mode")
     publish_tf = LaunchConfiguration("publish_tf")
     use_sim_time = LaunchConfiguration("use_sim_time")
@@ -157,6 +158,7 @@ def generate_launch_description():
             "require_depth_topic": require_depth_topic,
             "sync_anchor_stream": sync_anchor_stream,
             "render_mode": render_mode,
+            "rendered_feedback_topic": rendered_feedback_topic,
             "rendered_image_mode": rendered_image_mode,
             "publish_tf": publish_tf,
         },
@@ -494,6 +496,11 @@ def generate_launch_description():
             "render_mode",
             default_value="rasterizer",
             description="Rendered output mode: debug_cpu, debug_input, rasterizer, or off",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_topic",
+            default_value="/gaussian_lic/rendered_feedback",
+            description="Typed rendered-feedback topic carrying image plus mapper/source stamps",
         ),
         DeclareLaunchArgument(
             "rendered_image_mode",

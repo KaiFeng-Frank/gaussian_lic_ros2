@@ -33,6 +33,11 @@ uint64 rendered_invalid_frames
 
 uint64 num_raw_images
 uint64 num_rendered_images
+bool rendered_feedback_contract_enabled
+uint64 num_rendered_feedbacks
+int64 last_rendered_feedback_observed_delta_ns
+int64 last_rendered_feedback_pose_delta_ns
+int64 last_rendered_feedback_pointcloud_delta_ns
 uint64 num_raw_pointclouds
 uint64 num_raw_imus
 uint64 num_published_poses
@@ -40,6 +45,7 @@ uint64 pointcloud_imu_wait_queue_size
 uint64 pointcloud_imu_wait_deferred
 uint64 pointcloud_imu_wait_released
 uint64 pointcloud_imu_wait_dropped
+uint64 pointcloud_imu_wait_stale_dropped
 uint64 external_odometry_priors_received
 uint64 external_odometry_prior_matches
 uint64 external_odometry_prior_misses

@@ -97,6 +97,7 @@ mapping_node:
     odometry_topic: /gaussian_lic/odometry
     path_topic: /gaussian_lic/path
     rendered_image_topic: /gaussian_lic/rendered_image
+    rendered_feedback_topic: /gaussian_lic/rendered_feedback
     map_points_topic: /gaussian_lic/map_points
     gaussian_map_topic: /gaussian_lic/gaussian_map
     save_map_service: /gaussian_lic/save_map

@@ -15,6 +15,12 @@ namespace gaussian_lic_tracking
 struct VisualFrame
 {
   int64_t stamp_ns{0};
+  bool has_rendered_feedback_metadata{false};
+  int64_t rendered_feedback_observed_stamp_ns{0};
+  int64_t rendered_feedback_pose_stamp_ns{0};
+  int64_t rendered_feedback_pointcloud_stamp_ns{0};
+  uint64_t rendered_feedback_frame_index{0};
+  uint64_t rendered_feedback_preview_index{0};
   size_t width{0};
   size_t height{0};
   std::vector<float> gray;

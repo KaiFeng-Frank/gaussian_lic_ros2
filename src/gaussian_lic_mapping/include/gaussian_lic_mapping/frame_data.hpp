@@ -59,6 +59,11 @@ enum class PointCloudCoordinates
 struct MapperFrameData
 {
   builtin_interfaces::msg::Time stamp;
+  builtin_interfaces::msg::Time pointcloud_stamp;
+  builtin_interfaces::msg::Time pose_stamp;
+  builtin_interfaces::msg::Time image_stamp;
+  builtin_interfaces::msg::Time depth_stamp;
+  bool has_depth_stamp{false};
   uint64_t frame_index{0};
   bool is_keyframe{false};
   int width{0};

@@ -96,6 +96,22 @@ bool ImuPropagator::query_state(const int64_t stamp_ns, ImuState & state) const
   return true;
 }
 
+std::optional<int64_t> ImuPropagator::oldest_history_stamp_ns() const
+{
+  if (history_.empty()) {
+    return std::nullopt;
+  }
+  return history_.front().stamp_ns;
+}
+
+std::optional<int64_t> ImuPropagator::newest_history_stamp_ns() const
+{
+  if (history_.empty()) {
+    return std::nullopt;
+  }
+  return history_.back().stamp_ns;
+}
+
 bool ImuPropagator::rebase_from_state(const ImuState & corrected_state)
 {
   if (!initialized_ || !state_is_valid(corrected_state)) {

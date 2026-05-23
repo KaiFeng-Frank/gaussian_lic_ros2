@@ -35,6 +35,8 @@
     "mapper_feedback_max_depth": 20.0,
     "enable_visual_factor_time_interpolation": false,
     "visual_factor_reference_stamp_mode": "observed",
+    "enable_rendered_feedback_contract": false,
+    "rendered_feedback_topic": "/gaussian_lic/rendered_feedback",
     "enable_visual_cache_reconciliation": false,
     "visual_cache_reconciliation_monotonic_unique": false,
     "visual_pair_monotonic_unique": false,
@@ -69,6 +71,26 @@
     "min_se3_photometric_factor_delta_per_bin": 111
   },
   "structural_evidence": [
+    {
+      "id": "rendered_feedback_contract_source_pointcloud_12s",
+      "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_pointcloud_12s_probe_v2/native_tracking_report.json",
+      "scope": "default-off source-stamped RenderedFeedback contract smoke",
+      "trajectory_poses": 119,
+      "num_rendered_feedbacks": 94,
+      "total_visual_factors": 94,
+      "total_se3_photometric_factors": 94,
+      "visual_factor_reference_stamp_mode": "rendered_source_pointcloud",
+      "last_rendered_feedback_pointcloud_delta_ns": 0,
+      "lidar_invalid_frames": 0,
+      "lidar_invalid_points": 0,
+      "lidar_invalid_point_times": 0,
+      "pointcloud_imu_wait_dropped": 0,
+      "pointcloud_imu_wait_stale_dropped": 0,
+      "visual_pair_duplicate_count": 0,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "promotion_status": "diagnostic only until full-window rendered-feedback ownership and strict parity evidence beat the accepted production preset"
+    },
     {
       "id": "visual_factor_time_interpolation_12s",
       "report": "results/fastlivo2/CBD_Building_01_visual_time_interpolation_12s_maxinvalid1_probe/native_tracking_report.json",

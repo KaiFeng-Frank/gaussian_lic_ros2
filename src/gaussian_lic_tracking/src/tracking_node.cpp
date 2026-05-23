@@ -27,6 +27,7 @@
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
+#include <gaussian_lic_msgs/msg/rendered_feedback.hpp>
 #include <gaussian_lic_msgs/msg/tracking_status.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -133,6 +134,9 @@ enum class VisualFactorReferenceStampMode
 {
   kObserved,
   kRendered,
+  kRenderedSourceImage,
+  kRenderedSourcePose,
+  kRenderedSourcePointcloud,
 };
 
 VisualAlignmentFactorSource parse_visual_alignment_factor_source(
@@ -183,8 +187,18 @@ VisualFactorReferenceStampMode parse_visual_factor_reference_stamp_mode(const st
   if (lower == "rendered") {
     return VisualFactorReferenceStampMode::kRendered;
   }
+  if (lower == "rendered_source_image") {
+    return VisualFactorReferenceStampMode::kRenderedSourceImage;
+  }
+  if (lower == "rendered_source_pose") {
+    return VisualFactorReferenceStampMode::kRenderedSourcePose;
+  }
+  if (lower == "rendered_source_pointcloud") {
+    return VisualFactorReferenceStampMode::kRenderedSourcePointcloud;
+  }
   throw std::runtime_error(
-    "visual_factor_reference_stamp_mode must be 'observed' or 'rendered'");
+    "visual_factor_reference_stamp_mode must be 'observed', 'rendered', "
+    "'rendered_source_image', 'rendered_source_pose', or 'rendered_source_pointcloud'");
 }
 
 struct GaussianSnapshotPoseCorrection
@@ -241,6 +255,10 @@ public:
     tracking_status_topic_ = declare_parameter<std::string>(
       "tracking_status_topic", "/gaussian_lic/frontend/status");
     rendered_image_topic_ = declare_parameter<std::string>("rendered_image_topic", "/gaussian_lic/rendered_image");
+    rendered_feedback_topic_ =
+      declare_parameter<std::string>("rendered_feedback_topic", "/gaussian_lic/rendered_feedback");
+    enable_rendered_feedback_contract_ =
+      declare_parameter<bool>("enable_rendered_feedback_contract", false);
     rendered_image_qos_reliability_ =
       declare_parameter<std::string>("rendered_image_qos_reliability", "reliable");
     rendered_image_qos_durability_ =
@@ -1080,13 +1098,24 @@ public:
     path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic_, rclcpp::QoS(1).transient_local().reliable());
     tracking_status_pub_ = create_publisher<gaussian_lic_msgs::msg::TrackingStatus>(
       tracking_status_topic_, rclcpp::QoS(1).transient_local().reliable());
-    rendered_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
-      rendered_image_topic_, make_rendered_image_qos(),
-      [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
-        run_serialized_callback([this, msg]() {
-          handle_rendered_image(*msg);
+    if (enable_rendered_feedback_contract_) {
+      rendered_feedback_sub_ =
+        create_subscription<gaussian_lic_msgs::msg::RenderedFeedback>(
+        rendered_feedback_topic_, make_rendered_image_qos(),
+        [this](gaussian_lic_msgs::msg::RenderedFeedback::ConstSharedPtr msg) {
+          run_serialized_callback([this, msg]() {
+            handle_rendered_feedback(*msg);
+          });
         });
-      });
+    } else {
+      rendered_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
+        rendered_image_topic_, make_rendered_image_qos(),
+        [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
+          run_serialized_callback([this, msg]() {
+            handle_rendered_image(*msg);
+          });
+        });
+    }
     if (enable_gaussian_snapshot_) {
       gaussian_map_sub_ = create_subscription<gaussian_lic_msgs::msg::GaussianArray>(
         gaussian_map_topic_,
@@ -1129,6 +1158,15 @@ private:
     size_t width{0};
     size_t height{0};
     std::vector<float> depth_m;
+  };
+
+  struct RenderedFeedbackMetadata
+  {
+    int64_t observed_stamp_ns{0};
+    int64_t pose_stamp_ns{0};
+    int64_t pointcloud_stamp_ns{0};
+    uint64_t frame_index{0};
+    uint64_t rendered_preview_index{0};
   };
 
   struct Se3PhotometricSampleBatch
@@ -1807,6 +1845,50 @@ private:
 
   void handle_rendered_image(const sensor_msgs::msg::Image & msg)
   {
+    handle_rendered_image_with_metadata(msg, std::nullopt);
+  }
+
+  void handle_rendered_feedback(const gaussian_lic_msgs::msg::RenderedFeedback & msg)
+  {
+    ++num_rendered_feedbacks_;
+    RenderedFeedbackMetadata metadata;
+    try {
+      const int64_t rendered_stamp_ns =
+        gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
+      metadata.observed_stamp_ns =
+        gaussian_lic_tracking::stamp_to_nanoseconds(msg.observed_stamp);
+      metadata.pose_stamp_ns =
+        gaussian_lic_tracking::stamp_to_nanoseconds(msg.pose_stamp);
+      metadata.pointcloud_stamp_ns =
+        gaussian_lic_tracking::stamp_to_nanoseconds(msg.pointcloud_stamp);
+      metadata.frame_index = msg.frame_index;
+      metadata.rendered_preview_index = msg.rendered_preview_index;
+      last_rendered_feedback_observed_delta_ns_ =
+        metadata.observed_stamp_ns - rendered_stamp_ns;
+      last_rendered_feedback_pose_delta_ns_ =
+        metadata.pose_stamp_ns - rendered_stamp_ns;
+      last_rendered_feedback_pointcloud_delta_ns_ =
+        metadata.pointcloud_stamp_ns - rendered_stamp_ns;
+      auto image = msg.image;
+      if (
+        gaussian_lic_tracking::stamp_to_nanoseconds(image.header.stamp) != rendered_stamp_ns)
+      {
+        ++rendered_feedback_stamp_mismatches_;
+        image.header.stamp = msg.header.stamp;
+      }
+      handle_rendered_image_with_metadata(image, metadata);
+    } catch (const std::exception & ex) {
+      ++rendered_invalid_frames_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping rendered feedback with invalid source stamps: %s", ex.what());
+    }
+  }
+
+  void handle_rendered_image_with_metadata(
+    const sensor_msgs::msg::Image & msg,
+    const std::optional<RenderedFeedbackMetadata> & metadata)
+  {
     if (!enable_visual_factor_) {
       return;
     }
@@ -1819,6 +1901,14 @@ private:
     ++num_rendered_images_;
     gaussian_lic_tracking::VisualFrame rendered;
     if (decode_image_gray(msg, rendered)) {
+      if (metadata.has_value()) {
+        rendered.has_rendered_feedback_metadata = true;
+        rendered.rendered_feedback_observed_stamp_ns = metadata->observed_stamp_ns;
+        rendered.rendered_feedback_pose_stamp_ns = metadata->pose_stamp_ns;
+        rendered.rendered_feedback_pointcloud_stamp_ns = metadata->pointcloud_stamp_ns;
+        rendered.rendered_feedback_frame_index = metadata->frame_index;
+        rendered.rendered_feedback_preview_index = metadata->rendered_preview_index;
+      }
       cache_rendered_frame(rendered);
       int64_t observed_match_delta_ns = 0;
       int64_t observed_nearest_delta_ns = 0;
@@ -1888,7 +1978,7 @@ private:
     ++visual_pair_processed_count_;
     const int64_t pair_stamp_delta_ns = stamp_delta_ns(rendered.stamp_ns, observed.stamp_ns);
     const int64_t factor_reference_stamp_ns =
-      visual_factor_reference_stamp_ns(observed.stamp_ns, rendered.stamp_ns);
+      visual_factor_reference_stamp_ns(observed, rendered);
 
     last_visual_residual_ = visual_factor_.evaluate(rendered, observed);
     last_visual_alignment_ = visual_factor_.estimate_translation(
@@ -2493,6 +2583,19 @@ private:
       if (should_wait_for_imu(pending.stamp_ns)) {
         return;
       }
+      const auto oldest_imu_stamp_ns = imu_propagator_.oldest_history_stamp_ns();
+      if (oldest_imu_stamp_ns.has_value() && pending.stamp_ns < oldest_imu_stamp_ns.value()) {
+        const auto stale_stamp_ns = pending.stamp_ns;
+        pending_pointclouds_waiting_for_imu_.pop_front();
+        ++pointcloud_imu_wait_stale_dropped_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "dropping startup point cloud at %" PRId64
+          " because IMU initialization/rebase history starts at %" PRId64,
+          stale_stamp_ns,
+          oldest_imu_stamp_ns.value());
+        continue;
+      }
       const auto message = pending.message;
       pending_pointclouds_waiting_for_imu_.pop_front();
       ++pointcloud_imu_wait_released_;
@@ -2517,6 +2620,17 @@ private:
       gaussian_lic_tracking::ImuState state;
       if (!imu_propagator_.query_state(tracking_pose.stamp_ns, state)) {
         const auto & latest_state = imu_propagator_.state();
+        const auto oldest_imu_stamp_ns = imu_propagator_.oldest_history_stamp_ns();
+        if (oldest_imu_stamp_ns.has_value() && tracking_pose.stamp_ns < oldest_imu_stamp_ns.value()) {
+          ++pointcloud_imu_wait_stale_dropped_;
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "dropping startup point cloud at %" PRId64
+            " because IMU initialization/rebase history starts at %" PRId64,
+            tracking_pose.stamp_ns,
+            oldest_imu_stamp_ns.value());
+          return;
+        }
         if (latest_state.stamp_ns > tracking_pose.stamp_ns) {
           ++lidar_invalid_frames_;
           RCLCPP_WARN_THROTTLE(
@@ -4605,13 +4719,32 @@ private:
   }
 
   int64_t visual_factor_reference_stamp_ns(
-    const int64_t observed_stamp_ns,
-    const int64_t rendered_stamp_ns) const
+    const gaussian_lic_tracking::VisualFrame & observed,
+    const gaussian_lic_tracking::VisualFrame & rendered) const
   {
     if (visual_factor_reference_stamp_mode_ == VisualFactorReferenceStampMode::kRendered) {
-      return rendered_stamp_ns;
+      return rendered.stamp_ns;
     }
-    return observed_stamp_ns;
+    if (
+      visual_factor_reference_stamp_mode_ == VisualFactorReferenceStampMode::kRenderedSourceImage &&
+      rendered.has_rendered_feedback_metadata)
+    {
+      return rendered.rendered_feedback_observed_stamp_ns;
+    }
+    if (
+      visual_factor_reference_stamp_mode_ == VisualFactorReferenceStampMode::kRenderedSourcePose &&
+      rendered.has_rendered_feedback_metadata)
+    {
+      return rendered.rendered_feedback_pose_stamp_ns;
+    }
+    if (
+      visual_factor_reference_stamp_mode_ ==
+      VisualFactorReferenceStampMode::kRenderedSourcePointcloud &&
+      rendered.has_rendered_feedback_metadata)
+    {
+      return rendered.rendered_feedback_pointcloud_stamp_ns;
+    }
+    return observed.stamp_ns;
   }
 
   static bool stamp_delta_is_within(
@@ -6062,6 +6195,14 @@ private:
 
     status.num_raw_images = num_raw_images_;
     status.num_rendered_images = num_rendered_images_;
+    status.rendered_feedback_contract_enabled = enable_rendered_feedback_contract_;
+    status.num_rendered_feedbacks = num_rendered_feedbacks_;
+    status.last_rendered_feedback_observed_delta_ns =
+      last_rendered_feedback_observed_delta_ns_;
+    status.last_rendered_feedback_pose_delta_ns =
+      last_rendered_feedback_pose_delta_ns_;
+    status.last_rendered_feedback_pointcloud_delta_ns =
+      last_rendered_feedback_pointcloud_delta_ns_;
     status.num_raw_pointclouds = num_raw_pointclouds_;
     status.num_raw_imus = num_raw_imus_;
     status.num_published_poses = num_published_poses_;
@@ -6070,6 +6211,7 @@ private:
     status.pointcloud_imu_wait_deferred = pointcloud_imu_wait_deferred_;
     status.pointcloud_imu_wait_released = pointcloud_imu_wait_released_;
     status.pointcloud_imu_wait_dropped = pointcloud_imu_wait_dropped_;
+    status.pointcloud_imu_wait_stale_dropped = pointcloud_imu_wait_stale_dropped_;
     status.external_odometry_priors_received = external_odometry_priors_received_;
     status.external_odometry_prior_matches = external_odometry_prior_matches_;
     status.external_odometry_prior_misses = external_odometry_prior_misses_;
@@ -6564,6 +6706,7 @@ private:
   std::string path_topic_;
   std::string tracking_status_topic_;
   std::string rendered_image_topic_;
+  std::string rendered_feedback_topic_;
   std::string gaussian_map_topic_;
   int gaussian_snapshot_qos_depth_{64};
   std::string world_frame_;
@@ -6587,6 +6730,7 @@ private:
   std::string rendered_image_qos_reliability_{"reliable"};
   std::string rendered_image_qos_durability_{"transient_local"};
   int rendered_image_qos_depth_{1};
+  bool enable_rendered_feedback_contract_{false};
   bool serialize_callbacks_{true};
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
@@ -6835,6 +6979,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr external_odometry_prior_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rendered_image_sub_;
+  rclcpp::Subscription<gaussian_lic_msgs::msg::RenderedFeedback>::SharedPtr rendered_feedback_sub_;
   rclcpp::Subscription<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr gaussian_map_sub_;
   std::mutex callback_mutex_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
@@ -7029,12 +7174,18 @@ private:
   double last_sliding_window_optimization_duration_ms_{0.0};
   uint64_t num_raw_images_{0};
   uint64_t num_rendered_images_{0};
+  uint64_t num_rendered_feedbacks_{0};
+  uint64_t rendered_feedback_stamp_mismatches_{0};
+  int64_t last_rendered_feedback_observed_delta_ns_{0};
+  int64_t last_rendered_feedback_pose_delta_ns_{0};
+  int64_t last_rendered_feedback_pointcloud_delta_ns_{0};
   uint64_t num_raw_pointclouds_{0};
   uint64_t num_raw_imus_{0};
   uint64_t num_published_poses_{0};
   uint64_t pointcloud_imu_wait_deferred_{0};
   uint64_t pointcloud_imu_wait_released_{0};
   uint64_t pointcloud_imu_wait_dropped_{0};
+  uint64_t pointcloud_imu_wait_stale_dropped_{0};
   uint64_t imu_gravity_autocalibration_samples_collected_{0};
   bool imu_gravity_autocalibrated_{false};
   bool imu_gravity_autocalibration_failed_{false};

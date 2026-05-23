@@ -179,6 +179,8 @@ def main() -> int:
         "camera_to_imu_translation_m",
         "camera_to_imu_rpy_rad",
         "visual_factor_max_dt_ns",
+        "enable_rendered_feedback_contract",
+        "rendered_feedback_topic",
         "enable_visual_factor_time_interpolation",
         "enable_visual_cache_reconciliation",
         "visual_depth_max_dt_ns",
@@ -350,6 +352,12 @@ def main() -> int:
         errors.append("tracking_node must default visual factor reference stamps to observed")
     if "VisualFactorReferenceStampMode::kRendered" not in tracking_node_text:
         errors.append("tracking_node must expose rendered-stamp visual factor ownership as a default-off diagnostic")
+    if 'declare_parameter<bool>("enable_rendered_feedback_contract", false)' not in tracking_node_text:
+        errors.append("tracking_node must keep typed rendered-feedback subscription disabled by default")
+    if 'DeclareLaunchArgument("enable_rendered_feedback_contract", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose typed rendered-feedback subscription as default-off")
+    if "msg/RenderedFeedback.msg" not in (ROOT / "src" / "gaussian_lic_msgs" / "CMakeLists.txt").read_text():
+        errors.append("gaussian_lic_msgs must generate the typed RenderedFeedback contract")
     if "uint64_t source_id{0}" not in sliding_window_header_text:
         errors.append("sliding-window factors must carry 64-bit source ids to avoid replacement collisions")
     if 'DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05")' not in tracking_launch_text:
@@ -461,6 +469,11 @@ def main() -> int:
         "visual_observed_size_mismatch_count",
         "visual_pair_processed_count",
         "visual_pair_duplicate_count",
+        "rendered_feedback_contract_enabled",
+        "num_rendered_feedbacks",
+        "last_rendered_feedback_observed_delta_ns",
+        "last_rendered_feedback_pose_delta_ns",
+        "last_rendered_feedback_pointcloud_delta_ns",
         "visual_factor_reference_stamp_mode",
         "visual_factor_time_interpolation_enabled",
         "visual_cache_reconciliation_enabled",
@@ -796,6 +809,7 @@ def main() -> int:
         "pointcloud_imu_wait_deferred",
         "pointcloud_imu_wait_released",
         "pointcloud_imu_wait_dropped",
+        "pointcloud_imu_wait_stale_dropped",
         "sliding_window_imu_reanchors",
         "sliding_window_total_imu_factors",
         "sliding_window_total_imu_preintegration_samples",

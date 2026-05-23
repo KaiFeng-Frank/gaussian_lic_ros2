@@ -233,6 +233,8 @@ MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY=uniform
 RENDERED_IMAGE_QOS_RELIABILITY=reliable
 RENDERED_IMAGE_QOS_DURABILITY=transient_local
 RENDERED_IMAGE_QOS_DEPTH=1
+ENABLE_RENDERED_FEEDBACK_CONTRACT=false
+RENDERED_FEEDBACK_TOPIC=/gaussian_lic/rendered_feedback
 VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
@@ -772,6 +774,10 @@ Options:
                                QoS durability for /gaussian_lic/rendered_image feedback: transient_local or volatile. Default: transient_local.
   --rendered-image-qos-depth N
                                QoS keep-last depth for /gaussian_lic/rendered_image feedback. Default: 1.
+  --enable-rendered-feedback-contract
+                               Subscribe tracking to typed /gaussian_lic/rendered_feedback with mapper/source stamps instead of the legacy rendered Image topic.
+  --rendered-feedback-topic TOPIC
+                               Typed rendered-feedback topic. Default: /gaussian_lic/rendered_feedback.
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
@@ -1826,6 +1832,19 @@ while [[ $# -gt 0 ]]; do
       RENDERED_IMAGE_QOS_DEPTH="$2"
       shift 2
       ;;
+    --enable-rendered-feedback-contract)
+      ENABLE_RENDERED_FEEDBACK_CONTRACT=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-rendered-feedback-contract)
+      ENABLE_RENDERED_FEEDBACK_CONTRACT=false
+      shift
+      ;;
+    --rendered-feedback-topic)
+      RENDERED_FEEDBACK_TOPIC="$2"
+      shift 2
+      ;;
     --visual-factor-max-dt-ns)
       VISUAL_FACTOR_MAX_DT_NS="$2"
       shift 2
@@ -2224,6 +2243,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
+  enable_rendered_feedback_contract:="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" \
+  rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
   rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
   rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
   rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
@@ -2442,6 +2463,7 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p require_projected_point_color:="${MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR}" \
     -p zbuffer_projected_points:="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
+    -p rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
     -p rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
     -p rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
     -p rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
@@ -2693,6 +2715,8 @@ SE3_PHOTOMETRIC_POSE_CORRECTION_MAX_DT_NS_REPORT="${SE3_PHOTOMETRIC_POSE_CORRECT
 RENDERED_IMAGE_QOS_RELIABILITY_REPORT="${RENDERED_IMAGE_QOS_RELIABILITY}" \
 RENDERED_IMAGE_QOS_DURABILITY_REPORT="${RENDERED_IMAGE_QOS_DURABILITY}" \
 RENDERED_IMAGE_QOS_DEPTH_REPORT="${RENDERED_IMAGE_QOS_DEPTH}" \
+ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" \
+RENDERED_FEEDBACK_TOPIC_REPORT="${RENDERED_FEEDBACK_TOPIC}" \
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM_REPORT="${MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM}" \
 RENDERED_FRAME_CACHE_SIZE_REPORT="${RENDERED_FRAME_CACHE_SIZE}" \
 OBSERVED_FRAME_CACHE_SIZE_REPORT="${OBSERVED_FRAME_CACHE_SIZE}" \
@@ -2784,6 +2808,10 @@ visual_alignment_score_mode = os.environ["VISUAL_ALIGNMENT_SCORE_MODE_REPORT"]
 visual_alignment_factor_source = os.environ["VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT"]
 visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
 visual_factor_reference_stamp_mode = os.environ["VISUAL_FACTOR_REFERENCE_STAMP_MODE_REPORT"]
+enable_rendered_feedback_contract = (
+    os.environ["ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT"].lower() == "true"
+)
+rendered_feedback_topic = os.environ["RENDERED_FEEDBACK_TOPIC_REPORT"]
 enable_visual_factor_time_interpolation = (
     os.environ["ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT"].lower() == "true"
 )
@@ -3878,6 +3906,11 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
+        "rendered_feedback_contract_enabled",
+        "num_rendered_feedbacks",
+        "last_rendered_feedback_observed_delta_ns",
+        "last_rendered_feedback_pose_delta_ns",
+        "last_rendered_feedback_pointcloud_delta_ns",
         "visual_factor_reference_stamp_mode",
         "visual_watermark_pair_scheduler_enabled",
         "visual_watermark_pair_scheduler_processed_pairs",
@@ -4003,6 +4036,8 @@ report = {
         "rendered_image_qos_reliability": os.environ["RENDERED_IMAGE_QOS_RELIABILITY_REPORT"],
         "rendered_image_qos_durability": os.environ["RENDERED_IMAGE_QOS_DURABILITY_REPORT"],
         "rendered_image_qos_depth": int(os.environ["RENDERED_IMAGE_QOS_DEPTH_REPORT"]),
+        "enable_rendered_feedback_contract": enable_rendered_feedback_contract,
+        "rendered_feedback_topic": rendered_feedback_topic,
         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
         "visual_depth_dilation_px": visual_depth_dilation_px,

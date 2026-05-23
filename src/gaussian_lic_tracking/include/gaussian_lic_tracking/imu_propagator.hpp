@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <optional>
 #include <vector>
 
 #include <Eigen/Core>
@@ -41,6 +42,8 @@ public:
   bool initialized() const { return initialized_; }
   size_t history_size() const { return history_.size(); }
   size_t measurement_history_size() const { return measurement_history_.size(); }
+  std::optional<int64_t> oldest_history_stamp_ns() const;
+  std::optional<int64_t> newest_history_stamp_ns() const;
 
   void set_gravity_w(const Eigen::Vector3d & gravity_w);
   const Eigen::Vector3d & gravity_w() const { return gravity_w_; }
