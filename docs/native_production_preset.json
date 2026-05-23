@@ -34,7 +34,8 @@
     "mapper_feedback_pointcloud_coordinates": "sensor",
     "mapper_feedback_max_depth": 20.0,
     "enable_visual_factor_time_interpolation": false,
-    "enable_visual_cache_reconciliation": false
+    "enable_visual_cache_reconciliation": false,
+    "visual_cache_reconciliation_monotonic_unique": false
   },
   "accepted_evidence": {
     "report": "results/fastlivo2/CBD_Building_01_gaussian_feedback_rate0p25_agree0045_step00265_relrot001_mhrot0005_mhtrans003_max6_full122_probe/native_tracking_report.json",
@@ -229,6 +230,30 @@
       "orphan_factors": 0,
       "numeric_jacobian_blocks": 0,
       "promotion_status": "diagnostic only until full-window observed-dedup evidence preserves visual/SE3 drain, RMSE, and path-drift parity"
+    },
+    {
+      "id": "visual_cache_reconciliation_monotonic_unique_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_monotonic_unique_12s_probe/native_tracking_report.json",
+      "scope": "default-off one-to-one observed/rendered visual-cache pairing smoke",
+      "trajectory_poses": 119,
+      "visual_cache_reconciled_pairs": 14,
+      "visual_cache_reconciled_saturated_pairs": 3,
+      "visual_cache_reconciled_alignment_photometric_fallback_pairs": 0,
+      "visual_cache_reconciled_alignment_photometric_disagreement_pairs": 3,
+      "visual_cache_reconciled_alignment_skipped_pairs": 3,
+      "total_visual_factors": 107,
+      "total_se3_photometric_factors": 110,
+      "visual_pair_processed_count": 110,
+      "visual_pair_duplicate_count": 0,
+      "visual_alignment_interpolated_factors": 8,
+      "visual_se3_photometric_interpolated_factors": 11,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "diagnostic only until full-window monotonic-unique evidence preserves visual/SE3 drain, RMSE, and path-drift parity"
     }
   ],
   "rejected_evidence": [
@@ -273,6 +298,13 @@
       "translation_rmse_m": 1.7265260655876942,
       "path_drift": 0.0635534857997418,
       "reason": "observed-stamp deduplication proves duplicate observed-image consumption was real with 636 rejected duplicates, but it drains only 959/1015 visual and 960/1015 SE3 factors and regresses RMSE/path drift"
+    },
+    {
+      "id": "visual_cache_reconciliation_monotonic_unique_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_monotonic_unique_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.4028713906330033,
+      "path_drift": 0.05359988615441546,
+      "reason": "one-to-one observed/rendered pairing eliminates duplicate visual pairs and reaches the pose drain, but it drains only 966/1015 visual and 972/1015 SE3 factors, leaves bin 7 at 68/68, and regresses RMSE/path drift versus the accepted production preset"
     },
     {
       "id": "confidence_release_0065",

@@ -264,6 +264,8 @@ public:
       declare_parameter<bool>("enable_visual_factor_time_interpolation", false);
     enable_visual_cache_reconciliation_ =
       declare_parameter<bool>("enable_visual_cache_reconciliation", false);
+    visual_cache_reconciliation_monotonic_unique_ =
+      declare_parameter<bool>("visual_cache_reconciliation_monotonic_unique", false);
     visual_depth_max_dt_ns_ = integer_parameter_at_least(
       "visual_depth_max_dt_ns",
       declare_parameter<int64_t>("visual_depth_max_dt_ns", 0LL), 0LL);
@@ -1713,7 +1715,8 @@ private:
       observed.width,
       observed.height,
       &rendered_match_delta_ns,
-      &rendered_cache_had_size_match);
+      &rendered_cache_had_size_match,
+      visual_cache_reconciliation_monotonic_unique_);
     last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
     last_visual_rendered_match_delta_ns_ = rendered_frame == nullptr ? 0 : rendered_match_delta_ns;
     if (rendered_frame == nullptr) {
@@ -1754,7 +1757,8 @@ private:
         rendered.width,
         rendered.height,
         &observed_match_delta_ns,
-        &observed_cache_had_size_match);
+        &observed_cache_had_size_match,
+        enable_visual_cache_reconciliation_);
       last_visual_observed_cache_size_ = observed_frame_cache_.size();
       last_visual_observed_match_delta_ns_ = observed_frame == nullptr ? 0 : observed_match_delta_ns;
       if (observed_frame != nullptr) {
@@ -1783,7 +1787,10 @@ private:
     const bool reconciled_pair)
   {
     if (visual_pair_was_processed(
-        observed.stamp_ns, rendered.stamp_ns, enable_visual_cache_reconciliation_))
+        observed.stamp_ns,
+        rendered.stamp_ns,
+        enable_visual_cache_reconciliation_,
+        visual_cache_reconciliation_monotonic_unique_))
     {
       ++visual_pair_duplicate_count_;
       return;
@@ -4380,15 +4387,23 @@ private:
   bool visual_pair_was_processed(
     const int64_t observed_stamp_ns,
     const int64_t rendered_stamp_ns,
-    const bool collapse_observed_stamp) const
+    const bool collapse_observed_stamp,
+    const bool collapse_rendered_stamp) const
   {
     return std::any_of(
       processed_visual_pairs_.begin(), processed_visual_pairs_.end(),
-      [observed_stamp_ns, rendered_stamp_ns, collapse_observed_stamp](const VisualPairKey & key) {
-        if (key.observed_stamp_ns != observed_stamp_ns) {
-          return false;
+      [observed_stamp_ns, rendered_stamp_ns, collapse_observed_stamp, collapse_rendered_stamp](
+        const VisualPairKey & key)
+      {
+        const bool observed_matches = key.observed_stamp_ns == observed_stamp_ns;
+        const bool rendered_matches = key.rendered_stamp_ns == rendered_stamp_ns;
+        if (collapse_observed_stamp && observed_matches) {
+          return true;
         }
-        return collapse_observed_stamp || key.rendered_stamp_ns == rendered_stamp_ns;
+        if (collapse_rendered_stamp && rendered_matches) {
+          return true;
+        }
+        return observed_matches && rendered_matches;
       });
   }
 
@@ -4426,11 +4441,15 @@ private:
         observed.width,
         observed.height,
         &rendered_match_delta_ns,
-        &rendered_cache_had_size_match);
+        &rendered_cache_had_size_match,
+        visual_cache_reconciliation_monotonic_unique_);
       if (rendered == nullptr) {
         continue;
       }
-      if (visual_pair_was_processed(observed.stamp_ns, rendered->stamp_ns, true)) {
+      if (visual_pair_was_processed(
+          observed.stamp_ns, rendered->stamp_ns, true,
+          visual_cache_reconciliation_monotonic_unique_))
+      {
         continue;
       }
       last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
@@ -4481,13 +4500,20 @@ private:
     const size_t width,
     const size_t height,
     int64_t * selected_delta_ns = nullptr,
-    bool * cache_had_size_match = nullptr) const
+    bool * cache_had_size_match = nullptr,
+    bool require_unprocessed_rendered = false) const
   {
     const gaussian_lic_tracking::VisualFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
     bool had_size_match = false;
     for (const auto & frame : rendered_frame_cache_) {
       if (frame.width != width || frame.height != height) {
+        continue;
+      }
+      if (require_unprocessed_rendered &&
+        visual_pair_was_processed(
+          std::numeric_limits<int64_t>::min(), frame.stamp_ns, false, true))
+      {
         continue;
       }
       had_size_match = true;
@@ -4513,13 +4539,19 @@ private:
     const size_t width,
     const size_t height,
     int64_t * selected_delta_ns = nullptr,
-    bool * cache_had_size_match = nullptr) const
+    bool * cache_had_size_match = nullptr,
+    bool require_unprocessed_observed = false) const
   {
     const gaussian_lic_tracking::VisualFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
     bool had_size_match = false;
     for (const auto & frame : observed_frame_cache_) {
       if (frame.width != width || frame.height != height) {
+        continue;
+      }
+      if (require_unprocessed_observed &&
+        visual_pair_was_processed(frame.stamp_ns, std::numeric_limits<int64_t>::min(), true, false))
+      {
         continue;
       }
       had_size_match = true;
@@ -6009,6 +6041,7 @@ private:
   int64_t visual_factor_max_dt_ns_{150000000LL};
   bool enable_visual_factor_time_interpolation_{false};
   bool enable_visual_cache_reconciliation_{false};
+  bool visual_cache_reconciliation_monotonic_unique_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
   int depth_frame_cache_size_{8};
   int sparse_lidar_depth_dilation_px_{1};

@@ -93,6 +93,9 @@ def generate_launch_description():
         "enable_visual_factor_time_interpolation"
     )
     enable_visual_cache_reconciliation = LaunchConfiguration("enable_visual_cache_reconciliation")
+    visual_cache_reconciliation_monotonic_unique = LaunchConfiguration(
+        "visual_cache_reconciliation_monotonic_unique"
+    )
     visual_depth_max_dt_ns = LaunchConfiguration("visual_depth_max_dt_ns")
     depth_frame_cache_size = LaunchConfiguration("depth_frame_cache_size")
     sparse_lidar_depth_dilation_px = LaunchConfiguration("sparse_lidar_depth_dilation_px")
@@ -555,6 +558,7 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_factor_max_dt_ns", default_value="150000000"),
             DeclareLaunchArgument("enable_visual_factor_time_interpolation", default_value="false"),
             DeclareLaunchArgument("enable_visual_cache_reconciliation", default_value="false"),
+            DeclareLaunchArgument("visual_cache_reconciliation_monotonic_unique", default_value="false"),
             DeclareLaunchArgument("visual_depth_max_dt_ns", default_value="0"),
             DeclareLaunchArgument("depth_frame_cache_size", default_value="8"),
             DeclareLaunchArgument("sparse_lidar_depth_dilation_px", default_value="1"),
@@ -872,6 +876,9 @@ def generate_launch_description():
                         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
                         "enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation,
                         "enable_visual_cache_reconciliation": enable_visual_cache_reconciliation,
+                        "visual_cache_reconciliation_monotonic_unique": (
+                            visual_cache_reconciliation_monotonic_unique
+                        ),
                         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
                         "depth_frame_cache_size": depth_frame_cache_size,
                         "sparse_lidar_depth_dilation_px": sparse_lidar_depth_dilation_px,

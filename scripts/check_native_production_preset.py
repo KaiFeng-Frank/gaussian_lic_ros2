@@ -143,6 +143,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_CACHE_RECONCILIATION": (
             preset["enable_visual_cache_reconciliation"]
         ),
+        "ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE": (
+            preset["visual_cache_reconciliation_monotonic_unique"]
+        ),
     }
     for name, value in expected_assignments.items():
         require_assignment(script, name, value, errors)
@@ -176,6 +179,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "enable_visual_factor_time_interpolation",
         "--enable-visual-cache-reconciliation",
         "enable_visual_cache_reconciliation",
+        "--enable-visual-cache-reconciliation-monotonic-unique",
+        "visual_cache_reconciliation_monotonic_unique",
         "--enable-sliding-window-relative-distance-factor",
         "sliding_window_relative_distance_weight",
         "--enable-sliding-window-multihop-relative-distance-factor",
