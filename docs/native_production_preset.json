@@ -147,6 +147,26 @@
       "orphan_factors": 0,
       "numeric_jacobian_blocks": 0,
       "promotion_status": "not promoted: full-window factor continuity improves, but RMSE and path drift regress versus accepted production preset"
+    },
+    {
+      "id": "visual_cache_reconciliation_skip_saturated_12s",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_skip_saturated_12s_probe/native_tracking_report.json",
+      "scope": "default-off reconciled-pair provenance guard smoke",
+      "trajectory_poses": 95,
+      "visual_cache_reconciled_pairs": 103,
+      "visual_cache_reconciled_saturated_pairs": 1,
+      "visual_cache_reconciled_alignment_skipped_pairs": 1,
+      "total_visual_factors": 195,
+      "total_se3_photometric_factors": 196,
+      "visual_alignment_interpolated_factors": 39,
+      "visual_se3_photometric_interpolated_factors": 40,
+      "visual_alignment_pending_stale_drops": 0,
+      "visual_se3_photometric_pending_stale_drops": 0,
+      "dense_prior_rank": 180,
+      "dense_prior_cols": 180,
+      "orphan_factors": 0,
+      "numeric_jacobian_blocks": 0,
+      "promotion_status": "diagnostic only until full-window visual support and RMSE evidence beat the accepted production preset"
     }
   ],
   "rejected_evidence": [
@@ -163,6 +183,13 @@
       "translation_rmse_m": 2.484233342438434,
       "path_drift": 0.0447681355350525,
       "reason": "bulk cache backfill reaches 1085/1015 visual and SE3 factors, but creates 43 visual-alignment pending stale drops and regresses RMSE"
+    },
+    {
+      "id": "visual_cache_reconciliation_skip_saturated_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_cache_reconcile_skip_saturated_full122_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.8686811190277848,
+      "path_drift": 0.02533378314891025,
+      "reason": "skipping saturated 2D visual alignment on reconciled pairs improves path drift and keeps 1107 SE3 factors, but underfeeds visual alignment at 761/1015 and still regresses RMSE"
     },
     {
       "id": "confidence_release_0065",

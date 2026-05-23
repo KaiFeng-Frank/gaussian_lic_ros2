@@ -1726,7 +1726,7 @@ private:
       }
     }
     if (rendered_frame != nullptr) {
-      process_visual_pair(*rendered_frame, observed);
+      process_visual_pair(*rendered_frame, observed, false);
     }
     reconcile_visual_frame_caches();
   }
@@ -1760,7 +1760,7 @@ private:
       if (observed_frame != nullptr) {
         last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
         last_visual_rendered_match_delta_ns_ = observed_match_delta_ns;
-        process_visual_pair(rendered, *observed_frame);
+        process_visual_pair(rendered, *observed_frame, false);
       } else if (observed_frame_cache_.empty()) {
         ++visual_observed_miss_count_;
       } else if (!observed_cache_had_size_match) {
@@ -1779,7 +1779,8 @@ private:
 
   void process_visual_pair(
     const gaussian_lic_tracking::VisualFrame & rendered,
-    const gaussian_lic_tracking::VisualFrame & observed)
+    const gaussian_lic_tracking::VisualFrame & observed,
+    const bool reconciled_pair)
   {
     if (visual_pair_was_processed(observed.stamp_ns, rendered.stamp_ns)) {
       ++visual_pair_duplicate_count_;
@@ -1803,6 +1804,9 @@ private:
       visual_alignment_effective_weight(last_visual_alignment_);
     if (last_visual_alignment_saturated_) {
       ++visual_alignment_saturated_count_;
+      if (reconciled_pair) {
+        ++visual_cache_reconciled_saturated_pairs_;
+      }
     }
     last_visual_photometric_linearization_ =
       visual_factor_.linearize_translation(rendered, observed);
@@ -1881,13 +1885,17 @@ private:
     }
     const auto window_alignment = visual_alignment_for_window_factor();
     if (window_alignment.has_value()) {
-      PendingVisualAlignmentFactor pending;
-      pending.stamp_ns = observed.stamp_ns;
-      pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
-      pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
-      pending.alignment = window_alignment.value();
-      pending_visual_alignment_factors_.push_back(std::move(pending));
-      trim_pending_visual_factor_queues();
+      if (reconciled_pair && visual_alignment_is_saturated(window_alignment.value())) {
+        ++visual_cache_reconciled_alignment_skipped_pairs_;
+      } else {
+        PendingVisualAlignmentFactor pending;
+        pending.stamp_ns = observed.stamp_ns;
+        pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
+        pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
+        pending.alignment = window_alignment.value();
+        pending_visual_alignment_factors_.push_back(std::move(pending));
+        trim_pending_visual_factor_queues();
+      }
     }
     if (last_visual_residual_.valid) {
       RCLCPP_DEBUG_THROTTLE(
@@ -4384,7 +4392,7 @@ private:
       }
       last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
       last_visual_rendered_match_delta_ns_ = rendered_match_delta_ns;
-      process_visual_pair(*rendered, observed);
+      process_visual_pair(*rendered, observed, true);
       ++visual_cache_reconciled_pairs_;
       ++reconciled;
       if (reconciled >= kMaxReconciledPairsPerCallback) {
@@ -5756,6 +5764,10 @@ private:
     status.visual_se3_photometric_interpolated_factors =
       visual_se3_photometric_interpolated_factor_count_;
     status.visual_cache_reconciled_pairs = visual_cache_reconciled_pairs_;
+    status.visual_cache_reconciled_saturated_pairs =
+      visual_cache_reconciled_saturated_pairs_;
+    status.visual_cache_reconciled_alignment_skipped_pairs =
+      visual_cache_reconciled_alignment_skipped_pairs_;
     status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
     status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
     status.visual_rendered_miss_count = visual_rendered_miss_count_;
@@ -6333,6 +6345,8 @@ private:
   uint64_t visual_alignment_interpolated_factor_count_{0};
   uint64_t visual_se3_photometric_interpolated_factor_count_{0};
   uint64_t visual_cache_reconciled_pairs_{0};
+  uint64_t visual_cache_reconciled_saturated_pairs_{0};
+  uint64_t visual_cache_reconciled_alignment_skipped_pairs_{0};
   uint64_t visual_pair_processed_count_{0};
   uint64_t visual_pair_duplicate_count_{0};
   uint64_t visual_alignment_saturated_count_{0};
