@@ -138,9 +138,23 @@
           "visual_alignment_expired_projected_factors": 64,
           "translation_rmse_m": 1.7664462174671252,
           "path_drift": 0.08015408056259507
+        },
+        {
+          "mode": "rendered_source_image_expired_projection_oldest_active",
+          "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_image_expired_projection_oldest_active_full122_drain1015_probe/native_tracking_report.json",
+          "matched_poses": 1174,
+          "coverage": 0.9536961819658814,
+          "total_visual_factors": 1013,
+          "total_se3_photometric_factors": 1013,
+          "visual_alignment_pending_stale_drops": 0,
+          "visual_se3_photometric_pending_stale_drops": 0,
+          "visual_alignment_expired_projected_factors": 37,
+          "visual_se3_photometric_expired_projected_factors": 37,
+          "translation_rmse_m": 1.460892673932431,
+          "path_drift": 0.04972250370143607
         }
       ],
-      "promotion_status": "not promoted: source-stamp modes still under-drain, and expired projection restores factor count but worsens trajectory shape versus the accepted production preset"
+      "promotion_status": "not promoted: source-stamp modes still under-drain, latest-pose expired projection restores factor count but worsens trajectory shape, and oldest-active expired projection fixes the worst drift regression but still misses the drain target and does not beat accepted-preset RMSE"
     },
     {
       "id": "visual_factor_time_interpolation_12s",
@@ -652,7 +666,7 @@
         {
             "id": "visual_expired_projection_depth64_full122",
             "report": "results/fastlivo2/CBD_Building_01_visual_expired_projection_depth64_full122_drain1015_probe/native_tracking_report.json",
-            "scope": "default-off projection of out-of-sequence rendered-feedback factors onto the current active state",
+            "scope": "historical default-off projection of out-of-sequence rendered-feedback factors; the implementation now anchors future expired projections to the oldest retained active state instead of the newest pose",
             "matched_poses": 1174,
             "coverage": 0.9536961819658814,
             "translation_rmse_m": 1.2369992798470641,

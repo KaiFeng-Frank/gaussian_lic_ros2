@@ -2236,6 +2236,26 @@ private:
     return age_s <= visual_expired_factor_projection_max_age_s_;
   }
 
+  gaussian_lic_tracking::TrajectoryPose expired_visual_projection_reference_pose(
+    const gaussian_lic_tracking::TrajectoryPose & current_pose) const
+  {
+    const auto & states = sliding_window_optimizer_.states();
+    if (states.empty()) {
+      return current_pose;
+    }
+
+    // Late rendered-feedback factors belong to source time. Once the source state
+    // has left the active window, keep the diagnostic projection at the oldest
+    // retained state instead of anchoring it to the newest tracking pose.
+    const auto & oldest = states.front();
+    gaussian_lic_tracking::TrajectoryPose reference_pose;
+    reference_pose.stamp_ns = oldest.stamp_ns;
+    reference_pose.p_w_i = oldest.p_w_i;
+    reference_pose.q_w_i = oldest.q_w_i.normalized();
+    reference_pose.v_w_i = oldest.v_w_i;
+    return reference_pose;
+  }
+
   std::optional<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor>
   make_projected_expired_visual_factor(
     const PendingVisualAlignmentFactor & pending,
@@ -2372,8 +2392,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
-              make_projected_expired_visual_factor(pending, tracking_pose);
+              make_projected_expired_visual_factor(pending, projection_reference);
             if (projected.has_value()) {
               try {
                 sliding_window_optimizer_.add_visual_alignment_factor(projected.value());
@@ -2433,8 +2454,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
-              make_projected_expired_se3_factor(pending, tracking_pose);
+              make_projected_expired_se3_factor(pending, projection_reference);
             if (projected.has_value()) {
               try {
                 sliding_window_optimizer_.add_se3_photometric_factor(projected.value());
@@ -2957,8 +2979,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
-              make_projected_expired_visual_factor(pending, tracking_pose);
+              make_projected_expired_visual_factor(pending, projection_reference);
             if (projected.has_value()) {
               add_visual_window_factor(projected.value(), visual_alignment_candidate_score(pending));
               ++visual_alignment_expired_projected_factors_;
@@ -2999,8 +3022,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
-              make_projected_expired_se3_factor(pending, tracking_pose);
+              make_projected_expired_se3_factor(pending, projection_reference);
             if (projected.has_value()) {
               add_se3_photometric_factor(projected.value(), se3_photometric_candidate_score(pending));
               ++visual_se3_photometric_expired_projected_factors_;
