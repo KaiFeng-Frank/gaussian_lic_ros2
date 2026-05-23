@@ -157,6 +157,8 @@ ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
 ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
+ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER=false
+VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD=2
 ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
 ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=false
 VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES=4
@@ -652,6 +654,12 @@ Options:
                                Consume each observed and rendered stamp at most once across direct and reconciled visual pairs.
   --disable-visual-pair-monotonic-unique
                                Allow direct visual pairs to reuse observed/rendered stamps when exact pair keys differ.
+  --enable-visual-watermark-pair-scheduler
+                               Cache image/render callbacks and process deterministic observed/rendered pairs up to each point-cloud stamp.
+  --disable-visual-watermark-pair-scheduler
+                               Keep legacy callback-time visual pair processing.
+  --visual-watermark-pair-scheduler-max-pairs-per-pointcloud N
+                               Maximum watermark-scheduled visual pairs consumed per point-cloud callback. Default: 2.
   --enable-visual-cache-reconciliation-defer-to-pointcloud
                                Run cache reconciliation from point-cloud callbacks instead of image/render callbacks.
   --disable-visual-cache-reconciliation-defer-to-pointcloud
@@ -1506,6 +1514,19 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
       shift
       ;;
+    --enable-visual-watermark-pair-scheduler)
+      ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-watermark-pair-scheduler)
+      ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER=false
+      shift
+      ;;
+    --visual-watermark-pair-scheduler-max-pairs-per-pointcloud)
+      VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD="$2"
+      shift 2
+      ;;
     --enable-visual-callback-factor-ingest)
       ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=true
       ENABLE_VISUAL_FACTORS=true
@@ -2213,6 +2234,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_cache_reconciliation:="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
   visual_cache_reconciliation_monotonic_unique:="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
   visual_pair_monotonic_unique:="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
+  enable_visual_watermark_pair_scheduler:="${ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER}" \
+  visual_watermark_pair_scheduler_max_pairs_per_pointcloud:="${VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD}" \
   enable_visual_callback_factor_ingest:="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
   enable_visual_adaptive_state_retention:="${ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION}" \
   visual_adaptive_state_retention_margin_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
@@ -2682,6 +2705,8 @@ ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTE
 ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
 ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
+ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER_REPORT="${ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER}" \
+VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD_REPORT="${VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD}" \
 ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
 ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION_REPORT="${ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION}" \
 VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
@@ -2770,6 +2795,12 @@ visual_cache_reconciliation_monotonic_unique = (
 )
 visual_pair_monotonic_unique = (
     os.environ["ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT"].lower() == "true"
+)
+enable_visual_watermark_pair_scheduler = (
+    os.environ["ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER_REPORT"].lower() == "true"
+)
+visual_watermark_pair_scheduler_max_pairs_per_pointcloud = int(
+    os.environ["VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD_REPORT"]
 )
 enable_visual_callback_factor_ingest = (
     os.environ["ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT"].lower() == "true"
@@ -3848,6 +3879,9 @@ if enable_visual_factors:
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
         "visual_factor_reference_stamp_mode",
+        "visual_watermark_pair_scheduler_enabled",
+        "visual_watermark_pair_scheduler_processed_pairs",
+        "visual_watermark_pair_scheduler_deferred_pairs",
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
@@ -3985,6 +4019,10 @@ report = {
             visual_cache_reconciliation_monotonic_unique
         ),
         "visual_pair_monotonic_unique": visual_pair_monotonic_unique,
+        "enable_visual_watermark_pair_scheduler": enable_visual_watermark_pair_scheduler,
+        "visual_watermark_pair_scheduler_max_pairs_per_pointcloud": (
+            visual_watermark_pair_scheduler_max_pairs_per_pointcloud
+        ),
         "enable_visual_callback_factor_ingest": enable_visual_callback_factor_ingest,
         "enable_visual_adaptive_state_retention": enable_visual_adaptive_state_retention,
         "visual_adaptive_state_retention_margin_states": (

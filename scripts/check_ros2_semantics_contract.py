@@ -189,6 +189,8 @@ def main() -> int:
         "visual_alignment_factor_source",
         "visual_factor_source_id_mode",
         "visual_factor_reference_stamp_mode",
+        "enable_visual_watermark_pair_scheduler",
+        "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -463,6 +465,9 @@ def main() -> int:
         "visual_factor_time_interpolation_enabled",
         "visual_cache_reconciliation_enabled",
         "visual_pair_monotonic_unique_enabled",
+        "visual_watermark_pair_scheduler_enabled",
+        "visual_watermark_pair_scheduler_processed_pairs",
+        "visual_watermark_pair_scheduler_deferred_pairs",
         "visual_callback_factor_ingest_enabled",
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
@@ -489,6 +494,8 @@ def main() -> int:
         errors.append("tracking_node must attach delayed visual factors to active window states")
     if 'declare_parameter<bool>("visual_pair_monotonic_unique", false)' not in tracking_node_text:
         errors.append("tracking_node must expose direct visual-pair one-to-one semantics as default-off")
+    if 'declare_parameter<bool>("enable_visual_watermark_pair_scheduler", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose deterministic visual watermark pair scheduling as default-off")
     if 'declare_parameter<bool>("enable_visual_callback_factor_ingest", false)' not in tracking_node_text:
         errors.append("tracking_node must expose callback-time visual factor ingestion as default-off")
     if 'declare_parameter<bool>("enable_visual_adaptive_state_retention", false)' not in tracking_node_text:
@@ -497,6 +504,8 @@ def main() -> int:
         errors.append("tracking_node must expose expired visual factor projection as default-off")
     if 'DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose direct visual-pair one-to-one semantics")
+    if 'DeclareLaunchArgument("enable_visual_watermark_pair_scheduler", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose deterministic visual watermark pair scheduling")
     if 'DeclareLaunchArgument("enable_visual_callback_factor_ingest", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose callback-time visual factor ingestion")
     if 'DeclareLaunchArgument("enable_visual_adaptive_state_retention", default_value="false")' not in tracking_launch_text:
@@ -505,6 +514,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose expired visual factor projection")
     if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
         errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
+    if "--enable-visual-watermark-pair-scheduler" not in native_tracking_report_text:
+        errors.append("native tracking report must expose deterministic visual watermark pair scheduling")
     if "--enable-visual-callback-factor-ingest" not in native_tracking_report_text:
         errors.append("native tracking report must expose callback-time visual factor ingestion")
     if "--enable-visual-adaptive-state-retention" not in native_tracking_report_text:

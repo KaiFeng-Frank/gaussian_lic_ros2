@@ -290,6 +290,11 @@ public:
       declare_parameter<bool>("visual_cache_reconciliation_monotonic_unique", false);
     visual_pair_monotonic_unique_ =
       declare_parameter<bool>("visual_pair_monotonic_unique", false);
+    enable_visual_watermark_pair_scheduler_ =
+      declare_parameter<bool>("enable_visual_watermark_pair_scheduler", false);
+    visual_watermark_pair_scheduler_max_pairs_per_pointcloud_ = integer_parameter_at_least(
+      "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
+      declare_parameter<int>("visual_watermark_pair_scheduler_max_pairs_per_pointcloud", 2), 1);
     enable_visual_callback_factor_ingest_ =
       declare_parameter<bool>("enable_visual_callback_factor_ingest", false);
     enable_visual_adaptive_state_retention_ =
@@ -1784,11 +1789,14 @@ private:
         ++visual_rendered_stale_count_;
       }
     }
-    if (rendered_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_) {
+    if (rendered_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_ &&
+      !enable_visual_watermark_pair_scheduler_)
+    {
       process_visual_pair(*rendered_frame, observed, false);
     }
     if (!visual_cache_reconciliation_defer_to_pointcloud_ &&
-      !visual_pair_processing_defer_to_pointcloud_)
+      !visual_pair_processing_defer_to_pointcloud_ &&
+      !enable_visual_watermark_pair_scheduler_)
     {
       reconcile_visual_frame_caches();
     }
@@ -1827,7 +1835,9 @@ private:
       last_visual_observed_match_delta_ns_ = observed_frame == nullptr ? 0 : observed_match_delta_ns;
       last_visual_observed_nearest_delta_ns_ = observed_nearest_delta_ns;
       last_visual_observed_nearest_signed_delta_ns_ = observed_nearest_signed_delta_ns;
-      if (observed_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_) {
+      if (observed_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_ &&
+        !enable_visual_watermark_pair_scheduler_)
+      {
         last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
         last_visual_rendered_match_delta_ns_ = observed_match_delta_ns;
         process_visual_pair(rendered, *observed_frame, false);
@@ -1839,7 +1849,8 @@ private:
         ++visual_observed_stale_count_;
       }
       if (!visual_cache_reconciliation_defer_to_pointcloud_ &&
-        !visual_pair_processing_defer_to_pointcloud_)
+        !visual_pair_processing_defer_to_pointcloud_ &&
+        !enable_visual_watermark_pair_scheduler_)
       {
         reconcile_visual_frame_caches();
       }
@@ -2747,7 +2758,9 @@ private:
     std::vector<double> se3_photometric_factor_scores;
     const bool quality_selection_active =
       visual_factor_quality_selection_is_active(tracking_pose.stamp_ns);
-    if (visual_cache_reconciliation_defer_to_pointcloud_ ||
+    if (enable_visual_watermark_pair_scheduler_) {
+      process_visual_pairs_up_to_watermark(tracking_pose.stamp_ns);
+    } else if (visual_cache_reconciliation_defer_to_pointcloud_ ||
       visual_pair_processing_defer_to_pointcloud_)
     {
       reconcile_visual_frame_caches(tracking_pose.stamp_ns);
@@ -4843,6 +4856,75 @@ private:
     }
   }
 
+  void process_visual_pairs_up_to_watermark(const int64_t watermark_stamp_ns)
+  {
+    if (!enable_visual_watermark_pair_scheduler_ || !enable_visual_factor_ ||
+      rendered_frame_cache_.empty() || observed_frame_cache_.empty())
+    {
+      return;
+    }
+
+    size_t processed_this_call = 0U;
+    const size_t max_pairs =
+      static_cast<size_t>(visual_watermark_pair_scheduler_max_pairs_per_pointcloud_);
+    while (processed_this_call < max_pairs) {
+      const gaussian_lic_tracking::VisualFrame * selected_observed = nullptr;
+      const gaussian_lic_tracking::VisualFrame * selected_rendered = nullptr;
+      int64_t selected_rendered_match_delta_ns = 0;
+      int64_t selected_rendered_nearest_delta_ns = 0;
+      int64_t selected_rendered_nearest_signed_delta_ns = 0;
+
+      for (const auto & observed : observed_frame_cache_) {
+        if (observed.stamp_ns > watermark_stamp_ns) {
+          ++visual_watermark_pair_scheduler_deferred_pairs_;
+          break;
+        }
+        if (visual_factor_stamp_is_expired(observed.stamp_ns, watermark_stamp_ns)) {
+          continue;
+        }
+        if (visual_pair_was_processed(
+            observed.stamp_ns, std::numeric_limits<int64_t>::min(), true, false))
+        {
+          continue;
+        }
+        bool rendered_cache_had_size_match = false;
+        const auto * rendered = select_rendered_frame_for_stamp(
+          observed.stamp_ns,
+          observed.width,
+          observed.height,
+          &selected_rendered_match_delta_ns,
+          &rendered_cache_had_size_match,
+          true,
+          &selected_rendered_nearest_delta_ns,
+          &selected_rendered_nearest_signed_delta_ns,
+          watermark_stamp_ns);
+        last_visual_rendered_nearest_delta_ns_ = selected_rendered_nearest_delta_ns;
+        last_visual_rendered_nearest_signed_delta_ns_ =
+          selected_rendered_nearest_signed_delta_ns;
+        if (rendered == nullptr) {
+          ++visual_watermark_pair_scheduler_deferred_pairs_;
+          continue;
+        }
+        if (visual_pair_was_processed(observed.stamp_ns, rendered->stamp_ns, true, true)) {
+          continue;
+        }
+        selected_observed = &observed;
+        selected_rendered = rendered;
+        break;
+      }
+
+      if (selected_observed == nullptr || selected_rendered == nullptr) {
+        return;
+      }
+      last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
+      last_visual_rendered_match_delta_ns_ = selected_rendered_match_delta_ns;
+      process_visual_pair(*selected_rendered, *selected_observed, true);
+      ++visual_cache_reconciled_pairs_;
+      ++visual_watermark_pair_scheduler_processed_pairs_;
+      ++processed_this_call;
+    }
+  }
+
   const DepthFrame * select_depth_frame_for_stamp(
     const int64_t image_stamp_ns,
     const size_t width,
@@ -4883,7 +4965,8 @@ private:
     bool * cache_had_size_match = nullptr,
     bool require_unprocessed_rendered = false,
     int64_t * nearest_delta_ns = nullptr,
-    int64_t * nearest_signed_delta_ns = nullptr) const
+    int64_t * nearest_signed_delta_ns = nullptr,
+    std::optional<int64_t> max_rendered_stamp_ns = std::nullopt) const
   {
     const gaussian_lic_tracking::VisualFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
@@ -4891,6 +4974,9 @@ private:
     int64_t nearest_signed_delta = 0;
     bool had_size_match = false;
     for (const auto & frame : rendered_frame_cache_) {
+      if (max_rendered_stamp_ns.has_value() && frame.stamp_ns > max_rendered_stamp_ns.value()) {
+        continue;
+      }
       if (frame.width != width || frame.height != height) {
         continue;
       }
@@ -6259,6 +6345,11 @@ private:
     status.visual_factor_time_interpolation_enabled = enable_visual_factor_time_interpolation_;
     status.visual_cache_reconciliation_enabled = enable_visual_cache_reconciliation_;
     status.visual_pair_monotonic_unique_enabled = visual_pair_monotonic_unique_;
+    status.visual_watermark_pair_scheduler_enabled = enable_visual_watermark_pair_scheduler_;
+    status.visual_watermark_pair_scheduler_processed_pairs =
+      visual_watermark_pair_scheduler_processed_pairs_;
+    status.visual_watermark_pair_scheduler_deferred_pairs =
+      visual_watermark_pair_scheduler_deferred_pairs_;
     status.visual_callback_factor_ingest_enabled = enable_visual_callback_factor_ingest_;
     status.visual_adaptive_state_retention_enabled =
       enable_visual_adaptive_state_retention_;
@@ -6492,6 +6583,8 @@ private:
   bool enable_visual_cache_reconciliation_{false};
   bool visual_cache_reconciliation_monotonic_unique_{false};
   bool visual_pair_monotonic_unique_{false};
+  bool enable_visual_watermark_pair_scheduler_{false};
+  int visual_watermark_pair_scheduler_max_pairs_per_pointcloud_{2};
   bool enable_visual_callback_factor_ingest_{false};
   bool enable_visual_adaptive_state_retention_{false};
   int visual_adaptive_state_retention_margin_states_{4};
@@ -6907,6 +7000,8 @@ private:
   uint64_t visual_cache_reconciled_alignment_photometric_disagreement_pairs_{0};
   uint64_t visual_pair_processed_count_{0};
   uint64_t visual_pair_duplicate_count_{0};
+  uint64_t visual_watermark_pair_scheduler_processed_pairs_{0};
+  uint64_t visual_watermark_pair_scheduler_deferred_pairs_{0};
   uint64_t visual_alignment_saturated_count_{0};
   uint64_t visual_se3_photometric_total_batches_{0};
   uint64_t visual_se3_photometric_valid_batches_{0};

@@ -150,6 +150,12 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE": (
             preset["visual_pair_monotonic_unique"]
         ),
+        "ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER": (
+            preset["enable_visual_watermark_pair_scheduler"]
+        ),
+        "VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD": (
+            preset["visual_watermark_pair_scheduler_max_pairs_per_pointcloud"]
+        ),
         "ENABLE_VISUAL_CALLBACK_FACTOR_INGEST": (
             preset["enable_visual_callback_factor_ingest"]
         ),
@@ -213,6 +219,10 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_cache_reconciliation_monotonic_unique",
         "--enable-visual-pair-monotonic-unique",
         "visual_pair_monotonic_unique",
+        "--enable-visual-watermark-pair-scheduler",
+        "enable_visual_watermark_pair_scheduler",
+        "--visual-watermark-pair-scheduler-max-pairs-per-pointcloud",
+        "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
         "--enable-visual-callback-factor-ingest",
         "enable_visual_callback_factor_ingest",
         "--enable-visual-adaptive-state-retention",
@@ -354,6 +364,11 @@ def check_report_gate_config(
             ):
                 continue
             if key == "visual_factor_reference_stamp_mode" and wanted == "observed":
+                continue
+            if (
+                key == "visual_watermark_pair_scheduler_max_pairs_per_pointcloud"
+                and not bool(gate_config.get("enable_visual_watermark_pair_scheduler", False))
+            ):
                 continue
             if equivalent_gate_config_value(None, wanted):
                 continue
