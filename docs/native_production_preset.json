@@ -385,6 +385,20 @@
                 6
             ],
             "promotion_status": "diagnostic baseline; late-window bias concentration remains the next structural frontend target"
+        },
+        {
+            "id": "dense_prior_bias_observability_12s",
+            "report": "results/fastlivo2/CBD_Building_01_dense_prior_bias_observability_12s_probe/native_tracking_report.json",
+            "scope": "dense-prior gyro/accel bias sub-block singular-value reporting smoke",
+            "status_bin_count": 8,
+            "binned_summary_finalized": true,
+            "last_dense_prior_gyro_bias_min_singular_value": 6.635873198580554,
+            "last_dense_prior_gyro_bias_max_singular_value": 26.452164103374017,
+            "last_dense_prior_accel_bias_min_singular_value": 6.635873198580549,
+            "last_dense_prior_accel_bias_max_singular_value": 26.451589956097393,
+            "max_dense_prior_gyro_bias_max_singular_value": 26.6432293886958,
+            "max_dense_prior_accel_bias_max_singular_value": 26.64270764315996,
+            "promotion_status": "reporting support; proves short-window dense marginalization retains bias sub-block information"
         }
     ],
     "rejected_evidence": [

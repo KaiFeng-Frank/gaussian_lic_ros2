@@ -261,6 +261,10 @@ struct SlidingWindowSummary
   double last_damping{0.0};
   double dense_prior_min_singular_value{0.0};
   double dense_prior_max_singular_value{0.0};
+  double dense_prior_gyro_bias_min_singular_value{0.0};
+  double dense_prior_gyro_bias_max_singular_value{0.0};
+  double dense_prior_accel_bias_min_singular_value{0.0};
+  double dense_prior_accel_bias_max_singular_value{0.0};
   double min_state_dt_s{0.0};
   double max_state_dt_s{0.0};
   double normal_equation_min_singular_value{0.0};

@@ -2648,7 +2648,36 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
       summary.dense_prior_rank = 0U;
       summary.dense_prior_min_singular_value = 0.0;
       summary.dense_prior_max_singular_value = 0.0;
+      summary.dense_prior_gyro_bias_min_singular_value = 0.0;
+      summary.dense_prior_gyro_bias_max_singular_value = 0.0;
+      summary.dense_prior_accel_bias_min_singular_value = 0.0;
+      summary.dense_prior_accel_bias_max_singular_value = 0.0;
       double min_positive = std::numeric_limits<double>::infinity();
+      double gyro_bias_min_positive = std::numeric_limits<double>::infinity();
+      double accel_bias_min_positive = std::numeric_limits<double>::infinity();
+      auto update_block_singular_summary = [](
+          const Eigen::MatrixXd & block,
+          double & min_positive_block,
+          double & max_singular_block) {
+          if (block.rows() == 0 || block.cols() == 0 || !block.allFinite()) {
+            return;
+          }
+          const Eigen::JacobiSVD<Eigen::MatrixXd> block_svd(block);
+          if (block_svd.info() != Eigen::Success || block_svd.singularValues().size() == 0) {
+            return;
+          }
+          const double max_singular = std::max(0.0, block_svd.singularValues().maxCoeff());
+          const double threshold = static_cast<double>(
+            std::max(block.rows(), block.cols())) *
+            std::numeric_limits<double>::epsilon() * std::max(max_singular, 1.0);
+          max_singular_block = std::max(max_singular_block, max_singular);
+          for (Eigen::Index i = 0; i < block_svd.singularValues().size(); ++i) {
+            const double singular = block_svd.singularValues()[i];
+            if (singular > threshold) {
+              min_positive_block = std::min(min_positive_block, singular);
+            }
+          }
+        };
       for (const auto & prior : dense_priors_) {
         if (prior.sqrt_information.rows() == 0 || prior.sqrt_information.cols() == 0 ||
           !prior.sqrt_information.allFinite())
@@ -2674,9 +2703,32 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
             min_positive = std::min(min_positive, singular);
           }
         }
+        const Eigen::Index rows = prior.sqrt_information.rows();
+        for (size_t state_index = 0U; state_index < prior.stamp_ns.size(); ++state_index) {
+          const Eigen::Index gyro_offset = static_cast<Eigen::Index>(state_index * kStateDof + 9U);
+          const Eigen::Index accel_offset =
+            static_cast<Eigen::Index>(state_index * kStateDof + 12U);
+          if (accel_offset + 3 > prior.sqrt_information.cols()) {
+            break;
+          }
+          update_block_singular_summary(
+            prior.sqrt_information.block(0, gyro_offset, rows, 3),
+            gyro_bias_min_positive,
+            summary.dense_prior_gyro_bias_max_singular_value);
+          update_block_singular_summary(
+            prior.sqrt_information.block(0, accel_offset, rows, 3),
+            accel_bias_min_positive,
+            summary.dense_prior_accel_bias_max_singular_value);
+        }
       }
       if (std::isfinite(min_positive)) {
         summary.dense_prior_min_singular_value = min_positive;
+      }
+      if (std::isfinite(gyro_bias_min_positive)) {
+        summary.dense_prior_gyro_bias_min_singular_value = gyro_bias_min_positive;
+      }
+      if (std::isfinite(accel_bias_min_positive)) {
+        summary.dense_prior_accel_bias_min_singular_value = accel_bias_min_positive;
       }
     };
   auto refresh_bias_summary = [&summary, this, &variables](

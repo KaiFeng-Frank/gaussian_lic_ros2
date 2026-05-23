@@ -5791,6 +5791,14 @@ private:
     status.sliding_window_last_damping = summary.last_damping;
     status.sliding_window_dense_prior_min_singular_value = summary.dense_prior_min_singular_value;
     status.sliding_window_dense_prior_max_singular_value = summary.dense_prior_max_singular_value;
+    status.sliding_window_dense_prior_gyro_bias_min_singular_value =
+      summary.dense_prior_gyro_bias_min_singular_value;
+    status.sliding_window_dense_prior_gyro_bias_max_singular_value =
+      summary.dense_prior_gyro_bias_max_singular_value;
+    status.sliding_window_dense_prior_accel_bias_min_singular_value =
+      summary.dense_prior_accel_bias_min_singular_value;
+    status.sliding_window_dense_prior_accel_bias_max_singular_value =
+      summary.dense_prior_accel_bias_max_singular_value;
     status.sliding_window_min_state_dt_s = summary.min_state_dt_s;
     status.sliding_window_max_state_dt_s = summary.max_state_dt_s;
     status.sliding_window_normal_equation_min_singular_value =

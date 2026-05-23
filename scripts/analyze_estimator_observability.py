@@ -36,6 +36,10 @@ ESTIMATOR_OBSERVABILITY_VALUE_FIELDS = (
     "sliding_window_normal_equation_condition_number",
     "sliding_window_dense_prior_min_singular_value",
     "sliding_window_dense_prior_max_singular_value",
+    "sliding_window_dense_prior_gyro_bias_min_singular_value",
+    "sliding_window_dense_prior_gyro_bias_max_singular_value",
+    "sliding_window_dense_prior_accel_bias_min_singular_value",
+    "sliding_window_dense_prior_accel_bias_max_singular_value",
     "sliding_window_gyro_bias_norm",
     "sliding_window_accel_bias_norm",
     "sliding_window_gyro_bias_x",
@@ -143,6 +147,14 @@ def build_estimator_observability_continuity(status: dict[str, Any]) -> dict[str
             "sliding_window_normal_equation_condition_number", "max"),
         "min_dense_prior_min_singular_value": min_value(
             "sliding_window_dense_prior_min_singular_value", "min"),
+        "min_dense_prior_gyro_bias_min_singular_value": min_value(
+            "sliding_window_dense_prior_gyro_bias_min_singular_value", "min"),
+        "min_dense_prior_accel_bias_min_singular_value": min_value(
+            "sliding_window_dense_prior_accel_bias_min_singular_value", "min"),
+        "max_dense_prior_gyro_bias_max_singular_value": max_value(
+            "sliding_window_dense_prior_gyro_bias_max_singular_value", "max"),
+        "max_dense_prior_accel_bias_max_singular_value": max_value(
+            "sliding_window_dense_prior_accel_bias_max_singular_value", "max"),
         "max_gyro_bias_norm": max_value("sliding_window_gyro_bias_norm", "max"),
         "max_accel_bias_norm": max_value("sliding_window_accel_bias_norm", "max"),
         "max_abs_gyro_bias_norm_delta": max_abs_delta("sliding_window_gyro_bias_norm"),
