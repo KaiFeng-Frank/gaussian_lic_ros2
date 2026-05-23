@@ -103,6 +103,9 @@ def generate_launch_description():
     sync_anchor_stream = LaunchConfiguration("sync_anchor_stream")
     render_mode = LaunchConfiguration("render_mode")
     rendered_feedback_topic = LaunchConfiguration("rendered_feedback_topic")
+    publish_rendered_feedback_before_update = LaunchConfiguration(
+        "publish_rendered_feedback_before_update"
+    )
     rendered_image_mode = LaunchConfiguration("rendered_image_mode")
     publish_tf = LaunchConfiguration("publish_tf")
     use_sim_time = LaunchConfiguration("use_sim_time")
@@ -159,6 +162,7 @@ def generate_launch_description():
             "sync_anchor_stream": sync_anchor_stream,
             "render_mode": render_mode,
             "rendered_feedback_topic": rendered_feedback_topic,
+            "publish_rendered_feedback_before_update": publish_rendered_feedback_before_update,
             "rendered_image_mode": rendered_image_mode,
             "publish_tf": publish_tf,
         },
@@ -501,6 +505,11 @@ def generate_launch_description():
             "rendered_feedback_topic",
             default_value="/gaussian_lic/rendered_feedback",
             description="Typed rendered-feedback topic carrying image plus mapper/source stamps",
+        ),
+        DeclareLaunchArgument(
+            "publish_rendered_feedback_before_update",
+            default_value="false",
+            description="Diagnostic: publish typed rendered feedback before Torch/Gaussian update",
         ),
         DeclareLaunchArgument(
             "rendered_image_mode",

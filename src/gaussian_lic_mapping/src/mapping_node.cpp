@@ -234,6 +234,8 @@ public:
     max_map_points_ = declare_parameter<int>("max_map_points", 200000);
     publish_gaussian_map_ = declare_parameter<bool>("publish_gaussian_map", true);
     publish_rendered_preview_ = declare_parameter<bool>("publish_rendered_preview", true);
+    publish_rendered_feedback_before_update_ =
+      declare_parameter<bool>("publish_rendered_feedback_before_update", false);
     save_map_render_evaluation_ = declare_parameter<bool>("save_map_render_evaluation", false);
     active_profile_ = declare_parameter<std::string>("active_profile", "default");
     render_mode_ = declare_parameter<std::string>("render_mode", "debug_cpu");
@@ -1000,6 +1002,9 @@ private:
     dataset_.trim_map_points(max_map_points_ > 0 ? static_cast<size_t>(max_map_points_) : 0U);
     map_points_pub_->publish(make_map_points_message(frame_stamp));
     (void)record;
+    if (publish_rendered_feedback_before_update_) {
+      publish_rendered_preview_for_record(frame_stamp, record);
+    }
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
     const auto intrinsics = current_intrinsics();
     if (enable_torch_camera_conversion_) {
@@ -1022,19 +1027,29 @@ private:
     }
     maybe_update_torch_gaussians(record);
 #endif
-    if (publish_rendered_preview_ && normalized_qos_token(render_mode_) != "off") {
-      try {
-        auto rendered_image = make_rendered_preview_message(frame_stamp);
-        auto rendered_feedback = make_rendered_feedback_message(rendered_image, record);
-        ++rendered_preview_count_;
-        rendered_image_pub_->publish(std::move(rendered_image));
-        rendered_feedback_pub_->publish(std::move(rendered_feedback));
-      } catch (const std::exception & ex) {
-        ++render_error_count_;
-        RCLCPP_WARN_THROTTLE(
-          get_logger(), *get_clock(), 2000,
-          "failed to publish rendered preview: %s", ex.what());
-      }
+    if (!publish_rendered_feedback_before_update_) {
+      publish_rendered_preview_for_record(frame_stamp, record);
+    }
+  }
+
+  void publish_rendered_preview_for_record(
+    const builtin_interfaces::msg::Time & frame_stamp,
+    const gaussian_lic_mapping::CameraFrameRecord & record)
+  {
+    if (!publish_rendered_preview_ || normalized_qos_token(render_mode_) == "off") {
+      return;
+    }
+    try {
+      auto rendered_image = make_rendered_preview_message(frame_stamp);
+      auto rendered_feedback = make_rendered_feedback_message(rendered_image, record);
+      ++rendered_preview_count_;
+      rendered_image_pub_->publish(std::move(rendered_image));
+      rendered_feedback_pub_->publish(std::move(rendered_feedback));
+    } catch (const std::exception & ex) {
+      ++render_error_count_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "failed to publish rendered preview: %s", ex.what());
     }
   }
 
@@ -2606,6 +2621,7 @@ private:
   bool enable_torch_gaussian_extend_{true};
   bool publish_gaussian_map_{true};
   bool publish_rendered_preview_{true};
+  bool publish_rendered_feedback_before_update_{false};
   bool save_map_render_evaluation_{false};
   std::string active_profile_{"default"};
   std::string render_mode_{"debug_cpu"};

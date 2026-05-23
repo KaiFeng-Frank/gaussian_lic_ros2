@@ -230,6 +230,7 @@ MAPPER_FEEDBACK_ROTATION_LR=0.001
 MAPPER_FEEDBACK_LR_EXPLICIT=false
 MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND=400000
 MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY=uniform
+MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE=false
 RENDERED_IMAGE_QOS_RELIABILITY=reliable
 RENDERED_IMAGE_QOS_DURABILITY=transient_local
 RENDERED_IMAGE_QOS_DEPTH=1
@@ -768,6 +769,8 @@ Options:
                                Keep mapper feedback Gaussian extension alpha-hole filtering enabled. The production Gaussian feedback preset disables it so the map can keep growing under skybox/rasterizer feedback.
   --mapper-feedback-disable-extend-visibility-filter
                                Disable mapper feedback Gaussian extension alpha-hole filtering.
+  --mapper-feedback-publish-rendered-before-update
+                               Publish mapper rendered feedback before Torch/Gaussian update. Diagnostic for source-time visual/SE3 factor expiry; default disabled.
   --rendered-image-qos-reliability MODE
                                QoS reliability for /gaussian_lic/rendered_image feedback: reliable or best_effort. Default: reliable.
   --rendered-image-qos-durability MODE
@@ -1820,6 +1823,10 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_ENABLE_TORCH_GAUSSIAN_EXTEND_VISIBILITY_FILTER=false
       shift
       ;;
+    --mapper-feedback-publish-rendered-before-update)
+      MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE=true
+      shift
+      ;;
     --rendered-image-qos-reliability)
       RENDERED_IMAGE_QOS_RELIABILITY="$2"
       shift 2
@@ -2464,6 +2471,7 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p zbuffer_projected_points:="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
+    -p publish_rendered_feedback_before_update:="${MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE}" \
     -p rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
     -p rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
     -p rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
@@ -2717,6 +2725,7 @@ RENDERED_IMAGE_QOS_DURABILITY_REPORT="${RENDERED_IMAGE_QOS_DURABILITY}" \
 RENDERED_IMAGE_QOS_DEPTH_REPORT="${RENDERED_IMAGE_QOS_DEPTH}" \
 ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" \
 RENDERED_FEEDBACK_TOPIC_REPORT="${RENDERED_FEEDBACK_TOPIC}" \
+MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT="${MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE}" \
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM_REPORT="${MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM}" \
 RENDERED_FRAME_CACHE_SIZE_REPORT="${RENDERED_FRAME_CACHE_SIZE}" \
 OBSERVED_FRAME_CACHE_SIZE_REPORT="${OBSERVED_FRAME_CACHE_SIZE}" \
@@ -2812,6 +2821,9 @@ enable_rendered_feedback_contract = (
     os.environ["ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT"].lower() == "true"
 )
 rendered_feedback_topic = os.environ["RENDERED_FEEDBACK_TOPIC_REPORT"]
+mapper_feedback_publish_rendered_before_update = (
+    os.environ["MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT"].lower() == "true"
+)
 enable_visual_factor_time_interpolation = (
     os.environ["ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT"].lower() == "true"
 )
@@ -4038,6 +4050,9 @@ report = {
         "rendered_image_qos_depth": int(os.environ["RENDERED_IMAGE_QOS_DEPTH_REPORT"]),
         "enable_rendered_feedback_contract": enable_rendered_feedback_contract,
         "rendered_feedback_topic": rendered_feedback_topic,
+        "mapper_feedback_publish_rendered_before_update": (
+            mapper_feedback_publish_rendered_before_update
+        ),
         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,
         "visual_depth_dilation_px": visual_depth_dilation_px,

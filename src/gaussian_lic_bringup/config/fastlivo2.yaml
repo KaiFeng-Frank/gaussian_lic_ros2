@@ -92,6 +92,7 @@ mapping_node:
     max_path_length: 5000
     max_map_points: 200000
     publish_rendered_preview: true
+    publish_rendered_feedback_before_update: false
     render_mode: rasterizer
     active_profile: fastlivo2
     odometry_topic: /gaussian_lic/odometry

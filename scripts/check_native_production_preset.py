@@ -137,6 +137,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
             preset["mapper_feedback_pointcloud_coordinates"]
         ),
         "MAPPER_FEEDBACK_MAX_DEPTH": preset["mapper_feedback_max_depth"],
+        "MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE": (
+            preset.get("mapper_feedback_publish_rendered_before_update", False)
+        ),
         "ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION": (
             preset["enable_visual_factor_time_interpolation"]
         ),
@@ -245,6 +248,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "sliding_window_multihop_relative_distance_weight",
         "--mapper-feedback-image-qos-reliability",
         "mapper_feedback_image_qos_reliability",
+        "--mapper-feedback-publish-rendered-before-update",
+        "mapper_feedback_publish_rendered_before_update",
         "visual_factor_continuity",
         "mapper_feedback_continuity",
         "rendered_delivery_continuity",
