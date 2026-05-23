@@ -2456,6 +2456,11 @@ private:
     std::vector<double> se3_photometric_factor_scores;
     const bool quality_selection_active =
       visual_factor_quality_selection_is_active(tracking_pose.stamp_ns);
+    if (visual_cache_reconciliation_defer_to_pointcloud_ ||
+      visual_pair_processing_defer_to_pointcloud_)
+    {
+      reconcile_visual_frame_caches(tracking_pose.stamp_ns);
+    }
     const auto add_visual_window_factor =
       [this, quality_selection_active, &visual_window_factors, &visual_window_factor_scores](
         gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor factor,
@@ -2667,11 +2672,6 @@ private:
       tf_broadcaster_->sendTransform(tf);
     }
     last_output_tracking_pose_ = tracking_pose;
-    if (visual_cache_reconciliation_defer_to_pointcloud_ ||
-      visual_pair_processing_defer_to_pointcloud_)
-    {
-      reconcile_visual_frame_caches();
-    }
     publish_tracking_status(msg.header.stamp);
     cache_relative_motion_pose(
       relative_motion_pose_history_,
@@ -4436,18 +4436,21 @@ private:
     }
   }
 
-  void reconcile_visual_frame_caches()
+  void reconcile_visual_frame_caches(std::optional<int64_t> reference_stamp_ns = std::nullopt)
   {
     if (!enable_visual_cache_reconciliation_ || !enable_visual_factor_ ||
       rendered_frame_cache_.empty() || observed_frame_cache_.empty())
     {
       return;
     }
+    if (!reference_stamp_ns.has_value() && last_output_tracking_pose_.has_value()) {
+      reference_stamp_ns = last_output_tracking_pose_->stamp_ns;
+    }
     constexpr size_t kMaxReconciledPairsPerCallback = 1U;
     size_t reconciled = 0U;
     for (const auto & observed : observed_frame_cache_) {
-      if (last_output_tracking_pose_.has_value() &&
-        visual_factor_stamp_is_expired(observed.stamp_ns, last_output_tracking_pose_->stamp_ns))
+      if (reference_stamp_ns.has_value() &&
+        visual_factor_stamp_is_expired(observed.stamp_ns, reference_stamp_ns.value()))
       {
         continue;
       }

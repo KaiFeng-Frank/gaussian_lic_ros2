@@ -308,6 +308,29 @@
             "orphan_factors": 0,
             "numeric_jacobian_blocks": 0,
             "promotion_status": "diagnostic only until full-window visual-pair deferral preserves visual/SE3 drain, RMSE, and path-drift parity"
+        },
+        {
+            "id": "visual_pair_processing_preingest_12s_rerun",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_processing_preingest_12s_rerun_probe/native_tracking_report.json",
+            "scope": "default-off pointcloud-callback visual-pair processing pre-ingest smoke",
+            "trajectory_poses": 118,
+            "raw_images": 101,
+            "rendered_images": 88,
+            "visual_cache_reconciled_pairs": 13,
+            "visual_cache_reconciled_saturated_pairs": 2,
+            "visual_cache_reconciled_alignment_photometric_fallback_pairs": 2,
+            "visual_cache_reconciled_alignment_photometric_disagreement_pairs": 0,
+            "visual_cache_reconciled_alignment_skipped_pairs": 0,
+            "total_visual_factors": 98,
+            "total_se3_photometric_factors": 98,
+            "visual_pair_processed_count": 98,
+            "visual_pair_duplicate_count": 0,
+            "visual_alignment_pending_stale_drops": 0,
+            "visual_se3_photometric_pending_stale_drops": 0,
+            "dense_prior_rank": 180,
+            "dense_prior_cols": 180,
+            "numeric_jacobian_blocks": 0,
+            "promotion_status": "diagnostic only until full-window pre-ingest evidence preserves visual/SE3 drain, RMSE, and path-drift parity"
         }
     ],
     "rejected_evidence": [
@@ -380,6 +403,13 @@
             "translation_rmse_m": 1.7205773156669315,
             "path_drift": 0.08197536759457466,
             "reason": "combining point-cloud deferred visual-pair processing with rendered-image QoS depth 64 restores rendered delivery to 943/946, but misses the 790/1015 visual and 794/1015 SE3 drains, records 179/179 pending stale drops, and regresses RMSE/path drift"
+        },
+        {
+            "id": "visual_pair_processing_preingest_depth64_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_processing_preingest_depth64_full122_drain1015_probe/native_tracking_report.json",
+            "translation_rmse_m": 1.6626196600982261,
+            "path_drift": 0.04938366866488943,
+            "reason": "moving point-cloud deferred visual-pair reconciliation before same-cycle visual-factor consumption closes the executor one-cycle lag, but still misses the 946/1015 visual and 952/1015 SE3 drains, records 53/53 pending stale drops and one invalid LiDAR frame, and regresses RMSE versus the accepted production preset"
         },
         {
             "id": "confidence_release_0065",
