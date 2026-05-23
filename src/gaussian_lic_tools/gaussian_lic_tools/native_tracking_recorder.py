@@ -24,6 +24,8 @@ BINNED_STATUS_PREFIXES = (
     "lidar_invalid_",
     "lidar_out_of_range_",
     "pointcloud_imu_wait_",
+    "last_rendered_feedback_",
+    "rendered_feedback_",
     "sliding_window_",
     "total_window_",
     "tracking_step_guard_",

@@ -77,6 +77,11 @@ TRACKING_STATUS_FIELDS = (
     "sliding_window_numeric_jacobian_columns",
     "sliding_window_normal_equation_degenerate",
     "sliding_window_state_gap_degenerate",
+    "last_rendered_feedback_reference_stamp_ns",
+    "last_rendered_feedback_oldest_active_state_delta_ns",
+    "last_rendered_feedback_newest_active_state_delta_ns",
+    "rendered_feedback_before_active_window",
+    "rendered_feedback_after_active_window",
     "visual_se3_photometric_inlier_ratio",
     "visual_se3_photometric_cost",
 )

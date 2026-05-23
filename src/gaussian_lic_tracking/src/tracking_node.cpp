@@ -1869,6 +1869,8 @@ private:
         metadata.pose_stamp_ns - rendered_stamp_ns;
       last_rendered_feedback_pointcloud_delta_ns_ =
         metadata.pointcloud_stamp_ns - rendered_stamp_ns;
+      update_rendered_feedback_active_window_telemetry(
+        rendered_feedback_reference_stamp_ns(metadata, rendered_stamp_ns));
       auto image = msg.image;
       if (
         gaussian_lic_tracking::stamp_to_nanoseconds(image.header.stamp) != rendered_stamp_ns)
@@ -1959,6 +1961,47 @@ private:
     }
     if (enable_visual_watermark_pair_scheduler_ && last_pointcloud_stamp_ns_ > 0) {
       process_visual_pairs_up_to_watermark(last_pointcloud_stamp_ns_, true);
+    }
+  }
+
+  int64_t rendered_feedback_reference_stamp_ns(
+    const RenderedFeedbackMetadata & metadata,
+    const int64_t rendered_stamp_ns) const
+  {
+    if (visual_factor_reference_stamp_mode_ == VisualFactorReferenceStampMode::kRendered) {
+      return rendered_stamp_ns;
+    }
+    if (visual_factor_reference_stamp_mode_ == VisualFactorReferenceStampMode::kRenderedSourcePose) {
+      return metadata.pose_stamp_ns;
+    }
+    if (
+      visual_factor_reference_stamp_mode_ ==
+      VisualFactorReferenceStampMode::kRenderedSourcePointcloud)
+    {
+      return metadata.pointcloud_stamp_ns;
+    }
+    return metadata.observed_stamp_ns;
+  }
+
+  void update_rendered_feedback_active_window_telemetry(const int64_t reference_stamp_ns)
+  {
+    last_rendered_feedback_reference_stamp_ns_ = reference_stamp_ns;
+    const auto & states = sliding_window_optimizer_.states();
+    if (states.empty()) {
+      last_rendered_feedback_oldest_active_state_delta_ns_ = 0;
+      last_rendered_feedback_newest_active_state_delta_ns_ = 0;
+      return;
+    }
+
+    last_rendered_feedback_oldest_active_state_delta_ns_ =
+      reference_stamp_ns - states.front().stamp_ns;
+    last_rendered_feedback_newest_active_state_delta_ns_ =
+      reference_stamp_ns - states.back().stamp_ns;
+    if (last_rendered_feedback_oldest_active_state_delta_ns_ < 0) {
+      ++rendered_feedback_before_active_window_;
+    }
+    if (last_rendered_feedback_newest_active_state_delta_ns_ > 0) {
+      ++rendered_feedback_after_active_window_;
     }
   }
 
@@ -6310,6 +6353,16 @@ private:
       last_rendered_feedback_pose_delta_ns_;
     status.last_rendered_feedback_pointcloud_delta_ns =
       last_rendered_feedback_pointcloud_delta_ns_;
+    status.last_rendered_feedback_reference_stamp_ns =
+      last_rendered_feedback_reference_stamp_ns_;
+    status.last_rendered_feedback_oldest_active_state_delta_ns =
+      last_rendered_feedback_oldest_active_state_delta_ns_;
+    status.last_rendered_feedback_newest_active_state_delta_ns =
+      last_rendered_feedback_newest_active_state_delta_ns_;
+    status.rendered_feedback_before_active_window =
+      rendered_feedback_before_active_window_;
+    status.rendered_feedback_after_active_window =
+      rendered_feedback_after_active_window_;
     status.num_raw_pointclouds = num_raw_pointclouds_;
     status.num_raw_imus = num_raw_imus_;
     status.num_published_poses = num_published_poses_;
@@ -7287,6 +7340,11 @@ private:
   int64_t last_rendered_feedback_observed_delta_ns_{0};
   int64_t last_rendered_feedback_pose_delta_ns_{0};
   int64_t last_rendered_feedback_pointcloud_delta_ns_{0};
+  int64_t last_rendered_feedback_reference_stamp_ns_{0};
+  int64_t last_rendered_feedback_oldest_active_state_delta_ns_{0};
+  int64_t last_rendered_feedback_newest_active_state_delta_ns_{0};
+  uint64_t rendered_feedback_before_active_window_{0};
+  uint64_t rendered_feedback_after_active_window_{0};
   uint64_t num_raw_pointclouds_{0};
   uint64_t num_raw_imus_{0};
   uint64_t num_published_poses_{0};

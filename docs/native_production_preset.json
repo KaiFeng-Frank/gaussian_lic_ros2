@@ -158,6 +158,23 @@
       "promotion_status": "not promoted: the first pre-update run closes the visual/SE3 drain and beats accepted RMSE/mean/max error, but same-config revalidation misses the visual/SE3 drain and regresses; remaining work is deterministic rendered-feedback timing/ownership"
     },
     {
+      "id": "rendered_feedback_active_window_12s",
+      "scope": "default-off rendered-feedback active-window telemetry smoke",
+      "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_active_window_12s_probe/native_tracking_report.json",
+      "trajectory_poses": 119,
+      "matched_poses": 110,
+      "translation_rmse_m": 0.11307238270299703,
+      "num_rendered_feedbacks": 107,
+      "embedded_observed_pairs": 107,
+      "total_visual_factors": 107,
+      "total_se3_photometric_factors": 107,
+      "last_rendered_feedback_oldest_active_state_delta_ns": 1222002745,
+      "last_rendered_feedback_newest_active_state_delta_ns": 22197247,
+      "rendered_feedback_before_active_window": 0,
+      "rendered_feedback_after_active_window": 57,
+      "promotion_status": "diagnostic only: the telemetry proves rendered-feedback references often arrive just after the newest active state, so the next production fix is deterministic factor ownership around the active-window boundary rather than BA weight tuning"
+    },
+    {
       "id": "rendered_feedback_contract_source_stamp_full122_rejections",
       "scope": "default-off source-stamped RenderedFeedback full-window ownership diagnostics",
       "runs": [
