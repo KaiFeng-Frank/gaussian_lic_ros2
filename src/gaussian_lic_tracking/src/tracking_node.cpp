@@ -4612,6 +4612,37 @@ private:
           return reference;
         }
       }
+
+      if (before != nullptr && after == nullptr &&
+        current_pose.stamp_ns >= factor_stamp_ns &&
+        current_pose.stamp_ns > before->stamp_ns &&
+        stamp_delta_ns(before->stamp_ns, factor_stamp_ns) <= max_delta_ns &&
+        stamp_delta_ns(current_pose.stamp_ns, factor_stamp_ns) <= max_delta_ns)
+      {
+        VisualFactorReference reference;
+        reference.pose.stamp_ns = factor_stamp_ns;
+        const double span_ns = static_cast<double>(current_pose.stamp_ns - before->stamp_ns);
+        if (std::isfinite(span_ns) && span_ns > 0.0) {
+          const double alpha =
+            std::clamp(static_cast<double>(factor_stamp_ns - before->stamp_ns) / span_ns, 0.0, 1.0);
+          reference.pose.p_w_i = (1.0 - alpha) * before->p_w_i + alpha * current_pose.p_w_i;
+          reference.pose.q_w_i =
+            before->q_w_i.normalized().slerp(alpha, current_pose.q_w_i.normalized()).normalized();
+          reference.pose.v_w_i = (1.0 - alpha) * before->v_w_i + alpha * current_pose.v_w_i;
+          if (alpha <= 1.0e-9) {
+            reference.support_stamp_ns = {before->stamp_ns};
+            reference.support_weights = {1.0};
+          } else if (alpha >= 1.0 - 1.0e-9) {
+            reference.support_stamp_ns = {current_pose.stamp_ns};
+            reference.support_weights = {1.0};
+          } else {
+            reference.support_stamp_ns = {before->stamp_ns, current_pose.stamp_ns};
+            reference.support_weights = {1.0 - alpha, alpha};
+            reference.interpolated = true;
+          }
+          return reference;
+        }
+      }
     }
 
     if (stamp_delta_is_within(factor_stamp_ns, current_pose.stamp_ns, visual_factor_max_dt_ns_)) {

@@ -199,6 +199,26 @@
       "promotion_status": "not promoted: simple future-reference deferral preserves causality and avoids stale drops, but it underfeeds visual/SE3 support and regresses short-window RMSE; the remaining target is state-indexed or watermark-owned feedback queueing"
     },
     {
+      "id": "rendered_feedback_current_support_interpolation_12s",
+      "scope": "default-off visual/SE3 interpolation with current-pose right support",
+      "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_current_support_interpolation_12s_probe/native_tracking_report.json",
+      "ok": true,
+      "trajectory_poses": 119,
+      "matched_poses": 110,
+      "translation_rmse_m": 0.13460196112972256,
+      "translation_mean_m": 0.11821734771619408,
+      "num_rendered_feedbacks": 101,
+      "total_visual_factors": 101,
+      "total_se3_photometric_factors": 101,
+      "visual_alignment_interpolated_factors": 101,
+      "visual_se3_photometric_interpolated_factors": 101,
+      "visual_future_deferrals": 51,
+      "se3_future_deferrals": 51,
+      "visual_stale_drops": 0,
+      "se3_stale_drops": 0,
+      "promotion_status": "diagnostic only: current-pose interpolation support improves over naive future deferral but still underfeeds versus the no-deferral active-window smoke; production needs causal support ownership without losing factor density"
+    },
+    {
       "id": "rendered_feedback_contract_source_stamp_full122_rejections",
       "scope": "default-off source-stamped RenderedFeedback full-window ownership diagnostics",
       "runs": [
