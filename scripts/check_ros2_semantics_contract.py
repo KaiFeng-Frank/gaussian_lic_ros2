@@ -487,6 +487,7 @@ def main() -> int:
         "visual_watermark_pair_scheduler_processed_pairs",
         "visual_watermark_pair_scheduler_deferred_pairs",
         "visual_callback_factor_ingest_enabled",
+        "defer_future_visual_factors_until_active_enabled",
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
@@ -498,6 +499,8 @@ def main() -> int:
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
+        "visual_alignment_pending_future_deferrals",
+        "visual_se3_photometric_pending_future_deferrals",
         "visual_alignment_interpolated_factors",
         "visual_se3_photometric_interpolated_factors",
         "visual_cache_reconciled_pairs",
@@ -516,6 +519,10 @@ def main() -> int:
         errors.append("tracking_node must expose deterministic visual watermark pair scheduling as default-off")
     if 'declare_parameter<bool>("enable_visual_callback_factor_ingest", false)' not in tracking_node_text:
         errors.append("tracking_node must expose callback-time visual factor ingestion as default-off")
+    if 'declare_parameter<bool>("defer_future_visual_factors_until_active", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose future visual-factor deferral as default-off")
+    if 'DeclareLaunchArgument("defer_future_visual_factors_until_active", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose future visual-factor deferral as default-off")
     if 'declare_parameter<bool>("enable_visual_adaptive_state_retention", false)' not in tracking_node_text:
         errors.append("tracking_node must expose adaptive visual state retention as default-off")
     if 'declare_parameter<bool>("enable_visual_expired_factor_projection", false)' not in tracking_node_text:

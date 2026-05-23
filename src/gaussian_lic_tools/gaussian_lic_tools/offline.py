@@ -82,6 +82,9 @@ TRACKING_STATUS_FIELDS = (
     "last_rendered_feedback_newest_active_state_delta_ns",
     "rendered_feedback_before_active_window",
     "rendered_feedback_after_active_window",
+    "defer_future_visual_factors_until_active_enabled",
+    "visual_alignment_pending_future_deferrals",
+    "visual_se3_photometric_pending_future_deferrals",
     "visual_se3_photometric_inlier_ratio",
     "visual_se3_photometric_cost",
 )

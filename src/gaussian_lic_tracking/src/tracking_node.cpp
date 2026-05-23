@@ -315,6 +315,8 @@ public:
       declare_parameter<int>("visual_watermark_pair_scheduler_max_pairs_per_pointcloud", 2), 1);
     enable_visual_callback_factor_ingest_ =
       declare_parameter<bool>("enable_visual_callback_factor_ingest", false);
+    defer_future_visual_factors_until_active_ =
+      declare_parameter<bool>("defer_future_visual_factors_until_active", false);
     enable_visual_adaptive_state_retention_ =
       declare_parameter<bool>("enable_visual_adaptive_state_retention", false);
     visual_adaptive_state_retention_margin_states_ = integer_parameter_at_least(
@@ -2513,6 +2515,11 @@ private:
     if (enable_visual_alignment_window_factor_) {
       std::deque<PendingVisualAlignmentFactor> retained_pending;
       for (const auto & pending : pending_visual_alignment_factors_) {
+        if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
+          retained_pending.push_back(pending);
+          ++visual_alignment_pending_future_deferrals_;
+          continue;
+        }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
@@ -2575,6 +2582,11 @@ private:
     if (enable_se3_photometric_window_factor_) {
       std::deque<PendingSe3PhotometricFactor> retained_pending;
       for (const auto & pending : pending_visual_se3_photometric_factors_) {
+        if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
+          retained_pending.push_back(pending);
+          ++visual_se3_photometric_pending_future_deferrals_;
+          continue;
+        }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
@@ -3100,6 +3112,11 @@ private:
     if (enable_sliding_window_optimizer_ && enable_visual_alignment_window_factor_) {
       std::deque<PendingVisualAlignmentFactor> retained_pending;
       for (const auto & pending : pending_visual_alignment_factors_) {
+        if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
+          retained_pending.push_back(pending);
+          ++visual_alignment_pending_future_deferrals_;
+          continue;
+        }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
@@ -3143,6 +3160,11 @@ private:
     if (enable_sliding_window_optimizer_ && enable_se3_photometric_window_factor_) {
       std::deque<PendingSe3PhotometricFactor> retained_pending;
       for (const auto & pending : pending_visual_se3_photometric_factors_) {
+        if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
+          retained_pending.push_back(pending);
+          ++visual_se3_photometric_pending_future_deferrals_;
+          continue;
+        }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
@@ -4639,6 +4661,14 @@ private:
     const int64_t current_stamp_ns) const
   {
     return factor_stamp_ns + max_visual_factor_reference_delta_ns() < current_stamp_ns;
+  }
+
+  bool visual_factor_should_defer_future_reference(
+    const int64_t factor_stamp_ns,
+    const gaussian_lic_tracking::TrajectoryPose & current_pose) const
+  {
+    return defer_future_visual_factors_until_active_ &&
+           factor_stamp_ns > current_pose.stamp_ns;
   }
 
   bool se3_photometric_hessian_is_healthy(
@@ -6667,6 +6697,8 @@ private:
     status.visual_watermark_pair_scheduler_deferred_pairs =
       visual_watermark_pair_scheduler_deferred_pairs_;
     status.visual_callback_factor_ingest_enabled = enable_visual_callback_factor_ingest_;
+    status.defer_future_visual_factors_until_active_enabled =
+      defer_future_visual_factors_until_active_;
     status.visual_adaptive_state_retention_enabled =
       enable_visual_adaptive_state_retention_;
     status.visual_render_backlog_frames = visual_render_backlog_frames_;
@@ -6725,6 +6757,10 @@ private:
     status.visual_alignment_pending_expired_drops = visual_alignment_pending_expired_drops_;
     status.visual_se3_photometric_pending_expired_drops =
       visual_se3_photometric_pending_expired_drops_;
+    status.visual_alignment_pending_future_deferrals =
+      visual_alignment_pending_future_deferrals_;
+    status.visual_se3_photometric_pending_future_deferrals =
+      visual_se3_photometric_pending_future_deferrals_;
     status.visual_pair_processed_count = visual_pair_processed_count_;
     status.visual_pair_duplicate_count = visual_pair_duplicate_count_;
     status.visual_alignment_valid = last_visual_alignment_.valid;
@@ -6904,6 +6940,7 @@ private:
   bool enable_visual_watermark_pair_scheduler_{false};
   int visual_watermark_pair_scheduler_max_pairs_per_pointcloud_{2};
   bool enable_visual_callback_factor_ingest_{false};
+  bool defer_future_visual_factors_until_active_{false};
   bool enable_visual_adaptive_state_retention_{false};
   int visual_adaptive_state_retention_margin_states_{4};
   int visual_adaptive_state_retention_max_states_{64};
@@ -7304,6 +7341,8 @@ private:
   uint64_t visual_se3_photometric_pending_queue_trim_drops_{0};
   uint64_t visual_alignment_pending_expired_drops_{0};
   uint64_t visual_se3_photometric_pending_expired_drops_{0};
+  uint64_t visual_alignment_pending_future_deferrals_{0};
+  uint64_t visual_se3_photometric_pending_future_deferrals_{0};
   uint64_t visual_callback_ingested_visual_factors_{0};
   uint64_t visual_callback_ingested_se3_photometric_factors_{0};
   uint64_t visual_render_backlog_frames_{0};

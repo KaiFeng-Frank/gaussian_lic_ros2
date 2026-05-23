@@ -160,6 +160,7 @@ ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
 ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER=false
 VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD=2
 ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
+DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE=false
 ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=false
 VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES=4
 VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES=64
@@ -675,6 +676,10 @@ Options:
                                Ingest visual/SE3 factors from image/render callbacks when their sliding-window reference is still active.
   --disable-visual-callback-factor-ingest
                                Queue visual/SE3 factors until point-cloud callbacks ingest them.
+  --defer-future-visual-factors-until-active
+                               Keep visual/SE3 factors pending until their reference stamp is no longer newer than the current tracking state.
+  --no-defer-future-visual-factors-until-active
+                               Restore legacy immediate future-reference visual factor ingestion.
   --enable-visual-adaptive-state-retention
                                Increase sliding-window state retention from rendered-feedback backlog so late visual factors can still bind active states.
   --disable-visual-adaptive-state-retention
@@ -1545,6 +1550,15 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_CALLBACK_FACTOR_INGEST=false
       shift
       ;;
+    --defer-future-visual-factors-until-active)
+      DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --no-defer-future-visual-factors-until-active)
+      DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE=false
+      shift
+      ;;
     --enable-visual-adaptive-state-retention)
       ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=true
       ENABLE_VISUAL_FACTORS=true
@@ -2265,6 +2279,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_watermark_pair_scheduler:="${ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER}" \
   visual_watermark_pair_scheduler_max_pairs_per_pointcloud:="${VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD}" \
   enable_visual_callback_factor_ingest:="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
+  defer_future_visual_factors_until_active:="${DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE}" \
   enable_visual_adaptive_state_retention:="${ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION}" \
   visual_adaptive_state_retention_margin_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
   visual_adaptive_state_retention_max_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
@@ -2741,6 +2756,7 @@ ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQU
 ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER_REPORT="${ENABLE_VISUAL_WATERMARK_PAIR_SCHEDULER}" \
 VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD_REPORT="${VISUAL_WATERMARK_PAIR_SCHEDULER_MAX_PAIRS_PER_POINTCLOUD}" \
 ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT="${ENABLE_VISUAL_CALLBACK_FACTOR_INGEST}" \
+DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE_REPORT="${DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE}" \
 ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION_REPORT="${ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION}" \
 VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
 VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
@@ -2844,6 +2860,9 @@ visual_watermark_pair_scheduler_max_pairs_per_pointcloud = int(
 )
 enable_visual_callback_factor_ingest = (
     os.environ["ENABLE_VISUAL_CALLBACK_FACTOR_INGEST_REPORT"].lower() == "true"
+)
+defer_future_visual_factors_until_active = (
+    os.environ["DEFER_FUTURE_VISUAL_FACTORS_UNTIL_ACTIVE_REPORT"].lower() == "true"
 )
 enable_visual_adaptive_state_retention = (
     os.environ["ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION_REPORT"].lower() == "true"
@@ -4074,6 +4093,9 @@ report = {
             visual_watermark_pair_scheduler_max_pairs_per_pointcloud
         ),
         "enable_visual_callback_factor_ingest": enable_visual_callback_factor_ingest,
+        "defer_future_visual_factors_until_active": (
+            defer_future_visual_factors_until_active
+        ),
         "enable_visual_adaptive_state_retention": enable_visual_adaptive_state_retention,
         "visual_adaptive_state_retention_margin_states": (
             visual_adaptive_state_retention_margin_states
