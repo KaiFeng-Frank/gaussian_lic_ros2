@@ -248,6 +248,7 @@ VISUAL_ALIGNMENT_MAX_SHIFT_PX=8
 VISUAL_ALIGNMENT_SCORE_MODE=rmse
 VISUAL_ALIGNMENT_FACTOR_SOURCE=search
 VISUAL_FACTOR_SOURCE_ID_MODE=legacy_8bit
+VISUAL_FACTOR_REFERENCE_STAMP_MODE=observed
 VISUAL_ALIGNMENT_WINDOW_WEIGHT=1.0
 VISUAL_ALIGNMENT_SATURATION_MARGIN_PX=0.0
 VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE=1.0
@@ -798,6 +799,8 @@ Options:
                                Measurement source for the sliding-window 2D visual factor. Default: search.
   --visual-factor-source-id-mode legacy_8bit|full_64bit
                                Source-id hash width for rendered/observed visual factors. Default: legacy_8bit.
+  --visual-factor-reference-stamp-mode observed|rendered
+                               Stamp used to own rendered-feedback visual/SE3 factors in the sliding window. Default: observed.
   --visual-alignment-window-weight W
                                Sliding-window 2D visual alignment factor weight. Default: 1.0.
   --visual-alignment-saturation-margin-px PX
@@ -1878,6 +1881,10 @@ while [[ $# -gt 0 ]]; do
       VISUAL_FACTOR_SOURCE_ID_MODE="$2"
       shift 2
       ;;
+    --visual-factor-reference-stamp-mode)
+      VISUAL_FACTOR_REFERENCE_STAMP_MODE="$2"
+      shift 2
+      ;;
     --visual-alignment-window-weight)
       VISUAL_ALIGNMENT_WINDOW_WEIGHT="$2"
       shift 2
@@ -2221,6 +2228,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_alignment_score_mode:="${VISUAL_ALIGNMENT_SCORE_MODE}" \
   visual_alignment_factor_source:="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
   visual_factor_source_id_mode:="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
+  visual_factor_reference_stamp_mode:="${VISUAL_FACTOR_REFERENCE_STAMP_MODE}" \
   visual_alignment_window_weight:="${VISUAL_ALIGNMENT_WINDOW_WEIGHT}" \
   visual_alignment_saturation_margin_px:="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
   visual_alignment_saturated_weight_scale:="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
@@ -2669,6 +2677,7 @@ VISUAL_ALIGNMENT_MAX_SHIFT_PX_REPORT="${VISUAL_ALIGNMENT_MAX_SHIFT_PX}" \
 VISUAL_ALIGNMENT_SCORE_MODE_REPORT="${VISUAL_ALIGNMENT_SCORE_MODE}" \
 VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT="${VISUAL_ALIGNMENT_FACTOR_SOURCE}" \
 VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
+VISUAL_FACTOR_REFERENCE_STAMP_MODE_REPORT="${VISUAL_FACTOR_REFERENCE_STAMP_MODE}" \
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
@@ -2749,6 +2758,7 @@ visual_alignment_max_shift_px = int(os.environ["VISUAL_ALIGNMENT_MAX_SHIFT_PX_RE
 visual_alignment_score_mode = os.environ["VISUAL_ALIGNMENT_SCORE_MODE_REPORT"]
 visual_alignment_factor_source = os.environ["VISUAL_ALIGNMENT_FACTOR_SOURCE_REPORT"]
 visual_factor_source_id_mode = os.environ["VISUAL_FACTOR_SOURCE_ID_MODE_REPORT"]
+visual_factor_reference_stamp_mode = os.environ["VISUAL_FACTOR_REFERENCE_STAMP_MODE_REPORT"]
 enable_visual_factor_time_interpolation = (
     os.environ["ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT"].lower() == "true"
 )
@@ -3837,6 +3847,7 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
+        "visual_factor_reference_stamp_mode",
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
@@ -3967,6 +3978,7 @@ report = {
         "visual_alignment_score_mode": visual_alignment_score_mode,
         "visual_alignment_factor_source": visual_alignment_factor_source,
         "visual_factor_source_id_mode": visual_factor_source_id_mode,
+        "visual_factor_reference_stamp_mode": visual_factor_reference_stamp_mode,
         "enable_visual_factor_time_interpolation": enable_visual_factor_time_interpolation,
         "enable_visual_cache_reconciliation": enable_visual_cache_reconciliation,
         "visual_cache_reconciliation_monotonic_unique": (

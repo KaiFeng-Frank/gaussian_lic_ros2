@@ -151,6 +151,9 @@ def generate_launch_description():
     visual_alignment_score_mode = LaunchConfiguration("visual_alignment_score_mode")
     visual_alignment_factor_source = LaunchConfiguration("visual_alignment_factor_source")
     visual_factor_source_id_mode = LaunchConfiguration("visual_factor_source_id_mode")
+    visual_factor_reference_stamp_mode = LaunchConfiguration(
+        "visual_factor_reference_stamp_mode"
+    )
     enable_visual_alignment_window_factor = LaunchConfiguration("enable_visual_alignment_window_factor")
     visual_alignment_meters_per_pixel = LaunchConfiguration("visual_alignment_meters_per_pixel")
     visual_alignment_window_weight = LaunchConfiguration("visual_alignment_window_weight")
@@ -613,6 +616,7 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_alignment_score_mode", default_value="rmse"),
             DeclareLaunchArgument("visual_alignment_factor_source", default_value="search"),
             DeclareLaunchArgument("visual_factor_source_id_mode", default_value="legacy_8bit"),
+            DeclareLaunchArgument("visual_factor_reference_stamp_mode", default_value="observed"),
             DeclareLaunchArgument("enable_visual_alignment_window_factor", default_value="true"),
             DeclareLaunchArgument("visual_alignment_meters_per_pixel", default_value="0.01"),
             DeclareLaunchArgument("visual_alignment_window_weight", default_value="1.0"),
@@ -970,6 +974,7 @@ def generate_launch_description():
                         "visual_alignment_score_mode": visual_alignment_score_mode,
                         "visual_alignment_factor_source": visual_alignment_factor_source,
                         "visual_factor_source_id_mode": visual_factor_source_id_mode,
+                        "visual_factor_reference_stamp_mode": visual_factor_reference_stamp_mode,
                         "enable_visual_alignment_window_factor": enable_visual_alignment_window_factor,
                         "visual_alignment_meters_per_pixel": visual_alignment_meters_per_pixel,
                         "visual_alignment_window_weight": visual_alignment_window_weight,

@@ -230,6 +230,7 @@ uint64 gaussian_snapshot_expected_chunks
 bool gaussian_snapshot_complete
 
 bool visual_factor_enabled
+string visual_factor_reference_stamp_mode
 bool visual_factor_time_interpolation_enabled
 bool visual_cache_reconciliation_enabled
 bool visual_pair_monotonic_unique_enabled

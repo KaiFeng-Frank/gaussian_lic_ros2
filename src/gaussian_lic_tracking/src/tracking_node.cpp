@@ -129,6 +129,12 @@ enum class VisualFactorSourceIdMode
   kFull64Bit,
 };
 
+enum class VisualFactorReferenceStampMode
+{
+  kObserved,
+  kRendered,
+};
+
 VisualAlignmentFactorSource parse_visual_alignment_factor_source(
   const std::string & value)
 {
@@ -163,6 +169,22 @@ VisualFactorSourceIdMode parse_visual_factor_source_id_mode(const std::string & 
     return VisualFactorSourceIdMode::kFull64Bit;
   }
   throw std::runtime_error("visual_factor_source_id_mode must be 'legacy_8bit' or 'full_64bit'");
+}
+
+VisualFactorReferenceStampMode parse_visual_factor_reference_stamp_mode(const std::string & value)
+{
+  std::string lower = value;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](const unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  if (lower == "observed") {
+    return VisualFactorReferenceStampMode::kObserved;
+  }
+  if (lower == "rendered") {
+    return VisualFactorReferenceStampMode::kRendered;
+  }
+  throw std::runtime_error(
+    "visual_factor_reference_stamp_mode must be 'observed' or 'rendered'");
 }
 
 struct GaussianSnapshotPoseCorrection
@@ -339,6 +361,10 @@ public:
       declare_parameter<std::string>("visual_factor_source_id_mode", "legacy_8bit");
     visual_factor_source_id_mode_ =
       parse_visual_factor_source_id_mode(visual_factor_source_id_mode_name_);
+    visual_factor_reference_stamp_mode_name_ =
+      declare_parameter<std::string>("visual_factor_reference_stamp_mode", "observed");
+    visual_factor_reference_stamp_mode_ =
+      parse_visual_factor_reference_stamp_mode(visual_factor_reference_stamp_mode_name_);
     enable_visual_alignment_window_factor_ =
       declare_parameter<bool>("enable_visual_alignment_window_factor", true);
     visual_alignment_meters_per_pixel_ = finite_positive_parameter(
@@ -1844,6 +1870,8 @@ private:
     last_processed_visual_rendered_stamp_ns_ = rendered.stamp_ns;
     ++visual_pair_processed_count_;
     const int64_t pair_stamp_delta_ns = stamp_delta_ns(rendered.stamp_ns, observed.stamp_ns);
+    const int64_t factor_reference_stamp_ns =
+      visual_factor_reference_stamp_ns(observed.stamp_ns, rendered.stamp_ns);
 
     last_visual_residual_ = visual_factor_.evaluate(rendered, observed);
     last_visual_alignment_ = visual_factor_.estimate_translation(
@@ -1913,7 +1941,7 @@ private:
         last_accepted_visual_se3_photometric_hessian_condition_number_ =
           last_visual_se3_photometric_linearization_.hessian_condition_number;
         PendingSe3PhotometricFactor pending;
-        pending.stamp_ns = observed.stamp_ns;
+        pending.stamp_ns = factor_reference_stamp_ns;
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
         pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
         pending.mean_abs_residual = se3_samples.mean_abs_residual;
@@ -1955,7 +1983,7 @@ private:
         ++visual_cache_reconciled_alignment_skipped_pairs_;
       } else {
         PendingVisualAlignmentFactor pending;
-        pending.stamp_ns = observed.stamp_ns;
+        pending.stamp_ns = factor_reference_stamp_ns;
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
         pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
         pending.alignment = window_alignment.value();
@@ -4557,6 +4585,16 @@ private:
     return mixed == 0U ? 1U : mixed;
   }
 
+  int64_t visual_factor_reference_stamp_ns(
+    const int64_t observed_stamp_ns,
+    const int64_t rendered_stamp_ns) const
+  {
+    if (visual_factor_reference_stamp_mode_ == VisualFactorReferenceStampMode::kRendered) {
+      return rendered_stamp_ns;
+    }
+    return observed_stamp_ns;
+  }
+
   static bool stamp_delta_is_within(
     const int64_t lhs_stamp_ns,
     const int64_t rhs_stamp_ns,
@@ -6217,6 +6255,7 @@ private:
     status.gaussian_snapshot_complete = gaussian_snapshot_.complete();
 
     status.visual_factor_enabled = enable_visual_factor_;
+    status.visual_factor_reference_stamp_mode = visual_factor_reference_stamp_mode_name_;
     status.visual_factor_time_interpolation_enabled = enable_visual_factor_time_interpolation_;
     status.visual_cache_reconciliation_enabled = enable_visual_cache_reconciliation_;
     status.visual_pair_monotonic_unique_enabled = visual_pair_monotonic_unique_;
@@ -6483,6 +6522,9 @@ private:
   VisualAlignmentFactorSource visual_alignment_factor_source_{VisualAlignmentFactorSource::kSearch};
   std::string visual_factor_source_id_mode_name_{"legacy_8bit"};
   VisualFactorSourceIdMode visual_factor_source_id_mode_{VisualFactorSourceIdMode::kLegacy8Bit};
+  std::string visual_factor_reference_stamp_mode_name_{"observed"};
+  VisualFactorReferenceStampMode visual_factor_reference_stamp_mode_{
+    VisualFactorReferenceStampMode::kObserved};
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};

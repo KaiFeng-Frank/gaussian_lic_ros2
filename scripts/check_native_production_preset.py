@@ -140,6 +140,7 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION": (
             preset["enable_visual_factor_time_interpolation"]
         ),
+        "VISUAL_FACTOR_REFERENCE_STAMP_MODE": preset["visual_factor_reference_stamp_mode"],
         "ENABLE_VISUAL_CACHE_RECONCILIATION": (
             preset["enable_visual_cache_reconciliation"]
         ),
@@ -202,6 +203,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_alignment_factor_source",
         "--visual-factor-source-id-mode",
         "visual_factor_source_id_mode",
+        "--visual-factor-reference-stamp-mode",
+        "visual_factor_reference_stamp_mode",
         "--enable-visual-factor-time-interpolation",
         "enable_visual_factor_time_interpolation",
         "--enable-visual-cache-reconciliation",
@@ -349,6 +352,8 @@ def check_report_gate_config(
                 key == "visual_expired_factor_projection_max_age_s"
                 and not bool(gate_config.get("enable_visual_expired_factor_projection", False))
             ):
+                continue
+            if key == "visual_factor_reference_stamp_mode" and wanted == "observed":
                 continue
             if equivalent_gate_config_value(None, wanted):
                 continue
