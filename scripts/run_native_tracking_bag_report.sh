@@ -3154,6 +3154,14 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
 )
 
 
+VISUAL_FACTOR_CONTINUITY_VALUE_FIELDS = (
+    "visual_rendered_nearest_delta_ns",
+    "visual_rendered_nearest_signed_delta_ns",
+    "visual_observed_nearest_delta_ns",
+    "visual_observed_nearest_signed_delta_ns",
+)
+
+
 def build_visual_factor_continuity(status):
     bins = []
     for bin_summary in status.get("binned_summary", []):
@@ -3165,6 +3173,10 @@ def build_visual_factor_continuity(status):
         }
         for field_name in VISUAL_FACTOR_CONTINUITY_FIELDS:
             item[f"{field_name}_delta"] = summary_delta(bin_summary, field_name)
+        for field_name in VISUAL_FACTOR_CONTINUITY_VALUE_FIELDS:
+            item[f"{field_name}_min"] = summary_value(bin_summary, field_name, "min")
+            item[f"{field_name}_max"] = summary_value(bin_summary, field_name, "max")
+            item[f"{field_name}_last"] = summary_value(bin_summary, field_name, "last")
         bins.append(item)
 
     if not bins:
@@ -3179,6 +3191,12 @@ def build_visual_factor_continuity(status):
 
     def max_delta(field_name):
         return max(item[f"{field_name}_delta"] for item in bins)
+
+    def min_value(field_name, statistic):
+        return min(item[f"{field_name}_{statistic}"] for item in bins)
+
+    def max_value(field_name, statistic):
+        return max(item[f"{field_name}_{statistic}"] for item in bins)
 
     worst_by_factor = sorted(
         bins,
@@ -3203,6 +3221,16 @@ def build_visual_factor_continuity(status):
         "max_se3_quality_rejected_delta": max_delta(
             "visual_se3_photometric_quality_rejected_batches"),
         "max_visual_alignment_saturated_delta": max_delta("visual_alignment_saturated_count"),
+        "max_rendered_nearest_delta_ns": max_value("visual_rendered_nearest_delta_ns", "max"),
+        "max_observed_nearest_delta_ns": max_value("visual_observed_nearest_delta_ns", "max"),
+        "min_rendered_nearest_signed_delta_ns": min_value(
+            "visual_rendered_nearest_signed_delta_ns", "min"),
+        "max_rendered_nearest_signed_delta_ns": max_value(
+            "visual_rendered_nearest_signed_delta_ns", "max"),
+        "min_observed_nearest_signed_delta_ns": min_value(
+            "visual_observed_nearest_signed_delta_ns", "min"),
+        "max_observed_nearest_signed_delta_ns": max_value(
+            "visual_observed_nearest_signed_delta_ns", "max"),
         "worst_factor_bins": worst_by_factor,
         "bins": bins,
     }

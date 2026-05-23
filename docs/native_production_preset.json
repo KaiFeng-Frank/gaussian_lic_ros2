@@ -425,6 +425,21 @@
             "max_gyro_bias_norm": 0.09620766776951838,
             "max_accel_bias_norm": 1.1580869328941923,
             "promotion_status": "not promoted: dense-prior bias sub-blocks remain observable, but full-window visual/SE3 support stalls at 926/1015 and late bins 6/7 underfeed observations"
+        },
+        {
+            "id": "visual_nearest_delta_12s",
+            "report": "results/fastlivo2/CBD_Building_01_visual_nearest_delta_12s_probe/native_tracking_report.json",
+            "scope": "native report nearest rendered/observed cache-delta diagnostic",
+            "trajectory_poses": 111,
+            "total_visual_factors": 108,
+            "total_se3_photometric_factors": 108,
+            "max_rendered_nearest_delta_ns": 1821353674,
+            "max_observed_nearest_delta_ns": 23540497,
+            "min_rendered_nearest_signed_delta_ns": -1821353674,
+            "max_rendered_nearest_signed_delta_ns": 0,
+            "min_observed_nearest_signed_delta_ns": 0,
+            "max_observed_nearest_signed_delta_ns": 23540497,
+            "promotion_status": "reporting support; exposes callback-direction render latency before changing visual-pairing semantics"
         }
     ],
     "rejected_evidence": [

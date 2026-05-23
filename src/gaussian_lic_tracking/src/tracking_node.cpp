@@ -1712,6 +1712,8 @@ private:
     last_observed_image_height_ = observed.height;
     cache_observed_frame(observed);
     int64_t rendered_match_delta_ns = 0;
+    int64_t rendered_nearest_delta_ns = 0;
+    int64_t rendered_nearest_signed_delta_ns = 0;
     bool rendered_cache_had_size_match = false;
     const gaussian_lic_tracking::VisualFrame * rendered_frame =
       select_rendered_frame_for_stamp(
@@ -1720,9 +1722,13 @@ private:
       observed.height,
       &rendered_match_delta_ns,
       &rendered_cache_had_size_match,
-      visual_cache_reconciliation_monotonic_unique_);
+      visual_cache_reconciliation_monotonic_unique_,
+      &rendered_nearest_delta_ns,
+      &rendered_nearest_signed_delta_ns);
     last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
     last_visual_rendered_match_delta_ns_ = rendered_frame == nullptr ? 0 : rendered_match_delta_ns;
+    last_visual_rendered_nearest_delta_ns_ = rendered_nearest_delta_ns;
+    last_visual_rendered_nearest_signed_delta_ns_ = rendered_nearest_signed_delta_ns;
     if (rendered_frame == nullptr) {
       if (rendered_frame_cache_.empty()) {
         ++visual_rendered_miss_count_;
@@ -1758,6 +1764,8 @@ private:
     if (decode_image_gray(msg, rendered)) {
       cache_rendered_frame(rendered);
       int64_t observed_match_delta_ns = 0;
+      int64_t observed_nearest_delta_ns = 0;
+      int64_t observed_nearest_signed_delta_ns = 0;
       bool observed_cache_had_size_match = false;
       const gaussian_lic_tracking::VisualFrame * observed_frame =
         select_observed_frame_for_stamp(
@@ -1766,9 +1774,13 @@ private:
         rendered.height,
         &observed_match_delta_ns,
         &observed_cache_had_size_match,
-        enable_visual_cache_reconciliation_);
+        enable_visual_cache_reconciliation_,
+        &observed_nearest_delta_ns,
+        &observed_nearest_signed_delta_ns);
       last_visual_observed_cache_size_ = observed_frame_cache_.size();
       last_visual_observed_match_delta_ns_ = observed_frame == nullptr ? 0 : observed_match_delta_ns;
+      last_visual_observed_nearest_delta_ns_ = observed_nearest_delta_ns;
+      last_visual_observed_nearest_signed_delta_ns_ = observed_nearest_signed_delta_ns;
       if (observed_frame != nullptr && !visual_pair_processing_defer_to_pointcloud_) {
         last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
         last_visual_rendered_match_delta_ns_ = observed_match_delta_ns;
@@ -4455,6 +4467,8 @@ private:
         continue;
       }
       int64_t rendered_match_delta_ns = 0;
+      int64_t rendered_nearest_delta_ns = 0;
+      int64_t rendered_nearest_signed_delta_ns = 0;
       bool rendered_cache_had_size_match = false;
       const auto * rendered = select_rendered_frame_for_stamp(
         observed.stamp_ns,
@@ -4462,7 +4476,11 @@ private:
         observed.height,
         &rendered_match_delta_ns,
         &rendered_cache_had_size_match,
-        visual_cache_reconciliation_monotonic_unique_);
+        visual_cache_reconciliation_monotonic_unique_,
+        &rendered_nearest_delta_ns,
+        &rendered_nearest_signed_delta_ns);
+      last_visual_rendered_nearest_delta_ns_ = rendered_nearest_delta_ns;
+      last_visual_rendered_nearest_signed_delta_ns_ = rendered_nearest_signed_delta_ns;
       if (rendered == nullptr) {
         continue;
       }
@@ -4521,10 +4539,14 @@ private:
     const size_t height,
     int64_t * selected_delta_ns = nullptr,
     bool * cache_had_size_match = nullptr,
-    bool require_unprocessed_rendered = false) const
+    bool require_unprocessed_rendered = false,
+    int64_t * nearest_delta_ns = nullptr,
+    int64_t * nearest_signed_delta_ns = nullptr) const
   {
     const gaussian_lic_tracking::VisualFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    int64_t nearest_delta = std::numeric_limits<int64_t>::max();
+    int64_t nearest_signed_delta = 0;
     bool had_size_match = false;
     for (const auto & frame : rendered_frame_cache_) {
       if (frame.width != width || frame.height != height) {
@@ -4537,7 +4559,12 @@ private:
         continue;
       }
       had_size_match = true;
+      const int64_t signed_delta_ns = frame.stamp_ns - image_stamp_ns;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
+      if (delta_ns < nearest_delta) {
+        nearest_delta = delta_ns;
+        nearest_signed_delta = signed_delta_ns;
+      }
       if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
         delta_ns < best_delta_ns)
       {
@@ -4551,6 +4578,13 @@ private:
     if (cache_had_size_match != nullptr) {
       *cache_had_size_match = had_size_match;
     }
+    if (nearest_delta_ns != nullptr) {
+      *nearest_delta_ns = nearest_delta == std::numeric_limits<int64_t>::max() ? 0 : nearest_delta;
+    }
+    if (nearest_signed_delta_ns != nullptr) {
+      *nearest_signed_delta_ns =
+        nearest_delta == std::numeric_limits<int64_t>::max() ? 0 : nearest_signed_delta;
+    }
     return best;
   }
 
@@ -4560,10 +4594,14 @@ private:
     const size_t height,
     int64_t * selected_delta_ns = nullptr,
     bool * cache_had_size_match = nullptr,
-    bool require_unprocessed_observed = false) const
+    bool require_unprocessed_observed = false,
+    int64_t * nearest_delta_ns = nullptr,
+    int64_t * nearest_signed_delta_ns = nullptr) const
   {
     const gaussian_lic_tracking::VisualFrame * best = nullptr;
     int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    int64_t nearest_delta = std::numeric_limits<int64_t>::max();
+    int64_t nearest_signed_delta = 0;
     bool had_size_match = false;
     for (const auto & frame : observed_frame_cache_) {
       if (frame.width != width || frame.height != height) {
@@ -4575,7 +4613,12 @@ private:
         continue;
       }
       had_size_match = true;
+      const int64_t signed_delta_ns = frame.stamp_ns - rendered_stamp_ns;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, rendered_stamp_ns);
+      if (delta_ns < nearest_delta) {
+        nearest_delta = delta_ns;
+        nearest_signed_delta = signed_delta_ns;
+      }
       if (delta_ns <= std::max<int64_t>(visual_factor_max_dt_ns_, 0LL) &&
         delta_ns < best_delta_ns)
       {
@@ -4588,6 +4631,13 @@ private:
     }
     if (cache_had_size_match != nullptr) {
       *cache_had_size_match = had_size_match;
+    }
+    if (nearest_delta_ns != nullptr) {
+      *nearest_delta_ns = nearest_delta == std::numeric_limits<int64_t>::max() ? 0 : nearest_delta;
+    }
+    if (nearest_signed_delta_ns != nullptr) {
+      *nearest_signed_delta_ns =
+        nearest_delta == std::numeric_limits<int64_t>::max() ? 0 : nearest_signed_delta;
     }
     return best;
   }
@@ -5877,11 +5927,17 @@ private:
       visual_cache_reconciled_alignment_photometric_disagreement_pairs_;
     status.visual_rendered_cache_size = static_cast<uint64_t>(last_visual_rendered_cache_size_);
     status.visual_rendered_match_delta_ns = last_visual_rendered_match_delta_ns_;
+    status.visual_rendered_nearest_delta_ns = last_visual_rendered_nearest_delta_ns_;
+    status.visual_rendered_nearest_signed_delta_ns =
+      last_visual_rendered_nearest_signed_delta_ns_;
     status.visual_rendered_miss_count = visual_rendered_miss_count_;
     status.visual_rendered_stale_count = visual_rendered_stale_count_;
     status.visual_rendered_size_mismatch_count = visual_rendered_size_mismatch_count_;
     status.visual_observed_cache_size = static_cast<uint64_t>(last_visual_observed_cache_size_);
     status.visual_observed_match_delta_ns = last_visual_observed_match_delta_ns_;
+    status.visual_observed_nearest_delta_ns = last_visual_observed_nearest_delta_ns_;
+    status.visual_observed_nearest_signed_delta_ns =
+      last_visual_observed_nearest_signed_delta_ns_;
     status.visual_observed_miss_count = visual_observed_miss_count_;
     status.visual_observed_stale_count = visual_observed_stale_count_;
     status.visual_observed_size_mismatch_count = visual_observed_size_mismatch_count_;
@@ -6395,11 +6451,15 @@ private:
   std::deque<VisualPairKey> processed_visual_pairs_;
   size_t last_visual_rendered_cache_size_{0};
   int64_t last_visual_rendered_match_delta_ns_{0};
+  int64_t last_visual_rendered_nearest_delta_ns_{0};
+  int64_t last_visual_rendered_nearest_signed_delta_ns_{0};
   uint64_t visual_rendered_miss_count_{0};
   uint64_t visual_rendered_stale_count_{0};
   uint64_t visual_rendered_size_mismatch_count_{0};
   size_t last_visual_observed_cache_size_{0};
   int64_t last_visual_observed_match_delta_ns_{0};
+  int64_t last_visual_observed_nearest_delta_ns_{0};
+  int64_t last_visual_observed_nearest_signed_delta_ns_{0};
   uint64_t visual_observed_miss_count_{0};
   uint64_t visual_observed_stale_count_{0};
   uint64_t visual_observed_size_mismatch_count_{0};
