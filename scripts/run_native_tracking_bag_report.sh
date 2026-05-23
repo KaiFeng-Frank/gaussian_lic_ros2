@@ -156,6 +156,7 @@ ENABLE_VISUAL_FACTORS=false
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
+ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
 ENABLE_MAPPER_FEEDBACK=false
@@ -640,6 +641,10 @@ Options:
                                In reconciliation mode, consume each observed and rendered stamp at most once.
   --disable-visual-cache-reconciliation-monotonic-unique
                                Allow multiple observed/rendered stamps to share the opposite image stamp.
+  --enable-visual-pair-monotonic-unique
+                               Consume each observed and rendered stamp at most once across direct and reconciled visual pairs.
+  --disable-visual-pair-monotonic-unique
+                               Allow direct visual pairs to reuse observed/rendered stamps when exact pair keys differ.
   --enable-visual-cache-reconciliation-defer-to-pointcloud
                                Run cache reconciliation from point-cloud callbacks instead of image/render callbacks.
   --disable-visual-cache-reconciliation-defer-to-pointcloud
@@ -1465,6 +1470,15 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE=false
       shift
       ;;
+    --enable-visual-pair-monotonic-unique)
+      ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-pair-monotonic-unique)
+      ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE=false
+      shift
+      ;;
     --enable-visual-cache-reconciliation-defer-to-pointcloud)
       ENABLE_VISUAL_CACHE_RECONCILIATION=true
       ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=true
@@ -2128,6 +2142,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor_time_interpolation:="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
   enable_visual_cache_reconciliation:="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
   visual_cache_reconciliation_monotonic_unique:="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
+  visual_pair_monotonic_unique:="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
   visual_depth_max_dt_ns:="${VISUAL_DEPTH_MAX_DT_NS}" \
@@ -2588,6 +2603,7 @@ VISUAL_FACTOR_SOURCE_ID_MODE_REPORT="${VISUAL_FACTOR_SOURCE_ID_MODE}" \
 ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT="${ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE}" \
+ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT="${ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING_REPORT="${ENABLE_VISUAL_FACTOR_QUALITY_WEIGHTING}" \
@@ -2666,6 +2682,9 @@ enable_visual_cache_reconciliation = (
 )
 visual_cache_reconciliation_monotonic_unique = (
     os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_MONOTONIC_UNIQUE_REPORT"].lower() == "true"
+)
+visual_pair_monotonic_unique = (
+    os.environ["ENABLE_VISUAL_PAIR_MONOTONIC_UNIQUE_REPORT"].lower() == "true"
 )
 visual_cache_reconciliation_defer_to_pointcloud = (
     os.environ["ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT"].lower() == "true"
@@ -3850,6 +3869,7 @@ report = {
         "visual_cache_reconciliation_monotonic_unique": (
             visual_cache_reconciliation_monotonic_unique
         ),
+        "visual_pair_monotonic_unique": visual_pair_monotonic_unique,
         "visual_cache_reconciliation_defer_to_pointcloud": (
             visual_cache_reconciliation_defer_to_pointcloud
         ),

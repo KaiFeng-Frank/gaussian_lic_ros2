@@ -454,6 +454,7 @@ def main() -> int:
         "visual_pair_duplicate_count",
         "visual_factor_time_interpolation_enabled",
         "visual_cache_reconciliation_enabled",
+        "visual_pair_monotonic_unique_enabled",
         "visual_alignment_interpolated_factors",
         "visual_se3_photometric_interpolated_factors",
         "visual_cache_reconciled_pairs",
@@ -466,6 +467,12 @@ def main() -> int:
             errors.append(f"TrackingStatus must publish rendered-to-observed cache diagnostics: {field_name}")
     if "select_visual_factor_reference" not in tracking_node_text:
         errors.append("tracking_node must attach delayed visual factors to active window states")
+    if 'declare_parameter<bool>("visual_pair_monotonic_unique", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose direct visual-pair one-to-one semantics as default-off")
+    if 'DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose direct visual-pair one-to-one semantics")
+    if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
+        errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
     if "OBSERVED_FRAME_CACHE_SIZE=128" not in native_tracking_report_text or \
             'observed_frame_cache_size:="${OBSERVED_FRAME_CACHE_SIZE}"' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must expose the enlarged observed-frame cache")

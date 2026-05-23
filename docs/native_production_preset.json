@@ -36,6 +36,7 @@
     "enable_visual_factor_time_interpolation": false,
     "enable_visual_cache_reconciliation": false,
     "visual_cache_reconciliation_monotonic_unique": false,
+    "visual_pair_monotonic_unique": false,
     "visual_cache_reconciliation_defer_to_pointcloud": false,
     "visual_pair_processing_defer_to_pointcloud": false
   },
@@ -480,6 +481,49 @@
             "max_rendered_nearest_delta_ns": 10513931751,
             "max_observed_nearest_delta_ns": 23385048,
             "promotion_status": "not promoted: trajectory remains close, but rendered delivery drops/backlog leave visual and SE3 support at 895/1015"
+        },
+        {
+            "id": "visual_pair_monotonic_unique_12s",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_monotonic_unique_12s_rerun_probe/native_tracking_report.json",
+            "scope": "default-off direct visual-pair one-to-one observed/rendered stamp ownership smoke",
+            "trajectory_poses": 119,
+            "mapper_rendered_previews": 98,
+            "tracker_rendered_images": 93,
+            "visual_pair_processed_count": 93,
+            "visual_pair_duplicate_count": 0,
+            "visual_rendered_size_mismatch_count": 0,
+            "total_visual_factors": 93,
+            "total_se3_photometric_factors": 93,
+            "produced_minus_received_total": 5,
+            "received_minus_consumed_total": 0,
+            "promotion_status": "diagnostic only; proves the direct one-to-one launch/status/report path without changing the accepted preset"
+        },
+        {
+            "id": "visual_pair_monotonic_unique_full122",
+            "report": "results/fastlivo2/CBD_Building_01_visual_pair_monotonic_unique_full122_rerun_drain1015_probe/native_tracking_report.json",
+            "scope": "full-window direct visual-pair one-to-one observed/rendered stamp ownership evidence",
+            "matched_poses": 1174,
+            "coverage": 0.9536961819658814,
+            "translation_rmse_m": 1.3986018996918714,
+            "translation_mean_m": 1.2409901026546044,
+            "translation_max_m": 3.1418041046644367,
+            "path_drift": 0.05822579936000708,
+            "post_play_poses": 1186,
+            "post_play_pose_target": 1186,
+            "total_visual_factors": 890,
+            "total_se3_photometric_factors": 890,
+            "visual_factor_target": 1015,
+            "mapper_rendered_previews": 1067,
+            "tracker_rendered_images": 890,
+            "visual_pair_processed_count": 890,
+            "visual_pair_duplicate_count": 0,
+            "visual_rendered_size_mismatch_count": 0,
+            "produced_minus_received_total": 177,
+            "received_minus_consumed_total": 0,
+            "max_produced_minus_received_delta": 130,
+            "max_received_minus_consumed_delta": 0,
+            "lidar_invalid_frames": 1,
+            "promotion_status": "not promoted: direct one-to-one removes duplicate pairing, but underfeeds visual/SE3 support at 890/1015 and regresses path drift"
         }
     ],
     "rejected_evidence": [
@@ -496,6 +540,13 @@
       "translation_rmse_m": 1.467723278548803,
       "path_drift": 0.03681161569901315,
       "reason": "full-window rendered-delivery diagnostic keeps trajectory close to the accepted preset, but misses post-play drain at 1185/1186 poses and 895/1015 visual/SE3 factors; mapper produced 1075 rendered previews while tracker received 880, with a worst-bin produced-minus-received gap of 127"
+    },
+    {
+      "id": "visual_pair_monotonic_unique_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_pair_monotonic_unique_full122_rerun_drain1015_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.3986018996918714,
+      "path_drift": 0.05822579936000708,
+      "reason": "direct one-to-one visual pairing eliminates duplicate pairs and keeps rendered-size mismatches at zero, but misses the production visual/SE3 drain at 890/1015, leaves a 177-frame produced-minus-received rendered gap, regresses path drift versus the accepted preset, and records one invalid LiDAR frame"
     },
     {
       "id": "visual_factor_time_interpolation_numeric_full122",

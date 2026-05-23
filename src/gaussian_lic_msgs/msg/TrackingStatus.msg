@@ -231,6 +231,7 @@ bool gaussian_snapshot_complete
 bool visual_factor_enabled
 bool visual_factor_time_interpolation_enabled
 bool visual_cache_reconciliation_enabled
+bool visual_pair_monotonic_unique_enabled
 uint64 visual_alignment_interpolated_factors
 uint64 visual_se3_photometric_interpolated_factors
 uint64 visual_cache_reconciled_pairs

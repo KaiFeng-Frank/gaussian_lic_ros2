@@ -96,6 +96,7 @@ def generate_launch_description():
     visual_cache_reconciliation_monotonic_unique = LaunchConfiguration(
         "visual_cache_reconciliation_monotonic_unique"
     )
+    visual_pair_monotonic_unique = LaunchConfiguration("visual_pair_monotonic_unique")
     visual_cache_reconciliation_defer_to_pointcloud = LaunchConfiguration(
         "visual_cache_reconciliation_defer_to_pointcloud"
     )
@@ -565,6 +566,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_factor_time_interpolation", default_value="false"),
             DeclareLaunchArgument("enable_visual_cache_reconciliation", default_value="false"),
             DeclareLaunchArgument("visual_cache_reconciliation_monotonic_unique", default_value="false"),
+            DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false"),
             DeclareLaunchArgument("visual_cache_reconciliation_defer_to_pointcloud", default_value="false"),
             DeclareLaunchArgument("visual_pair_processing_defer_to_pointcloud", default_value="false"),
             DeclareLaunchArgument("visual_depth_max_dt_ns", default_value="0"),
@@ -887,6 +889,7 @@ def generate_launch_description():
                         "visual_cache_reconciliation_monotonic_unique": (
                             visual_cache_reconciliation_monotonic_unique
                         ),
+                        "visual_pair_monotonic_unique": visual_pair_monotonic_unique,
                         "visual_cache_reconciliation_defer_to_pointcloud": (
                             visual_cache_reconciliation_defer_to_pointcloud
                         ),

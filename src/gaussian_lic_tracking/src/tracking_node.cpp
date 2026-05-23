@@ -266,6 +266,8 @@ public:
       declare_parameter<bool>("enable_visual_cache_reconciliation", false);
     visual_cache_reconciliation_monotonic_unique_ =
       declare_parameter<bool>("visual_cache_reconciliation_monotonic_unique", false);
+    visual_pair_monotonic_unique_ =
+      declare_parameter<bool>("visual_pair_monotonic_unique", false);
     visual_cache_reconciliation_defer_to_pointcloud_ =
       declare_parameter<bool>("visual_cache_reconciliation_defer_to_pointcloud", false);
     visual_pair_processing_defer_to_pointcloud_ =
@@ -1722,7 +1724,7 @@ private:
       observed.height,
       &rendered_match_delta_ns,
       &rendered_cache_had_size_match,
-      visual_cache_reconciliation_monotonic_unique_,
+      visual_pair_requires_unique_rendered_stamp(),
       &rendered_nearest_delta_ns,
       &rendered_nearest_signed_delta_ns);
     last_visual_rendered_cache_size_ = rendered_frame_cache_.size();
@@ -1774,7 +1776,7 @@ private:
         rendered.height,
         &observed_match_delta_ns,
         &observed_cache_had_size_match,
-        enable_visual_cache_reconciliation_,
+        visual_pair_requires_unique_observed_stamp(),
         &observed_nearest_delta_ns,
         &observed_nearest_signed_delta_ns);
       last_visual_observed_cache_size_ = observed_frame_cache_.size();
@@ -1813,8 +1815,8 @@ private:
     if (visual_pair_was_processed(
         observed.stamp_ns,
         rendered.stamp_ns,
-        enable_visual_cache_reconciliation_,
-        visual_cache_reconciliation_monotonic_unique_))
+        visual_pair_requires_unique_observed_stamp(),
+        visual_pair_requires_unique_rendered_stamp()))
     {
       ++visual_pair_duplicate_count_;
       return;
@@ -4436,6 +4438,16 @@ private:
       });
   }
 
+  bool visual_pair_requires_unique_observed_stamp() const
+  {
+    return enable_visual_cache_reconciliation_ || visual_pair_monotonic_unique_;
+  }
+
+  bool visual_pair_requires_unique_rendered_stamp() const
+  {
+    return visual_cache_reconciliation_monotonic_unique_ || visual_pair_monotonic_unique_;
+  }
+
   void remember_visual_pair(
     const int64_t observed_stamp_ns,
     const int64_t rendered_stamp_ns)
@@ -4476,7 +4488,7 @@ private:
         observed.height,
         &rendered_match_delta_ns,
         &rendered_cache_had_size_match,
-        visual_cache_reconciliation_monotonic_unique_,
+        visual_pair_requires_unique_rendered_stamp(),
         &rendered_nearest_delta_ns,
         &rendered_nearest_signed_delta_ns);
       last_visual_rendered_nearest_delta_ns_ = rendered_nearest_delta_ns;
@@ -4486,7 +4498,7 @@ private:
       }
       if (visual_pair_was_processed(
           observed.stamp_ns, rendered->stamp_ns, true,
-          visual_cache_reconciliation_monotonic_unique_))
+          visual_pair_requires_unique_rendered_stamp()))
       {
         continue;
       }
@@ -4552,13 +4564,13 @@ private:
       if (frame.width != width || frame.height != height) {
         continue;
       }
+      had_size_match = true;
       if (require_unprocessed_rendered &&
         visual_pair_was_processed(
           std::numeric_limits<int64_t>::min(), frame.stamp_ns, false, true))
       {
         continue;
       }
-      had_size_match = true;
       const int64_t signed_delta_ns = frame.stamp_ns - image_stamp_ns;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, image_stamp_ns);
       if (delta_ns < nearest_delta) {
@@ -4607,12 +4619,12 @@ private:
       if (frame.width != width || frame.height != height) {
         continue;
       }
+      had_size_match = true;
       if (require_unprocessed_observed &&
         visual_pair_was_processed(frame.stamp_ns, std::numeric_limits<int64_t>::min(), true, false))
       {
         continue;
       }
-      had_size_match = true;
       const int64_t signed_delta_ns = frame.stamp_ns - rendered_stamp_ns;
       const int64_t delta_ns = stamp_delta_ns(frame.stamp_ns, rendered_stamp_ns);
       if (delta_ns < nearest_delta) {
@@ -5913,6 +5925,7 @@ private:
     status.visual_factor_enabled = enable_visual_factor_;
     status.visual_factor_time_interpolation_enabled = enable_visual_factor_time_interpolation_;
     status.visual_cache_reconciliation_enabled = enable_visual_cache_reconciliation_;
+    status.visual_pair_monotonic_unique_enabled = visual_pair_monotonic_unique_;
     status.visual_alignment_interpolated_factors = visual_alignment_interpolated_factor_count_;
     status.visual_se3_photometric_interpolated_factors =
       visual_se3_photometric_interpolated_factor_count_;
@@ -6126,6 +6139,7 @@ private:
   bool enable_visual_factor_time_interpolation_{false};
   bool enable_visual_cache_reconciliation_{false};
   bool visual_cache_reconciliation_monotonic_unique_{false};
+  bool visual_pair_monotonic_unique_{false};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   bool visual_pair_processing_defer_to_pointcloud_{false};
   int64_t visual_depth_max_dt_ns_{0LL};
