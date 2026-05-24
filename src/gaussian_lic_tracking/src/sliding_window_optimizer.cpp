@@ -2734,6 +2734,96 @@ SlidingWindowOptimizer::build_marginalized_measurement_backsubstitution(
     }
   }
 
+  const SlidingWindowState * active_after = nullptr;
+  for (const auto & state : states_) {
+    if (state.stamp_ns <= factor_stamp_ns) {
+      continue;
+    }
+    if (active_after == nullptr || state.stamp_ns < active_after->stamp_ns) {
+      active_after = &state;
+    }
+  }
+  if (before != nullptr && active_after != nullptr) {
+    const int64_t span_ns = active_after->stamp_ns - before->marginalized_stamp_ns;
+    const int64_t before_delta_ns = factor_stamp_ns - before->marginalized_stamp_ns;
+    const int64_t after_delta_ns = active_after->stamp_ns - factor_stamp_ns;
+    if (span_ns > 0 && before_delta_ns >= 0 && after_delta_ns >= 0 &&
+      before_delta_ns <= max_delta_ns && after_delta_ns <= max_delta_ns)
+    {
+      const double alpha =
+        std::clamp(static_cast<double>(before_delta_ns) / static_cast<double>(span_ns), 0.0, 1.0);
+      MarginalizedMeasurementBacksubstitution output;
+      output.interpolated = true;
+      output.marginalized_reference_state.stamp_ns = factor_stamp_ns;
+      output.marginalized_reference_state.p_w_i =
+        (1.0 - alpha) * before->marginalized_reference_state.p_w_i +
+        alpha * active_after->p_w_i;
+      output.marginalized_reference_state.q_w_i =
+        before->marginalized_reference_state.q_w_i.normalized().slerp(
+        alpha, active_after->q_w_i.normalized()).normalized();
+      output.marginalized_reference_state.v_w_i =
+        (1.0 - alpha) * before->marginalized_reference_state.v_w_i +
+        alpha * active_after->v_w_i;
+      output.marginalized_reference_state.gyro_bias =
+        (1.0 - alpha) * before->marginalized_reference_state.gyro_bias +
+        alpha * active_after->gyro_bias;
+      output.marginalized_reference_state.accel_bias =
+        (1.0 - alpha) * before->marginalized_reference_state.accel_bias +
+        alpha * active_after->accel_bias;
+      output.marginalized_target_delta = (1.0 - alpha) * before->marginalized_target_delta;
+      output.marginalized_delta_from_retained =
+        Eigen::MatrixXd::Zero(static_cast<Eigen::Index>(kStateDof), 0);
+
+      auto append_or_accumulate_block =
+        [&output](
+          const int64_t stamp_ns,
+          const SlidingWindowState & reference_state,
+          const Eigen::Matrix<double, 15, 15> & block) {
+          const auto existing_it = std::find(
+            output.retained_stamp_ns.begin(), output.retained_stamp_ns.end(), stamp_ns);
+          if (existing_it == output.retained_stamp_ns.end()) {
+            const auto old_cols = output.marginalized_delta_from_retained.cols();
+            output.marginalized_delta_from_retained.conservativeResize(
+              static_cast<Eigen::Index>(kStateDof),
+              old_cols + static_cast<Eigen::Index>(kStateDof));
+            output.marginalized_delta_from_retained.block<15, 15>(0, old_cols) = block;
+            output.retained_stamp_ns.push_back(stamp_ns);
+            output.retained_reference_states.push_back(reference_state);
+            return;
+          }
+          const auto existing_index = static_cast<size_t>(
+            std::distance(output.retained_stamp_ns.begin(), existing_it));
+          const auto existing_offset = static_cast<Eigen::Index>(existing_index * kStateDof);
+          const auto reference_offset =
+            SlidingWindowOptimizer::state_delta(
+            reference_state, output.retained_reference_states[existing_index]);
+          output.marginalized_target_delta += block * reference_offset;
+          output.marginalized_delta_from_retained.block<15, 15>(0, existing_offset) += block;
+        };
+
+      for (size_t retained_index = 0U; retained_index < before->retained_stamp_ns.size();
+        ++retained_index)
+      {
+        const auto offset = static_cast<Eigen::Index>(retained_index * kStateDof);
+        append_or_accumulate_block(
+          before->retained_stamp_ns[retained_index],
+          before->retained_reference_states[retained_index],
+          (1.0 - alpha) *
+          before->marginalized_delta_from_retained.block<15, 15>(0, offset));
+      }
+      append_or_accumulate_block(
+        active_after->stamp_ns,
+        *active_after,
+        alpha * Eigen::Matrix<double, 15, 15>::Identity());
+      if (!output.retained_stamp_ns.empty() &&
+        output.marginalized_target_delta.allFinite() &&
+        output.marginalized_delta_from_retained.allFinite())
+      {
+        return output;
+      }
+    }
+  }
+
   if (nearest != nullptr && nearest_delta_ns <= max_delta_ns) {
     return from_record(*nearest);
   }

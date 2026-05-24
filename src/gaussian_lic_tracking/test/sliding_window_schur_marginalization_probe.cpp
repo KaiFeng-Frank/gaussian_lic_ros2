@@ -203,6 +203,64 @@ bool check_interpolated_marginalized_prior_preserves_continuous_time_stamp()
   return true;
 }
 
+bool check_marginalized_active_boundary_prior_preserves_continuous_time_stamp()
+{
+  gaussian_lic_tracking::SlidingWindowConfig config;
+  config.max_states = 2;
+  config.max_iterations = 1;
+  config.marginalization_prior_weight = 0.0;
+  config.max_state_gap_s = 2.0;
+  gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+
+  constexpr int64_t dt_ns = 1000000000LL;
+  std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+  for (int i = 0; i < 3; ++i) {
+    states.push_back(make_state(static_cast<int64_t>(i) * dt_ns, static_cast<double>(i)));
+    optimizer.add_or_update_state(states.back());
+    optimizer.add_state_prior(make_full_state_prior(states.back()));
+    if (i > 0) {
+      optimizer.add_relative_translation_factor(
+        make_relative_factor(
+          states[static_cast<size_t>(i - 1)].stamp_ns,
+          states[static_cast<size_t>(i)].stamp_ns,
+          states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+    }
+  }
+
+  const auto marginalization_summary = optimizer.optimize();
+  if (marginalization_summary.marginalized_backsubstitution_count == 0U) {
+    std::cerr << "missing marginalized back-substitution record for active-boundary interpolation\n";
+    return false;
+  }
+
+  gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor boundary_visual;
+  boundary_visual.stamp_ns = states.front().stamp_ns + dt_ns / 2;
+  boundary_visual.source_id = 41U;
+  boundary_visual.measured_shift_px = Eigen::Vector2d{-0.15, 0.25};
+  boundary_visual.meters_per_pixel = 0.03;
+  boundary_visual.weight = 1.0;
+  boundary_visual.huber_delta_m = 1.0;
+  if (!optimizer.add_marginalized_visual_alignment_prior(boundary_visual)) {
+    std::cerr << "marginalized-active boundary visual factor did not build a prior\n";
+    return false;
+  }
+
+  const auto late_summary = optimizer.optimize();
+  std::cout << "marginalized_active_boundary_visual_prior_probe active_backsubs="
+            << late_summary.marginalized_backsubstitution_count
+            << " interpolations="
+            << late_summary.marginalized_backsubstitution_interpolation_count
+            << " visual_marg_priors="
+            << late_summary.visual_marginalization_prior_count << "\n";
+  if (late_summary.marginalized_backsubstitution_interpolation_count == 0U ||
+    late_summary.visual_marginalization_prior_count == 0U)
+  {
+    std::cerr << "marginalized-active boundary prior was not retained in the BA window\n";
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main()
@@ -315,6 +373,9 @@ int main()
     return 1;
   }
   if (!check_interpolated_marginalized_prior_preserves_continuous_time_stamp()) {
+    return 1;
+  }
+  if (!check_marginalized_active_boundary_prior_preserves_continuous_time_stamp()) {
     return 1;
   }
   std::cout << "sliding_window_schur_marginalization_probe OK\n";
