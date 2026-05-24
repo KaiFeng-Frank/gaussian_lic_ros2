@@ -2425,7 +2425,8 @@ private:
 
   bool add_marginalized_visual_prior_from_pending(
     const PendingVisualAlignmentFactor & pending,
-    const bool callback_ingest)
+    const bool callback_ingest,
+    const bool count_skip_on_failure = true)
   {
     if (!enable_visual_marginalization_prior_) {
       return false;
@@ -2455,13 +2456,16 @@ private:
         get_logger(), *get_clock(), 2000,
         "marginalized visual alignment prior skipped: %s", ex.what());
     }
-    ++visual_marginalization_prior_skipped_factors_;
+    if (count_skip_on_failure) {
+      ++visual_marginalization_prior_skipped_factors_;
+    }
     return false;
   }
 
   bool add_marginalized_se3_prior_from_pending(
     const PendingSe3PhotometricFactor & pending,
-    const bool callback_ingest)
+    const bool callback_ingest,
+    const bool count_skip_on_failure = true)
   {
     if (!enable_visual_marginalization_prior_) {
       return false;
@@ -2484,7 +2488,9 @@ private:
       se3_photometric_window_weight_ * se3_photometric_quality_weight_scale(pending);
     factor.huber_delta = se3_photometric_factor_huber_delta_;
     if (factor.sqrt_information.norm() <= std::numeric_limits<double>::epsilon()) {
-      ++visual_marginalization_prior_skipped_factors_;
+      if (count_skip_on_failure) {
+        ++visual_marginalization_prior_skipped_factors_;
+      }
       return false;
     }
     try {
@@ -2501,7 +2507,9 @@ private:
         get_logger(), *get_clock(), 2000,
         "marginalized SE3 photometric prior skipped: %s", ex.what());
     }
-    ++visual_marginalization_prior_skipped_factors_;
+    if (count_skip_on_failure) {
+      ++visual_marginalization_prior_skipped_factors_;
+    }
     return false;
   }
 
@@ -2663,6 +2671,11 @@ private:
           ++visual_alignment_pending_future_deferrals_;
           continue;
         }
+        if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
+          add_marginalized_visual_prior_from_pending(pending, true, false))
+        {
+          continue;
+        }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
@@ -2731,6 +2744,11 @@ private:
         if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
           retained_pending.push_back(pending);
           ++visual_se3_photometric_pending_future_deferrals_;
+          continue;
+        }
+        if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
+          add_marginalized_se3_prior_from_pending(pending, true, false))
+        {
           continue;
         }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
@@ -3271,6 +3289,11 @@ private:
           ++visual_alignment_pending_future_deferrals_;
           continue;
         }
+        if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
+          add_marginalized_visual_prior_from_pending(pending, false, false))
+        {
+          continue;
+        }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
@@ -3320,6 +3343,11 @@ private:
         if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
           retained_pending.push_back(pending);
           ++visual_se3_photometric_pending_future_deferrals_;
+          continue;
+        }
+        if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
+          add_marginalized_se3_prior_from_pending(pending, false, false))
+        {
           continue;
         }
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
@@ -4852,6 +4880,12 @@ private:
     const int64_t current_stamp_ns) const
   {
     return factor_stamp_ns + max_visual_factor_reference_delta_ns() < current_stamp_ns;
+  }
+
+  bool visual_factor_stamp_is_before_active_window(const int64_t factor_stamp_ns) const
+  {
+    const auto & states = sliding_window_optimizer_.states();
+    return !states.empty() && factor_stamp_ns < states.front().stamp_ns;
   }
 
   bool visual_factor_should_defer_future_reference(
