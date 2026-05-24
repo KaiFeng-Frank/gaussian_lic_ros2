@@ -58,6 +58,9 @@ paper-level CUDA mapper and continuous-time frontend are being ported.
   queues instead of single-slot "latest" storage. This preserves multiple valid
   mapper-feedback factors under asynchronous image/render arrival while still
   surfacing queue overflow or freshness expiry through stale-drop counters.
+- Typed rendered-feedback watermark queues are ordered by source reference stamp
+  before draining. This prevents a future feedback callback at the FIFO head from
+  blocking older ready source-time visual/SE3 pairs during rosbag2 replay.
 - Visual BA factor `source_id` values are derived from the observed/rendered stamp
   pair. This keeps duplicate processing of the same image pair replaceable while
   allowing distinct delayed image pairs to coexist when they attach to the same

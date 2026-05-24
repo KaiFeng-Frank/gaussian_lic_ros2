@@ -106,6 +106,19 @@
       "promotion_status": "probe-only structural evidence: source-time late visual and SE3 information between the newest marginalized state and oldest active state now uses mixed marginalized-plus-active support instead of a one-sided nearest-state approximation"
     },
     {
+      "id": "rendered_feedback_watermark_source_ordering",
+      "scope": "deterministic typed rendered-feedback queue ownership rule",
+      "status_field": "rendered_feedback_watermark_reordered_pairs",
+      "ordering": [
+        "factor_reference_stamp_ns",
+        "rendered_feedback_frame_index",
+        "rendered_feedback_preview_index",
+        "rendered_stamp_ns",
+        "observed_stamp_ns"
+      ],
+      "promotion_status": "structural support: point-cloud watermark draining can no longer be blocked by a future-stamped FIFO head; full-window promotion still requires a bag report with stable visual/SE3 drain and RMSE/path-drift parity"
+    },
+    {
       "id": "rendered_feedback_contract_source_pointcloud_12s",
       "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_pointcloud_12s_probe_v2/native_tracking_report.json",
       "scope": "default-off source-stamped RenderedFeedback contract smoke",

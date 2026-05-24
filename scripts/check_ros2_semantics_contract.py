@@ -494,6 +494,7 @@ def main() -> int:
         "rendered_feedback_watermark_processed_pairs",
         "rendered_feedback_watermark_deferred_pairs",
         "rendered_feedback_watermark_queue_drops",
+        "rendered_feedback_watermark_reordered_pairs",
         "defer_future_visual_factors_until_active_enabled",
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",

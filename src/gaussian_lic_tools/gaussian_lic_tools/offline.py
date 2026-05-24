@@ -92,6 +92,7 @@ TRACKING_STATUS_FIELDS = (
     "rendered_feedback_watermark_processed_pairs",
     "rendered_feedback_watermark_deferred_pairs",
     "rendered_feedback_watermark_queue_drops",
+    "rendered_feedback_watermark_reordered_pairs",
     "defer_future_visual_factors_until_active_enabled",
     "visual_marginalization_prior_enabled",
     "visual_alignment_marginalization_priors",

@@ -1991,15 +1991,43 @@ private:
   {
     const auto max_queue_size =
       static_cast<size_t>(std::max(1, visual_pending_factor_queue_size_));
-    while (rendered_feedback_watermark_queue_.size() >= max_queue_size) {
-      rendered_feedback_watermark_queue_.pop_front();
-      ++rendered_feedback_watermark_queue_drops_;
-    }
     QueuedRenderedFeedbackPair queued;
     queued.rendered = rendered;
     queued.observed = observed;
     queued.reference_stamp_ns = visual_factor_reference_stamp_ns(observed, rendered);
-    rendered_feedback_watermark_queue_.push_back(std::move(queued));
+    const auto queue_less =
+      [](const QueuedRenderedFeedbackPair & lhs, const QueuedRenderedFeedbackPair & rhs) {
+        if (lhs.reference_stamp_ns != rhs.reference_stamp_ns) {
+          return lhs.reference_stamp_ns < rhs.reference_stamp_ns;
+        }
+        if (lhs.rendered.rendered_feedback_frame_index != rhs.rendered.rendered_feedback_frame_index) {
+          return lhs.rendered.rendered_feedback_frame_index <
+                 rhs.rendered.rendered_feedback_frame_index;
+        }
+        if (lhs.rendered.rendered_feedback_preview_index !=
+          rhs.rendered.rendered_feedback_preview_index)
+        {
+          return lhs.rendered.rendered_feedback_preview_index <
+                 rhs.rendered.rendered_feedback_preview_index;
+        }
+        if (lhs.rendered.stamp_ns != rhs.rendered.stamp_ns) {
+          return lhs.rendered.stamp_ns < rhs.rendered.stamp_ns;
+        }
+        return lhs.observed.stamp_ns < rhs.observed.stamp_ns;
+      };
+    const auto insert_it = std::upper_bound(
+      rendered_feedback_watermark_queue_.begin(),
+      rendered_feedback_watermark_queue_.end(),
+      queued,
+      queue_less);
+    if (insert_it != rendered_feedback_watermark_queue_.end()) {
+      ++rendered_feedback_watermark_reordered_pairs_;
+    }
+    rendered_feedback_watermark_queue_.insert(insert_it, std::move(queued));
+    while (rendered_feedback_watermark_queue_.size() > max_queue_size) {
+      rendered_feedback_watermark_queue_.pop_front();
+      ++rendered_feedback_watermark_queue_drops_;
+    }
   }
 
   void process_rendered_feedback_pairs_up_to_watermark(
@@ -6942,6 +6970,8 @@ private:
       rendered_feedback_watermark_deferred_pairs_;
     status.rendered_feedback_watermark_queue_drops =
       rendered_feedback_watermark_queue_drops_;
+    status.rendered_feedback_watermark_reordered_pairs =
+      rendered_feedback_watermark_reordered_pairs_;
     status.defer_future_visual_factors_until_active_enabled =
       defer_future_visual_factors_until_active_;
     status.visual_adaptive_state_retention_enabled =
@@ -7586,6 +7616,7 @@ private:
   uint64_t rendered_feedback_watermark_processed_pairs_{0};
   uint64_t rendered_feedback_watermark_deferred_pairs_{0};
   uint64_t rendered_feedback_watermark_queue_drops_{0};
+  uint64_t rendered_feedback_watermark_reordered_pairs_{0};
   size_t last_visual_depth_cache_size_{0};
   int64_t last_visual_depth_match_delta_ns_{0};
   uint64_t visual_depth_miss_count_{0};
