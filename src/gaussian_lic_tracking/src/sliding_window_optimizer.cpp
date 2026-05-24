@@ -675,6 +675,7 @@ void SlidingWindowOptimizer::clear()
   schur_marginalization_count_ = 0U;
   fallback_marginalization_prior_count_ = 0U;
   marginalized_backsubstitution_chain_update_count_ = 0U;
+  marginalized_backsubstitution_interpolation_count_ = 0U;
   visual_marginalization_prior_count_ = 0U;
   se3_photometric_marginalization_prior_count_ = 0U;
 }
@@ -1030,21 +1031,21 @@ bool SlidingWindowOptimizer::add_marginalized_measurement_prior(
   {
     return false;
   }
-  const auto * record = select_marginalized_backsubstitution(factor_stamp_ns);
-  if (record == nullptr || record->marginalized_delta_from_retained.cols() == 0) {
+  const auto support = build_marginalized_measurement_backsubstitution(factor_stamp_ns);
+  if (!support.has_value() || support->marginalized_delta_from_retained.cols() == 0) {
     return false;
   }
 
-  for (const auto stamp_ns : record->retained_stamp_ns) {
+  for (const auto stamp_ns : support->retained_stamp_ns) {
     if (find_state_index(stamp_ns) < 0) {
       return false;
     }
   }
 
   const Eigen::MatrixXd retained_jacobian =
-    marginalized_jacobian * record->marginalized_delta_from_retained;
+    marginalized_jacobian * support->marginalized_delta_from_retained;
   const Eigen::VectorXd retained_residual =
-    residual + marginalized_jacobian * record->marginalized_target_delta;
+    residual + marginalized_jacobian * support->marginalized_target_delta;
   if (retained_jacobian.norm() <= 1.0e-12 || !retained_residual.allFinite() ||
     !retained_jacobian.allFinite())
   {
@@ -1065,11 +1066,14 @@ bool SlidingWindowOptimizer::add_marginalized_measurement_prior(
   }
 
   SlidingWindowDensePrior prior;
-  prior.stamp_ns = record->retained_stamp_ns;
-  prior.reference_states = record->retained_reference_states;
+  prior.stamp_ns = support->retained_stamp_ns;
+  prior.reference_states = support->retained_reference_states;
   prior.sqrt_information = sqrt_information;
   prior.target_delta = target_delta;
   add_dense_prior(prior);
+  if (support->interpolated) {
+    ++marginalized_backsubstitution_interpolation_count_;
+  }
   return true;
 }
 
@@ -1083,19 +1087,19 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
   {
     return false;
   }
-  const auto * record = select_marginalized_backsubstitution(factor.stamp_ns);
-  if (record == nullptr) {
+  const auto support = build_marginalized_measurement_backsubstitution(factor.stamp_ns);
+  if (!support.has_value()) {
     return false;
   }
   Eigen::Vector2d target_xy;
   target_xy.x() =
-    record->marginalized_reference_state.p_w_i.x() +
+    support->marginalized_reference_state.p_w_i.x() +
     factor.measured_shift_px.x() * factor.meters_per_pixel;
   target_xy.y() =
-    record->marginalized_reference_state.p_w_i.y() +
+    support->marginalized_reference_state.p_w_i.y() +
     factor.measured_shift_px.y() * factor.meters_per_pixel;
   const Eigen::Vector2d residual_xy =
-    record->marginalized_reference_state.p_w_i.head<2>() - target_xy;
+    support->marginalized_reference_state.p_w_i.head<2>() - target_xy;
   const double scale =
     std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
   Eigen::VectorXd residual(2);
@@ -1122,11 +1126,11 @@ bool SlidingWindowOptimizer::add_marginalized_se3_photometric_prior(
   {
     return false;
   }
-  const auto * record = select_marginalized_backsubstitution(factor.stamp_ns);
-  if (record == nullptr) {
+  const auto support = build_marginalized_measurement_backsubstitution(factor.stamp_ns);
+  if (!support.has_value()) {
     return false;
   }
-  const auto reference_q = record->marginalized_reference_state.q_w_i.normalized();
+  const auto reference_q = support->marginalized_reference_state.q_w_i.normalized();
   Eigen::Matrix<double, 6, 1> delta;
   delta.template segment<3>(0) = Eigen::Vector3d::Zero();
   delta.template segment<3>(3) = Eigen::Vector3d::Zero();
@@ -2579,6 +2583,163 @@ SlidingWindowOptimizer::select_marginalized_backsubstitution(const int64_t facto
   return best;
 }
 
+std::optional<SlidingWindowOptimizer::MarginalizedMeasurementBacksubstitution>
+SlidingWindowOptimizer::build_marginalized_measurement_backsubstitution(
+  const int64_t factor_stamp_ns) const
+{
+  const auto expected_cols =
+    [](const MarginalizedStateBacksubstitution & record) {
+      return static_cast<Eigen::Index>(record.retained_stamp_ns.size() * kStateDof);
+    };
+  const auto record_is_usable =
+    [this, &expected_cols](const MarginalizedStateBacksubstitution & record) {
+      if (record.retained_stamp_ns.empty() ||
+        record.marginalized_delta_from_retained.cols() != expected_cols(record) ||
+        !record.marginalized_target_delta.allFinite() ||
+        !record.marginalized_delta_from_retained.allFinite())
+      {
+        return false;
+      }
+      return std::all_of(
+        record.retained_stamp_ns.begin(), record.retained_stamp_ns.end(),
+        [this](const int64_t stamp_ns) {
+          return find_state_index(stamp_ns) >= 0;
+        });
+    };
+  const auto from_record =
+    [](const MarginalizedStateBacksubstitution & record) {
+      MarginalizedMeasurementBacksubstitution output;
+      output.marginalized_reference_state = record.marginalized_reference_state;
+      output.retained_stamp_ns = record.retained_stamp_ns;
+      output.retained_reference_states = record.retained_reference_states;
+      output.marginalized_target_delta = record.marginalized_target_delta;
+      output.marginalized_delta_from_retained = record.marginalized_delta_from_retained;
+      return output;
+    };
+
+  const int64_t max_delta_ns = static_cast<int64_t>(
+    std::max(0.0, config_.max_state_gap_s) * 2.0e9);
+  const MarginalizedStateBacksubstitution * nearest = nullptr;
+  const MarginalizedStateBacksubstitution * before = nullptr;
+  const MarginalizedStateBacksubstitution * after = nullptr;
+  int64_t nearest_delta_ns = std::numeric_limits<int64_t>::max();
+
+  for (const auto & record : marginalized_backsubstitutions_) {
+    if (!record_is_usable(record)) {
+      continue;
+    }
+    if (record.marginalized_stamp_ns == factor_stamp_ns) {
+      return from_record(record);
+    }
+    const int64_t delta_ns =
+      record.marginalized_stamp_ns >= factor_stamp_ns ?
+      record.marginalized_stamp_ns - factor_stamp_ns :
+      factor_stamp_ns - record.marginalized_stamp_ns;
+    if (delta_ns < nearest_delta_ns) {
+      nearest_delta_ns = delta_ns;
+      nearest = &record;
+    }
+    if (record.marginalized_stamp_ns < factor_stamp_ns &&
+      (before == nullptr || record.marginalized_stamp_ns > before->marginalized_stamp_ns))
+    {
+      before = &record;
+    }
+    if (record.marginalized_stamp_ns > factor_stamp_ns &&
+      (after == nullptr || record.marginalized_stamp_ns < after->marginalized_stamp_ns))
+    {
+      after = &record;
+    }
+  }
+
+  if (before != nullptr && after != nullptr) {
+    const int64_t span_ns = after->marginalized_stamp_ns - before->marginalized_stamp_ns;
+    const int64_t before_delta_ns = factor_stamp_ns - before->marginalized_stamp_ns;
+    const int64_t after_delta_ns = after->marginalized_stamp_ns - factor_stamp_ns;
+    if (span_ns > 0 && before_delta_ns <= max_delta_ns && after_delta_ns <= max_delta_ns) {
+      const double alpha =
+        std::clamp(static_cast<double>(before_delta_ns) / static_cast<double>(span_ns), 0.0, 1.0);
+      MarginalizedMeasurementBacksubstitution output;
+      output.interpolated = true;
+      output.marginalized_reference_state.stamp_ns = factor_stamp_ns;
+      output.marginalized_reference_state.p_w_i =
+        (1.0 - alpha) * before->marginalized_reference_state.p_w_i +
+        alpha * after->marginalized_reference_state.p_w_i;
+      output.marginalized_reference_state.q_w_i =
+        before->marginalized_reference_state.q_w_i.normalized().slerp(
+        alpha, after->marginalized_reference_state.q_w_i.normalized()).normalized();
+      output.marginalized_reference_state.v_w_i =
+        (1.0 - alpha) * before->marginalized_reference_state.v_w_i +
+        alpha * after->marginalized_reference_state.v_w_i;
+      output.marginalized_reference_state.gyro_bias =
+        (1.0 - alpha) * before->marginalized_reference_state.gyro_bias +
+        alpha * after->marginalized_reference_state.gyro_bias;
+      output.marginalized_reference_state.accel_bias =
+        (1.0 - alpha) * before->marginalized_reference_state.accel_bias +
+        alpha * after->marginalized_reference_state.accel_bias;
+      output.marginalized_target_delta.setZero();
+      output.marginalized_delta_from_retained =
+        Eigen::MatrixXd::Zero(static_cast<Eigen::Index>(kStateDof), 0);
+
+      auto append_or_accumulate_block =
+        [&output](
+          const int64_t stamp_ns,
+          const SlidingWindowState & reference_state,
+          const Eigen::Matrix<double, 15, 15> & block) {
+          const auto existing_it = std::find(
+            output.retained_stamp_ns.begin(), output.retained_stamp_ns.end(), stamp_ns);
+          if (existing_it == output.retained_stamp_ns.end()) {
+            const auto old_cols = output.marginalized_delta_from_retained.cols();
+            output.marginalized_delta_from_retained.conservativeResize(
+              static_cast<Eigen::Index>(kStateDof),
+              old_cols + static_cast<Eigen::Index>(kStateDof));
+            output.marginalized_delta_from_retained.block<15, 15>(0, old_cols) = block;
+            output.retained_stamp_ns.push_back(stamp_ns);
+            output.retained_reference_states.push_back(reference_state);
+            return;
+          }
+          const auto existing_index = static_cast<size_t>(
+            std::distance(output.retained_stamp_ns.begin(), existing_it));
+          const auto existing_offset = static_cast<Eigen::Index>(existing_index * kStateDof);
+          const auto reference_offset =
+            SlidingWindowOptimizer::state_delta(
+            reference_state, output.retained_reference_states[existing_index]);
+          output.marginalized_target_delta += block * reference_offset;
+          output.marginalized_delta_from_retained.block<15, 15>(0, existing_offset) += block;
+        };
+
+      auto append_record =
+        [&output, &append_or_accumulate_block](
+          const MarginalizedStateBacksubstitution & record,
+          const double weight) {
+          output.marginalized_target_delta += weight * record.marginalized_target_delta;
+          for (size_t retained_index = 0U; retained_index < record.retained_stamp_ns.size();
+            ++retained_index)
+          {
+            const auto offset = static_cast<Eigen::Index>(retained_index * kStateDof);
+            append_or_accumulate_block(
+              record.retained_stamp_ns[retained_index],
+              record.retained_reference_states[retained_index],
+              weight * record.marginalized_delta_from_retained.block<15, 15>(0, offset));
+          }
+        };
+
+      append_record(*before, 1.0 - alpha);
+      append_record(*after, alpha);
+      if (!output.retained_stamp_ns.empty() &&
+        output.marginalized_target_delta.allFinite() &&
+        output.marginalized_delta_from_retained.allFinite())
+      {
+        return output;
+      }
+    }
+  }
+
+  if (nearest != nullptr && nearest_delta_ns <= max_delta_ns) {
+    return from_record(*nearest);
+  }
+  return std::nullopt;
+}
+
 size_t SlidingWindowOptimizer::propagate_marginalized_backsubstitutions(
   const MarginalizedStateBacksubstitution & substitution)
 {
@@ -2885,6 +3046,8 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.marginalized_backsubstitution_count = marginalized_backsubstitutions_.size();
   summary.marginalized_backsubstitution_chain_update_count =
     marginalized_backsubstitution_chain_update_count_;
+  summary.marginalized_backsubstitution_interpolation_count =
+    marginalized_backsubstitution_interpolation_count_;
   summary.visual_marginalization_prior_count = visual_marginalization_prior_count_;
   summary.se3_photometric_marginalization_prior_count =
     se3_photometric_marginalization_prior_count_;

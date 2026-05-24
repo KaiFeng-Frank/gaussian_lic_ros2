@@ -73,7 +73,8 @@
     "min_status_bin_sample_count": 148,
     "min_visual_factor_delta_per_bin": 111,
     "min_se3_photometric_factor_delta_per_bin": 111,
-    "chained_marginalized_backsubstitution_status": "available in reports after 2026-05-25; accepted evidence predates this diagnostic"
+    "chained_marginalized_backsubstitution_status": "available in reports after 2026-05-25; accepted evidence predates this diagnostic",
+    "interpolated_marginalized_backsubstitution_status": "available in reports after 2026-05-25; accepted evidence predates this diagnostic"
   },
   "structural_evidence": [
     {
@@ -84,6 +85,15 @@
       "chain_updates": 1,
       "visual_marginalization_priors": 1,
       "promotion_status": "probe-only structural evidence: source-time late visual information can now survive retained-state marginalization; full-window bag promotion still requires RMSE and factor-continuity evidence"
+    },
+    {
+      "id": "interpolated_marginalized_backsubstitution_probe",
+      "scope": "deterministic optimizer probe for continuous-time late visual prior support between marginalized states",
+      "test": "sliding_window_schur_marginalization_probe",
+      "active_backsubs": 3,
+      "interpolations": 1,
+      "visual_marginalization_priors": 1,
+      "promotion_status": "probe-only structural evidence: source-time late visual information now combines bracketing marginalized back-substitution records instead of snapping to nearest history; full-window bag promotion still requires RMSE and factor-continuity evidence"
     },
     {
       "id": "rendered_feedback_contract_source_pointcloud_12s",

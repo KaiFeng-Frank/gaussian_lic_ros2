@@ -6743,6 +6743,8 @@ private:
       static_cast<uint64_t>(summary.marginalized_backsubstitution_count);
     status.sliding_window_marginalized_backsubstitution_chain_updates =
       static_cast<uint64_t>(summary.marginalized_backsubstitution_chain_update_count);
+    status.sliding_window_marginalized_backsubstitution_interpolations =
+      static_cast<uint64_t>(summary.marginalized_backsubstitution_interpolation_count);
     status.sliding_window_visual_marginalization_priors =
       static_cast<uint64_t>(summary.visual_marginalization_prior_count);
     status.sliding_window_se3_photometric_marginalization_priors =

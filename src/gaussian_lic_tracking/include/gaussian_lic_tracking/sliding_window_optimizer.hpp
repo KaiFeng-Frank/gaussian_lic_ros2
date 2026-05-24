@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -230,6 +231,7 @@ struct SlidingWindowSummary
   size_t fallback_marginalization_prior_count{0};
   size_t marginalized_backsubstitution_count{0};
   size_t marginalized_backsubstitution_chain_update_count{0};
+  size_t marginalized_backsubstitution_interpolation_count{0};
   size_t visual_marginalization_prior_count{0};
   size_t se3_photometric_marginalization_prior_count{0};
   size_t dense_prior_rows{0};
@@ -368,6 +370,16 @@ private:
       Eigen::Matrix<double, 15, 1>::Zero()};
     Eigen::MatrixXd marginalized_delta_from_retained;
   };
+  struct MarginalizedMeasurementBacksubstitution
+  {
+    SlidingWindowState marginalized_reference_state;
+    std::vector<int64_t> retained_stamp_ns;
+    std::vector<SlidingWindowState> retained_reference_states;
+    Eigen::Matrix<double, 15, 1> marginalized_target_delta{
+      Eigen::Matrix<double, 15, 1>::Zero()};
+    Eigen::MatrixXd marginalized_delta_from_retained;
+    bool interpolated{false};
+  };
 
   static Eigen::Vector3d rotation_residual(
     const Eigen::Quaterniond & measured_q,
@@ -404,6 +416,8 @@ private:
     const Eigen::MatrixXd & marginalized_jacobian);
   const MarginalizedStateBacksubstitution * select_marginalized_backsubstitution(
     int64_t factor_stamp_ns) const;
+  std::optional<MarginalizedMeasurementBacksubstitution> build_marginalized_measurement_backsubstitution(
+    int64_t factor_stamp_ns) const;
   size_t propagate_marginalized_backsubstitutions(
     const MarginalizedStateBacksubstitution & substitution);
   size_t prune_marginalized_backsubstitutions();
@@ -437,6 +451,7 @@ private:
   size_t schur_marginalization_count_{0};
   size_t fallback_marginalization_prior_count_{0};
   size_t marginalized_backsubstitution_chain_update_count_{0};
+  size_t marginalized_backsubstitution_interpolation_count_{0};
   size_t visual_marginalization_prior_count_{0};
   size_t se3_photometric_marginalization_prior_count_{0};
 };

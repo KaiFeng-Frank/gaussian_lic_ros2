@@ -187,6 +187,9 @@ def write_status_csv(records: list[dict[str, float]], path: Path) -> None:
         "sliding_window_marginalized_states",
         "sliding_window_schur_marginalizations",
         "sliding_window_fallback_marginalization_priors",
+        "sliding_window_marginalized_backsubstitutions",
+        "sliding_window_marginalized_backsubstitution_chain_updates",
+        "sliding_window_marginalized_backsubstitution_interpolations",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
