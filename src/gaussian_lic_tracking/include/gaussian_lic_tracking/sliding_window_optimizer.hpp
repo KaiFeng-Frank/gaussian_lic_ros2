@@ -228,6 +228,8 @@ struct SlidingWindowSummary
   size_t marginalized_state_count{0};
   size_t schur_marginalization_count{0};
   size_t fallback_marginalization_prior_count{0};
+  size_t marginalized_backsubstitution_count{0};
+  size_t marginalized_backsubstitution_chain_update_count{0};
   size_t visual_marginalization_prior_count{0};
   size_t se3_photometric_marginalization_prior_count{0};
   size_t dense_prior_rows{0};
@@ -402,6 +404,8 @@ private:
     const Eigen::MatrixXd & marginalized_jacobian);
   const MarginalizedStateBacksubstitution * select_marginalized_backsubstitution(
     int64_t factor_stamp_ns) const;
+  size_t propagate_marginalized_backsubstitutions(
+    const MarginalizedStateBacksubstitution & substitution);
   size_t prune_marginalized_backsubstitutions();
   size_t prune_marginalized_factor_references();
   size_t count_orphan_factors() const;
@@ -432,6 +436,7 @@ private:
   size_t marginalized_state_count_{0};
   size_t schur_marginalization_count_{0};
   size_t fallback_marginalization_prior_count_{0};
+  size_t marginalized_backsubstitution_chain_update_count_{0};
   size_t visual_marginalization_prior_count_{0};
   size_t se3_photometric_marginalization_prior_count_{0};
 };

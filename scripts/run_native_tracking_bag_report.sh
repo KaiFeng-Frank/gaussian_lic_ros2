@@ -3407,6 +3407,8 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_alignment_marginalization_priors",
     "visual_se3_photometric_marginalization_priors",
     "visual_marginalization_prior_skipped_factors",
+    "sliding_window_marginalized_backsubstitutions",
+    "sliding_window_marginalized_backsubstitution_chain_updates",
     "sliding_window_visual_marginalization_priors",
     "sliding_window_se3_photometric_marginalization_priors",
 )
@@ -3501,6 +3503,8 @@ ESTIMATOR_FACTOR_DELTA_FIELDS = (
     "sliding_window_total_imu_factors",
     "sliding_window_total_visual_factors",
     "sliding_window_total_se3_photometric_factors",
+    "sliding_window_marginalized_backsubstitutions",
+    "sliding_window_marginalized_backsubstitution_chain_updates",
     "sliding_window_visual_marginalization_priors",
     "sliding_window_se3_photometric_marginalization_priors",
     "sliding_window_point_factors",

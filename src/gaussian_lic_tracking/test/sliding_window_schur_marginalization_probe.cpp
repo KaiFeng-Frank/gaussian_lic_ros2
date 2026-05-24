@@ -68,6 +68,83 @@ bool check_deferred_marginalization_includes_current_frame_priors()
   return true;
 }
 
+gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor make_relative_factor(
+  const int64_t from_stamp_ns,
+  const int64_t to_stamp_ns,
+  const Eigen::Vector3d & delta_p_w)
+{
+  gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
+  factor.from_stamp_ns = from_stamp_ns;
+  factor.to_stamp_ns = to_stamp_ns;
+  factor.delta_p_w = delta_p_w;
+  factor.weight = 10.0;
+  factor.huber_delta_m = 1.0;
+  return factor;
+}
+
+bool check_chained_marginalized_prior_survives_retained_state_marginalization()
+{
+  gaussian_lic_tracking::SlidingWindowConfig config;
+  config.max_states = 2;
+  config.max_iterations = 1;
+  config.marginalization_prior_weight = 0.0;
+  gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+
+  std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+  for (int i = 0; i < 4; ++i) {
+    states.push_back(make_state(static_cast<int64_t>(i), static_cast<double>(i)));
+    optimizer.add_or_update_state(states.back());
+    optimizer.add_state_prior(make_full_state_prior(states.back()));
+    if (i > 0) {
+      optimizer.add_relative_translation_factor(
+        make_relative_factor(
+          states[static_cast<size_t>(i - 1)].stamp_ns,
+          states[static_cast<size_t>(i)].stamp_ns,
+          states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+    }
+    if (i == 2) {
+      const auto first_summary = optimizer.optimize();
+      if (first_summary.marginalized_backsubstitution_count == 0U) {
+        std::cerr << "first marginalization did not retain a back-substitution record\n";
+        return false;
+      }
+    }
+  }
+
+  const auto second_summary = optimizer.optimize();
+  if (second_summary.marginalized_backsubstitution_chain_update_count == 0U) {
+    std::cerr << "second marginalization did not propagate the old back-substitution record\n";
+    return false;
+  }
+
+  gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor late_visual;
+  late_visual.stamp_ns = states.front().stamp_ns;
+  late_visual.source_id = 21U;
+  late_visual.measured_shift_px = Eigen::Vector2d{0.25, -0.1};
+  late_visual.meters_per_pixel = 0.05;
+  late_visual.weight = 1.0;
+  late_visual.huber_delta_m = 1.0;
+  if (!optimizer.add_marginalized_visual_alignment_prior(late_visual)) {
+    std::cerr << "chained late visual factor did not survive retained-state marginalization\n";
+    return false;
+  }
+
+  const auto late_summary = optimizer.optimize();
+  std::cout << "chained_marginalized_visual_prior_probe active_backsubs="
+            << late_summary.marginalized_backsubstitution_count
+            << " chain_updates="
+            << late_summary.marginalized_backsubstitution_chain_update_count
+            << " visual_marg_priors="
+            << late_summary.visual_marginalization_prior_count << "\n";
+  if (late_summary.marginalized_backsubstitution_chain_update_count == 0U ||
+    late_summary.visual_marginalization_prior_count == 0U)
+  {
+    std::cerr << "chained marginalized prior was not retained in the BA window\n";
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main()
@@ -174,6 +251,9 @@ int main()
     return 1;
   }
   if (!check_deferred_marginalization_includes_current_frame_priors()) {
+    return 1;
+  }
+  if (!check_chained_marginalized_prior_survives_retained_state_marginalization()) {
     return 1;
   }
   std::cout << "sliding_window_schur_marginalization_probe OK\n";

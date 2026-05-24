@@ -674,6 +674,7 @@ void SlidingWindowOptimizer::clear()
   marginalized_state_count_ = 0U;
   schur_marginalization_count_ = 0U;
   fallback_marginalization_prior_count_ = 0U;
+  marginalized_backsubstitution_chain_update_count_ = 0U;
   visual_marginalization_prior_count_ = 0U;
   se3_photometric_marginalization_prior_count_ = 0U;
 }
@@ -2535,6 +2536,7 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
     if (record.marginalized_target_delta.allFinite() &&
       record.marginalized_delta_from_retained.allFinite())
     {
+      propagate_marginalized_backsubstitutions(record);
       marginalized_backsubstitutions_.push_back(std::move(record));
       while (marginalized_backsubstitutions_.size() > kMaxMarginalizedBacksubstitutions) {
         marginalized_backsubstitutions_.erase(marginalized_backsubstitutions_.begin());
@@ -2575,6 +2577,117 @@ SlidingWindowOptimizer::select_marginalized_backsubstitution(const int64_t facto
     return nullptr;
   }
   return best;
+}
+
+size_t SlidingWindowOptimizer::propagate_marginalized_backsubstitutions(
+  const MarginalizedStateBacksubstitution & substitution)
+{
+  const auto substitution_cols =
+    static_cast<Eigen::Index>(substitution.retained_stamp_ns.size() * kStateDof);
+  if (substitution.marginalized_delta_from_retained.cols() != substitution_cols ||
+    !substitution.marginalized_target_delta.allFinite() ||
+    !substitution.marginalized_delta_from_retained.allFinite())
+  {
+    return 0U;
+  }
+
+  size_t updated = 0U;
+  for (auto & record : marginalized_backsubstitutions_) {
+    const auto record_cols =
+      static_cast<Eigen::Index>(record.retained_stamp_ns.size() * kStateDof);
+    if (record.marginalized_delta_from_retained.cols() != record_cols ||
+      record.retained_stamp_ns.empty())
+    {
+      continue;
+    }
+
+    const auto retained_it = std::find(
+      record.retained_stamp_ns.begin(),
+      record.retained_stamp_ns.end(),
+      substitution.marginalized_stamp_ns);
+    if (retained_it == record.retained_stamp_ns.end()) {
+      continue;
+    }
+    const auto substituted_index =
+      static_cast<size_t>(std::distance(record.retained_stamp_ns.begin(), retained_it));
+    const auto substituted_offset =
+      static_cast<Eigen::Index>(substituted_index * kStateDof);
+    const Eigen::Matrix<double, 15, 15> bridge =
+      record.marginalized_delta_from_retained.block<15, 15>(0, substituted_offset);
+
+    Eigen::Matrix<double, 15, 1> propagated_target =
+      record.marginalized_target_delta + bridge * substitution.marginalized_target_delta;
+    std::vector<int64_t> propagated_stamp_ns;
+    std::vector<SlidingWindowState> propagated_reference_states;
+    Eigen::MatrixXd propagated_delta_from_retained =
+      Eigen::MatrixXd::Zero(static_cast<Eigen::Index>(kStateDof), 0);
+
+    auto append_or_accumulate_block =
+      [&propagated_target,
+       &propagated_stamp_ns,
+       &propagated_reference_states,
+       &propagated_delta_from_retained](
+        const int64_t stamp_ns,
+        const SlidingWindowState & reference_state,
+        const Eigen::Matrix<double, 15, 15> & block) {
+        const auto existing_it = std::find(
+          propagated_stamp_ns.begin(), propagated_stamp_ns.end(), stamp_ns);
+        if (existing_it == propagated_stamp_ns.end()) {
+          const auto old_cols = propagated_delta_from_retained.cols();
+          propagated_delta_from_retained.conservativeResize(
+            static_cast<Eigen::Index>(kStateDof),
+            old_cols + static_cast<Eigen::Index>(kStateDof));
+          propagated_delta_from_retained.block<15, 15>(0, old_cols) = block;
+          propagated_stamp_ns.push_back(stamp_ns);
+          propagated_reference_states.push_back(reference_state);
+          return;
+        }
+        const auto existing_index = static_cast<size_t>(
+          std::distance(propagated_stamp_ns.begin(), existing_it));
+        const auto existing_offset = static_cast<Eigen::Index>(existing_index * kStateDof);
+        const auto reference_offset =
+          SlidingWindowOptimizer::state_delta(
+          reference_state, propagated_reference_states[existing_index]);
+        propagated_target += block * reference_offset;
+        propagated_delta_from_retained.block<15, 15>(0, existing_offset) += block;
+      };
+
+    for (size_t retained_index = 0U; retained_index < record.retained_stamp_ns.size();
+      ++retained_index)
+    {
+      if (retained_index == substituted_index) {
+        continue;
+      }
+      const auto offset = static_cast<Eigen::Index>(retained_index * kStateDof);
+      append_or_accumulate_block(
+        record.retained_stamp_ns[retained_index],
+        record.retained_reference_states[retained_index],
+        record.marginalized_delta_from_retained.block<15, 15>(0, offset));
+    }
+
+    for (size_t retained_index = 0U; retained_index < substitution.retained_stamp_ns.size();
+      ++retained_index)
+    {
+      const auto offset = static_cast<Eigen::Index>(retained_index * kStateDof);
+      append_or_accumulate_block(
+        substitution.retained_stamp_ns[retained_index],
+        substitution.retained_reference_states[retained_index],
+        bridge * substitution.marginalized_delta_from_retained.block<15, 15>(0, offset));
+    }
+
+    if (propagated_stamp_ns.empty() || !propagated_target.allFinite() ||
+      !propagated_delta_from_retained.allFinite())
+    {
+      continue;
+    }
+    record.marginalized_target_delta = propagated_target;
+    record.retained_stamp_ns = std::move(propagated_stamp_ns);
+    record.retained_reference_states = std::move(propagated_reference_states);
+    record.marginalized_delta_from_retained = std::move(propagated_delta_from_retained);
+    ++updated;
+  }
+  marginalized_backsubstitution_chain_update_count_ += updated;
+  return updated;
 }
 
 size_t SlidingWindowOptimizer::prune_marginalized_backsubstitutions()
@@ -2769,6 +2882,9 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.marginalized_state_count = marginalized_state_count_;
   summary.schur_marginalization_count = schur_marginalization_count_;
   summary.fallback_marginalization_prior_count = fallback_marginalization_prior_count_;
+  summary.marginalized_backsubstitution_count = marginalized_backsubstitutions_.size();
+  summary.marginalized_backsubstitution_chain_update_count =
+    marginalized_backsubstitution_chain_update_count_;
   summary.visual_marginalization_prior_count = visual_marginalization_prior_count_;
   summary.se3_photometric_marginalization_prior_count =
     se3_photometric_marginalization_prior_count_;

@@ -75,6 +75,8 @@ TRACKING_STATUS_FIELDS = (
     "sliding_window_normal_equation_condition_number",
     "sliding_window_numeric_jacobian_blocks",
     "sliding_window_numeric_jacobian_columns",
+    "sliding_window_marginalized_backsubstitutions",
+    "sliding_window_marginalized_backsubstitution_chain_updates",
     "sliding_window_visual_marginalization_priors",
     "sliding_window_se3_photometric_marginalization_priors",
     "sliding_window_normal_equation_degenerate",
