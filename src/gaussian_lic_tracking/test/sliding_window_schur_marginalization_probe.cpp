@@ -245,17 +245,34 @@ bool check_marginalized_active_boundary_prior_preserves_continuous_time_stamp()
     return false;
   }
 
+  gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor boundary_se3;
+  boundary_se3.stamp_ns = states.front().stamp_ns + dt_ns / 2;
+  boundary_se3.source_id = 42U;
+  boundary_se3.target_delta = Eigen::Matrix<double, 6, 1>::Zero();
+  boundary_se3.target_delta(0) = 0.005;
+  boundary_se3.target_delta(3) = -0.02;
+  boundary_se3.sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+  boundary_se3.weight = 1.0;
+  boundary_se3.huber_delta = 1.0;
+  if (!optimizer.add_marginalized_se3_photometric_prior(boundary_se3)) {
+    std::cerr << "marginalized-active boundary SE3 factor did not build a prior\n";
+    return false;
+  }
+
   const auto late_summary = optimizer.optimize();
-  std::cout << "marginalized_active_boundary_visual_prior_probe active_backsubs="
+  std::cout << "marginalized_active_boundary_visual_se3_prior_probe active_backsubs="
             << late_summary.marginalized_backsubstitution_count
             << " interpolations="
             << late_summary.marginalized_backsubstitution_interpolation_count
             << " visual_marg_priors="
-            << late_summary.visual_marginalization_prior_count << "\n";
-  if (late_summary.marginalized_backsubstitution_interpolation_count == 0U ||
-    late_summary.visual_marginalization_prior_count == 0U)
+            << late_summary.visual_marginalization_prior_count
+            << " se3_marg_priors="
+            << late_summary.se3_photometric_marginalization_prior_count << "\n";
+  if (late_summary.marginalized_backsubstitution_interpolation_count < 2U ||
+    late_summary.visual_marginalization_prior_count == 0U ||
+    late_summary.se3_photometric_marginalization_prior_count == 0U)
   {
-    std::cerr << "marginalized-active boundary prior was not retained in the BA window\n";
+    std::cerr << "marginalized-active boundary priors were not retained in the BA window\n";
     return false;
   }
   return true;

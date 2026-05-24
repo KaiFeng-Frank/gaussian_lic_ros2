@@ -100,9 +100,10 @@
       "scope": "deterministic optimizer probe for continuous-time late visual prior support across the marginalized-to-active window boundary",
       "test": "sliding_window_schur_marginalization_probe",
       "active_backsubs": 1,
-      "interpolations": 1,
+      "interpolations": 2,
       "visual_marginalization_priors": 1,
-      "promotion_status": "probe-only structural evidence: source-time late visual information between the newest marginalized state and oldest active state now uses mixed marginalized-plus-active support instead of a one-sided nearest-state approximation"
+      "se3_photometric_marginalization_priors": 1,
+      "promotion_status": "probe-only structural evidence: source-time late visual and SE3 information between the newest marginalized state and oldest active state now uses mixed marginalized-plus-active support instead of a one-sided nearest-state approximation"
     },
     {
       "id": "rendered_feedback_contract_source_pointcloud_12s",
