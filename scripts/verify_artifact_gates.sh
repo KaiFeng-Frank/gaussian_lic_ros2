@@ -26,7 +26,49 @@ EOF
   --max-rmse-m 0.01 \
   --max-mean-m 0.01 \
   --max-error-m 0.01
-rg -q '"ok": true' "${ARTIFACT_DIR}/trajectory_compare.json"
+grep -q '"ok": true' "${ARTIFACT_DIR}/trajectory_compare.json"
+
+cat >/tmp/gaussian_lic_long_baseline.tum <<'EOF'
+0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.100000000 1.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.200000000 2.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.300000000 3.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.400000000 4.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+EOF
+cat >/tmp/gaussian_lic_window_current.tum <<'EOF'
+0.200000000 2.002000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.300000000 3.003000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+0.400000000 4.004000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000
+EOF
+set +e
+./scripts/trajectory_compare.py \
+  --baseline /tmp/gaussian_lic_long_baseline.tum \
+  --current /tmp/gaussian_lic_window_current.tum \
+  --output "${ARTIFACT_DIR}/trajectory_compare_all_coverage.json" \
+  --min-coverage 0.8 \
+  --max-rmse-m 0.01 \
+  --max-mean-m 0.01 \
+  --max-error-m 0.01 \
+  >"${ARTIFACT_DIR}/trajectory_compare_all_coverage_expected_fail.log" 2>&1
+coverage_all_status=$?
+set -e
+if [ "${coverage_all_status}" -eq 0 ]; then
+  echo "trajectory_compare all-coverage gate should fail for clipped current trajectory" >&2
+  exit 1
+fi
+grep -q '"coverage_mode": "all"' "${ARTIFACT_DIR}/trajectory_compare_all_coverage.json"
+grep -q '"coverage_denominator_poses": 5' "${ARTIFACT_DIR}/trajectory_compare_all_coverage.json"
+./scripts/trajectory_compare.py \
+  --baseline /tmp/gaussian_lic_long_baseline.tum \
+  --current /tmp/gaussian_lic_window_current.tum \
+  --output "${ARTIFACT_DIR}/trajectory_compare_overlap_coverage.json" \
+  --coverage-mode overlap \
+  --min-coverage 0.99 \
+  --max-rmse-m 0.01 \
+  --max-mean-m 0.01 \
+  --max-error-m 0.01
+grep -q '"ok": true' "${ARTIFACT_DIR}/trajectory_compare_overlap_coverage.json"
+grep -q '"coverage_denominator_poses": 3' "${ARTIFACT_DIR}/trajectory_compare_overlap_coverage.json"
 
 echo "[artifact] point cloud comparison"
 cat >/tmp/gaussian_lic_baseline.ply <<'EOF'
@@ -69,7 +111,7 @@ EOF
   --max-chamfer-rmse-m 0.01 \
   --max-chamfer-mean-m 0.01 \
   --max-chamfer-max-m 0.01
-rg -q '"ok": true' "${ARTIFACT_DIR}/pointcloud_compare.json"
+grep -q '"ok": true' "${ARTIFACT_DIR}/pointcloud_compare.json"
 
 echo "[artifact] baseline manifest"
 rm -rf /tmp/gaussian_lic_baseline_manifest
@@ -86,9 +128,9 @@ printf 'synthetic render placeholder\n' >/tmp/gaussian_lic_baseline_manifest/ren
   --write \
   --json \
   >"${ARTIFACT_DIR}/baseline_manifest_stdout.json"
-rg -q '"ok": true' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
-rg -q '"trajectory_poses": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
-rg -q '"point_cloud_vertices": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
+grep -q '"ok": true' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
+grep -q '"trajectory_poses": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
+grep -q '"point_cloud_vertices": 3' /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json
 cp /tmp/gaussian_lic_baseline_manifest/baseline_manifest.json \
   "${ARTIFACT_DIR}/baseline_manifest.json"
 
@@ -107,8 +149,8 @@ printf '{"tracking_hz": 9.8, "mapping_hz": 9.7, "mean_iteration_ms": 1.05}\n' \
   --sequence synthetic_verify \
   --output "${ARTIFACT_DIR}/baseline_readiness.json" \
   --markdown "${ARTIFACT_DIR}/baseline_readiness.md"
-rg -q '"ok": true' "${ARTIFACT_DIR}/baseline_readiness.json"
-rg -q '| FAST-LIVO2 data | PASS |' "${ARTIFACT_DIR}/baseline_readiness.md"
+grep -q '"ok": true' "${ARTIFACT_DIR}/baseline_readiness.json"
+grep -q '| FAST-LIVO2 data | PASS |' "${ARTIFACT_DIR}/baseline_readiness.md"
 
 echo "[artifact] reproduction report"
 rm -rf /tmp/gaussian_lic_current_report
@@ -132,8 +174,8 @@ printf '{"tracking_hz": 9.8, "mapping_hz": 9.7, "mean_iteration_ms": 1.05}\n' \
   --max-chamfer-rmse-m 0.01 \
   --max-chamfer-mean-m 0.01 \
   --max-chamfer-max-m 0.01
-rg -q '"ok": true' "${ARTIFACT_DIR}/reproduction_report.json"
-rg -q '| metrics | PASS |' "${ARTIFACT_DIR}/reproduction_report.md"
+grep -q '"ok": true' "${ARTIFACT_DIR}/reproduction_report.json"
+grep -q '| metrics | PASS |' "${ARTIFACT_DIR}/reproduction_report.md"
 
 echo "[artifact] rosbag2 timing audit"
 rm -rf /tmp/gaussian_lic_timing_bag /tmp/gaussian_lic_timing_bad
@@ -184,7 +226,7 @@ PY
   --required-topic /image_for_gs \
   --strict-storage \
   --output "${ARTIFACT_DIR}/rosbag2_timing_audit.json"
-rg -q '"ok": true' "${ARTIFACT_DIR}/rosbag2_timing_audit.json"
+grep -q '"ok": true' "${ARTIFACT_DIR}/rosbag2_timing_audit.json"
 if ./scripts/rosbag2_timing_audit.py \
   --bag /tmp/gaussian_lic_timing_bad \
   --required-topic /image_for_gs \
@@ -192,7 +234,7 @@ if ./scripts/rosbag2_timing_audit.py \
   echo "timestamp regression unexpectedly passed" >&2
   exit 1
 fi
-rg -q 'timestamps regressed' "${ARTIFACT_DIR}/rosbag2_timing_bad.txt"
+grep -q 'timestamps regressed' "${ARTIFACT_DIR}/rosbag2_timing_bad.txt"
 
 cat >"${ARTIFACT_DIR}/README.md" <<EOF
 # Gaussian-LIC Artifact Gate Reports

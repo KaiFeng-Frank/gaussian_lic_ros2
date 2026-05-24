@@ -286,6 +286,7 @@ MIN_REFERENCE_POSES=10
 REFERENCE_TRAJECTORY_ALIGN=first
 REFERENCE_MAX_ASSOCIATION_DT=0.2
 REFERENCE_MIN_COVERAGE=0.4
+REFERENCE_COVERAGE_MODE=all
 REFERENCE_MAX_RMSE_M=2.0
 REFERENCE_MAX_MEAN_M=1.5
 REFERENCE_MAX_ERROR_M=5.0
@@ -886,6 +887,9 @@ Options:
   --reference-max-association-dt SEC
                                Max timestamp association delta for reference comparison. Default: 0.2.
   --reference-min-coverage R   Minimum reference trajectory coverage. Default: 0.4.
+  --reference-coverage-mode all|overlap
+                               Coverage denominator for trajectory_compare.py.
+                               Default all keeps full-sequence strict gates; overlap is for clipped bag probes.
   --reference-max-rmse-m M     Max native-vs-reference translation RMSE. Default: 2.0.
   --reference-max-mean-m M     Max native-vs-reference translation mean error. Default: 1.5.
   --reference-max-error-m M    Max native-vs-reference translation max error. Default: 5.0.
@@ -2091,6 +2095,10 @@ while [[ $# -gt 0 ]]; do
       REFERENCE_MIN_COVERAGE="$2"
       shift 2
       ;;
+    --reference-coverage-mode)
+      REFERENCE_COVERAGE_MODE="$2"
+      shift 2
+      ;;
     --reference-max-rmse-m)
       REFERENCE_MAX_RMSE_M="$2"
       shift 2
@@ -2805,6 +2813,7 @@ VISUAL_FACTOR_QUALITY_SELECTION_MAX_PER_REFERENCE_REPORT="${VISUAL_FACTOR_QUALIT
 VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S_REPORT="${VISUAL_FACTOR_QUALITY_SELECTION_START_AFTER_S}" \
 VISUAL_ALIGNMENT_SATURATION_MARGIN_PX_REPORT="${VISUAL_ALIGNMENT_SATURATION_MARGIN_PX}" \
 VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE_REPORT="${VISUAL_ALIGNMENT_SATURATED_WEIGHT_SCALE}" \
+REFERENCE_COVERAGE_MODE_REPORT="${REFERENCE_COVERAGE_MODE}" \
 python3 - "${ARTIFACT_DIR}/metrics.json" "${REPORT_JSON}" \
   "${MIN_POSES}" "${MIN_STATUS_SAMPLES}" "${MIN_POINT_FRAMES}" "${REQUIRE_BA_FEEDBACK}" \
   "${REQUIRE_REFERENCE_TRAJECTORY}" "${MIN_REFERENCE_POSES}" "${REQUIRE_NONDEGENERATE_BA}" \
@@ -3298,6 +3307,7 @@ reference_tum_path = Path(sys.argv[49]) if sys.argv[49] else None
 reference_trajectory_align = sys.argv[50]
 reference_max_association_dt = float(sys.argv[51])
 reference_min_coverage = float(sys.argv[52])
+reference_coverage_mode = os.environ["REFERENCE_COVERAGE_MODE_REPORT"]
 reference_max_rmse_m = float(sys.argv[53])
 reference_max_mean_m = float(sys.argv[54])
 reference_max_error_m = float(sys.argv[55])
@@ -4223,6 +4233,7 @@ report = {
         "reference_trajectory_align": reference_trajectory_align,
         "reference_max_association_dt": reference_max_association_dt,
         "reference_min_coverage": reference_min_coverage,
+        "reference_coverage_mode": reference_coverage_mode,
         "reference_max_rmse_m": reference_max_rmse_m,
         "reference_max_mean_m": reference_max_mean_m,
         "reference_max_error_m": reference_max_error_m,
@@ -4585,6 +4596,7 @@ if [[ -s "${REFERENCE_TUM}" && -s "${CURRENT_TUM}" ]]; then
     --max-association-dt "${REFERENCE_MAX_ASSOCIATION_DT}"
     --min-matches "${MIN_REFERENCE_POSES}"
     --min-coverage "${REFERENCE_MIN_COVERAGE}"
+    --coverage-mode "${REFERENCE_COVERAGE_MODE}"
     --max-rmse-m "${REFERENCE_MAX_RMSE_M}"
     --max-mean-m "${REFERENCE_MAX_MEAN_M}"
     --max-error-m "${REFERENCE_MAX_ERROR_M}"

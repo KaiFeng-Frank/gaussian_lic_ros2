@@ -66,6 +66,23 @@ def associate_by_timestamp(baseline, current, max_dt):
     return matches
 
 
+def coverage_denominator(baseline, current, max_dt, mode):
+    if mode == "all":
+        return len(baseline)
+    if mode != "overlap":
+        raise ValueError(f"unsupported coverage mode: {mode}")
+    if not current:
+        return 0
+    start_stamp = current[0].stamp - max_dt
+    end_stamp = current[-1].stamp + max_dt
+    return sum(1 for pose in baseline if start_stamp <= pose.stamp <= end_stamp)
+
+
+def coverage_ratio(matches, baseline, current, max_dt, mode):
+    denominator = coverage_denominator(baseline, current, max_dt, mode)
+    return len(matches) / max(1, denominator), denominator
+
+
 def translation_tuple(pose):
     return pose.x, pose.y, pose.z
 
@@ -409,6 +426,7 @@ def compute_time_offset_sweep(baseline, current, args):
         raise ValueError("time offset sweep min must be <= max")
 
     candidates = []
+    coverage_mode = getattr(args, "coverage_mode", "all")
     min_matches = args.time_offset_sweep_min_matches or args.min_matches
     offset = args.time_offset_sweep_min
     # Use an integer-like loop guard to avoid floating-point drift preventing
@@ -426,10 +444,18 @@ def compute_time_offset_sweep(baseline, current, args):
         if len(matches) < min_matches:
             continue
         summary = summarize_matches(matches, args.align)
+        coverage, denominator = coverage_ratio(
+            matches,
+            baseline,
+            shifted_poses(current, candidate_offset),
+            args.max_association_dt,
+            coverage_mode,
+        )
         candidates.append({
             "offset_sec": candidate_offset,
             "matched_poses": len(matches),
-            "coverage": len(matches) / max(1, len(baseline)),
+            "coverage": coverage,
+            "coverage_denominator_poses": denominator,
             "translation_rmse_m": summary["translation"]["rmse_m"],
             "translation_mean_m": summary["translation"]["mean_m"],
             "path_relative_drift": summary["path_length"]["relative_drift"],
@@ -451,12 +477,19 @@ def compute_report(args):
     baseline = load_tum(args.baseline)
     current = load_tum(args.current)
     matches = associate_by_timestamp(baseline, current, args.max_association_dt)
+    coverage_mode = getattr(args, "coverage_mode", "all")
 
     errors = []
     if len(matches) < args.min_matches:
         errors.append(f"matched poses {len(matches)} < min_matches {args.min_matches}")
 
-    coverage = len(matches) / max(1, len(baseline))
+    coverage, coverage_denominator_poses = coverage_ratio(
+        matches,
+        baseline,
+        current,
+        args.max_association_dt,
+        coverage_mode,
+    )
     if coverage < args.min_coverage:
         errors.append(f"coverage {coverage:.2%} < min_coverage {args.min_coverage:.2%}")
 
@@ -475,6 +508,7 @@ def compute_report(args):
         "max_path_drift": args.max_path_drift,
         "min_matches": args.min_matches,
         "min_coverage": args.min_coverage,
+        "coverage_mode": coverage_mode,
     }
 
     if rmse > args.max_rmse_m:
@@ -552,6 +586,8 @@ def compute_report(args):
         "current_poses": len(current),
         "matched_poses": len(matches),
         "coverage": coverage,
+        "coverage_mode": coverage_mode,
+        "coverage_denominator_poses": coverage_denominator_poses,
         "translation": summary["translation"],
         "path_length": summary["path_length"],
         "trajectory_stats": summary["trajectory_stats"],
@@ -584,6 +620,15 @@ def main(argv=None):
     parser.add_argument("--max-association-dt", type=float, default=0.02)
     parser.add_argument("--min-matches", type=int, default=2)
     parser.add_argument("--min-coverage", type=float, default=0.8)
+    parser.add_argument(
+        "--coverage-mode",
+        choices=("all", "overlap"),
+        default="all",
+        help=(
+            "Coverage denominator: all baseline poses, or only the baseline poses "
+            "inside the current trajectory time window. Default: all."
+        ),
+    )
     parser.add_argument("--max-rmse-m", type=float, default=0.05)
     parser.add_argument("--max-mean-m", type=float, default=0.03)
     parser.add_argument("--max-error-m", type=float, default=0.15)
