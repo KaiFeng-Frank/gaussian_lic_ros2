@@ -228,6 +228,8 @@ struct SlidingWindowSummary
   size_t marginalized_state_count{0};
   size_t schur_marginalization_count{0};
   size_t fallback_marginalization_prior_count{0};
+  size_t visual_marginalization_prior_count{0};
+  size_t se3_photometric_marginalization_prior_count{0};
   size_t dense_prior_rows{0};
   size_t dense_prior_cols{0};
   size_t dense_prior_rank{0};
@@ -332,6 +334,8 @@ public:
   void add_point_to_plane_factor(const SlidingWindowPointToPlaneFactor & factor);
   void add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor);
   void add_se3_photometric_factor(const SlidingWindowSe3PhotometricFactor & factor);
+  bool add_marginalized_visual_alignment_prior(const SlidingWindowVisualAlignmentFactor & factor);
+  bool add_marginalized_se3_photometric_prior(const SlidingWindowSe3PhotometricFactor & factor);
   void add_relative_translation_factor(const SlidingWindowRelativeTranslationFactor & factor);
   void add_relative_distance_factor(const SlidingWindowRelativeDistanceFactor & factor);
   void add_trajectory_smoothness_factor(const SlidingWindowTrajectorySmoothnessFactor & factor);
@@ -351,6 +355,16 @@ private:
     Eigen::Index row_size{0};
     Eigen::Index column_start{0};
     Eigen::Index column_size{0};
+  };
+  struct MarginalizedStateBacksubstitution
+  {
+    int64_t marginalized_stamp_ns{0};
+    SlidingWindowState marginalized_reference_state;
+    std::vector<int64_t> retained_stamp_ns;
+    std::vector<SlidingWindowState> retained_reference_states;
+    Eigen::Matrix<double, 15, 1> marginalized_target_delta{
+      Eigen::Matrix<double, 15, 1>::Zero()};
+    Eigen::MatrixXd marginalized_delta_from_retained;
   };
 
   static Eigen::Vector3d rotation_residual(
@@ -382,6 +396,13 @@ private:
     double damping) const;
   double compute_cost(const Eigen::VectorXd & residual) const;
   bool add_schur_marginalization_prior_for_front();
+  bool add_marginalized_measurement_prior(
+    int64_t factor_stamp_ns,
+    const Eigen::VectorXd & residual,
+    const Eigen::MatrixXd & marginalized_jacobian);
+  const MarginalizedStateBacksubstitution * select_marginalized_backsubstitution(
+    int64_t factor_stamp_ns) const;
+  size_t prune_marginalized_backsubstitutions();
   size_t prune_marginalized_factor_references();
   size_t count_orphan_factors() const;
   size_t enforce_window_size();
@@ -392,6 +413,7 @@ private:
   std::vector<SlidingWindowPosePrior> pose_priors_;
   std::vector<SlidingWindowStatePrior> state_priors_;
   std::vector<SlidingWindowDensePrior> dense_priors_;
+  std::vector<MarginalizedStateBacksubstitution> marginalized_backsubstitutions_;
   std::vector<SlidingWindowPointToPointFactor> point_factors_;
   std::vector<SlidingWindowPointToPlaneFactor> plane_factors_;
   std::vector<SlidingWindowVisualAlignmentFactor> visual_factors_;
@@ -410,6 +432,8 @@ private:
   size_t marginalized_state_count_{0};
   size_t schur_marginalization_count_{0};
   size_t fallback_marginalization_prior_count_{0};
+  size_t visual_marginalization_prior_count_{0};
+  size_t se3_photometric_marginalization_prior_count_{0};
 };
 
 }  // namespace gaussian_lic_tracking

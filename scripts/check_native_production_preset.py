@@ -180,6 +180,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION": (
             preset["enable_visual_expired_factor_projection"]
         ),
+        "ENABLE_VISUAL_MARGINALIZATION_PRIOR": (
+            preset["enable_visual_marginalization_prior"]
+        ),
         "VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S": (
             preset["visual_expired_factor_projection_max_age_s"]
         ),
@@ -246,6 +249,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "visual_adaptive_state_retention_max_states",
         "--enable-visual-expired-factor-projection",
         "enable_visual_expired_factor_projection",
+        "--enable-visual-marginalization-prior",
+        "enable_visual_marginalization_prior",
         "--visual-expired-factor-projection-max-age-s",
         "visual_expired_factor_projection_max_age_s",
         "--enable-visual-cache-reconciliation-defer-to-pointcloud",

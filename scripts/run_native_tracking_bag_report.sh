@@ -166,6 +166,7 @@ ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION=false
 VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES=4
 VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES=64
 ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
+ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
 VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S=5.0
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
@@ -697,6 +698,10 @@ Options:
                                Project late rendered-feedback visual/SE3 factors onto the current active state instead of dropping them after their original state expires.
   --disable-visual-expired-factor-projection
                                Drop expired visual/SE3 factors when their original active-window state is gone.
+  --enable-visual-marginalization-prior
+                               Convert late visual/SE3 factors on marginalized source states into Schur back-substitution dense priors on retained states.
+  --disable-visual-marginalization-prior
+                               Do not convert late visual/SE3 factors into marginalized-state priors.
   --visual-expired-factor-projection-max-age-s SEC
                                Maximum age for projected expired visual/SE3 factors. Use <=0 for unlimited. Default: 5.0.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
@@ -1600,6 +1605,15 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
       shift
       ;;
+    --enable-visual-marginalization-prior)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-marginalization-prior)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
+      shift
+      ;;
     --visual-expired-factor-projection-max-age-s)
       VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S="$2"
       shift 2
@@ -2300,6 +2314,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_adaptive_state_retention_margin_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
   visual_adaptive_state_retention_max_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
   enable_visual_expired_factor_projection:="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
+  enable_visual_marginalization_prior:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
   visual_expired_factor_projection_max_age_s:="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
@@ -2778,6 +2793,7 @@ ENABLE_VISUAL_ADAPTIVE_STATE_RETENTION_REPORT="${ENABLE_VISUAL_ADAPTIVE_STATE_RE
 VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES}" \
 VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES_REPORT="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
 ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION_REPORT="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
+ENABLE_VISUAL_MARGINALIZATION_PRIOR_REPORT="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
 VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD_REPORT="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
@@ -2895,6 +2911,9 @@ visual_adaptive_state_retention_max_states = int(
 )
 enable_visual_expired_factor_projection = (
     os.environ["ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION_REPORT"].lower() == "true"
+)
+enable_visual_marginalization_prior = (
+    os.environ["ENABLE_VISUAL_MARGINALIZATION_PRIOR_REPORT"].lower() == "true"
 )
 visual_expired_factor_projection_max_age_s = float(
     os.environ["VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT"]
@@ -3969,9 +3988,15 @@ if enable_visual_factors:
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
+        "visual_marginalization_prior_enabled",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
         "visual_expired_projection_skipped_factors",
+        "visual_alignment_marginalization_priors",
+        "visual_se3_photometric_marginalization_priors",
+        "visual_marginalization_prior_skipped_factors",
+        "sliding_window_visual_marginalization_priors",
+        "sliding_window_se3_photometric_marginalization_priors",
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
         "visual_se3_photometric_degenerate_batches",
@@ -4127,6 +4152,7 @@ report = {
             visual_adaptive_state_retention_max_states
         ),
         "enable_visual_expired_factor_projection": enable_visual_expired_factor_projection,
+        "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
         "visual_expired_factor_projection_max_age_s": (
             visual_expired_factor_projection_max_age_s
         ),

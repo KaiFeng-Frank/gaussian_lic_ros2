@@ -194,6 +194,7 @@ def main() -> int:
         "enable_visual_watermark_pair_scheduler",
         "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
         "enable_rendered_feedback_watermark_queue",
+        "enable_visual_marginalization_prior",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -497,9 +498,15 @@ def main() -> int:
         "visual_adaptive_state_retention_enabled",
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
+        "visual_marginalization_prior_enabled",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
         "visual_expired_projection_skipped_factors",
+        "visual_alignment_marginalization_priors",
+        "visual_se3_photometric_marginalization_priors",
+        "visual_marginalization_prior_skipped_factors",
+        "sliding_window_visual_marginalization_priors",
+        "sliding_window_se3_photometric_marginalization_priors",
         "sliding_window_effective_max_states",
         "visual_alignment_pending_queue_trim_drops",
         "visual_se3_photometric_pending_queue_trim_drops",
@@ -537,6 +544,8 @@ def main() -> int:
         errors.append("tracking_node must expose adaptive visual state retention as default-off")
     if 'declare_parameter<bool>("enable_visual_expired_factor_projection", false)' not in tracking_node_text:
         errors.append("tracking_node must expose expired visual factor projection as default-off")
+    if 'declare_parameter<bool>("enable_visual_marginalization_prior", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose marginalized visual/SE3 prior conversion as default-off")
     if 'DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose direct visual-pair one-to-one semantics")
     if 'DeclareLaunchArgument("enable_visual_watermark_pair_scheduler", default_value="false")' not in tracking_launch_text:
@@ -547,6 +556,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose adaptive visual state retention")
     if 'DeclareLaunchArgument("enable_visual_expired_factor_projection", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose expired visual factor projection")
+    if 'DeclareLaunchArgument("enable_visual_marginalization_prior", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose marginalized visual/SE3 prior conversion")
     if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
         errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
     if "--enable-visual-watermark-pair-scheduler" not in native_tracking_report_text:
@@ -559,6 +570,8 @@ def main() -> int:
         errors.append("native tracking report must expose adaptive visual state retention")
     if "--enable-visual-expired-factor-projection" not in native_tracking_report_text:
         errors.append("native tracking report must expose expired visual factor projection")
+    if "--enable-visual-marginalization-prior" not in native_tracking_report_text:
+        errors.append("native tracking report must expose marginalized visual/SE3 prior conversion")
     if "--visual-factor-reference-stamp-mode" not in native_tracking_report_text:
         errors.append("native tracking report must expose visual factor reference-stamp ownership")
     if "OBSERVED_FRAME_CACHE_SIZE=128" not in native_tracking_report_text or \

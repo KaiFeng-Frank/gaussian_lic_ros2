@@ -120,6 +120,9 @@ def generate_launch_description():
     enable_visual_expired_factor_projection = LaunchConfiguration(
         "enable_visual_expired_factor_projection"
     )
+    enable_visual_marginalization_prior = LaunchConfiguration(
+        "enable_visual_marginalization_prior"
+    )
     visual_expired_factor_projection_max_age_s = LaunchConfiguration(
         "visual_expired_factor_projection_max_age_s"
     )
@@ -607,6 +610,7 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_adaptive_state_retention_margin_states", default_value="4"),
             DeclareLaunchArgument("visual_adaptive_state_retention_max_states", default_value="64"),
             DeclareLaunchArgument("enable_visual_expired_factor_projection", default_value="false"),
+            DeclareLaunchArgument("enable_visual_marginalization_prior", default_value="false"),
             DeclareLaunchArgument("visual_expired_factor_projection_max_age_s", default_value="5.0"),
             DeclareLaunchArgument("visual_cache_reconciliation_defer_to_pointcloud", default_value="false"),
             DeclareLaunchArgument("visual_pair_processing_defer_to_pointcloud", default_value="false"),
@@ -953,6 +957,7 @@ def generate_launch_description():
                         "enable_visual_expired_factor_projection": (
                             enable_visual_expired_factor_projection
                         ),
+                        "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
                         "visual_expired_factor_projection_max_age_s": (
                             visual_expired_factor_projection_max_age_s
                         ),

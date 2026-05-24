@@ -16,6 +16,7 @@ namespace
 {
 constexpr size_t kStateDof = 15U;
 constexpr size_t kSmoothnessResidualDof = 18U;
+constexpr size_t kMaxMarginalizedBacksubstitutions = 512U;
 using BiasDerivativeVector = Eigen::Matrix<double, 6, 1>;
 using BiasAutoDiff = Eigen::AutoDiffScalar<BiasDerivativeVector>;
 using Vector3ad = Eigen::Matrix<BiasAutoDiff, 3, 1>;
@@ -654,6 +655,7 @@ void SlidingWindowOptimizer::clear()
   pose_priors_.clear();
   state_priors_.clear();
   dense_priors_.clear();
+  marginalized_backsubstitutions_.clear();
   point_factors_.clear();
   plane_factors_.clear();
   visual_factors_.clear();
@@ -672,6 +674,8 @@ void SlidingWindowOptimizer::clear()
   marginalized_state_count_ = 0U;
   schur_marginalization_count_ = 0U;
   fallback_marginalization_prior_count_ = 0U;
+  visual_marginalization_prior_count_ = 0U;
+  se3_photometric_marginalization_prior_count_ = 0U;
 }
 
 int SlidingWindowOptimizer::find_state_index(const int64_t stamp_ns) const
@@ -1014,6 +1018,139 @@ void SlidingWindowOptimizer::add_se3_photometric_factor(const SlidingWindowSe3Ph
   }
 }
 
+bool SlidingWindowOptimizer::add_marginalized_measurement_prior(
+  const int64_t factor_stamp_ns,
+  const Eigen::VectorXd & residual,
+  const Eigen::MatrixXd & marginalized_jacobian)
+{
+  if (residual.size() == 0 || marginalized_jacobian.rows() != residual.size() ||
+    marginalized_jacobian.cols() != static_cast<Eigen::Index>(kStateDof) ||
+    !residual.allFinite() || !marginalized_jacobian.allFinite())
+  {
+    return false;
+  }
+  const auto * record = select_marginalized_backsubstitution(factor_stamp_ns);
+  if (record == nullptr || record->marginalized_delta_from_retained.cols() == 0) {
+    return false;
+  }
+
+  for (const auto stamp_ns : record->retained_stamp_ns) {
+    if (find_state_index(stamp_ns) < 0) {
+      return false;
+    }
+  }
+
+  const Eigen::MatrixXd retained_jacobian =
+    marginalized_jacobian * record->marginalized_delta_from_retained;
+  const Eigen::VectorXd retained_residual =
+    residual + marginalized_jacobian * record->marginalized_target_delta;
+  if (retained_jacobian.norm() <= 1.0e-12 || !retained_residual.allFinite() ||
+    !retained_jacobian.allFinite())
+  {
+    return false;
+  }
+
+  const Eigen::MatrixXd hessian = retained_jacobian.transpose() * retained_jacobian;
+  const Eigen::VectorXd rhs = -retained_jacobian.transpose() * retained_residual;
+  const Eigen::MatrixXd sqrt_information = sqrt_information_from_hessian(hessian);
+  if (sqrt_information.rows() == 0 || !sqrt_information.allFinite()) {
+    return false;
+  }
+  const Eigen::MatrixXd regularized =
+    hessian + config_.damping * Eigen::MatrixXd::Identity(hessian.rows(), hessian.cols());
+  const Eigen::VectorXd target_delta = regularized.ldlt().solve(rhs);
+  if (!target_delta.allFinite()) {
+    return false;
+  }
+
+  SlidingWindowDensePrior prior;
+  prior.stamp_ns = record->retained_stamp_ns;
+  prior.reference_states = record->retained_reference_states;
+  prior.sqrt_information = sqrt_information;
+  prior.target_delta = target_delta;
+  add_dense_prior(prior);
+  return true;
+}
+
+bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
+  const SlidingWindowVisualAlignmentFactor & factor)
+{
+  if (!std::isfinite(factor.weight) || !std::isfinite(factor.meters_per_pixel) ||
+    factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0 ||
+    !std::isfinite(factor.huber_delta_m) || factor.huber_delta_m < 0.0 ||
+    !factor.measured_shift_px.allFinite())
+  {
+    return false;
+  }
+  const auto * record = select_marginalized_backsubstitution(factor.stamp_ns);
+  if (record == nullptr) {
+    return false;
+  }
+  Eigen::Vector2d target_xy;
+  target_xy.x() =
+    record->marginalized_reference_state.p_w_i.x() +
+    factor.measured_shift_px.x() * factor.meters_per_pixel;
+  target_xy.y() =
+    record->marginalized_reference_state.p_w_i.y() +
+    factor.measured_shift_px.y() * factor.meters_per_pixel;
+  const Eigen::Vector2d residual_xy =
+    record->marginalized_reference_state.p_w_i.head<2>() - target_xy;
+  const double scale =
+    std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
+  Eigen::VectorXd residual(2);
+  residual = scale * residual_xy;
+  Eigen::MatrixXd marginalized_jacobian =
+    Eigen::MatrixXd::Zero(2, static_cast<Eigen::Index>(kStateDof));
+  marginalized_jacobian(0, 6) = scale;
+  marginalized_jacobian(1, 7) = scale;
+  if (!add_marginalized_measurement_prior(
+      factor.stamp_ns, residual, marginalized_jacobian))
+  {
+    return false;
+  }
+  ++visual_marginalization_prior_count_;
+  return true;
+}
+
+bool SlidingWindowOptimizer::add_marginalized_se3_photometric_prior(
+  const SlidingWindowSe3PhotometricFactor & factor)
+{
+  if (!std::isfinite(factor.weight) || factor.weight <= 0.0 ||
+    !std::isfinite(factor.huber_delta) || factor.huber_delta < 0.0 ||
+    !factor.target_delta.allFinite() || !factor.sqrt_information.allFinite())
+  {
+    return false;
+  }
+  const auto * record = select_marginalized_backsubstitution(factor.stamp_ns);
+  if (record == nullptr) {
+    return false;
+  }
+  const auto reference_q = record->marginalized_reference_state.q_w_i.normalized();
+  Eigen::Matrix<double, 6, 1> delta;
+  delta.template segment<3>(0) = Eigen::Vector3d::Zero();
+  delta.template segment<3>(3) = Eigen::Vector3d::Zero();
+  const Eigen::Matrix<double, 6, 1> whitened_residual =
+    factor.sqrt_information * (delta - factor.target_delta);
+  const double robust_scale =
+    std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
+  Eigen::VectorXd residual(6);
+  residual = robust_scale * whitened_residual;
+  Eigen::MatrixXd delta_jacobian =
+    Eigen::MatrixXd::Zero(6, static_cast<Eigen::Index>(kStateDof));
+  delta_jacobian.block<3, 3>(0, 0) =
+    rotation_residual_left_perturbation_jacobian(reference_q, reference_q);
+  delta_jacobian.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
+  const Eigen::MatrixXd marginalized_jacobian =
+    robust_scale * factor.sqrt_information * delta_jacobian;
+  if (!add_marginalized_measurement_prior(
+      factor.stamp_ns, residual, marginalized_jacobian))
+  {
+    return false;
+  }
+  ++se3_photometric_marginalization_prior_count_;
+  return true;
+}
+
 void SlidingWindowOptimizer::add_relative_translation_factor(
   const SlidingWindowRelativeTranslationFactor & factor)
 {
@@ -1264,6 +1401,7 @@ size_t SlidingWindowOptimizer::enforce_window_size()
   }
   if (marginalized > 0U) {
     prune_marginalized_factor_references();
+    prune_marginalized_backsubstitutions();
   }
   return marginalized;
 }
@@ -2343,11 +2481,14 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
     }
   }
 
+  const Eigen::MatrixXd h_mm =
+    normal.hessian.block(marginalized_offset, marginalized_offset, marginalized_dim, marginalized_dim);
+  const Eigen::VectorXd rhs_m = normal.rhs.segment(marginalized_offset, marginalized_dim);
   const auto schur = compute_schur_complement(
-    normal.hessian.block(marginalized_offset, marginalized_offset, marginalized_dim, marginalized_dim),
+    h_mm,
     h_mr,
     h_rr,
-    normal.rhs.segment(marginalized_offset, marginalized_dim),
+    rhs_m,
     rhs_r,
     config_.damping);
   if (!schur.valid || schur.hessian.rows() != retained_dim || schur.rhs.size() != retained_dim) {
@@ -2375,7 +2516,82 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
     prior.reference_states.push_back(states_[variable.state_index]);
   }
   dense_priors_.push_back(std::move(prior));
+
+  const Eigen::MatrixXd h_mm_regularized =
+    h_mm + config_.damping * Eigen::MatrixXd::Identity(marginalized_dim, marginalized_dim);
+  Eigen::LDLT<Eigen::MatrixXd> h_mm_solver(h_mm_regularized);
+  if (h_mm_solver.info() == Eigen::Success) {
+    MarginalizedStateBacksubstitution record;
+    record.marginalized_stamp_ns = states_[marginalized_it->state_index].stamp_ns;
+    record.marginalized_reference_state = states_[marginalized_it->state_index];
+    record.marginalized_target_delta = h_mm_solver.solve(rhs_m);
+    record.marginalized_delta_from_retained = -h_mm_solver.solve(h_mr);
+    record.retained_stamp_ns.reserve(retained_variables.size());
+    record.retained_reference_states.reserve(retained_variables.size());
+    for (const auto & variable : retained_variables) {
+      record.retained_stamp_ns.push_back(states_[variable.state_index].stamp_ns);
+      record.retained_reference_states.push_back(states_[variable.state_index]);
+    }
+    if (record.marginalized_target_delta.allFinite() &&
+      record.marginalized_delta_from_retained.allFinite())
+    {
+      marginalized_backsubstitutions_.push_back(std::move(record));
+      while (marginalized_backsubstitutions_.size() > kMaxMarginalizedBacksubstitutions) {
+        marginalized_backsubstitutions_.erase(marginalized_backsubstitutions_.begin());
+      }
+    }
+  }
   return true;
+}
+
+const SlidingWindowOptimizer::MarginalizedStateBacksubstitution *
+SlidingWindowOptimizer::select_marginalized_backsubstitution(const int64_t factor_stamp_ns) const
+{
+  const MarginalizedStateBacksubstitution * best = nullptr;
+  int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+  const int64_t max_delta_ns = static_cast<int64_t>(
+    std::max(0.0, config_.max_state_gap_s) * 2.0e9);
+  for (const auto & record : marginalized_backsubstitutions_) {
+    bool retained_available = true;
+    for (const auto stamp_ns : record.retained_stamp_ns) {
+      if (find_state_index(stamp_ns) < 0) {
+        retained_available = false;
+        break;
+      }
+    }
+    if (!retained_available) {
+      continue;
+    }
+    const int64_t delta_ns =
+      record.marginalized_stamp_ns >= factor_stamp_ns ?
+      record.marginalized_stamp_ns - factor_stamp_ns :
+      factor_stamp_ns - record.marginalized_stamp_ns;
+    if (delta_ns < best_delta_ns) {
+      best_delta_ns = delta_ns;
+      best = &record;
+    }
+  }
+  if (best == nullptr || best_delta_ns > max_delta_ns) {
+    return nullptr;
+  }
+  return best;
+}
+
+size_t SlidingWindowOptimizer::prune_marginalized_backsubstitutions()
+{
+  const auto old_size = marginalized_backsubstitutions_.size();
+  marginalized_backsubstitutions_.erase(
+    std::remove_if(
+      marginalized_backsubstitutions_.begin(), marginalized_backsubstitutions_.end(),
+      [this](const MarginalizedStateBacksubstitution & record) {
+        return std::any_of(
+          record.retained_stamp_ns.begin(), record.retained_stamp_ns.end(),
+          [this](const int64_t stamp_ns) {
+            return find_state_index(stamp_ns) < 0;
+          });
+      }),
+    marginalized_backsubstitutions_.end());
+  return old_size - marginalized_backsubstitutions_.size();
 }
 
 size_t SlidingWindowOptimizer::count_orphan_factors() const
@@ -2553,6 +2769,9 @@ SlidingWindowSummary SlidingWindowOptimizer::optimize()
   summary.marginalized_state_count = marginalized_state_count_;
   summary.schur_marginalization_count = schur_marginalization_count_;
   summary.fallback_marginalization_prior_count = fallback_marginalization_prior_count_;
+  summary.visual_marginalization_prior_count = visual_marginalization_prior_count_;
+  summary.se3_photometric_marginalization_prior_count =
+    se3_photometric_marginalization_prior_count_;
   summary.state_count = states_.size();
   summary.imu_factor_count = imu_factors_.size();
   summary.pose_prior_count = pose_priors_.size();

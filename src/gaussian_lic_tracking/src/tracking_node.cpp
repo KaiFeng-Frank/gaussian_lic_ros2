@@ -329,6 +329,8 @@ public:
       declare_parameter<int>("visual_adaptive_state_retention_max_states", 64), 2);
     enable_visual_expired_factor_projection_ =
       declare_parameter<bool>("enable_visual_expired_factor_projection", false);
+    enable_visual_marginalization_prior_ =
+      declare_parameter<bool>("enable_visual_marginalization_prior", false);
     visual_expired_factor_projection_max_age_s_ =
       declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
     if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
@@ -2421,6 +2423,88 @@ private:
     return age_s <= visual_expired_factor_projection_max_age_s_;
   }
 
+  bool add_marginalized_visual_prior_from_pending(
+    const PendingVisualAlignmentFactor & pending,
+    const bool callback_ingest)
+  {
+    if (!enable_visual_marginalization_prior_) {
+      return false;
+    }
+    gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor factor;
+    factor.stamp_ns = pending.stamp_ns;
+    factor.source_id = pending.source_id;
+    factor.measured_shift_px = Eigen::Vector2d{
+      pending.alignment.subpixel_dx,
+      pending.alignment.subpixel_dy};
+    factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
+    factor.weight =
+      visual_alignment_effective_weight(pending.alignment) *
+      visual_alignment_quality_weight_scale(pending);
+    factor.huber_delta_m = visual_alignment_huber_delta_m_;
+    try {
+      if (sliding_window_optimizer_.add_marginalized_visual_alignment_prior(factor)) {
+        ++sliding_window_total_visual_factors_;
+        if (callback_ingest) {
+          ++visual_callback_ingested_visual_factors_;
+        }
+        ++visual_alignment_marginalization_priors_;
+        return true;
+      }
+    } catch (const std::exception & ex) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "marginalized visual alignment prior skipped: %s", ex.what());
+    }
+    ++visual_marginalization_prior_skipped_factors_;
+    return false;
+  }
+
+  bool add_marginalized_se3_prior_from_pending(
+    const PendingSe3PhotometricFactor & pending,
+    const bool callback_ingest)
+  {
+    if (!enable_visual_marginalization_prior_) {
+      return false;
+    }
+    gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
+    factor.stamp_ns = pending.stamp_ns;
+    factor.source_id = pending.source_id;
+    factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
+      q_i_c_,
+      p_i_c_,
+      pending.linearization.gauss_newton_step);
+    const Eigen::Matrix<double, 6, 6> body_hessian =
+      gaussian_lic_tracking::transform_camera_information_to_body(
+      q_i_c_,
+      p_i_c_,
+      pending.linearization.hessian);
+    factor.sqrt_information =
+      gaussian_lic_tracking::sqrt_information_from_hessian(body_hessian);
+    factor.weight =
+      se3_photometric_window_weight_ * se3_photometric_quality_weight_scale(pending);
+    factor.huber_delta = se3_photometric_factor_huber_delta_;
+    if (factor.sqrt_information.norm() <= std::numeric_limits<double>::epsilon()) {
+      ++visual_marginalization_prior_skipped_factors_;
+      return false;
+    }
+    try {
+      if (sliding_window_optimizer_.add_marginalized_se3_photometric_prior(factor)) {
+        ++sliding_window_total_se3_photometric_factors_;
+        if (callback_ingest) {
+          ++visual_callback_ingested_se3_photometric_factors_;
+        }
+        ++visual_se3_photometric_marginalization_priors_;
+        return true;
+      }
+    } catch (const std::exception & ex) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "marginalized SE3 photometric prior skipped: %s", ex.what());
+    }
+    ++visual_marginalization_prior_skipped_factors_;
+    return false;
+  }
+
   gaussian_lic_tracking::TrajectoryPose expired_visual_projection_reference_pose(
     const gaussian_lic_tracking::TrajectoryPose & current_pose) const
   {
@@ -2582,6 +2666,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            if (add_marginalized_visual_prior_from_pending(pending, true)) {
+              continue;
+            }
             const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
               make_projected_expired_visual_factor(pending, projection_reference);
@@ -2649,6 +2736,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            if (add_marginalized_se3_prior_from_pending(pending, true)) {
+              continue;
+            }
             const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
               make_projected_expired_se3_factor(pending, projection_reference);
@@ -3184,6 +3274,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            if (add_marginalized_visual_prior_from_pending(pending, false)) {
+              continue;
+            }
             const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
               make_projected_expired_visual_factor(pending, projection_reference);
@@ -3232,6 +3325,9 @@ private:
         const auto visual_reference = select_visual_factor_reference(pending.stamp_ns, tracking_pose);
         if (!visual_reference.has_value()) {
           if (visual_factor_stamp_is_expired(pending.stamp_ns, tracking_pose.stamp_ns)) {
+            if (add_marginalized_se3_prior_from_pending(pending, false)) {
+              continue;
+            }
             const auto projection_reference = expired_visual_projection_reference_pose(tracking_pose);
             const auto projected =
               make_projected_expired_se3_factor(pending, projection_reference);
@@ -6643,6 +6739,10 @@ private:
       static_cast<uint64_t>(summary.schur_marginalization_count);
     status.sliding_window_fallback_marginalization_priors =
       static_cast<uint64_t>(summary.fallback_marginalization_prior_count);
+    status.sliding_window_visual_marginalization_priors =
+      static_cast<uint64_t>(summary.visual_marginalization_prior_count);
+    status.sliding_window_se3_photometric_marginalization_priors =
+      static_cast<uint64_t>(summary.se3_photometric_marginalization_prior_count);
     status.sliding_window_dense_prior_rows = static_cast<uint64_t>(summary.dense_prior_rows);
     status.sliding_window_dense_prior_cols = static_cast<uint64_t>(summary.dense_prior_cols);
     status.sliding_window_dense_prior_rank = static_cast<uint64_t>(summary.dense_prior_rank);
@@ -6809,12 +6909,20 @@ private:
     status.visual_render_backlog_frames = visual_render_backlog_frames_;
     status.visual_expired_factor_projection_enabled =
       enable_visual_expired_factor_projection_;
+    status.visual_marginalization_prior_enabled =
+      enable_visual_marginalization_prior_;
     status.visual_alignment_expired_projected_factors =
       visual_alignment_expired_projected_factors_;
     status.visual_se3_photometric_expired_projected_factors =
       visual_se3_photometric_expired_projected_factors_;
     status.visual_expired_projection_skipped_factors =
       visual_expired_projection_skipped_factors_;
+    status.visual_alignment_marginalization_priors =
+      visual_alignment_marginalization_priors_;
+    status.visual_se3_photometric_marginalization_priors =
+      visual_se3_photometric_marginalization_priors_;
+    status.visual_marginalization_prior_skipped_factors =
+      visual_marginalization_prior_skipped_factors_;
     status.visual_alignment_interpolated_factors = visual_alignment_interpolated_factor_count_;
     status.visual_se3_photometric_interpolated_factors =
       visual_se3_photometric_interpolated_factor_count_;
@@ -7051,6 +7159,7 @@ private:
   int visual_adaptive_state_retention_margin_states_{4};
   int visual_adaptive_state_retention_max_states_{64};
   bool enable_visual_expired_factor_projection_{false};
+  bool enable_visual_marginalization_prior_{false};
   double visual_expired_factor_projection_max_age_s_{5.0};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   bool visual_pair_processing_defer_to_pointcloud_{false};
@@ -7459,6 +7568,9 @@ private:
   uint64_t visual_alignment_expired_projected_factors_{0};
   uint64_t visual_se3_photometric_expired_projected_factors_{0};
   uint64_t visual_expired_projection_skipped_factors_{0};
+  uint64_t visual_alignment_marginalization_priors_{0};
+  uint64_t visual_se3_photometric_marginalization_priors_{0};
+  uint64_t visual_marginalization_prior_skipped_factors_{0};
   uint64_t visual_alignment_interpolated_factor_count_{0};
   uint64_t visual_se3_photometric_interpolated_factor_count_{0};
   uint64_t visual_cache_reconciled_pairs_{0};

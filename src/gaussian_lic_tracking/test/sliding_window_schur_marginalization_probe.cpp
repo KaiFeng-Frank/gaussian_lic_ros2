@@ -133,6 +133,46 @@ int main()
     std::cerr << "Schur marginalization did not produce a retained dense window prior\n";
     return 1;
   }
+
+  gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor late_visual;
+  late_visual.stamp_ns = start.stamp_ns;
+  late_visual.source_id = 11U;
+  late_visual.measured_shift_px = Eigen::Vector2d{1.0, -0.5};
+  late_visual.meters_per_pixel = 0.02;
+  late_visual.weight = 1.0;
+  late_visual.huber_delta_m = 1.0;
+  if (!optimizer.add_marginalized_visual_alignment_prior(late_visual)) {
+    std::cerr << "late visual factor was not converted through Schur back-substitution\n";
+    return 1;
+  }
+
+  gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor late_se3;
+  late_se3.stamp_ns = start.stamp_ns;
+  late_se3.source_id = 12U;
+  late_se3.target_delta = Eigen::Matrix<double, 6, 1>::Zero();
+  late_se3.target_delta(3) = 0.01;
+  late_se3.sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+  late_se3.weight = 1.0;
+  late_se3.huber_delta = 1.0;
+  if (!optimizer.add_marginalized_se3_photometric_prior(late_se3)) {
+    std::cerr << "late SE3 photometric factor was not converted through Schur back-substitution\n";
+    return 1;
+  }
+  const auto late_summary = optimizer.optimize();
+  std::cout << "late_marginalized_visual_prior_probe dense_priors="
+            << late_summary.dense_prior_count
+            << " visual_marg_priors="
+            << late_summary.visual_marginalization_prior_count
+            << " se3_marg_priors="
+            << late_summary.se3_photometric_marginalization_prior_count
+            << "\n";
+  if (late_summary.dense_prior_count < 3U ||
+    late_summary.visual_marginalization_prior_count != 1U ||
+    late_summary.se3_photometric_marginalization_prior_count != 1U)
+  {
+    std::cerr << "marginalized late visual priors were not retained in the BA normal equation\n";
+    return 1;
+  }
   if (!check_deferred_marginalization_includes_current_frame_priors()) {
     return 1;
   }
