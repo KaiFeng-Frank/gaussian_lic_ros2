@@ -27,6 +27,28 @@ EOF
   --max-mean-m 0.01 \
   --max-error-m 0.01
 grep -q '"ok": true' "${ARTIFACT_DIR}/trajectory_compare.json"
+grep -q '"current_to_baseline_ratio"' "${ARTIFACT_DIR}/trajectory_compare.json"
+grep -q '"signed_relative_drift"' "${ARTIFACT_DIR}/trajectory_compare.json"
+
+set +e
+./scripts/trajectory_compare.py \
+  --baseline /tmp/gaussian_lic_baseline.tum \
+  --current /tmp/gaussian_lic_current.tum \
+  --output "${ARTIFACT_DIR}/trajectory_compare_path_ratio_expected_fail.json" \
+  --max-rmse-m 10 \
+  --max-mean-m 10 \
+  --max-error-m 10 \
+  --max-path-drift 1 \
+  --min-current-path-ratio 1.01 \
+  >"${ARTIFACT_DIR}/trajectory_compare_path_ratio_expected_fail.log" 2>&1
+path_ratio_status=$?
+set -e
+if [ "${path_ratio_status}" -eq 0 ]; then
+  echo "trajectory_compare path-ratio gate should fail for compressed/short current trajectory" >&2
+  exit 1
+fi
+grep -q 'current/reference path ratio' \
+  "${ARTIFACT_DIR}/trajectory_compare_path_ratio_expected_fail.json"
 
 cat >/tmp/gaussian_lic_long_baseline.tum <<'EOF'
 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 0.000000000 1.000000000

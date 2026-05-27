@@ -291,6 +291,8 @@ REFERENCE_MAX_RMSE_M=2.0
 REFERENCE_MAX_MEAN_M=1.5
 REFERENCE_MAX_ERROR_M=5.0
 REFERENCE_MAX_PATH_DRIFT=0.75
+REFERENCE_MIN_CURRENT_PATH_RATIO=0.0
+REFERENCE_MAX_CURRENT_PATH_RATIO=0.0
 REFERENCE_ERROR_BIN_COUNT=8
 REFERENCE_MIN_ERROR_BIN_MATCHES=0
 REFERENCE_MAX_ERROR_BIN_RMSE_M=0.0
@@ -302,6 +304,9 @@ REFERENCE_TIME_OFFSET_SWEEP_STEP=0.1
 EXTERNAL_ODOMETRY_PRIOR_MAX_DT_NS=100000000
 EXTERNAL_ODOMETRY_PRIOR_TRANSLATION_WEIGHT=4.0
 EXTERNAL_ODOMETRY_PRIOR_ROTATION_WEIGHT=4.0
+MAX_RENDERED_DELIVERY_LAG=0
+MIN_RENDERED_DELIVERY_RECEIVED_RATIO=0.0
+MAX_TRACKING_STEP_GUARD_CLAMP_RATIO=0.0
 
 canonical_float() {
   python3 - "$1" <<'PY'
@@ -408,6 +413,12 @@ Options:
                                Minimum cumulative visual-factor increase required in each TrackingStatus bin when visual factors are enabled. Default: 0 disabled.
   --min-se3-photometric-factor-delta-per-status-bin N
                                Minimum cumulative SE3 photometric-factor increase required in each TrackingStatus bin when visual factors are enabled. Default: 0 disabled.
+  --max-rendered-delivery-lag N
+                               Fail if mapper rendered previews exceed tracking received rendered images by more than N. Default: 0 disabled.
+  --min-rendered-delivery-received-ratio R
+                               Fail if received/rendered preview ratio falls below R when mapper feedback renders images. Default: 0.0 disabled.
+  --max-tracking-step-guard-clamp-ratio R
+                               Fail if total step-guard clamps exceed R times recorded trajectory poses. Default: 0.0 disabled.
   --min-point-frames N         Minimum recorded /points_for_gs frames. Default: 10.
   --lidar-min-points N         Tracking LiDAR frame minimum. Default: 32.
   --lidar-max-frame-points N   Max LiDAR points used per frame factor. Default: 4000.
@@ -894,6 +905,10 @@ Options:
   --reference-max-mean-m M     Max native-vs-reference translation mean error. Default: 1.5.
   --reference-max-error-m M    Max native-vs-reference translation max error. Default: 5.0.
   --reference-max-path-drift R Max relative path-length drift. Default: 0.75.
+  --reference-min-current-path-ratio R
+                               Minimum current/reference path-length ratio for detecting guard-induced compression. Default: 0.0 disabled.
+  --reference-max-current-path-ratio R
+                               Maximum current/reference path-length ratio for detecting over-release. Default: 0.0 disabled.
   --reference-error-bin-count N
                                Number of time-ordered trajectory error bins archived in the reference comparison. Default: 8.
   --reference-min-error-bin-matches N
@@ -984,6 +999,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --min-se3-photometric-factor-delta-per-status-bin)
       MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN="$2"
+      shift 2
+      ;;
+    --max-rendered-delivery-lag)
+      MAX_RENDERED_DELIVERY_LAG="$2"
+      shift 2
+      ;;
+    --min-rendered-delivery-received-ratio)
+      MIN_RENDERED_DELIVERY_RECEIVED_RATIO="$2"
+      shift 2
+      ;;
+    --max-tracking-step-guard-clamp-ratio)
+      MAX_TRACKING_STEP_GUARD_CLAMP_RATIO="$2"
       shift 2
       ;;
     --write-status-history)
@@ -2115,6 +2142,14 @@ while [[ $# -gt 0 ]]; do
       REFERENCE_MAX_PATH_DRIFT="$2"
       shift 2
       ;;
+    --reference-min-current-path-ratio)
+      REFERENCE_MIN_CURRENT_PATH_RATIO="$2"
+      shift 2
+      ;;
+    --reference-max-current-path-ratio)
+      REFERENCE_MAX_CURRENT_PATH_RATIO="$2"
+      shift 2
+      ;;
     --reference-error-bin-count)
       REFERENCE_ERROR_BIN_COUNT="$2"
       shift 2
@@ -2763,6 +2798,9 @@ REFERENCE_MIN_ERROR_BIN_MATCHES_REPORT="${REFERENCE_MIN_ERROR_BIN_MATCHES}" \
 REFERENCE_MAX_ERROR_BIN_RMSE_M_REPORT="${REFERENCE_MAX_ERROR_BIN_RMSE_M}" \
 REFERENCE_MAX_ERROR_BIN_MEAN_M_REPORT="${REFERENCE_MAX_ERROR_BIN_MEAN_M}" \
 REFERENCE_MAX_ERROR_BIN_BIAS_NORM_M_REPORT="${REFERENCE_MAX_ERROR_BIN_BIAS_NORM_M}" \
+MAX_RENDERED_DELIVERY_LAG_REPORT="${MAX_RENDERED_DELIVERY_LAG}" \
+MIN_RENDERED_DELIVERY_RECEIVED_RATIO_REPORT="${MIN_RENDERED_DELIVERY_RECEIVED_RATIO}" \
+MAX_TRACKING_STEP_GUARD_CLAMP_RATIO_REPORT="${MAX_TRACKING_STEP_GUARD_CLAMP_RATIO}" \
 REFERENCE_TIME_OFFSET_SWEEP_MIN_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_MIN}" \
 REFERENCE_TIME_OFFSET_SWEEP_MAX_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_MAX}" \
 REFERENCE_TIME_OFFSET_SWEEP_STEP_REPORT="${REFERENCE_TIME_OFFSET_SWEEP_STEP}" \
@@ -3318,6 +3356,11 @@ reference_max_error_bin_rmse_m = float(os.environ["REFERENCE_MAX_ERROR_BIN_RMSE_
 reference_max_error_bin_mean_m = float(os.environ["REFERENCE_MAX_ERROR_BIN_MEAN_M_REPORT"])
 reference_max_error_bin_bias_norm_m = float(
     os.environ["REFERENCE_MAX_ERROR_BIN_BIAS_NORM_M_REPORT"])
+max_rendered_delivery_lag = int(os.environ["MAX_RENDERED_DELIVERY_LAG_REPORT"])
+min_rendered_delivery_received_ratio = float(
+    os.environ["MIN_RENDERED_DELIVERY_RECEIVED_RATIO_REPORT"])
+max_tracking_step_guard_clamp_ratio = float(
+    os.environ["MAX_TRACKING_STEP_GUARD_CLAMP_RATIO_REPORT"])
 reference_time_offset_sweep_min = float(os.environ["REFERENCE_TIME_OFFSET_SWEEP_MIN_REPORT"])
 reference_time_offset_sweep_max = float(os.environ["REFERENCE_TIME_OFFSET_SWEEP_MAX_REPORT"])
 reference_time_offset_sweep_step = float(os.environ["REFERENCE_TIME_OFFSET_SWEEP_STEP_REPORT"])
@@ -3786,6 +3829,95 @@ def build_rendered_delivery_continuity(status, mapping_status):
 
 rendered_delivery_continuity = build_rendered_delivery_continuity(status, mapping_status)
 
+
+def build_step_guard_continuity(status, trajectory_poses):
+    bins = []
+    for bin_summary in status.get("binned_summary", []):
+        if not isinstance(bin_summary, dict):
+            continue
+        item = {
+            "index": int(bin_summary.get("index", len(bins))),
+            "sample_count": int(bin_summary.get("sample_count", 0) or 0),
+            "tracking_step_guard_clamps_delta": summary_delta(
+                bin_summary, "tracking_step_guard_clamps"),
+            "tracking_step_guard_pre_lio_clamps_delta": summary_delta(
+                bin_summary, "tracking_step_guard_pre_lio_clamps"),
+            "tracking_step_guard_post_ba_clamps_delta": summary_delta(
+                bin_summary, "tracking_step_guard_post_ba_clamps"),
+            "tracking_step_guard_pre_ba_agreement_releases_delta": summary_delta(
+                bin_summary, "tracking_step_guard_pre_ba_agreement_releases"),
+            "tracking_step_guard_late_pre_ba_agreement_releases_delta": summary_delta(
+                bin_summary, "tracking_step_guard_late_pre_ba_agreement_releases"),
+            "tracking_step_guard_last_raw_step_m_max": summary_value(
+                bin_summary, "tracking_step_guard_last_raw_step_m", "max"),
+            "tracking_step_guard_last_raw_step_m_mean": summary_value(
+                bin_summary, "tracking_step_guard_last_raw_step_m", "mean"),
+            "tracking_step_guard_last_allowed_step_m_min": summary_value(
+                bin_summary, "tracking_step_guard_last_allowed_step_m", "min"),
+            "tracking_step_guard_last_allowed_step_m_max": summary_value(
+                bin_summary, "tracking_step_guard_last_allowed_step_m", "max"),
+            "tracking_step_guard_last_allowed_step_m_mean": summary_value(
+                bin_summary, "tracking_step_guard_last_allowed_step_m", "mean"),
+        }
+        raw_mean = item["tracking_step_guard_last_raw_step_m_mean"]
+        allowed_mean = item["tracking_step_guard_last_allowed_step_m_mean"]
+        item["allowed_over_raw_step_mean_ratio"] = (
+            allowed_mean / raw_mean if raw_mean > 1.0e-12 else 0.0
+        )
+        bins.append(item)
+
+    tracking_last = status.get("last") or {}
+    total_clamps = int(tracking_last.get("tracking_step_guard_clamps", 0) or 0)
+    total_pre_lio_clamps = int(
+        tracking_last.get("tracking_step_guard_pre_lio_clamps", 0) or 0)
+    total_post_ba_clamps = int(
+        tracking_last.get("tracking_step_guard_post_ba_clamps", 0) or 0)
+    total_releases = int(
+        tracking_last.get("tracking_step_guard_pre_ba_agreement_releases", 0) or 0)
+    total_late_releases = int(
+        tracking_last.get("tracking_step_guard_late_pre_ba_agreement_releases", 0) or 0)
+    pose_count = int(trajectory_poses or 0)
+    result = {
+        "available": bool(bins),
+        "binned_summary_finalized": bool(status.get("binned_summary_finalized", False)),
+        "bin_count": len(bins),
+        "trajectory_poses": pose_count,
+        "total_clamps": total_clamps,
+        "total_pre_lio_clamps": total_pre_lio_clamps,
+        "total_post_ba_clamps": total_post_ba_clamps,
+        "total_pre_ba_agreement_releases": total_releases,
+        "total_late_pre_ba_agreement_releases": total_late_releases,
+        "clamps_per_pose": total_clamps / float(max(1, pose_count)),
+        "post_ba_clamps_per_pose": total_post_ba_clamps / float(max(1, pose_count)),
+        "pre_ba_agreement_release_per_post_ba_clamp": (
+            total_releases / float(max(1, total_post_ba_clamps))
+        ),
+        "bins": bins,
+    }
+    if not bins:
+        result["reason"] = "tracking_status.binned_summary is missing or empty"
+        return result
+    result["max_clamp_delta"] = max(item["tracking_step_guard_clamps_delta"] for item in bins)
+    result["max_post_ba_clamp_delta"] = max(
+        item["tracking_step_guard_post_ba_clamps_delta"] for item in bins)
+    result["min_allowed_over_raw_step_mean_ratio"] = min(
+        item["allowed_over_raw_step_mean_ratio"] for item in bins
+        if item["tracking_step_guard_last_raw_step_m_mean"] > 1.0e-12
+    ) if any(item["tracking_step_guard_last_raw_step_m_mean"] > 1.0e-12 for item in bins) else 0.0
+    result["worst_clamp_bins"] = sorted(
+        bins,
+        key=lambda item: (
+            -item["tracking_step_guard_clamps_delta"],
+            -item["tracking_step_guard_post_ba_clamps_delta"],
+            item["index"],
+        ),
+    )[:3]
+    return result
+
+
+step_guard_continuity = build_step_guard_continuity(
+    status, metrics.get("trajectory_poses", 0))
+
 if metrics.get("trajectory_poses", 0) < min_poses:
     errors.append(f"trajectory poses {metrics.get('trajectory_poses', 0)} < {min_poses}")
 if (
@@ -3820,6 +3952,31 @@ if status.get("samples", 0) < min_status:
     errors.append(f"tracking status samples {status.get('samples', 0)} < {min_status}")
 if topic_counts.get("/points_for_gs", 0) < min_point_frames:
     errors.append(f"/points_for_gs frames {topic_counts.get('/points_for_gs', 0)} < {min_point_frames}")
+if max_rendered_delivery_lag > 0:
+    rendered_lag = int(rendered_delivery_continuity.get("produced_minus_received_total", 0))
+    if rendered_lag > max_rendered_delivery_lag:
+        errors.append(
+            f"rendered delivery lag {rendered_lag} > {max_rendered_delivery_lag}"
+        )
+if min_rendered_delivery_received_ratio > 0.0:
+    produced_total = int(rendered_delivery_continuity.get("produced_total", 0))
+    received_total = int(rendered_delivery_continuity.get("received_total", 0))
+    if produced_total <= 0:
+        errors.append("rendered delivery ratio requested but produced_total is zero")
+    else:
+        received_ratio = received_total / float(produced_total)
+        if received_ratio < min_rendered_delivery_received_ratio:
+            errors.append(
+                f"rendered delivery received ratio {received_ratio:.6f} "
+                f"< {min_rendered_delivery_received_ratio:.6f}"
+            )
+if max_tracking_step_guard_clamp_ratio > 0.0:
+    clamp_ratio = float(step_guard_continuity.get("clamps_per_pose", 0.0))
+    if clamp_ratio > max_tracking_step_guard_clamp_ratio:
+        errors.append(
+            f"tracking step-guard clamp ratio {clamp_ratio:.6f} "
+            f"> {max_tracking_step_guard_clamp_ratio:.6f}"
+        )
 if (
     require_reference_trajectory
     and metrics.get("reference_trajectory_poses", 0) < min_reference_poses
@@ -4131,7 +4288,11 @@ report = {
     "estimator_observability_continuity": estimator_observability_continuity,
     "mapper_feedback_continuity": mapper_feedback_continuity,
     "rendered_delivery_continuity": rendered_delivery_continuity,
+    "step_guard_continuity": step_guard_continuity,
     "gate_config": {
+        "max_rendered_delivery_lag": max_rendered_delivery_lag,
+        "min_rendered_delivery_received_ratio": min_rendered_delivery_received_ratio,
+        "max_tracking_step_guard_clamp_ratio": max_tracking_step_guard_clamp_ratio,
         "rendered_image_qos_reliability": os.environ["RENDERED_IMAGE_QOS_RELIABILITY_REPORT"],
         "rendered_image_qos_durability": os.environ["RENDERED_IMAGE_QOS_DURABILITY_REPORT"],
         "rendered_image_qos_depth": int(os.environ["RENDERED_IMAGE_QOS_DEPTH_REPORT"]),
@@ -4616,6 +4777,12 @@ if [[ -s "${REFERENCE_TUM}" && -s "${CURRENT_TUM}" ]]; then
   fi
   if [[ "${REFERENCE_MAX_ERROR_BIN_BIAS_NORM_M}" != "0" && "${REFERENCE_MAX_ERROR_BIN_BIAS_NORM_M}" != "0.0" ]]; then
     compare_cmd+=(--max-error-bin-bias-norm-m "${REFERENCE_MAX_ERROR_BIN_BIAS_NORM_M}")
+  fi
+  if [[ "${REFERENCE_MIN_CURRENT_PATH_RATIO}" != "0" && "${REFERENCE_MIN_CURRENT_PATH_RATIO}" != "0.0" ]]; then
+    compare_cmd+=(--min-current-path-ratio "${REFERENCE_MIN_CURRENT_PATH_RATIO}")
+  fi
+  if [[ "${REFERENCE_MAX_CURRENT_PATH_RATIO}" != "0" && "${REFERENCE_MAX_CURRENT_PATH_RATIO}" != "0.0" ]]; then
+    compare_cmd+=(--max-current-path-ratio "${REFERENCE_MAX_CURRENT_PATH_RATIO}")
   fi
   if [[ "${REFERENCE_TIME_OFFSET_SWEEP_STEP}" != "0" && "${REFERENCE_TIME_OFFSET_SWEEP_STEP}" != "0.0" ]]; then
     compare_cmd+=(

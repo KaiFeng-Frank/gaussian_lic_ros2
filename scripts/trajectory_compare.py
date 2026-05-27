@@ -305,11 +305,16 @@ def summarize_matches(matches, align):
 
     baseline_path = path_length(baseline_positions)
     current_path = path_length(current_positions)
-    absolute_path_drift = abs(current_path - baseline_path)
+    signed_path_drift = current_path - baseline_path
+    absolute_path_drift = abs(signed_path_drift)
     if baseline_path > 0.0:
         relative_path_drift = absolute_path_drift / baseline_path
+        signed_relative_path_drift = signed_path_drift / baseline_path
+        current_to_baseline_ratio = current_path / baseline_path
     else:
         relative_path_drift = 0.0
+        signed_relative_path_drift = 0.0
+        current_to_baseline_ratio = 0.0
 
     return {
         "alignment_details": alignment_details,
@@ -322,8 +327,11 @@ def summarize_matches(matches, align):
         "path_length": {
             "baseline_m": baseline_path,
             "current_m": current_path,
+            "signed_drift_m": signed_path_drift,
             "absolute_drift_m": absolute_path_drift,
+            "signed_relative_drift": signed_relative_path_drift,
             "relative_drift": relative_path_drift,
+            "current_to_baseline_ratio": current_to_baseline_ratio,
         },
         "trajectory_stats": {
             "baseline": summarize_pose_series(baseline_poses, baseline_positions),
@@ -499,13 +507,18 @@ def compute_report(args):
     mean_error = summary["translation"]["mean_m"]
     max_error = summary["translation"]["max_m"]
     relative_path_drift = summary["path_length"]["relative_drift"]
+    current_to_baseline_ratio = summary["path_length"]["current_to_baseline_ratio"]
     baseline_path = summary["path_length"]["baseline_m"]
+    min_current_path_ratio = getattr(args, "min_current_path_ratio", 0.0)
+    max_current_path_ratio = getattr(args, "max_current_path_ratio", 0.0)
 
     thresholds = {
         "max_rmse_m": args.max_rmse_m,
         "max_mean_m": args.max_mean_m,
         "max_error_m": args.max_error_m,
         "max_path_drift": args.max_path_drift,
+        "min_current_path_ratio": min_current_path_ratio,
+        "max_current_path_ratio": max_current_path_ratio,
         "min_matches": args.min_matches,
         "min_coverage": args.min_coverage,
         "coverage_mode": coverage_mode,
@@ -519,6 +532,24 @@ def compute_report(args):
         errors.append(f"translation max {max_error:.6f} m > {args.max_error_m:.6f} m")
     if baseline_path > 0.0 and relative_path_drift > args.max_path_drift:
         errors.append(f"path drift {relative_path_drift:.2%} > {args.max_path_drift:.2%}")
+    if (
+        baseline_path > 0.0
+        and min_current_path_ratio > 0.0
+        and current_to_baseline_ratio < min_current_path_ratio
+    ):
+        errors.append(
+            f"current/reference path ratio {current_to_baseline_ratio:.6f} "
+            f"< {min_current_path_ratio:.6f}"
+        )
+    if (
+        baseline_path > 0.0
+        and max_current_path_ratio > 0.0
+        and current_to_baseline_ratio > max_current_path_ratio
+    ):
+        errors.append(
+            f"current/reference path ratio {current_to_baseline_ratio:.6f} "
+            f"> {max_current_path_ratio:.6f}"
+        )
 
     error_bin_count = getattr(args, "error_bin_count", 0)
     min_error_bin_matches = getattr(args, "min_error_bin_matches", 0)
@@ -633,6 +664,18 @@ def main(argv=None):
     parser.add_argument("--max-mean-m", type=float, default=0.03)
     parser.add_argument("--max-error-m", type=float, default=0.15)
     parser.add_argument("--max-path-drift", type=float, default=0.05)
+    parser.add_argument(
+        "--min-current-path-ratio",
+        type=float,
+        default=0.0,
+        help="Optional minimum current/reference path-length ratio. Default: 0 disabled.",
+    )
+    parser.add_argument(
+        "--max-current-path-ratio",
+        type=float,
+        default=0.0,
+        help="Optional maximum current/reference path-length ratio. Default: 0 disabled.",
+    )
     parser.add_argument(
         "--error-bin-count",
         type=int,
