@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -200,7 +201,10 @@ def main() -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(encoded, encoding="utf-8")
     else:
-        print(encoded, end="")
+        try:
+            sys.stdout.write(encoded)
+        except BrokenPipeError:
+            return 0
 
     if args.require_available and not bool(summary.get("available", False)):
         return 1
