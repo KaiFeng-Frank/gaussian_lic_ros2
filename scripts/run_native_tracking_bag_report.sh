@@ -3438,6 +3438,14 @@ def summary_value(bin_summary, key, statistic, default=0.0):
 VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "num_raw_images",
     "num_rendered_images",
+    "num_rendered_feedbacks",
+    "rendered_feedback_frame_index_regressions",
+    "rendered_feedback_preview_index_regressions",
+    "rendered_feedback_frame_index_gap_count",
+    "rendered_feedback_preview_index_gap_count",
+    "rendered_feedback_frame_index_missing",
+    "rendered_feedback_preview_index_missing",
+    "rendered_feedback_duplicate_source_ids",
     "sliding_window_total_visual_factors",
     "sliding_window_total_se3_photometric_factors",
     "visual_rendered_miss_count",
@@ -3532,6 +3540,16 @@ def build_visual_factor_continuity(status):
         "max_rendered_stale_delta": max_delta("visual_rendered_stale_count"),
         "max_observed_stale_delta": max_delta("visual_observed_stale_count"),
         "max_depth_stale_delta": max_delta("visual_depth_stale_count"),
+        "max_rendered_feedback_frame_regression_delta": max_delta(
+            "rendered_feedback_frame_index_regressions"),
+        "max_rendered_feedback_preview_regression_delta": max_delta(
+            "rendered_feedback_preview_index_regressions"),
+        "max_rendered_feedback_frame_gap_delta": max_delta(
+            "rendered_feedback_frame_index_gap_count"),
+        "max_rendered_feedback_preview_gap_delta": max_delta(
+            "rendered_feedback_preview_index_gap_count"),
+        "max_rendered_feedback_duplicate_source_delta": max_delta(
+            "rendered_feedback_duplicate_source_ids"),
         "max_se3_quality_rejected_delta": max_delta(
             "visual_se3_photometric_quality_rejected_batches"),
         "max_visual_alignment_saturated_delta": max_delta("visual_alignment_saturated_count"),
@@ -4158,6 +4176,15 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_expired_drops",
         "rendered_feedback_contract_enabled",
         "num_rendered_feedbacks",
+        "last_rendered_feedback_frame_index",
+        "last_rendered_feedback_preview_index",
+        "rendered_feedback_frame_index_regressions",
+        "rendered_feedback_preview_index_regressions",
+        "rendered_feedback_frame_index_gap_count",
+        "rendered_feedback_preview_index_gap_count",
+        "rendered_feedback_frame_index_missing",
+        "rendered_feedback_preview_index_missing",
+        "rendered_feedback_duplicate_source_ids",
         "last_rendered_feedback_observed_delta_ns",
         "last_rendered_feedback_pose_delta_ns",
         "last_rendered_feedback_pointcloud_delta_ns",
@@ -4207,6 +4234,14 @@ if enable_visual_factors:
             errors.append(f"{key} is {last.get(key)}")
     if int(last.get("visual_se3_photometric_total_batches", 0)) <= 0:
         errors.append("visual_se3_photometric_total_batches is zero")
+    if enable_rendered_feedback_contract:
+        for key in (
+            "rendered_feedback_frame_index_regressions",
+            "rendered_feedback_preview_index_regressions",
+            "rendered_feedback_duplicate_source_ids",
+        ):
+            if int(last.get(key, 0)) != 0:
+                errors.append(f"{key} is {last.get(key)}")
     if int(last.get("visual_se3_photometric_valid_batches", 0)) <= 0:
         errors.append("visual_se3_photometric_valid_batches is zero")
     if int(last.get("visual_se3_photometric_total_samples", 0)) <= 0:

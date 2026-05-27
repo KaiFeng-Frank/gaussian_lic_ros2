@@ -1,6 +1,6 @@
 {
   "schema": "gaussian_lic_native_production_preset/v1",
-  "updated": "2026-05-23",
+  "updated": "2026-05-28",
   "profile": "fastlivo2",
   "sequence": "CBD_Building_01",
   "production_preset": {
@@ -117,6 +117,33 @@
         "observed_stamp_ns"
       ],
       "promotion_status": "structural support: point-cloud watermark draining can no longer be blocked by a future-stamped FIFO head; full-window promotion still requires a bag report with stable visual/SE3 drain and RMSE/path-drift parity"
+    },
+    {
+      "id": "rendered_feedback_source_index_acceptance",
+      "scope": "typed rendered-feedback source sequence contract",
+      "status_fields": [
+        "last_rendered_feedback_frame_index",
+        "last_rendered_feedback_preview_index",
+        "rendered_feedback_frame_index_regressions",
+        "rendered_feedback_preview_index_regressions",
+        "rendered_feedback_frame_index_gap_count",
+        "rendered_feedback_preview_index_gap_count",
+        "rendered_feedback_frame_index_missing",
+        "rendered_feedback_preview_index_missing",
+        "rendered_feedback_duplicate_source_ids"
+      ],
+      "acceptance_rule": "contract-enabled typed feedback is ordered by mapper frame_index/rendered_preview_index; non-monotonic Image.header.stamp is recorded but does not drop a source-index-valid pair",
+      "health_gate": "contract-enabled reports reject source-id regressions and duplicate source ids; source-id gaps remain delivery diagnostics",
+      "smoke_report": "results/fastlivo2/CBD_Building_01_rendered_feedback_source_index_12s_probe/native_tracking_report.json",
+      "smoke_trajectory_poses": 119,
+      "smoke_num_rendered_feedbacks": 68,
+      "smoke_total_visual_factors": 83,
+      "smoke_total_se3_photometric_factors": 83,
+      "smoke_source_id_regressions": 0,
+      "smoke_source_id_gap_count": 0,
+      "smoke_source_id_missing": 0,
+      "smoke_duplicate_source_ids": 0,
+      "promotion_status": "structural support: removes Image-stamp-only ownership from typed feedback without changing BA scalar weights; full-window promotion still requires bag evidence"
     },
     {
       "id": "rendered_feedback_contract_source_pointcloud_12s",

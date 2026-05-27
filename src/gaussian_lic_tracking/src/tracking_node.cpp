@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -1772,6 +1773,86 @@ private:
     return true;
   }
 
+  void observe_rendered_feedback_stamp(const int64_t stamp_ns)
+  {
+    if (last_rendered_input_stamp_ns_.has_value() &&
+      stamp_ns < last_rendered_input_stamp_ns_.value())
+    {
+      ++rendered_stamp_regressions_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "accepting typed rendered feedback with non-monotonic image stamp because source "
+        "frame/preview ids own the feedback: current=%ld previous=%ld",
+        static_cast<long>(stamp_ns),
+        static_cast<long>(last_rendered_input_stamp_ns_.value()));
+      return;
+    }
+    last_rendered_input_stamp_ns_ = stamp_ns;
+  }
+
+  bool accept_rendered_feedback_source_order(const RenderedFeedbackMetadata & metadata)
+  {
+    last_rendered_feedback_frame_index_ = metadata.frame_index;
+    last_rendered_feedback_preview_index_ = metadata.rendered_preview_index;
+
+    const auto source_id = std::make_pair(metadata.frame_index, metadata.rendered_preview_index);
+    if (!seen_rendered_feedback_source_ids_.insert(source_id).second) {
+      ++rendered_feedback_duplicate_source_ids_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping duplicate typed rendered feedback source id: frame=%lu preview=%lu",
+        static_cast<unsigned long>(metadata.frame_index),
+        static_cast<unsigned long>(metadata.rendered_preview_index));
+      return false;
+    }
+
+    if (last_ordered_rendered_feedback_frame_index_.has_value()) {
+      const auto previous = last_ordered_rendered_feedback_frame_index_.value();
+      if (metadata.frame_index < previous) {
+        ++rendered_feedback_frame_index_regressions_;
+      } else {
+        if (metadata.frame_index > previous + 1U) {
+          ++rendered_feedback_frame_index_gap_count_;
+          rendered_feedback_frame_index_missing_ += metadata.frame_index - previous - 1U;
+        }
+        last_ordered_rendered_feedback_frame_index_ = metadata.frame_index;
+      }
+    } else {
+      last_ordered_rendered_feedback_frame_index_ = metadata.frame_index;
+    }
+
+    if (last_ordered_rendered_feedback_preview_index_.has_value()) {
+      const auto previous = last_ordered_rendered_feedback_preview_index_.value();
+      if (metadata.rendered_preview_index < previous) {
+        ++rendered_feedback_preview_index_regressions_;
+      } else {
+        if (metadata.rendered_preview_index > previous + 1U) {
+          ++rendered_feedback_preview_index_gap_count_;
+          rendered_feedback_preview_index_missing_ +=
+            metadata.rendered_preview_index - previous - 1U;
+        }
+        last_ordered_rendered_feedback_preview_index_ = metadata.rendered_preview_index;
+      }
+    } else {
+      last_ordered_rendered_feedback_preview_index_ = metadata.rendered_preview_index;
+    }
+
+    if (metadata.frame_index < last_ordered_rendered_feedback_frame_index_.value() ||
+      metadata.rendered_preview_index < last_ordered_rendered_feedback_preview_index_.value())
+    {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "dropping regressed typed rendered feedback source id: frame=%lu preview=%lu "
+        "max_frame=%lu max_preview=%lu",
+        static_cast<unsigned long>(metadata.frame_index),
+        static_cast<unsigned long>(metadata.rendered_preview_index),
+        static_cast<unsigned long>(last_ordered_rendered_feedback_frame_index_.value()),
+        static_cast<unsigned long>(last_ordered_rendered_feedback_preview_index_.value()));
+      return false;
+    }
+    return true;
+  }
+
   void handle_depth(const sensor_msgs::msg::Image & msg)
   {
     const int64_t stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
@@ -1884,6 +1965,9 @@ private:
         metadata.pointcloud_stamp_ns - rendered_stamp_ns;
       update_rendered_feedback_active_window_telemetry(
         rendered_feedback_reference_stamp_ns(metadata, rendered_stamp_ns));
+      if (!accept_rendered_feedback_source_order(metadata)) {
+        return;
+      }
       auto image = msg.image;
       if (
         gaussian_lic_tracking::stamp_to_nanoseconds(image.header.stamp) != rendered_stamp_ns)
@@ -1921,11 +2005,7 @@ private:
       return;
     }
     const int64_t stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(rendered_msg.header.stamp);
-    if (!accept_stream_stamp(
-        "rendered_image", stamp_ns, last_rendered_input_stamp_ns_, rendered_stamp_regressions_, true))
-    {
-      return;
-    }
+    observe_rendered_feedback_stamp(stamp_ns);
 
     gaussian_lic_tracking::VisualFrame rendered;
     gaussian_lic_tracking::VisualFrame observed;
@@ -2104,10 +2184,14 @@ private:
       return;
     }
     const int64_t stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(msg.header.stamp);
-    if (!accept_stream_stamp(
-        "rendered_image", stamp_ns, last_rendered_input_stamp_ns_, rendered_stamp_regressions_, true))
-    {
-      return;
+    if (metadata.has_value()) {
+      observe_rendered_feedback_stamp(stamp_ns);
+    } else {
+      if (!accept_stream_stamp(
+          "rendered_image", stamp_ns, last_rendered_input_stamp_ns_, rendered_stamp_regressions_, true))
+      {
+        return;
+      }
     }
     ++num_rendered_images_;
     gaussian_lic_tracking::VisualFrame rendered;
@@ -6630,6 +6714,22 @@ private:
     status.num_rendered_feedbacks = num_rendered_feedbacks_;
     status.rendered_feedback_embedded_observed_pairs =
       rendered_feedback_embedded_observed_pairs_;
+    status.last_rendered_feedback_frame_index = last_rendered_feedback_frame_index_;
+    status.last_rendered_feedback_preview_index = last_rendered_feedback_preview_index_;
+    status.rendered_feedback_frame_index_regressions =
+      rendered_feedback_frame_index_regressions_;
+    status.rendered_feedback_preview_index_regressions =
+      rendered_feedback_preview_index_regressions_;
+    status.rendered_feedback_frame_index_gap_count =
+      rendered_feedback_frame_index_gap_count_;
+    status.rendered_feedback_preview_index_gap_count =
+      rendered_feedback_preview_index_gap_count_;
+    status.rendered_feedback_frame_index_missing =
+      rendered_feedback_frame_index_missing_;
+    status.rendered_feedback_preview_index_missing =
+      rendered_feedback_preview_index_missing_;
+    status.rendered_feedback_duplicate_source_ids =
+      rendered_feedback_duplicate_source_ids_;
     status.last_rendered_feedback_observed_delta_ns =
       last_rendered_feedback_observed_delta_ns_;
     status.last_rendered_feedback_pose_delta_ns =
@@ -7669,6 +7769,18 @@ private:
   uint64_t num_rendered_feedbacks_{0};
   uint64_t rendered_feedback_embedded_observed_pairs_{0};
   uint64_t rendered_feedback_stamp_mismatches_{0};
+  uint64_t last_rendered_feedback_frame_index_{0};
+  uint64_t last_rendered_feedback_preview_index_{0};
+  uint64_t rendered_feedback_frame_index_regressions_{0};
+  uint64_t rendered_feedback_preview_index_regressions_{0};
+  uint64_t rendered_feedback_frame_index_gap_count_{0};
+  uint64_t rendered_feedback_preview_index_gap_count_{0};
+  uint64_t rendered_feedback_frame_index_missing_{0};
+  uint64_t rendered_feedback_preview_index_missing_{0};
+  uint64_t rendered_feedback_duplicate_source_ids_{0};
+  std::set<std::pair<uint64_t, uint64_t>> seen_rendered_feedback_source_ids_;
+  std::optional<uint64_t> last_ordered_rendered_feedback_frame_index_;
+  std::optional<uint64_t> last_ordered_rendered_feedback_preview_index_;
   int64_t last_rendered_feedback_observed_delta_ns_{0};
   int64_t last_rendered_feedback_pose_delta_ns_{0};
   int64_t last_rendered_feedback_pointcloud_delta_ns_{0};
