@@ -30,6 +30,7 @@
     "lidar_window_plane_factor_weight": 4.0,
     "sliding_window_max_feedback_gyro_bias_step": 0.02,
     "sliding_window_max_feedback_accel_bias_step": 0.12,
+    "sliding_window_bias_feedback_ownership": "optimized",
     "mapper_feedback_render_mode": "rasterizer",
     "mapper_feedback_pointcloud_coordinates": "sensor",
     "mapper_feedback_max_depth": 20.0,

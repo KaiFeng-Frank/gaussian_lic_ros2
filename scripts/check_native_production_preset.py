@@ -132,6 +132,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP": (
             preset["sliding_window_max_feedback_accel_bias_step"]
         ),
+        "SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP": (
+            preset["sliding_window_bias_feedback_ownership"]
+        ),
         "MAPPER_FEEDBACK_RENDER_MODE": preset["mapper_feedback_render_mode"],
         "MAPPER_FEEDBACK_POINTCLOUD_COORDINATES": (
             preset["mapper_feedback_pointcloud_coordinates"]
@@ -310,6 +313,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "mapper_feedback_rendered_feedback_image_qos_depth",
         "--mapper-feedback-rendered-feedback-pose-qos-depth",
         "mapper_feedback_rendered_feedback_pose_qos_depth",
+        "--sliding-window-bias-feedback-ownership",
+        "sliding_window_bias_feedback_ownership",
         "visual_factor_continuity",
         "mapper_feedback_continuity",
         "rendered_delivery_continuity",
@@ -438,6 +443,8 @@ def check_report_gate_config(
             ):
                 continue
             if key == "enable_visual_factor_reference_snapshot" and wanted is False:
+                continue
+            if key == "sliding_window_bias_feedback_ownership" and wanted == "optimized":
                 continue
             if key == "mapper_feedback_rendered_feedback_source_stream" and wanted == "aligned_frame":
                 continue

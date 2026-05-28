@@ -90,6 +90,7 @@ SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP=0.0
 SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_EXPLICIT=false
 SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_EXPLICIT=false
 SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS=0
+SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP=optimized
 SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE=false
 SLIDING_WINDOW_GUARDED_POSE_PRIOR_TRANSLATION_WEIGHT=0.0
 SLIDING_WINDOW_GUARDED_POSE_PRIOR_ROTATION_WEIGHT=0.0
@@ -597,6 +598,8 @@ Options:
                                Max per-feedback accel-bias delta applied back to online IMU propagation. Default: 0.0 disabled.
   --sliding-window-min-bias-feedback-visual-factors N
                                Hold optimized bias feedback unless the current BA update added at least N visual/SE3 factors. Default: 0 disabled.
+  --sliding-window-bias-feedback-ownership MODE
+                               Bias feedback ownership mode: optimized or pose_only_for_visual_feedback. Default: optimized.
   --sliding-window-sync-guarded-pose-state
                                Experimental: after post-BA step guard clamps/rejects a pose, synchronize the same sliding-window state to the final published pose. Default: disabled.
   --sliding-window-guarded-pose-prior-weights TRANS ROT
@@ -1313,6 +1316,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sliding-window-min-bias-feedback-visual-factors)
       SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS="$2"
+      shift 2
+      ;;
+    --sliding-window-bias-feedback-ownership)
+      SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP="$2"
       shift 2
       ;;
     --sliding-window-sync-guarded-pose-state)
@@ -2594,6 +2601,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_max_feedback_gyro_bias_step:="${SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP}" \
   sliding_window_max_feedback_accel_bias_step:="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
   sliding_window_min_bias_feedback_visual_factors:="${SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS}" \
+  sliding_window_bias_feedback_ownership:="${SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP}" \
   sliding_window_sync_guarded_pose_state:="${SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE}" \
   sliding_window_guarded_pose_prior_translation_weight:="${SLIDING_WINDOW_GUARDED_POSE_PRIOR_TRANSLATION_WEIGHT}" \
   sliding_window_guarded_pose_prior_rotation_weight:="${SLIDING_WINDOW_GUARDED_POSE_PRIOR_ROTATION_WEIGHT}" \
@@ -2867,6 +2875,7 @@ POST_BA_TRACKING_STEP_GUARD_VELOCITY_SCALE_REPORT="${POST_BA_TRACKING_STEP_GUARD
 SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_GYRO_BIAS_STEP}" \
 SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP_REPORT="${SLIDING_WINDOW_MAX_FEEDBACK_ACCEL_BIAS_STEP}" \
 SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS_REPORT="${SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS}" \
+SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP_REPORT="${SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP}" \
 SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE_REPORT="${SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE}" \
 SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT_REPORT="${SLIDING_WINDOW_SMOOTHNESS_POSITION_VELOCITY_WEIGHT}" \
 SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS_REPORT="${SLIDING_WINDOW_SMOOTHNESS_USE_MOTION_TARGETS}" \
@@ -3375,6 +3384,9 @@ sliding_window_max_feedback_accel_bias_step = float(
 sliding_window_min_bias_feedback_visual_factors = int(
     os.environ["SLIDING_WINDOW_MIN_BIAS_FEEDBACK_VISUAL_FACTORS_REPORT"]
 )
+sliding_window_bias_feedback_ownership = os.environ[
+    "SLIDING_WINDOW_BIAS_FEEDBACK_OWNERSHIP_REPORT"
+]
 sliding_window_sync_guarded_pose_state = (
     os.environ["SLIDING_WINDOW_SYNC_GUARDED_POSE_STATE_REPORT"].lower() == "true"
 )
@@ -3577,6 +3589,15 @@ last = status.get("last") or {}
 mapping_status = metrics.get("mapping_status", {})
 mapping_last = mapping_status.get("last") or {}
 errors = []
+
+observed_bias_feedback_ownership = str(
+    last.get("sliding_window_bias_feedback_ownership", "") or "")
+if observed_bias_feedback_ownership != sliding_window_bias_feedback_ownership:
+    errors.append(
+        "sliding_window_bias_feedback_ownership mismatch: requested "
+        f"{sliding_window_bias_feedback_ownership!r} but tracking status reported "
+        f"{observed_bias_feedback_ownership!r}"
+    )
 
 
 def summary_delta(bin_summary, key):
@@ -4817,6 +4838,9 @@ report = {
         ),
         "sliding_window_min_bias_feedback_visual_factors": (
             sliding_window_min_bias_feedback_visual_factors
+        ),
+        "sliding_window_bias_feedback_ownership": (
+            sliding_window_bias_feedback_ownership
         ),
         "sliding_window_smoothness_position_velocity_weight": (
             sliding_window_smoothness_position_velocity_weight

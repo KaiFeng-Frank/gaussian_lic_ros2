@@ -268,6 +268,9 @@ def generate_launch_description():
     sliding_window_min_bias_feedback_visual_factors = LaunchConfiguration(
         "sliding_window_min_bias_feedback_visual_factors"
     )
+    sliding_window_bias_feedback_ownership = LaunchConfiguration(
+        "sliding_window_bias_feedback_ownership"
+    )
     sliding_window_sync_guarded_pose_state = LaunchConfiguration(
         "sliding_window_sync_guarded_pose_state"
     )
@@ -734,6 +737,10 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_max_feedback_gyro_bias_step", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_max_feedback_accel_bias_step", default_value="0.0"),
             DeclareLaunchArgument("sliding_window_min_bias_feedback_visual_factors", default_value="0"),
+            DeclareLaunchArgument(
+                "sliding_window_bias_feedback_ownership",
+                default_value="optimized",
+            ),
             DeclareLaunchArgument("sliding_window_sync_guarded_pose_state", default_value="false"),
             DeclareLaunchArgument(
                 "sliding_window_guarded_pose_prior_translation_weight",
@@ -1146,6 +1153,9 @@ def generate_launch_description():
                         "sliding_window_max_feedback_accel_bias_step": sliding_window_max_feedback_accel_bias_step,
                         "sliding_window_min_bias_feedback_visual_factors": (
                             sliding_window_min_bias_feedback_visual_factors
+                        ),
+                        "sliding_window_bias_feedback_ownership": (
+                            sliding_window_bias_feedback_ownership
                         ),
                         "sliding_window_sync_guarded_pose_state": (
                             sliding_window_sync_guarded_pose_state

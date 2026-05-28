@@ -140,6 +140,12 @@ enum class VisualFactorReferenceStampMode
   kRenderedSourcePointcloud,
 };
 
+enum class SlidingWindowBiasFeedbackOwnership
+{
+  kOptimized,
+  kPoseOnlyForVisualFeedback,
+};
+
 VisualAlignmentFactorSource parse_visual_alignment_factor_source(
   const std::string & value)
 {
@@ -200,6 +206,36 @@ VisualFactorReferenceStampMode parse_visual_factor_reference_stamp_mode(const st
   throw std::runtime_error(
     "visual_factor_reference_stamp_mode must be 'observed', 'rendered', "
     "'rendered_source_image', 'rendered_source_pose', or 'rendered_source_pointcloud'");
+}
+
+SlidingWindowBiasFeedbackOwnership parse_sliding_window_bias_feedback_ownership(
+  const std::string & value)
+{
+  std::string lower = value;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](const unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  if (lower == "optimized") {
+    return SlidingWindowBiasFeedbackOwnership::kOptimized;
+  }
+  if (lower == "pose_only_for_visual_feedback") {
+    return SlidingWindowBiasFeedbackOwnership::kPoseOnlyForVisualFeedback;
+  }
+  throw std::runtime_error(
+    "sliding_window_bias_feedback_ownership must be 'optimized' or "
+    "'pose_only_for_visual_feedback'");
+}
+
+const char * sliding_window_bias_feedback_ownership_name(
+  const SlidingWindowBiasFeedbackOwnership ownership)
+{
+  switch (ownership) {
+    case SlidingWindowBiasFeedbackOwnership::kOptimized:
+      return "optimized";
+    case SlidingWindowBiasFeedbackOwnership::kPoseOnlyForVisualFeedback:
+      return "pose_only_for_visual_feedback";
+  }
+  return "optimized";
 }
 
 struct GaussianSnapshotPoseCorrection
@@ -774,6 +810,9 @@ public:
     sliding_window_min_bias_feedback_visual_factors_ = integer_parameter_at_least(
       "sliding_window_min_bias_feedback_visual_factors",
       declare_parameter<int>("sliding_window_min_bias_feedback_visual_factors", 0), 0);
+    sliding_window_bias_feedback_ownership_ =
+      parse_sliding_window_bias_feedback_ownership(
+      declare_parameter<std::string>("sliding_window_bias_feedback_ownership", "optimized"));
     sliding_window_sync_guarded_pose_state_ =
       declare_parameter<bool>("sliding_window_sync_guarded_pose_state", false);
     sliding_window_guarded_pose_prior_translation_weight_ = finite_nonnegative_parameter(
@@ -4636,14 +4675,23 @@ private:
                 raw_velocity_delta * (sliding_window_max_feedback_velocity_mps_ / raw_velocity_delta_mps);
             }
             clamp_vector_norm(applied.v_w_i, sliding_window_max_feedback_velocity_norm_mps_);
+            const bool visual_feedback_bias_pose_only =
+              sliding_window_bias_feedback_ownership_ ==
+              SlidingWindowBiasFeedbackOwnership::kPoseOnlyForVisualFeedback &&
+              visual_feedback_factors_added > 0U;
             const bool hold_bias_feedback =
               sliding_window_min_bias_feedback_visual_factors_ > 0 &&
               visual_feedback_factors_added <
               static_cast<size_t>(sliding_window_min_bias_feedback_visual_factors_);
-            if (hold_bias_feedback) {
+            const bool preserve_bias_feedback =
+              hold_bias_feedback || visual_feedback_bias_pose_only;
+            if (preserve_bias_feedback) {
               applied.gyro_bias = sliding_window_bias_.gyro;
               applied.accel_bias = sliding_window_bias_.accel;
               ++sliding_window_bias_feedback_hold_count_;
+              if (visual_feedback_bias_pose_only) {
+                ++sliding_window_bias_feedback_ownership_hold_count_;
+              }
             } else {
               clamp_vector_step(
                 applied.gyro_bias, sliding_window_bias_.gyro,
@@ -7162,6 +7210,10 @@ private:
     status.sliding_window_bias_feedback_holds = sliding_window_bias_feedback_hold_count_;
     status.sliding_window_min_bias_feedback_visual_factors =
       static_cast<uint64_t>(sliding_window_min_bias_feedback_visual_factors_);
+    status.sliding_window_bias_feedback_ownership =
+      sliding_window_bias_feedback_ownership_name(sliding_window_bias_feedback_ownership_);
+    status.sliding_window_bias_feedback_ownership_holds =
+      sliding_window_bias_feedback_ownership_hold_count_;
     status.sliding_window_marginalized_states = static_cast<uint64_t>(summary.marginalized_state_count);
     status.sliding_window_schur_marginalizations =
       static_cast<uint64_t>(summary.schur_marginalization_count);
@@ -7733,6 +7785,8 @@ private:
   double sliding_window_max_feedback_gyro_bias_step_{0.0};
   double sliding_window_max_feedback_accel_bias_step_{0.0};
   int sliding_window_min_bias_feedback_visual_factors_{0};
+  SlidingWindowBiasFeedbackOwnership sliding_window_bias_feedback_ownership_{
+    SlidingWindowBiasFeedbackOwnership::kOptimized};
   bool sliding_window_sync_guarded_pose_state_{false};
   double sliding_window_guarded_pose_prior_translation_weight_{0.0};
   double sliding_window_guarded_pose_prior_rotation_weight_{0.0};
@@ -7893,6 +7947,7 @@ private:
   uint64_t sliding_window_guarded_state_sync_count_{0};
   uint64_t sliding_window_guarded_pose_prior_count_{0};
   uint64_t sliding_window_bias_feedback_hold_count_{0};
+  uint64_t sliding_window_bias_feedback_ownership_hold_count_{0};
   int64_t last_sliding_window_feedback_stamp_ns_{0};
   double last_sliding_window_feedback_translation_delta_m_{0.0};
   double last_sliding_window_feedback_rotation_delta_rad_{0.0};
