@@ -1042,10 +1042,23 @@ bool SlidingWindowOptimizer::add_marginalized_measurement_prior(
     }
   }
 
-  const Eigen::MatrixXd retained_jacobian =
+  Eigen::MatrixXd retained_jacobian =
     marginalized_jacobian * support->marginalized_delta_from_retained;
   const Eigen::VectorXd retained_residual =
     residual + marginalized_jacobian * support->marginalized_target_delta;
+  if (config_.visual_marginalization_prior_zero_bias_columns) {
+    for (
+      Eigen::Index block_col = 0;
+      block_col + static_cast<Eigen::Index>(kStateDof) <= retained_jacobian.cols();
+      block_col += static_cast<Eigen::Index>(kStateDof))
+    {
+      retained_jacobian.block(
+        0,
+        block_col + 9,
+        retained_jacobian.rows(),
+        6).setZero();
+    }
+  }
   if (retained_jacobian.norm() <= 1.0e-12 || !retained_residual.allFinite() ||
     !retained_jacobian.allFinite())
   {

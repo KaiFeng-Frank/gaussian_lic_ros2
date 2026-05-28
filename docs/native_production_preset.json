@@ -51,6 +51,7 @@
     "visual_adaptive_state_retention_max_states": 64,
     "enable_visual_expired_factor_projection": false,
     "enable_visual_marginalization_prior": false,
+    "visual_marginalization_prior_zero_bias_columns": false,
     "visual_expired_factor_projection_max_age_s": 5.0,
     "visual_cache_reconciliation_defer_to_pointcloud": false,
     "visual_pair_processing_defer_to_pointcloud": false
@@ -104,6 +105,13 @@
       "visual_marginalization_priors": 1,
       "se3_photometric_marginalization_priors": 1,
       "promotion_status": "probe-only structural evidence: source-time late visual and SE3 information between the newest marginalized state and oldest active state now uses mixed marginalized-plus-active support instead of a one-sided nearest-state approximation"
+    },
+    {
+      "id": "visual_marginalization_prior_zero_bias_columns_probe",
+      "scope": "deterministic optimizer probe for projecting late visual/SE3 marginalized priors away from IMU bias columns",
+      "test": "sliding_window_schur_marginalization_probe",
+      "max_bias_coupling": 0.0,
+      "promotion_status": "probe-only structural evidence: the default-off diagnostic can keep late visual/SE3 Schur priors on retained pose/velocity states without directly writing gyro/accel bias columns; full-window bag evidence still decides promotion"
     },
     {
       "id": "rendered_feedback_watermark_source_ordering",
@@ -1324,6 +1332,21 @@
         }
     ],
     "rejected_evidence": [
+    {
+      "id": "visual_marginalization_prior_zero_bias_columns_full122",
+      "report": "results/fastlivo2/CBD_Building_01_visual_marg_prior_zero_bias_full122_drain1015_retry_probe/native_tracking_report.json",
+      "trajectory_compare": "results/fastlivo2/CBD_Building_01_visual_marg_prior_zero_bias_full122_drain1015_retry_probe/native_tracking_trajectory_compare.json",
+      "total_visual_factors": 1024,
+      "total_se3_photometric_factors": 1024,
+      "observed_depth_matches": 1024,
+      "source_pointcloud_fallback_queries": 0,
+      "depth_stale_drops": 0,
+      "visual_marginalization_priors": 56,
+      "se3_marginalization_priors": 56,
+      "translation_rmse_m": 1.458310373038233,
+      "path_drift": 0.07067131215301535,
+      "reason": "zeroing IMU bias columns in late visual/SE3 marginalized priors passes the full health drain and proves the projector is wired, but it regresses RMSE/path drift versus the accepted production preset; it remains a default-off diagnostic and shifts the next work back to global trajectory-shape coupling"
+    },
     {
       "id": "observed_primary_rendered_feedback_depth_full122",
       "report": "results/fastlivo2/CBD_Building_01_observed_depth_primary_marg_prior_full122_drain1015_probe/native_tracking_report.json",

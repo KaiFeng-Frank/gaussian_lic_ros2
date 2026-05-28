@@ -167,6 +167,7 @@ VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES=4
 VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES=64
 ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
+VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S=5.0
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
@@ -714,6 +715,10 @@ Options:
                                Convert late visual/SE3 factors on marginalized source states into Schur back-substitution dense priors on retained states.
   --disable-visual-marginalization-prior
                                Do not convert late visual/SE3 factors into marginalized-state priors.
+  --visual-marginalization-prior-zero-bias-columns
+                               Prevent late visual/SE3 marginalized priors from writing IMU gyro/accel bias columns.
+  --no-visual-marginalization-prior-zero-bias-columns
+                               Keep full Schur back-substitution coupling, including IMU bias columns.
   --visual-expired-factor-projection-max-age-s SEC
                                Maximum age for projected expired visual/SE3 factors. Use <=0 for unlimited. Default: 5.0.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
@@ -1645,6 +1650,16 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
       shift
       ;;
+    --visual-marginalization-prior-zero-bias-columns)
+      VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=true
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --no-visual-marginalization-prior-zero-bias-columns)
+      VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
+      shift
+      ;;
     --visual-expired-factor-projection-max-age-s)
       VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S="$2"
       shift 2
@@ -2358,6 +2373,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_adaptive_state_retention_max_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
   enable_visual_expired_factor_projection:="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
   enable_visual_marginalization_prior:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
+  visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
   visual_expired_factor_projection_max_age_s:="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
@@ -2721,6 +2737,7 @@ LIDAR_WINDOW_CONFIDENCE_POWER_REPORT="${LIDAR_WINDOW_CONFIDENCE_POWER}" \
 SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
 SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
+VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
@@ -2961,6 +2978,9 @@ enable_visual_expired_factor_projection = (
 )
 enable_visual_marginalization_prior = (
     os.environ["ENABLE_VISUAL_MARGINALIZATION_PRIOR_REPORT"].lower() == "true"
+)
+visual_marginalization_prior_zero_bias_columns = (
+    os.environ["VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT"].lower() == "true"
 )
 visual_expired_factor_projection_max_age_s = float(
     os.environ["VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT"]
@@ -4212,6 +4232,7 @@ if enable_visual_factors:
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
         "visual_marginalization_prior_enabled",
+        "visual_marginalization_prior_zero_bias_columns",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
         "visual_expired_projection_skipped_factors",
@@ -4388,6 +4409,9 @@ report = {
         ),
         "enable_visual_expired_factor_projection": enable_visual_expired_factor_projection,
         "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
+        "visual_marginalization_prior_zero_bias_columns": (
+            visual_marginalization_prior_zero_bias_columns
+        ),
         "visual_expired_factor_projection_max_age_s": (
             visual_expired_factor_projection_max_age_s
         ),

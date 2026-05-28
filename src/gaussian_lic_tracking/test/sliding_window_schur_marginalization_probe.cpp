@@ -2,6 +2,7 @@
 
 #include <gaussian_lic_tracking/sliding_window_optimizer.hpp>
 
+#include <cmath>
 #include <iostream>
 
 namespace
@@ -278,6 +279,93 @@ bool check_marginalized_active_boundary_prior_preserves_continuous_time_stamp()
   return true;
 }
 
+bool check_visual_marginalization_prior_can_remove_bias_columns()
+{
+  gaussian_lic_tracking::SlidingWindowConfig config;
+  config.max_states = 2;
+  config.max_iterations = 1;
+  config.marginalization_prior_weight = 0.0;
+  config.visual_marginalization_prior_zero_bias_columns = true;
+  gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+
+  std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+  for (int i = 0; i < 3; ++i) {
+    states.push_back(make_state(static_cast<int64_t>(i), static_cast<double>(i)));
+    optimizer.add_or_update_state(states.back());
+    optimizer.add_state_prior(make_full_state_prior(states.back()));
+    if (i > 0) {
+      optimizer.add_relative_translation_factor(
+        make_relative_factor(
+          states[static_cast<size_t>(i - 1)].stamp_ns,
+          states[static_cast<size_t>(i)].stamp_ns,
+          states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+    }
+  }
+
+  const auto marginalization_summary = optimizer.optimize();
+  if (marginalization_summary.marginalized_backsubstitution_count == 0U) {
+    std::cerr << "missing marginalized back-substitution for bias-column projection probe\n";
+    return false;
+  }
+  const auto before = optimizer.build_normal_equation(config.damping);
+
+  gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor late_visual;
+  late_visual.stamp_ns = states.front().stamp_ns;
+  late_visual.source_id = 51U;
+  late_visual.measured_shift_px = Eigen::Vector2d{0.4, -0.2};
+  late_visual.meters_per_pixel = 0.05;
+  late_visual.weight = 1.0;
+  late_visual.huber_delta_m = 1.0;
+  if (!optimizer.add_marginalized_visual_alignment_prior(late_visual)) {
+    std::cerr << "bias-column projection visual prior was not created\n";
+    return false;
+  }
+
+  gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor late_se3;
+  late_se3.stamp_ns = states.front().stamp_ns;
+  late_se3.source_id = 52U;
+  late_se3.target_delta = Eigen::Matrix<double, 6, 1>::Zero();
+  late_se3.target_delta(0) = 0.003;
+  late_se3.target_delta(3) = -0.015;
+  late_se3.sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+  late_se3.weight = 1.0;
+  late_se3.huber_delta = 1.0;
+  if (!optimizer.add_marginalized_se3_photometric_prior(late_se3)) {
+    std::cerr << "bias-column projection SE3 prior was not created\n";
+    return false;
+  }
+
+  const auto after = optimizer.build_normal_equation(config.damping);
+  if (!before.valid || !after.valid || before.hessian.rows() != after.hessian.rows() ||
+    before.hessian.cols() != after.hessian.cols())
+  {
+    std::cerr << "invalid normal equations for bias-column projection probe\n";
+    return false;
+  }
+  const Eigen::MatrixXd added_hessian = after.hessian - before.hessian;
+  double max_bias_coupling = 0.0;
+  for (
+    Eigen::Index block_col = 0;
+    block_col + 15 <= added_hessian.cols();
+    block_col += 15)
+  {
+    max_bias_coupling = std::max(
+      max_bias_coupling,
+      added_hessian.block(block_col + 9, 0, 6, added_hessian.cols()).cwiseAbs().maxCoeff());
+    max_bias_coupling = std::max(
+      max_bias_coupling,
+      added_hessian.block(0, block_col + 9, added_hessian.rows(), 6).cwiseAbs().maxCoeff());
+  }
+
+  std::cout << "visual_marginalization_prior_zero_bias_columns_probe max_bias_coupling="
+            << max_bias_coupling << "\n";
+  if (!std::isfinite(max_bias_coupling) || max_bias_coupling > 1.0e-9) {
+    std::cerr << "late visual/SE3 marginalized priors still write bias columns\n";
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main()
@@ -393,6 +481,9 @@ int main()
     return 1;
   }
   if (!check_marginalized_active_boundary_prior_preserves_continuous_time_stamp()) {
+    return 1;
+  }
+  if (!check_visual_marginalization_prior_can_remove_bias_columns()) {
     return 1;
   }
   std::cout << "sliding_window_schur_marginalization_probe OK\n";

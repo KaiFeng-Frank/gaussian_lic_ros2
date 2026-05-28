@@ -195,6 +195,7 @@ def main() -> int:
         "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
         "enable_rendered_feedback_watermark_queue",
         "enable_visual_marginalization_prior",
+        "visual_marginalization_prior_zero_bias_columns",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -439,6 +440,17 @@ def main() -> int:
         errors.append(
             "tracking_node must prefer observed-stamp depth and fall back to "
             "source-pointcloud depth for rendered-feedback SE3 factors")
+    if "visual_marginalization_prior_zero_bias_columns" not in tracking_status_msg_text or \
+            "status.visual_marginalization_prior_zero_bias_columns" not in tracking_node_text:
+        errors.append("TrackingStatus must expose visual marginalization-prior bias projection")
+    if "visual_marginalization_prior_zero_bias_columns" not in tracking_node_text or \
+            "visual_marginalization_prior_zero_bias_columns" not in sliding_window_text or \
+            "visual_marginalization_prior_zero_bias_columns" not in sliding_window_header_text:
+        errors.append("visual marginalization priors must support zeroing IMU bias columns")
+    if 'DeclareLaunchArgument("visual_marginalization_prior_zero_bias_columns", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose visual-prior bias-column projection as default-off")
+    if "--visual-marginalization-prior-zero-bias-columns" not in native_tracking_report_text:
+        errors.append("native tracking bag report must expose the visual-prior bias-column projector")
     for field_name in (
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
@@ -572,6 +584,8 @@ def main() -> int:
         errors.append("tracking_node must expose expired visual factor projection as default-off")
     if 'declare_parameter<bool>("enable_visual_marginalization_prior", false)' not in tracking_node_text:
         errors.append("tracking_node must expose marginalized visual/SE3 prior conversion as default-off")
+    if 'declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose visual-prior bias-column projection as default-off")
     if 'DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose direct visual-pair one-to-one semantics")
     if 'DeclareLaunchArgument("enable_visual_watermark_pair_scheduler", default_value="false")' not in tracking_launch_text:

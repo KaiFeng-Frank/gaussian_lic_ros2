@@ -183,6 +183,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "ENABLE_VISUAL_MARGINALIZATION_PRIOR": (
             preset["enable_visual_marginalization_prior"]
         ),
+        "VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS": (
+            preset["visual_marginalization_prior_zero_bias_columns"]
+        ),
         "VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S": (
             preset["visual_expired_factor_projection_max_age_s"]
         ),

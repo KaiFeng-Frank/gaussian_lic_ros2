@@ -332,6 +332,8 @@ public:
       declare_parameter<bool>("enable_visual_expired_factor_projection", false);
     enable_visual_marginalization_prior_ =
       declare_parameter<bool>("enable_visual_marginalization_prior", false);
+    visual_marginalization_prior_zero_bias_columns_ =
+      declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false);
     visual_expired_factor_projection_max_age_s_ =
       declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
     if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
@@ -1020,6 +1022,8 @@ public:
     window_config.min_normal_equation_rank_ratio = sliding_window_min_normal_equation_rank_ratio_;
     window_config.max_state_gap_s = sliding_window_max_state_gap_s_;
     window_config.marginalization_prior_weight = sliding_window_marginalization_prior_weight_;
+    window_config.visual_marginalization_prior_zero_bias_columns =
+      visual_marginalization_prior_zero_bias_columns_;
     sliding_window_optimizer_.set_config(window_config);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
@@ -7144,6 +7148,8 @@ private:
       enable_visual_expired_factor_projection_;
     status.visual_marginalization_prior_enabled =
       enable_visual_marginalization_prior_;
+    status.visual_marginalization_prior_zero_bias_columns =
+      visual_marginalization_prior_zero_bias_columns_;
     status.visual_alignment_expired_projected_factors =
       visual_alignment_expired_projected_factors_;
     status.visual_se3_photometric_expired_projected_factors =
@@ -7401,6 +7407,7 @@ private:
   int visual_adaptive_state_retention_max_states_{64};
   bool enable_visual_expired_factor_projection_{false};
   bool enable_visual_marginalization_prior_{false};
+  bool visual_marginalization_prior_zero_bias_columns_{false};
   double visual_expired_factor_projection_max_age_s_{5.0};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   bool visual_pair_processing_defer_to_pointcloud_{false};
