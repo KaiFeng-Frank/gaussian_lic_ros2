@@ -394,6 +394,10 @@ public:
       declare_parameter<bool>("enable_visual_marginalization_prior_batching", false);
     enable_visual_marginalization_prior_saturation_gate_ =
       declare_parameter<bool>("enable_visual_marginalization_prior_saturation_gate", false);
+    visual_marginalization_prior_saturation_gate_visual_factors_ =
+      declare_parameter<bool>("visual_marginalization_prior_saturation_gate_visual_factors", true);
+    visual_marginalization_prior_saturation_gate_se3_factors_ =
+      declare_parameter<bool>("visual_marginalization_prior_saturation_gate_se3_factors", true);
     visual_marginalization_prior_zero_bias_columns_ =
       declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false);
     enable_visual_factor_reference_snapshot_ =
@@ -3155,6 +3159,7 @@ private:
     const PendingVisualAlignmentFactor & pending) const
   {
     return enable_visual_marginalization_prior_saturation_gate_ &&
+      visual_marginalization_prior_saturation_gate_visual_factors_ &&
       visual_alignment_is_saturated(pending.alignment);
   }
 
@@ -3162,6 +3167,7 @@ private:
     const PendingSe3PhotometricFactor & pending) const
   {
     return enable_visual_marginalization_prior_saturation_gate_ &&
+      visual_marginalization_prior_saturation_gate_se3_factors_ &&
       pending.visual_alignment_saturated;
   }
 
@@ -8163,6 +8169,10 @@ private:
       enable_visual_marginalization_prior_batching_;
     status.visual_marginalization_prior_saturation_gate_enabled =
       enable_visual_marginalization_prior_saturation_gate_;
+    status.visual_marginalization_prior_saturation_gate_visual_factors =
+      visual_marginalization_prior_saturation_gate_visual_factors_;
+    status.visual_marginalization_prior_saturation_gate_se3_factors =
+      visual_marginalization_prior_saturation_gate_se3_factors_;
     status.visual_marginalization_prior_zero_bias_columns =
       visual_marginalization_prior_zero_bias_columns_;
     status.visual_alignment_expired_projected_factors =
@@ -8449,6 +8459,8 @@ private:
   bool enable_visual_marginalization_prior_{false};
   bool enable_visual_marginalization_prior_batching_{false};
   bool enable_visual_marginalization_prior_saturation_gate_{false};
+  bool visual_marginalization_prior_saturation_gate_visual_factors_{true};
+  bool visual_marginalization_prior_saturation_gate_se3_factors_{true};
   bool visual_marginalization_prior_zero_bias_columns_{false};
   bool enable_visual_factor_reference_snapshot_{false};
   bool enable_rendered_feedback_source_pose_reference_{false};

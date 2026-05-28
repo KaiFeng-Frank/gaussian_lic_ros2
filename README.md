@@ -1323,6 +1323,10 @@ external/Coco-LIC
 
 Those directories are ignored by git. The upstream Gaussian-LIC/Gaussian-LIC2 project is GPL-3.0; Coco-LIC is treated as an optional legacy GPL-3.0 reference.
 
+## Latest Native Tracking Evidence
+
+- 2026-05-28 factor-type saturation-gate scope: `enable_visual_marginalization_prior_saturation_gate` now has independent default-on sub-scopes for 2D visual alignment priors and SE3 photometric priors. This preserves the old all-factor behavior when the gate is enabled, while allowing diagnostic runs to reject saturated 2D alignment late priors without also discarding independently healthy SE3 photometric late priors. The 12 s proof at `results/fastlivo2/CBD_Building_01_typed_ingress_saturation_gate_visual_only_12s_probe/native_tracking_report.json` verifies launch/status/report wiring with `gate=true`, `visual_scope=true`, and `se3_scope=false`. Full122 at `results/fastlivo2/CBD_Building_01_typed_ingress_saturation_gate_visual_only_full122_drain1015_probe/native_tracking_report.json` rejects promotion: it improves over hard pair-gating (`1.834 m` RMSE, `1.441 m` mean, `4.468 m` max, `4.66%` path drift, `38` visual-only saturation rejects, `0` SE3 saturation rejects) but still misses the strict drain (`1185/1186` poses, `868/1015` visual factors, `906/1015` SE3 factors) and remains worse than the accepted `1.346 m / 5.00%` production checkpoint. This proves SE3 should not be blindly tied to 2D saturation, but the remaining parity blocker is rendered-feedback continuity/global coupling, not a scalar gate setting.
+
 ## License
 
 This repository is GPL-3.0-or-later compatible because Gaussian-LIC/Gaussian-LIC2 is a GPL-3.0 upstream project. Do not copy upstream source into this repository under a different license.

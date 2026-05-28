@@ -171,6 +171,8 @@ ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE=false
+VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS=true
+VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS=true
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
@@ -758,6 +760,12 @@ Options:
                                Drop late visual/SE3 marginalized priors whose visual pair saturated the alignment search window.
   --disable-visual-marginalization-prior-saturation-gate
                                Keep saturated visual pairs eligible for late visual/SE3 marginalized priors.
+  --visual-marginalization-prior-saturation-gate-all
+                               When saturation gate is enabled, reject both 2D visual and SE3 photometric late priors. This is the legacy behavior.
+  --visual-marginalization-prior-saturation-gate-visual-only
+                               Reject saturated 2D visual late priors but keep independently healthy SE3 photometric late priors.
+  --visual-marginalization-prior-saturation-gate-se3-only
+                               Reject saturated SE3 photometric late priors but keep saturated 2D visual late priors. Diagnostic only.
   --visual-marginalization-prior-zero-bias-columns
                                Prevent late visual/SE3 marginalized priors from writing IMU gyro/accel bias columns.
   --no-visual-marginalization-prior-zero-bias-columns
@@ -1759,6 +1767,30 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE=false
       shift
       ;;
+    --visual-marginalization-prior-saturation-gate-all)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE=true
+      VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS=true
+      VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS=true
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --visual-marginalization-prior-saturation-gate-visual-only)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE=true
+      VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS=true
+      VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS=false
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --visual-marginalization-prior-saturation-gate-se3-only)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE=true
+      VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS=false
+      VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS=true
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
     --visual-marginalization-prior-zero-bias-columns)
       VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=true
       ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
@@ -2640,6 +2672,8 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_marginalization_prior:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
   enable_visual_marginalization_prior_batching:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING}" \
   enable_visual_marginalization_prior_saturation_gate:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE}" \
+  visual_marginalization_prior_saturation_gate_visual_factors:="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS}" \
+  visual_marginalization_prior_saturation_gate_se3_factors:="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS}" \
   visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
   enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
   enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
@@ -3031,6 +3065,8 @@ SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
 ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING_REPORT="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING}" \
 ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_REPORT="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE}" \
+VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS}" \
+VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS}" \
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
@@ -3345,6 +3381,12 @@ enable_visual_marginalization_prior_batching = (
 )
 enable_visual_marginalization_prior_saturation_gate = (
     os.environ["ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_REPORT"].lower() == "true"
+)
+visual_marginalization_prior_saturation_gate_visual_factors = (
+    os.environ["VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS_REPORT"].lower() == "true"
+)
+visual_marginalization_prior_saturation_gate_se3_factors = (
+    os.environ["VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS_REPORT"].lower() == "true"
 )
 visual_marginalization_prior_zero_bias_columns = (
     os.environ["VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT"].lower() == "true"
@@ -3911,6 +3953,8 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_alignment_marginalization_priors",
     "visual_se3_photometric_marginalization_priors",
     "visual_marginalization_prior_skipped_factors",
+    "visual_marginalization_prior_saturation_gate_visual_factors",
+    "visual_marginalization_prior_saturation_gate_se3_factors",
     "visual_marginalization_prior_saturation_rejected_factors",
     "visual_marginalization_prior_saturation_rejected_visual_factors",
     "visual_marginalization_prior_saturation_rejected_se3_factors",
@@ -4872,6 +4916,8 @@ if enable_visual_factors:
         "visual_marginalization_prior_enabled",
         "visual_marginalization_prior_batching_enabled",
         "visual_marginalization_prior_saturation_gate_enabled",
+        "visual_marginalization_prior_saturation_gate_visual_factors",
+        "visual_marginalization_prior_saturation_gate_se3_factors",
         "visual_marginalization_prior_zero_bias_columns",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
@@ -4950,6 +4996,16 @@ if enable_visual_factors:
     if enable_visual_marginalization_prior_saturation_gate:
         if not bool(last.get("visual_marginalization_prior_saturation_gate_enabled", False)):
             errors.append("visual_marginalization_prior_saturation_gate_enabled is false")
+        if bool(last.get("visual_marginalization_prior_saturation_gate_visual_factors", False)) != \
+                visual_marginalization_prior_saturation_gate_visual_factors:
+            errors.append(
+                "visual_marginalization_prior_saturation_gate_visual_factors is "
+                f"{last.get('visual_marginalization_prior_saturation_gate_visual_factors')}")
+        if bool(last.get("visual_marginalization_prior_saturation_gate_se3_factors", False)) != \
+                visual_marginalization_prior_saturation_gate_se3_factors:
+            errors.append(
+                "visual_marginalization_prior_saturation_gate_se3_factors is "
+                f"{last.get('visual_marginalization_prior_saturation_gate_se3_factors')}")
     if enable_rendered_feedback_contract:
         for key in (
             "rendered_feedback_frame_index_regressions",
@@ -5139,6 +5195,12 @@ report = {
         ),
         "enable_visual_marginalization_prior_saturation_gate": (
             enable_visual_marginalization_prior_saturation_gate
+        ),
+        "visual_marginalization_prior_saturation_gate_visual_factors": (
+            visual_marginalization_prior_saturation_gate_visual_factors
+        ),
+        "visual_marginalization_prior_saturation_gate_se3_factors": (
+            visual_marginalization_prior_saturation_gate_se3_factors
         ),
         "visual_marginalization_prior_zero_bias_columns": (
             visual_marginalization_prior_zero_bias_columns

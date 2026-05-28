@@ -201,6 +201,8 @@ def main() -> int:
         "enable_visual_marginalization_prior",
         "enable_visual_marginalization_prior_batching",
         "enable_visual_marginalization_prior_saturation_gate",
+        "visual_marginalization_prior_saturation_gate_visual_factors",
+        "visual_marginalization_prior_saturation_gate_se3_factors",
         "visual_marginalization_prior_zero_bias_columns",
         "enable_rendered_feedback_source_pose_reference",
         "visual_alignment_meters_per_pixel",
@@ -489,6 +491,12 @@ def main() -> int:
     if "visual_marginalization_prior_zero_bias_columns" not in tracking_status_msg_text or \
             "status.visual_marginalization_prior_zero_bias_columns" not in tracking_node_text:
         errors.append("TrackingStatus must expose visual marginalization-prior bias projection")
+    for field_name in (
+        "visual_marginalization_prior_saturation_gate_visual_factors",
+        "visual_marginalization_prior_saturation_gate_se3_factors",
+    ):
+        if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
+            errors.append(f"TrackingStatus must expose visual-prior saturation-gate scope: {field_name}")
     if "visual_marginalization_prior_zero_bias_columns" not in tracking_node_text or \
             "visual_marginalization_prior_zero_bias_columns" not in sliding_window_text or \
             "visual_marginalization_prior_zero_bias_columns" not in sliding_window_header_text:
@@ -653,6 +661,10 @@ def main() -> int:
         errors.append("tracking_node must expose batched marginalized visual/SE3 priors as default-off")
     if 'declare_parameter<bool>("enable_visual_marginalization_prior_saturation_gate", false)' not in tracking_node_text:
         errors.append("tracking_node must expose visual-prior saturation gating as default-off")
+    if 'declare_parameter<bool>("visual_marginalization_prior_saturation_gate_visual_factors", true)' not in tracking_node_text:
+        errors.append("tracking_node must expose visual-factor saturation-gate scope as default-on")
+    if 'declare_parameter<bool>("visual_marginalization_prior_saturation_gate_se3_factors", true)' not in tracking_node_text:
+        errors.append("tracking_node must expose SE3 saturation-gate scope as default-on")
     if "bool visual_alignment_saturated{false};" not in tracking_node_text:
         errors.append("SE3 pending visual factors must retain paired visual-saturation provenance")
     if "pending.visual_alignment_saturated = last_visual_alignment_saturated_" not in tracking_node_text:
@@ -677,6 +689,10 @@ def main() -> int:
         errors.append("tracking.launch.py must expose batched marginalized visual/SE3 priors")
     if 'DeclareLaunchArgument("enable_visual_marginalization_prior_saturation_gate", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose visual-prior saturation gating")
+    if 'DeclareLaunchArgument("visual_marginalization_prior_saturation_gate_visual_factors", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose visual-factor saturation-gate scope")
+    if 'DeclareLaunchArgument("visual_marginalization_prior_saturation_gate_se3_factors", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose SE3 saturation-gate scope")
     if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
         errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
     if "--enable-visual-watermark-pair-scheduler" not in native_tracking_report_text:
@@ -695,6 +711,8 @@ def main() -> int:
         errors.append("native tracking report must expose batched marginalized visual/SE3 priors")
     if "--enable-visual-marginalization-prior-saturation-gate" not in native_tracking_report_text:
         errors.append("native tracking report must expose visual-prior saturation gating")
+    if "--visual-marginalization-prior-saturation-gate-visual-only" not in native_tracking_report_text:
+        errors.append("native tracking report must expose factor-type saturation-gate scoping")
     if "--visual-factor-reference-stamp-mode" not in native_tracking_report_text:
         errors.append("native tracking report must expose visual factor reference-stamp ownership")
     if "OBSERVED_FRAME_CACHE_SIZE=128" not in native_tracking_report_text or \
