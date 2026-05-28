@@ -161,6 +161,28 @@ void truth_pose_at(
   p_w_b = view.position_world();
 }
 
+void truth_motion_at(
+  const TruthTrajectory & truth,
+  int64_t stamp_ns,
+  Eigen::Vector3d & position_world,
+  Eigen::Vector3d & velocity_world,
+  Eigen::Vector3d & acceleration_world)
+{
+  const int idx = static_cast<int>(stamp_ns / truth.dt_ns);
+  const double u =
+    static_cast<double>(stamp_ns - idx * truth.dt_ns) / static_cast<double>(truth.dt_ns);
+  std::array<Eigen::Quaterniond, N> rot;
+  std::array<Eigen::Vector3d, N> pos;
+  for (int i = 0; i < N; ++i) {
+    rot[i] = truth.rotation_knots[idx - 1 + i];
+    pos[i] = truth.position_knots[idx - 1 + i];
+  }
+  SplitSplineView<N> view(rot, pos, u, 1.0 / truth.dt_s);
+  position_world = view.position_world();
+  velocity_world = view.velocity_world();
+  acceleration_world = view.acceleration_world();
+}
+
 double max_window_position_drift(
   const ContinuousTimeSlidingWindowEstimator & estimator,
   const TruthTrajectory & truth)
@@ -190,6 +212,69 @@ double max_window_position_drift(
     worst = std::max(worst, (p - truth_p).cwiseAbs().maxCoeff());
   }
   return worst;
+}
+
+void check_acceleration_prior_constrains_streaming_window_curvature()
+{
+  const double dt_s = 0.05;
+  const Eigen::Vector3d gravity(0.0, 0.0, -9.81);
+  const auto truth = build_truth(dt_s, 12);
+
+  ContinuousTimeSlidingWindowOptions options;
+  options.dt_s = dt_s;
+  options.window_knot_count = 12;
+  options.marginalize_oldest_count = 0;
+  options.gravity_world = gravity;
+  options.hold_gravity_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gyro_bias_constant = true;
+  options.max_iterations_per_step = 80;
+  options.max_position_update_m = 0.0;
+  options.max_rotation_update_rad = 0.0;
+
+  ContinuousTimeSlidingWindowEstimator estimator(options);
+  auto initial_rot = truth.rotation_knots;
+  auto initial_pos = truth.position_knots;
+  initial_pos[4] += Eigen::Vector3d(0.04, -0.06, 0.03);
+  initial_pos[5] += Eigen::Vector3d(-0.07, 0.05, -0.02);
+  estimator.initialize(0, initial_rot, initial_pos);
+
+  Eigen::Vector3d position;
+  Eigen::Vector3d velocity;
+  Eigen::Vector3d acceleration;
+  const int64_t anchor_stamp = 3 * truth.dt_ns;
+  truth_motion_at(truth, anchor_stamp, position, velocity, acceleration);
+  estimator.add_position_prior(anchor_stamp, position, 30.0, 0.0);
+  estimator.add_velocity_prior(anchor_stamp, velocity, 30.0, 0.0);
+  const int64_t sample_period_ns = static_cast<int64_t>(std::llround(dt_s * 1.0e9 / 2.0));
+  const int64_t last_interior_ns =
+    static_cast<int64_t>(truth.rotation_knots.size() - 3) * truth.dt_ns;
+  for (int64_t t = truth.dt_ns; t < last_interior_ns; t += sample_period_ns) {
+    truth_motion_at(truth, t, position, velocity, acceleration);
+    estimator.add_acceleration_prior(t, acceleration, 20.0, 0.0);
+  }
+
+  if (!estimator.step()) {
+    std::fprintf(stderr, "acceleration prior solve refused to run\n");
+    std::exit(1);
+  }
+  const auto & diag = estimator.diagnostics();
+  if (diag.last_step_acceleration_prior_factors == 0 ||
+    diag.total_acceleration_prior_factors == 0)
+  {
+    std::fprintf(stderr,
+      "acceleration priors were not consumed: total=%zu last=%zu\n",
+      diag.total_acceleration_prior_factors,
+      diag.last_step_acceleration_prior_factors);
+    std::exit(1);
+  }
+  const double drift = max_window_position_drift(estimator, truth);
+  if (drift > 0.02) {
+    std::fprintf(stderr,
+      "acceleration priors failed to recover curvature: drift=%.6f\n",
+      drift);
+    std::exit(1);
+  }
 }
 
 void check_single_step_solves_within_seeded_window()
@@ -750,6 +835,7 @@ int main()
   try {
     check_orientation_marginalization_is_default_off();
     check_bias_random_walk_model_creates_prior();
+    check_acceleration_prior_constrains_streaming_window_curvature();
     check_single_step_solves_within_seeded_window();
     check_solver_step_rejection_keeps_window_finite();
     check_limited_position_update_clamps_without_rejecting();

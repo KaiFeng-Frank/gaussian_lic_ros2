@@ -143,6 +143,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_lidar_normal_factors{0};
   std::size_t total_position_prior_factors{0};
   std::size_t total_velocity_prior_factors{0};
+  std::size_t total_acceleration_prior_factors{0};
   std::size_t total_angular_velocity_prior_factors{0};
   std::size_t total_orientation_prior_factors{0};
   std::size_t total_gyro_bias_prior_factors{0};
@@ -163,6 +164,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t last_step_lidar_normal_factors{0};
   std::size_t last_step_position_prior_factors{0};
   std::size_t last_step_velocity_prior_factors{0};
+  std::size_t last_step_acceleration_prior_factors{0};
   std::size_t last_step_angular_velocity_prior_factors{0};
   std::size_t last_step_orientation_prior_factors{0};
   std::size_t last_step_gyro_bias_prior_factors{0};
@@ -189,6 +191,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   double last_step_final_position_prior_cost{0.0};
   double last_step_initial_velocity_prior_cost{0.0};
   double last_step_final_velocity_prior_cost{0.0};
+  double last_step_initial_acceleration_prior_cost{0.0};
+  double last_step_final_acceleration_prior_cost{0.0};
   double last_step_initial_orientation_prior_cost{0.0};
   double last_step_final_orientation_prior_cost{0.0};
   double last_step_initial_bias_prior_cost{0.0};
@@ -277,6 +281,15 @@ public:
     const Eigen::Vector3d & velocity_world,
     double weight = 1.0,
     double huber_delta_mps = -1.0);
+
+  // Adds a timestamped translational acceleration prior in world
+  // coordinates. This preserves motion curvature across long online windows
+  // without anchoring absolute position.
+  void add_acceleration_prior(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & acceleration_world,
+    double weight = 1.0,
+    double huber_delta_mps2 = -1.0);
 
   void add_angular_velocity_prior(
     int64_t stamp_ns,

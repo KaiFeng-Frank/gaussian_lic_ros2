@@ -60,6 +60,8 @@ struct TrajectoryEstimatorSummary
   double final_position_prior_cost{0.0};
   double initial_velocity_prior_cost{0.0};
   double final_velocity_prior_cost{0.0};
+  double initial_acceleration_prior_cost{0.0};
+  double final_acceleration_prior_cost{0.0};
   double initial_orientation_prior_cost{0.0};
   double final_orientation_prior_cost{0.0};
   double initial_bias_prior_cost{0.0};
@@ -162,6 +164,15 @@ public:
     double weight = 1.0,
     double huber_delta_mps = 0.0);
 
+  // Add an acceleration prior on the continuous-time body trajectory. This
+  // constrains translational curvature, which is the part of the position
+  // spline that velocity-only scan priors cannot observe over long windows.
+  bool add_acceleration_prior_factor(
+    double t_s,
+    const Eigen::Vector3d & acceleration_world,
+    double weight = 1.0,
+    double huber_delta_mps2 = 0.0);
+
   // Add an angular-velocity prior in body coordinates. This constrains the
   // local SO(3) spline derivative without anchoring absolute yaw/roll/pitch.
   bool add_angular_velocity_prior_factor(
@@ -261,6 +272,7 @@ public:
   std::size_t lidar_normal_factor_count() const { return lidar_normal_factor_count_; }
   std::size_t position_prior_factor_count() const { return position_prior_factor_count_; }
   std::size_t velocity_prior_factor_count() const { return velocity_prior_factor_count_; }
+  std::size_t acceleration_prior_factor_count() const { return acceleration_prior_factor_count_; }
   std::size_t angular_velocity_prior_factor_count() const
   {
     return angular_velocity_prior_factor_count_;
@@ -303,6 +315,7 @@ private:
   std::size_t lidar_normal_factor_count_{0};
   std::size_t position_prior_factor_count_{0};
   std::size_t velocity_prior_factor_count_{0};
+  std::size_t acceleration_prior_factor_count_{0};
   std::size_t angular_velocity_prior_factor_count_{0};
   std::size_t orientation_prior_factor_count_{0};
   std::size_t gyro_bias_prior_factor_count_{0};

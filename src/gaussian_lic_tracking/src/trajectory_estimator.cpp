@@ -332,6 +332,34 @@ struct VelocityPriorAutoDiffFunctor
   }
 };
 
+struct AccelerationPriorAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Vector3d acceleration_world{Eigen::Vector3d::Zero()};
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(
+    const T * p0, const T * p1, const T * p2, const T * p3,
+    T * residuals) const
+  {
+    std::array<Eigen::Matrix<T, 3, 1>, 4> pos_knots = {
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p0),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p1),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
+
+    const Eigen::Matrix<T, 3, 1> a_w_b =
+      CeresSplineHelper<4>::template evaluate_rd_t<3, 2, T>(
+      pos_knots, T(u_normalized), T(inv_dt_s));
+    const Eigen::Matrix<T, 3, 1> target = acceleration_world.cast<T>();
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * (a_w_b - target);
+    return true;
+  }
+};
+
 struct OrientationPriorAutoDiffFunctor
 {
   double u_normalized{0.0};
@@ -674,6 +702,7 @@ struct TrajectoryEstimator::Impl
   std::vector<ceres::ResidualBlockId> lidar_point_residual_blocks;
   std::vector<ceres::ResidualBlockId> position_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> velocity_prior_residual_blocks;
+  std::vector<ceres::ResidualBlockId> acceleration_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> orientation_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> bias_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> smoothness_residual_blocks;
@@ -1057,6 +1086,52 @@ bool TrajectoryEstimator::add_velocity_prior_factor(
   const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
   impl_->velocity_prior_residual_blocks.push_back(block);
   ++velocity_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_acceleration_prior_factor(
+  double t_s,
+  const Eigen::Vector3d & acceleration_world,
+  double weight,
+  double huber_delta_mps2)
+{
+  if (!acceleration_world.allFinite() ||
+    !std::isfinite(weight) || weight <= 0.0 ||
+    !std::isfinite(huber_delta_mps2) || huber_delta_mps2 < 0.0)
+  {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  AccelerationPriorAutoDiffFunctor functor;
+  functor.u_normalized = u;
+  functor.inv_dt_s = 1.0 / dt_s_;
+  functor.acceleration_world = acceleration_world;
+  functor.weight = weight;
+
+  auto * cost = new ceres::AutoDiffCostFunction<
+    AccelerationPriorAutoDiffFunctor, 3,
+    3, 3, 3, 3>(new AccelerationPriorAutoDiffFunctor(functor));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->position_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_mps2, weight);
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->acceleration_prior_residual_blocks.push_back(block);
+  ++acceleration_prior_factor_count_;
   return true;
 }
 
@@ -1599,6 +1674,7 @@ void TrajectoryEstimator::rebuild_problem()
   impl_->lidar_point_residual_blocks.clear();
   impl_->position_prior_residual_blocks.clear();
   impl_->velocity_prior_residual_blocks.clear();
+  impl_->acceleration_prior_residual_blocks.clear();
   impl_->orientation_prior_residual_blocks.clear();
   impl_->bias_prior_residual_blocks.clear();
   impl_->smoothness_residual_blocks.clear();
@@ -1697,6 +1773,8 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     evaluate_cost(impl_->position_prior_residual_blocks);
   summary.initial_velocity_prior_cost =
     evaluate_cost(impl_->velocity_prior_residual_blocks);
+  summary.initial_acceleration_prior_cost =
+    evaluate_cost(impl_->acceleration_prior_residual_blocks);
   summary.initial_orientation_prior_cost =
     evaluate_cost(impl_->orientation_prior_residual_blocks);
   summary.initial_bias_prior_cost = evaluate_cost(impl_->bias_prior_residual_blocks);
@@ -1735,6 +1813,8 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
     evaluate_cost(impl_->position_prior_residual_blocks);
   summary.final_velocity_prior_cost =
     evaluate_cost(impl_->velocity_prior_residual_blocks);
+  summary.final_acceleration_prior_cost =
+    evaluate_cost(impl_->acceleration_prior_residual_blocks);
   summary.final_orientation_prior_cost =
     evaluate_cost(impl_->orientation_prior_residual_blocks);
   summary.final_bias_prior_cost = evaluate_cost(impl_->bias_prior_residual_blocks);
