@@ -3063,7 +3063,7 @@ private:
       return false;
     }
     if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
-      ++visual_marginalization_prior_saturation_rejected_factors_;
+      record_visual_marginalization_prior_saturation_rejection();
       return false;
     }
     const auto factor = make_marginalized_visual_factor_from_pending(pending);
@@ -3102,7 +3102,7 @@ private:
       return false;
     }
     if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
-      ++visual_marginalization_prior_saturation_rejected_factors_;
+      record_se3_marginalization_prior_saturation_rejection();
       return false;
     }
     const auto factor = make_marginalized_se3_factor_from_pending(pending);
@@ -3165,6 +3165,18 @@ private:
       pending.visual_alignment_saturated;
   }
 
+  void record_visual_marginalization_prior_saturation_rejection()
+  {
+    ++visual_marginalization_prior_saturation_rejected_factors_;
+    ++visual_marginalization_prior_saturation_rejected_visual_factors_;
+  }
+
+  void record_se3_marginalization_prior_saturation_rejection()
+  {
+    ++visual_marginalization_prior_saturation_rejected_factors_;
+    ++visual_marginalization_prior_saturation_rejected_se3_factors_;
+  }
+
   bool add_batched_marginalized_visual_priors_from_pending(
     const gaussian_lic_tracking::TrajectoryPose & tracking_pose,
     const bool callback_ingest)
@@ -3185,7 +3197,7 @@ private:
         continue;
       }
       if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
-        ++visual_marginalization_prior_saturation_rejected_factors_;
+        record_visual_marginalization_prior_saturation_rejection();
         rejected_by_saturation_gate = true;
         continue;
       }
@@ -3200,7 +3212,7 @@ private:
         continue;
       }
       if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
-        ++visual_marginalization_prior_saturation_rejected_factors_;
+        record_se3_marginalization_prior_saturation_rejection();
         rejected_by_saturation_gate = true;
         continue;
       }
@@ -3448,7 +3460,7 @@ private:
         if (visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose) &&
           visual_marginalization_prior_saturation_gate_rejects(pending))
         {
-          ++visual_marginalization_prior_saturation_rejected_factors_;
+          record_visual_marginalization_prior_saturation_rejection();
           continue;
         }
         if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
@@ -3530,7 +3542,7 @@ private:
         if (visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose) &&
           visual_marginalization_prior_saturation_gate_rejects(pending))
         {
-          ++visual_marginalization_prior_saturation_rejected_factors_;
+          record_se3_marginalization_prior_saturation_rejection();
           continue;
         }
         if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
@@ -8167,6 +8179,10 @@ private:
       visual_marginalization_prior_skipped_factors_;
     status.visual_marginalization_prior_saturation_rejected_factors =
       visual_marginalization_prior_saturation_rejected_factors_;
+    status.visual_marginalization_prior_saturation_rejected_visual_factors =
+      visual_marginalization_prior_saturation_rejected_visual_factors_;
+    status.visual_marginalization_prior_saturation_rejected_se3_factors =
+      visual_marginalization_prior_saturation_rejected_se3_factors_;
     status.visual_batched_marginalization_prior_batches =
       visual_batched_marginalization_prior_batches_;
     status.visual_batched_marginalization_prior_visual_factors =
@@ -8884,6 +8900,8 @@ private:
   uint64_t visual_se3_photometric_marginalization_priors_{0};
   uint64_t visual_marginalization_prior_skipped_factors_{0};
   uint64_t visual_marginalization_prior_saturation_rejected_factors_{0};
+  uint64_t visual_marginalization_prior_saturation_rejected_visual_factors_{0};
+  uint64_t visual_marginalization_prior_saturation_rejected_se3_factors_{0};
   uint64_t visual_batched_marginalization_prior_batches_{0};
   uint64_t visual_batched_marginalization_prior_visual_factors_{0};
   uint64_t visual_batched_marginalization_prior_se3_factors_{0};

@@ -598,6 +598,8 @@ def main() -> int:
         "visual_se3_photometric_marginalization_priors",
         "visual_marginalization_prior_skipped_factors",
         "visual_marginalization_prior_saturation_rejected_factors",
+        "visual_marginalization_prior_saturation_rejected_visual_factors",
+        "visual_marginalization_prior_saturation_rejected_se3_factors",
         "visual_batched_marginalization_prior_batches",
         "visual_batched_marginalization_prior_visual_factors",
         "visual_batched_marginalization_prior_se3_factors",
