@@ -672,6 +672,11 @@ if os.path.isfile(node_log):
                 count += 1
             return max_step if count > 0 else None
 
+        def final_value(key):
+            if not runtime_diagnostic_series:
+                return None
+            return runtime_diagnostic_series[-1].get(key)
+
         runtime_diagnostic_summary = {
             "series_count": len(runtime_diagnostic_series),
             "gyro_bias_norm_max": max(numeric_values("gyro_bias_norm"), default=None),
@@ -689,6 +694,16 @@ if os.path.isfile(node_log):
                 numeric_values("last_lidar_point_factors"), default=None),
             "last_lidar_normal_factors_min": min(
                 numeric_values("last_lidar_normal_factors"), default=None),
+            "max_position_update_m_max": max(
+                numeric_values("max_position_update_m"), default=None),
+            "max_rotation_update_rad_max": max(
+                numeric_values("max_rotation_update_rad"), default=None),
+            "accepted_steps_final": final_value("accepted_steps"),
+            "rejected_steps_final": final_value("rejected_steps"),
+            "position_rejections_final": final_value("position_rejections"),
+            "rotation_rejections_final": final_value("rotation_rejections"),
+            "position_limited_steps_final": final_value("position_limited_steps"),
+            "rotation_limited_steps_final": final_value("rotation_limited_steps"),
             "visual_se_last_rank_min": min(numeric_values("visual_se_last_rank"), default=None),
             "visual_se_last_condition_max": max(
                 numeric_values("visual_se_last_condition"), default=None),

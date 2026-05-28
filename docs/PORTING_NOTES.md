@@ -345,9 +345,11 @@ each periodic `continuous-time diagnostics:` line, and
 `continuous_time_native_reference_parity.sh` writes both
 `runtime_diagnostic_series` and `runtime_diagnostic_summary` to the native
 report. The summary includes max bias norms, logged bias step norms, gravity
-norm, minimum last-step factor counts, and visual SE3 rank/condition extrema so
-full-window failures can be separated into bias drift, factor starvation, or
-observability collapse without manual graphing. The 4 s CBD proof at
+norm, minimum last-step factor counts, maximum proposed position/rotation
+updates, final accepted/rejected/limited update counters, and visual SE3
+rank/condition extrema so full-window failures can be separated into bias
+drift, factor starvation, update-gate saturation, or observability collapse
+without manual graphing. The 4 s CBD proof at
 `results/fastlivo2/CBD_Building_01_ct_diagnostic_series_4s_probe/native_tracking_report.json`
 records `19` diagnostic samples and confirms the new bias/gravity keys survive
 the script-to-report path.
