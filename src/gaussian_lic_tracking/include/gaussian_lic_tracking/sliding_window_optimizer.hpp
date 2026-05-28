@@ -429,6 +429,10 @@ private:
     int64_t factor_stamp_ns,
     const Eigen::VectorXd & residual,
     const Eigen::MatrixXd & marginalized_jacobian);
+  bool add_marginalized_support_measurement_prior(
+    const std::vector<MeasurementEndpointBacksubstitution> & endpoints,
+    const Eigen::VectorXd & residual,
+    const std::vector<Eigen::MatrixXd> & endpoint_jacobians);
   bool add_dense_measurement_prior(
     const std::vector<int64_t> & retained_stamp_ns,
     const std::vector<SlidingWindowState> & retained_reference_states,

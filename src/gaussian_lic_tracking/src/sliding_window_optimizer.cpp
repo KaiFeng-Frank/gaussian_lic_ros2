@@ -1057,6 +1057,118 @@ bool SlidingWindowOptimizer::add_marginalized_measurement_prior(
   return added;
 }
 
+bool SlidingWindowOptimizer::add_marginalized_support_measurement_prior(
+  const std::vector<MeasurementEndpointBacksubstitution> & endpoints,
+  const Eigen::VectorXd & residual,
+  const std::vector<Eigen::MatrixXd> & endpoint_jacobians)
+{
+  if (endpoints.empty() || endpoints.size() != endpoint_jacobians.size() ||
+    residual.size() == 0 || !residual.allFinite())
+  {
+    return false;
+  }
+
+  bool has_marginalized_endpoint = false;
+  bool has_interpolated_endpoint = endpoints.size() > 1U;
+  std::vector<int64_t> retained_stamp_ns;
+  std::vector<SlidingWindowState> retained_reference_states;
+  Eigen::MatrixXd retained_jacobian = Eigen::MatrixXd::Zero(residual.size(), 0);
+  Eigen::VectorXd retained_residual = residual;
+
+  auto append_or_accumulate_block =
+    [&retained_stamp_ns,
+     &retained_reference_states,
+     &retained_jacobian,
+     &retained_residual](
+      const int64_t stamp_ns,
+      const SlidingWindowState & reference_state,
+      const Eigen::MatrixXd & block) {
+      if (block.norm() <= 1.0e-12) {
+        return;
+      }
+      const auto existing_it =
+        std::find(retained_stamp_ns.begin(), retained_stamp_ns.end(), stamp_ns);
+      if (existing_it == retained_stamp_ns.end()) {
+        const auto old_cols = retained_jacobian.cols();
+        retained_jacobian.conservativeResize(
+          retained_jacobian.rows(),
+          old_cols + static_cast<Eigen::Index>(kStateDof));
+        retained_jacobian.block(
+          0,
+          old_cols,
+          block.rows(),
+          static_cast<Eigen::Index>(kStateDof)) = block;
+        retained_stamp_ns.push_back(stamp_ns);
+        retained_reference_states.push_back(reference_state);
+        return;
+      }
+      const auto existing_index = static_cast<size_t>(
+        std::distance(retained_stamp_ns.begin(), existing_it));
+      const auto existing_offset = static_cast<Eigen::Index>(existing_index * kStateDof);
+      const auto reference_offset =
+        SlidingWindowOptimizer::state_delta(
+        reference_state, retained_reference_states[existing_index]);
+      retained_residual += block * reference_offset;
+      retained_jacobian.block(
+        0,
+        existing_offset,
+        block.rows(),
+        static_cast<Eigen::Index>(kStateDof)) += block;
+    };
+
+  for (size_t endpoint_index = 0U; endpoint_index < endpoints.size(); ++endpoint_index) {
+    const auto & endpoint = endpoints[endpoint_index];
+    const auto & endpoint_jacobian = endpoint_jacobians[endpoint_index];
+    if (endpoint_jacobian.rows() != residual.size() ||
+      endpoint_jacobian.cols() != static_cast<Eigen::Index>(kStateDof) ||
+      !endpoint_jacobian.allFinite() ||
+      endpoint.delta_from_retained.rows() != static_cast<Eigen::Index>(kStateDof) ||
+      endpoint.delta_from_retained.cols() !=
+      static_cast<Eigen::Index>(endpoint.retained_stamp_ns.size() * kStateDof) ||
+      endpoint.retained_stamp_ns.size() != endpoint.retained_reference_states.size())
+    {
+      return false;
+    }
+    if (!endpoint.active) {
+      has_marginalized_endpoint = true;
+    }
+    if (endpoint.interpolated) {
+      has_interpolated_endpoint = true;
+    }
+    retained_residual += endpoint_jacobian * endpoint.target_delta;
+    for (size_t retained_index = 0U; retained_index < endpoint.retained_stamp_ns.size();
+      ++retained_index)
+    {
+      const auto offset = static_cast<Eigen::Index>(retained_index * kStateDof);
+      const Eigen::MatrixXd block =
+        endpoint_jacobian *
+        endpoint.delta_from_retained.block(
+        0, offset,
+        static_cast<Eigen::Index>(kStateDof),
+        static_cast<Eigen::Index>(kStateDof));
+      append_or_accumulate_block(
+        endpoint.retained_stamp_ns[retained_index],
+        endpoint.retained_reference_states[retained_index],
+        block);
+    }
+  }
+
+  if (!has_marginalized_endpoint || retained_jacobian.cols() == 0 ||
+    retained_jacobian.norm() <= 1.0e-12)
+  {
+    return false;
+  }
+  const bool added = add_dense_measurement_prior(
+    retained_stamp_ns,
+    retained_reference_states,
+    retained_residual,
+    retained_jacobian);
+  if (added && has_interpolated_endpoint) {
+    ++marginalized_backsubstitution_interpolation_count_;
+  }
+  return added;
+}
+
 bool SlidingWindowOptimizer::add_dense_measurement_prior(
   const std::vector<int64_t> & retained_stamp_ns,
   const std::vector<SlidingWindowState> & retained_reference_states,
@@ -1340,6 +1452,53 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
   {
     return false;
   }
+  if (!visual_support_is_valid(factor.support_stamp_ns, factor.support_weights)) {
+    return false;
+  }
+  if (!factor.support_stamp_ns.empty()) {
+    std::vector<MeasurementEndpointBacksubstitution> endpoints;
+    endpoints.reserve(factor.support_stamp_ns.size());
+    Eigen::Vector3d predicted_p_w_i = Eigen::Vector3d::Zero();
+    for (size_t index = 0U; index < factor.support_stamp_ns.size(); ++index) {
+      const auto endpoint = build_measurement_endpoint_backsubstitution(
+        factor.support_stamp_ns[index]);
+      if (!endpoint.has_value()) {
+        return false;
+      }
+      predicted_p_w_i += factor.support_weights[index] * endpoint->reference_state.p_w_i;
+      endpoints.push_back(endpoint.value());
+    }
+    const Eigen::Vector3d reference_p_w_i =
+      factor.has_reference_pose ? factor.reference_p_w_i : predicted_p_w_i;
+    Eigen::Vector2d target_xy;
+    target_xy.x() =
+      reference_p_w_i.x() +
+      factor.measured_shift_px.x() * factor.meters_per_pixel;
+    target_xy.y() =
+      reference_p_w_i.y() +
+      factor.measured_shift_px.y() * factor.meters_per_pixel;
+    const Eigen::Vector2d residual_xy = predicted_p_w_i.head<2>() - target_xy;
+    const double scale =
+      std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
+    Eigen::VectorXd residual(2);
+    residual = scale * residual_xy;
+    std::vector<Eigen::MatrixXd> endpoint_jacobians;
+    endpoint_jacobians.reserve(factor.support_weights.size());
+    for (const auto weight : factor.support_weights) {
+      Eigen::MatrixXd jacobian =
+        Eigen::MatrixXd::Zero(2, static_cast<Eigen::Index>(kStateDof));
+      jacobian(0, 6) = scale * weight;
+      jacobian(1, 7) = scale * weight;
+      endpoint_jacobians.push_back(std::move(jacobian));
+    }
+    if (!add_marginalized_support_measurement_prior(
+        endpoints, residual, endpoint_jacobians))
+    {
+      return false;
+    }
+    ++visual_marginalization_prior_count_;
+    return true;
+  }
   const auto support = build_marginalized_measurement_backsubstitution(factor.stamp_ns);
   if (!support.has_value()) {
     return false;
@@ -1384,6 +1543,65 @@ bool SlidingWindowOptimizer::add_marginalized_se3_photometric_prior(
     !quaternion_is_finite_and_nonzero(factor.reference_q_w_i))))
   {
     return false;
+  }
+  if (!visual_support_is_valid(factor.support_stamp_ns, factor.support_weights)) {
+    return false;
+  }
+  if (!factor.support_stamp_ns.empty()) {
+    std::vector<MeasurementEndpointBacksubstitution> endpoints;
+    endpoints.reserve(factor.support_stamp_ns.size());
+    Eigen::Vector3d predicted_p_w_i = Eigen::Vector3d::Zero();
+    for (size_t index = 0U; index < factor.support_stamp_ns.size(); ++index) {
+      const auto endpoint = build_measurement_endpoint_backsubstitution(
+        factor.support_stamp_ns[index]);
+      if (!endpoint.has_value()) {
+        return false;
+      }
+      predicted_p_w_i += factor.support_weights[index] * endpoint->reference_state.p_w_i;
+      endpoints.push_back(endpoint.value());
+    }
+    Eigen::Quaterniond predicted_q_w_i = Eigen::Quaterniond::Identity();
+    if (endpoints.size() == 1U) {
+      predicted_q_w_i = endpoints.front().reference_state.q_w_i.normalized();
+    } else {
+      predicted_q_w_i =
+        endpoints[0].reference_state.q_w_i.normalized().slerp(
+        factor.support_weights[1],
+        endpoints[1].reference_state.q_w_i.normalized()).normalized();
+    }
+    const Eigen::Vector3d reference_p_w_i =
+      factor.has_reference_pose ? factor.reference_p_w_i : predicted_p_w_i;
+    Eigen::Quaterniond reference_q =
+      factor.has_reference_pose ? factor.reference_q_w_i : predicted_q_w_i;
+    reference_q.normalize();
+    const Eigen::Matrix3d rotation_jacobian =
+      rotation_residual_left_perturbation_jacobian(reference_q, predicted_q_w_i);
+    Eigen::Matrix<double, 6, 1> delta;
+    delta.template segment<3>(0) = rotation_residual(reference_q, predicted_q_w_i);
+    delta.template segment<3>(3) = predicted_p_w_i - reference_p_w_i;
+    const Eigen::Matrix<double, 6, 1> whitened_residual =
+      factor.sqrt_information * (delta - factor.target_delta);
+    const double robust_scale =
+      std::sqrt(factor.weight * huber_weight(whitened_residual.norm(), factor.huber_delta));
+    Eigen::VectorXd residual(6);
+    residual = robust_scale * whitened_residual;
+    std::vector<Eigen::MatrixXd> endpoint_jacobians;
+    endpoint_jacobians.reserve(factor.support_weights.size());
+    for (const auto weight : factor.support_weights) {
+      Eigen::Matrix<double, 6, 15> delta_jacobian =
+        Eigen::Matrix<double, 6, 15>::Zero();
+      delta_jacobian.template block<3, 3>(0, 0) = weight * rotation_jacobian;
+      delta_jacobian.template block<3, 3>(3, 6) =
+        weight * Eigen::Matrix3d::Identity();
+      endpoint_jacobians.push_back(robust_scale * factor.sqrt_information * delta_jacobian);
+    }
+    if (!add_marginalized_support_measurement_prior(
+        endpoints, residual, endpoint_jacobians))
+    {
+      return false;
+    }
+    ++se3_photometric_marginalization_prior_count_;
+    return true;
   }
   const auto support = build_marginalized_measurement_backsubstitution(factor.stamp_ns);
   if (!support.has_value()) {

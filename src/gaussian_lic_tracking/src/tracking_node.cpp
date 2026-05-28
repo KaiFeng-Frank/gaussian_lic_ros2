@@ -1323,6 +1323,8 @@ private:
     uint64_t source_id{0};
     bool has_reference_pose{false};
     Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
+    std::vector<int64_t> reference_support_stamp_ns;
+    std::vector<double> reference_support_weights;
     gaussian_lic_tracking::VisualAlignment alignment;
   };
 
@@ -1350,6 +1352,8 @@ private:
     bool has_reference_pose{false};
     Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
     Eigen::Quaterniond reference_q_w_i{Eigen::Quaterniond::Identity()};
+    std::vector<int64_t> reference_support_stamp_ns;
+    std::vector<double> reference_support_weights;
     double mean_abs_residual{0.0};
     double sample_inlier_ratio{0.0};
     double step_norm{0.0};
@@ -2799,6 +2803,8 @@ private:
     }
     pending.has_reference_pose = true;
     pending.reference_p_w_i = reference->pose.p_w_i;
+    pending.reference_support_stamp_ns = reference->support_stamp_ns;
+    pending.reference_support_weights = reference->support_weights;
   }
 
   void attach_visual_reference_snapshot(PendingSe3PhotometricFactor & pending) const
@@ -2810,6 +2816,8 @@ private:
     pending.has_reference_pose = true;
     pending.reference_p_w_i = reference->pose.p_w_i;
     pending.reference_q_w_i = reference->pose.q_w_i.normalized();
+    pending.reference_support_stamp_ns = reference->support_stamp_ns;
+    pending.reference_support_weights = reference->support_weights;
   }
 
   bool attach_rendered_feedback_source_pose_reference(
@@ -2824,6 +2832,8 @@ private:
     }
     pending.has_reference_pose = true;
     pending.reference_p_w_i = rendered.rendered_feedback_source_p_w_i;
+    pending.reference_support_stamp_ns.clear();
+    pending.reference_support_weights.clear();
     ++rendered_feedback_source_pose_reference_factors_;
     return true;
   }
@@ -2843,6 +2853,8 @@ private:
     pending.has_reference_pose = true;
     pending.reference_p_w_i = rendered.rendered_feedback_source_p_w_i;
     pending.reference_q_w_i = rendered.rendered_feedback_source_q_w_i.normalized();
+    pending.reference_support_stamp_ns.clear();
+    pending.reference_support_weights.clear();
     ++rendered_feedback_source_pose_reference_factors_;
     return true;
   }
@@ -2924,6 +2936,8 @@ private:
     factor.stamp_ns = pending.stamp_ns;
     factor.source_id = pending.source_id;
     factor.has_reference_pose = pending.has_reference_pose;
+    factor.support_stamp_ns = pending.reference_support_stamp_ns;
+    factor.support_weights = pending.reference_support_weights;
     if (pending.has_reference_pose) {
       factor.reference_p_w_i = pending.reference_p_w_i;
     }
@@ -2967,6 +2981,8 @@ private:
     factor.stamp_ns = pending.stamp_ns;
     factor.source_id = pending.source_id;
     factor.has_reference_pose = pending.has_reference_pose;
+    factor.support_stamp_ns = pending.reference_support_stamp_ns;
+    factor.support_weights = pending.reference_support_weights;
     if (pending.has_reference_pose) {
       factor.reference_p_w_i = pending.reference_p_w_i;
       factor.reference_q_w_i = pending.reference_q_w_i.normalized();

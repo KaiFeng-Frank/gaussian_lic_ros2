@@ -467,6 +467,127 @@ bool check_late_visual_priors_preserve_explicit_reference_pose()
   return true;
 }
 
+bool check_late_visual_priors_preserve_explicit_reference_support()
+{
+  auto make_optimizer_with_boundary_support = []() {
+      gaussian_lic_tracking::SlidingWindowConfig config;
+      config.max_states = 2;
+      config.max_iterations = 1;
+      config.marginalization_prior_weight = 0.0;
+      gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+      std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+      for (int i = 0; i < 3; ++i) {
+        states.push_back(make_state(static_cast<int64_t>(i), static_cast<double>(i)));
+        optimizer.add_or_update_state(states.back());
+        optimizer.add_state_prior(make_full_state_prior(states.back()));
+        if (i > 0) {
+          optimizer.add_relative_translation_factor(
+            make_relative_factor(
+              states[static_cast<size_t>(i - 1)].stamp_ns,
+              states[static_cast<size_t>(i)].stamp_ns,
+              states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+        }
+      }
+      const auto summary = optimizer.optimize();
+      if (summary.marginalized_backsubstitution_count == 0U) {
+        throw std::runtime_error("missing marginalized state for explicit support probe");
+      }
+      return std::make_pair(optimizer, states);
+    };
+
+  try {
+    auto visual_case = make_optimizer_with_boundary_support();
+    auto & visual_optimizer = visual_case.first;
+    const auto & states = visual_case.second;
+    const std::vector<int64_t> support_stamp_ns = {
+      states[0].stamp_ns,
+      states[1].stamp_ns};
+    const std::vector<double> support_weights = {0.25, 0.75};
+    const Eigen::Vector3d aligned_reference =
+      support_weights[0] * states[0].p_w_i + support_weights[1] * states[1].p_w_i;
+    const double visual_before = visual_optimizer.build_normal_equation().cost;
+    gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor late_visual;
+    late_visual.stamp_ns = states[0].stamp_ns;
+    late_visual.source_id = 81U;
+    late_visual.support_stamp_ns = support_stamp_ns;
+    late_visual.support_weights = support_weights;
+    late_visual.has_reference_pose = true;
+    late_visual.reference_p_w_i = aligned_reference;
+    late_visual.measured_shift_px = Eigen::Vector2d::Zero();
+    late_visual.meters_per_pixel = 1.0;
+    late_visual.weight = 1.0;
+    late_visual.huber_delta_m = 10.0;
+    if (!visual_optimizer.add_marginalized_visual_alignment_prior(late_visual)) {
+      throw std::runtime_error("support-aware visual prior was not created");
+    }
+    const double visual_aligned_increase =
+      visual_optimizer.build_normal_equation().cost - visual_before;
+
+    auto shifted_visual_case = make_optimizer_with_boundary_support();
+    auto & shifted_visual_optimizer = shifted_visual_case.first;
+    const double shifted_visual_before = shifted_visual_optimizer.build_normal_equation().cost;
+    late_visual.reference_p_w_i = aligned_reference + Eigen::Vector3d{0.2, -0.1, 0.0};
+    if (!shifted_visual_optimizer.add_marginalized_visual_alignment_prior(late_visual)) {
+      throw std::runtime_error("shifted support-aware visual prior was not created");
+    }
+    const double visual_shifted_increase =
+      shifted_visual_optimizer.build_normal_equation().cost - shifted_visual_before;
+
+    auto se3_case = make_optimizer_with_boundary_support();
+    auto & se3_optimizer = se3_case.first;
+    const double se3_before = se3_optimizer.build_normal_equation().cost;
+    gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor late_se3;
+    late_se3.stamp_ns = states[0].stamp_ns;
+    late_se3.source_id = 82U;
+    late_se3.support_stamp_ns = support_stamp_ns;
+    late_se3.support_weights = support_weights;
+    late_se3.has_reference_pose = true;
+    late_se3.reference_p_w_i = aligned_reference;
+    late_se3.reference_q_w_i = Eigen::Quaterniond::Identity();
+    late_se3.target_delta = Eigen::Matrix<double, 6, 1>::Zero();
+    late_se3.sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+    late_se3.weight = 1.0;
+    late_se3.huber_delta = 10.0;
+    if (!se3_optimizer.add_marginalized_se3_photometric_prior(late_se3)) {
+      throw std::runtime_error("support-aware SE3 prior was not created");
+    }
+    const double se3_aligned_increase =
+      se3_optimizer.build_normal_equation().cost - se3_before;
+
+    auto shifted_se3_case = make_optimizer_with_boundary_support();
+    auto & shifted_se3_optimizer = shifted_se3_case.first;
+    const double shifted_se3_before = shifted_se3_optimizer.build_normal_equation().cost;
+    late_se3.reference_p_w_i = aligned_reference + Eigen::Vector3d{0.2, -0.1, 0.05};
+    if (!shifted_se3_optimizer.add_marginalized_se3_photometric_prior(late_se3)) {
+      throw std::runtime_error("shifted support-aware SE3 prior was not created");
+    }
+    const double se3_shifted_increase =
+      shifted_se3_optimizer.build_normal_equation().cost - shifted_se3_before;
+
+    std::cout << "late_visual_reference_support_probe visual_aligned_increase="
+              << visual_aligned_increase
+              << " visual_shifted_increase=" << visual_shifted_increase
+              << " se3_aligned_increase=" << se3_aligned_increase
+              << " se3_shifted_increase=" << se3_shifted_increase << "\n";
+    if (!std::isfinite(visual_aligned_increase) ||
+      !std::isfinite(visual_shifted_increase) ||
+      !std::isfinite(se3_aligned_increase) ||
+      !std::isfinite(se3_shifted_increase) ||
+      std::abs(visual_aligned_increase) > 1.0e-8 ||
+      std::abs(se3_aligned_increase) > 1.0e-8 ||
+      visual_shifted_increase <= visual_aligned_increase + 1.0e-6 ||
+      se3_shifted_increase <= se3_aligned_increase + 1.0e-6)
+    {
+      std::cerr << "late visual/SE3 marginalized priors ignored explicit support stamps\n";
+      return false;
+    }
+  } catch (const std::exception & ex) {
+    std::cerr << "explicit-support marginalized prior probe failed: " << ex.what() << "\n";
+    return false;
+  }
+  return true;
+}
+
 bool check_late_relative_translation_prior_survives_marginalization()
 {
   gaussian_lic_tracking::SlidingWindowConfig config;
@@ -644,6 +765,9 @@ int main()
     return 1;
   }
   if (!check_late_visual_priors_preserve_explicit_reference_pose()) {
+    return 1;
+  }
+  if (!check_late_visual_priors_preserve_explicit_reference_support()) {
     return 1;
   }
   if (!check_late_relative_translation_prior_survives_marginalization()) {
