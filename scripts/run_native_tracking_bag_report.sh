@@ -169,6 +169,7 @@ VISUAL_ADAPTIVE_STATE_RETENTION_MARGIN_STATES=4
 VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES=64
 ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
+ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING=false
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
@@ -748,6 +749,10 @@ Options:
                                Convert late visual/SE3 factors on marginalized source states into Schur back-substitution dense priors on retained states.
   --disable-visual-marginalization-prior
                                Do not convert late visual/SE3 factors into marginalized-state priors.
+  --enable-visual-marginalization-prior-batching
+                               Batch late visual/SE3 marginalized priors into one retained dense prior per drain cycle. Default: disabled.
+  --disable-visual-marginalization-prior-batching
+                               Add late visual/SE3 marginalized priors one factor at a time.
   --visual-marginalization-prior-zero-bias-columns
                                Prevent late visual/SE3 marginalized priors from writing IMU gyro/accel bias columns.
   --no-visual-marginalization-prior-zero-bias-columns
@@ -1729,6 +1734,16 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
       shift
       ;;
+    --enable-visual-marginalization-prior-batching)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING=true
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-marginalization-prior-batching)
+      ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING=false
+      shift
+      ;;
     --visual-marginalization-prior-zero-bias-columns)
       VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=true
       ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
@@ -2608,6 +2623,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_adaptive_state_retention_max_states:="${VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES}" \
   enable_visual_expired_factor_projection:="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
   enable_visual_marginalization_prior:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
+  enable_visual_marginalization_prior_batching:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING}" \
   visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
   enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
   enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
@@ -2997,6 +3013,7 @@ LIDAR_WINDOW_CONFIDENCE_POWER_REPORT="${LIDAR_WINDOW_CONFIDENCE_POWER}" \
 SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
 SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
+ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING_REPORT="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING}" \
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
@@ -3305,6 +3322,9 @@ enable_visual_expired_factor_projection = (
 )
 enable_visual_marginalization_prior = (
     os.environ["ENABLE_VISUAL_MARGINALIZATION_PRIOR_REPORT"].lower() == "true"
+)
+enable_visual_marginalization_prior_batching = (
+    os.environ["ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING_REPORT"].lower() == "true"
 )
 visual_marginalization_prior_zero_bias_columns = (
     os.environ["VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT"].lower() == "true"
@@ -3871,6 +3891,11 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_alignment_marginalization_priors",
     "visual_se3_photometric_marginalization_priors",
     "visual_marginalization_prior_skipped_factors",
+    "visual_batched_marginalization_prior_batches",
+    "visual_batched_marginalization_prior_visual_factors",
+    "visual_batched_marginalization_prior_se3_factors",
+    "visual_batched_marginalization_prior_skipped_batches",
+    "visual_batched_marginalization_prior_skipped_factors",
     "sliding_window_marginalized_backsubstitutions",
     "sliding_window_marginalized_backsubstitution_chain_updates",
     "sliding_window_marginalized_backsubstitution_interpolations",
@@ -4822,6 +4847,7 @@ if enable_visual_factors:
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
         "visual_marginalization_prior_enabled",
+        "visual_marginalization_prior_batching_enabled",
         "visual_marginalization_prior_zero_bias_columns",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
@@ -4829,6 +4855,11 @@ if enable_visual_factors:
         "visual_alignment_marginalization_priors",
         "visual_se3_photometric_marginalization_priors",
         "visual_marginalization_prior_skipped_factors",
+        "visual_batched_marginalization_prior_batches",
+        "visual_batched_marginalization_prior_visual_factors",
+        "visual_batched_marginalization_prior_se3_factors",
+        "visual_batched_marginalization_prior_skipped_batches",
+        "visual_batched_marginalization_prior_skipped_factors",
         "sliding_window_visual_marginalization_priors",
         "sliding_window_se3_photometric_marginalization_priors",
         "visual_se3_photometric_total_batches",
@@ -4882,6 +4913,13 @@ if enable_visual_factors:
             errors.append(f"{key} is {last.get(key)}")
     if int(last.get("visual_se3_photometric_total_batches", 0)) <= 0:
         errors.append("visual_se3_photometric_total_batches is zero")
+    if enable_visual_marginalization_prior_batching:
+        if not bool(last.get("visual_marginalization_prior_batching_enabled", False)):
+            errors.append("visual_marginalization_prior_batching_enabled is false")
+        if int(last.get("visual_batched_marginalization_prior_skipped_batches", 0)) != 0:
+            errors.append(
+                "visual_batched_marginalization_prior_skipped_batches is "
+                f"{last.get('visual_batched_marginalization_prior_skipped_batches')}")
     if enable_rendered_feedback_contract:
         for key in (
             "rendered_feedback_frame_index_regressions",
@@ -5066,6 +5104,9 @@ report = {
         ),
         "enable_visual_expired_factor_projection": enable_visual_expired_factor_projection,
         "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
+        "enable_visual_marginalization_prior_batching": (
+            enable_visual_marginalization_prior_batching
+        ),
         "visual_marginalization_prior_zero_bias_columns": (
             visual_marginalization_prior_zero_bias_columns
         ),

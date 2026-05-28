@@ -191,6 +191,14 @@ struct SlidingWindowDensePrior
   Eigen::VectorXd target_delta;
 };
 
+struct SlidingWindowBatchedMarginalizedPriorResult
+{
+  size_t visual_alignment_prior_count{0};
+  size_t se3_photometric_prior_count{0};
+  size_t skipped_factor_count{0};
+  bool added{false};
+};
+
 struct SlidingWindowCostBreakdown
 {
   double imu_cost{0.0};
@@ -343,6 +351,9 @@ public:
   void add_se3_photometric_factor(const SlidingWindowSe3PhotometricFactor & factor);
   bool add_marginalized_visual_alignment_prior(const SlidingWindowVisualAlignmentFactor & factor);
   bool add_marginalized_se3_photometric_prior(const SlidingWindowSe3PhotometricFactor & factor);
+  SlidingWindowBatchedMarginalizedPriorResult add_batched_marginalized_visual_priors(
+    const std::vector<SlidingWindowVisualAlignmentFactor> & visual_factors,
+    const std::vector<SlidingWindowSe3PhotometricFactor> & se3_factors);
   bool add_marginalized_relative_translation_prior(
     const SlidingWindowRelativeTranslationFactor & factor);
   void add_relative_translation_factor(const SlidingWindowRelativeTranslationFactor & factor);

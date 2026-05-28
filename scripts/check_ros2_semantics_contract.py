@@ -199,6 +199,7 @@ def main() -> int:
         "visual_watermark_pair_scheduler_max_pairs_per_pointcloud",
         "enable_rendered_feedback_watermark_queue",
         "enable_visual_marginalization_prior",
+        "enable_visual_marginalization_prior_batching",
         "visual_marginalization_prior_zero_bias_columns",
         "enable_rendered_feedback_source_pose_reference",
         "visual_alignment_meters_per_pixel",
@@ -495,6 +496,9 @@ def main() -> int:
         errors.append("tracking.launch.py must expose visual-prior bias-column projection as default-off")
     if "--visual-marginalization-prior-zero-bias-columns" not in native_tracking_report_text:
         errors.append("native tracking bag report must expose the visual-prior bias-column projector")
+    if "add_batched_marginalized_visual_priors" not in sliding_window_header_text or \
+            "add_batched_marginalized_visual_priors" not in sliding_window_text:
+        errors.append("sliding-window optimizer must support batched late visual/SE3 marginalized priors")
     for field_name in (
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
@@ -584,12 +588,18 @@ def main() -> int:
         "visual_render_backlog_frames",
         "visual_expired_factor_projection_enabled",
         "visual_marginalization_prior_enabled",
+        "visual_marginalization_prior_batching_enabled",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
         "visual_expired_projection_skipped_factors",
         "visual_alignment_marginalization_priors",
         "visual_se3_photometric_marginalization_priors",
         "visual_marginalization_prior_skipped_factors",
+        "visual_batched_marginalization_prior_batches",
+        "visual_batched_marginalization_prior_visual_factors",
+        "visual_batched_marginalization_prior_se3_factors",
+        "visual_batched_marginalization_prior_skipped_batches",
+        "visual_batched_marginalization_prior_skipped_factors",
         "sliding_window_marginalized_backsubstitutions",
         "sliding_window_marginalized_backsubstitution_chain_updates",
         "sliding_window_marginalized_backsubstitution_interpolations",
@@ -634,6 +644,8 @@ def main() -> int:
         errors.append("tracking_node must expose expired visual factor projection as default-off")
     if 'declare_parameter<bool>("enable_visual_marginalization_prior", false)' not in tracking_node_text:
         errors.append("tracking_node must expose marginalized visual/SE3 prior conversion as default-off")
+    if 'declare_parameter<bool>("enable_visual_marginalization_prior_batching", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose batched marginalized visual/SE3 priors as default-off")
     if 'declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false)' not in tracking_node_text:
         errors.append("tracking_node must expose visual-prior bias-column projection as default-off")
     if 'DeclareLaunchArgument("visual_pair_monotonic_unique", default_value="false")' not in tracking_launch_text:
@@ -648,6 +660,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose expired visual factor projection")
     if 'DeclareLaunchArgument("enable_visual_marginalization_prior", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose marginalized visual/SE3 prior conversion")
+    if 'DeclareLaunchArgument("enable_visual_marginalization_prior_batching", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose batched marginalized visual/SE3 priors")
     if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
         errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
     if "--enable-visual-watermark-pair-scheduler" not in native_tracking_report_text:
@@ -662,6 +676,8 @@ def main() -> int:
         errors.append("native tracking report must expose expired visual factor projection")
     if "--enable-visual-marginalization-prior" not in native_tracking_report_text:
         errors.append("native tracking report must expose marginalized visual/SE3 prior conversion")
+    if "--enable-visual-marginalization-prior-batching" not in native_tracking_report_text:
+        errors.append("native tracking report must expose batched marginalized visual/SE3 priors")
     if "--visual-factor-reference-stamp-mode" not in native_tracking_report_text:
         errors.append("native tracking report must expose visual factor reference-stamp ownership")
     if "OBSERVED_FRAME_CACHE_SIZE=128" not in native_tracking_report_text or \

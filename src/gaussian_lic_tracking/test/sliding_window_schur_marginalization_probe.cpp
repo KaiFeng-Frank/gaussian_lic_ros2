@@ -588,6 +588,122 @@ bool check_late_visual_priors_preserve_explicit_reference_support()
   return true;
 }
 
+bool check_batched_late_visual_priors_match_individual_priors()
+{
+  auto make_optimizer_with_boundary_support = []() {
+      gaussian_lic_tracking::SlidingWindowConfig config;
+      config.max_states = 2;
+      config.max_iterations = 1;
+      config.marginalization_prior_weight = 0.0;
+      gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+      std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+      for (int i = 0; i < 3; ++i) {
+        states.push_back(make_state(static_cast<int64_t>(i), static_cast<double>(i)));
+        optimizer.add_or_update_state(states.back());
+        optimizer.add_state_prior(make_full_state_prior(states.back()));
+        if (i > 0) {
+          optimizer.add_relative_translation_factor(
+            make_relative_factor(
+              states[static_cast<size_t>(i - 1)].stamp_ns,
+              states[static_cast<size_t>(i)].stamp_ns,
+              states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+        }
+      }
+      const auto summary = optimizer.optimize();
+      if (summary.marginalized_backsubstitution_count == 0U) {
+        throw std::runtime_error("missing marginalized state for batched visual prior probe");
+      }
+      return std::make_pair(optimizer, states);
+    };
+
+  try {
+    auto base_case = make_optimizer_with_boundary_support();
+    const auto & states = base_case.second;
+    const std::vector<int64_t> support_stamp_ns = {
+      states[0].stamp_ns,
+      states[1].stamp_ns};
+    const std::vector<double> support_weights = {0.25, 0.75};
+    const Eigen::Vector3d aligned_reference =
+      support_weights[0] * states[0].p_w_i + support_weights[1] * states[1].p_w_i;
+
+    gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor late_visual;
+    late_visual.stamp_ns = states[0].stamp_ns;
+    late_visual.source_id = 91U;
+    late_visual.support_stamp_ns = support_stamp_ns;
+    late_visual.support_weights = support_weights;
+    late_visual.has_reference_pose = true;
+    late_visual.reference_p_w_i = aligned_reference + Eigen::Vector3d{0.1, -0.05, 0.0};
+    late_visual.measured_shift_px = Eigen::Vector2d{0.2, -0.1};
+    late_visual.meters_per_pixel = 1.0;
+    late_visual.weight = 1.0;
+    late_visual.huber_delta_m = 10.0;
+
+    gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor late_se3;
+    late_se3.stamp_ns = states[0].stamp_ns;
+    late_se3.source_id = 92U;
+    late_se3.support_stamp_ns = support_stamp_ns;
+    late_se3.support_weights = support_weights;
+    late_se3.has_reference_pose = true;
+    late_se3.reference_p_w_i = aligned_reference + Eigen::Vector3d{0.05, -0.02, 0.01};
+    late_se3.reference_q_w_i = Eigen::Quaterniond::Identity();
+    late_se3.target_delta = Eigen::Matrix<double, 6, 1>::Zero();
+    late_se3.target_delta(3) = 0.015;
+    late_se3.target_delta(4) = -0.01;
+    late_se3.sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+    late_se3.weight = 1.0;
+    late_se3.huber_delta = 10.0;
+
+    auto individual_case = make_optimizer_with_boundary_support();
+    auto & individual_optimizer = individual_case.first;
+    if (!individual_optimizer.add_marginalized_visual_alignment_prior(late_visual) ||
+      !individual_optimizer.add_marginalized_se3_photometric_prior(late_se3))
+    {
+      throw std::runtime_error("individual late visual priors were not created");
+    }
+    const auto individual_normal = individual_optimizer.build_normal_equation();
+
+    auto batched_case = make_optimizer_with_boundary_support();
+    auto & batched_optimizer = batched_case.first;
+    const auto batched_result =
+      batched_optimizer.add_batched_marginalized_visual_priors({late_visual}, {late_se3});
+    if (!batched_result.added ||
+      batched_result.visual_alignment_prior_count != 1U ||
+      batched_result.se3_photometric_prior_count != 1U ||
+      batched_result.skipped_factor_count != 0U)
+    {
+      throw std::runtime_error("batched late visual priors were not admitted");
+    }
+    const auto batched_normal = batched_optimizer.build_normal_equation();
+    if (!individual_normal.valid || !batched_normal.valid ||
+      individual_normal.hessian.rows() != batched_normal.hessian.rows() ||
+      individual_normal.hessian.cols() != batched_normal.hessian.cols() ||
+      individual_normal.rhs.size() != batched_normal.rhs.size())
+    {
+      throw std::runtime_error("batched late visual prior normal-equation shape mismatch");
+    }
+    const double hessian_error =
+      (individual_normal.hessian - batched_normal.hessian).cwiseAbs().maxCoeff();
+    const double rhs_error =
+      (individual_normal.rhs - batched_normal.rhs).cwiseAbs().maxCoeff();
+    std::cout << "batched_late_visual_prior_probe visual_priors="
+              << batched_result.visual_alignment_prior_count
+              << " se3_priors=" << batched_result.se3_photometric_prior_count
+              << " skipped=" << batched_result.skipped_factor_count
+              << " hessian_error=" << hessian_error
+              << " rhs_error=" << rhs_error << "\n";
+    if (!std::isfinite(hessian_error) || !std::isfinite(rhs_error) ||
+      hessian_error > 1.0e-8 || rhs_error > 1.0e-6)
+    {
+      std::cerr << "batched late visual priors do not match individual priors\n";
+      return false;
+    }
+  } catch (const std::exception & ex) {
+    std::cerr << "batched late visual prior probe failed: " << ex.what() << "\n";
+    return false;
+  }
+  return true;
+}
+
 bool check_late_relative_translation_prior_survives_marginalization()
 {
   gaussian_lic_tracking::SlidingWindowConfig config;
@@ -768,6 +884,9 @@ int main()
     return 1;
   }
   if (!check_late_visual_priors_preserve_explicit_reference_support()) {
+    return 1;
+  }
+  if (!check_batched_late_visual_priors_match_individual_priors()) {
     return 1;
   }
   if (!check_late_relative_translation_prior_survives_marginalization()) {

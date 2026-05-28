@@ -138,6 +138,9 @@ def generate_launch_description():
     enable_visual_marginalization_prior = LaunchConfiguration(
         "enable_visual_marginalization_prior"
     )
+    enable_visual_marginalization_prior_batching = LaunchConfiguration(
+        "enable_visual_marginalization_prior_batching"
+    )
     visual_marginalization_prior_zero_bias_columns = LaunchConfiguration(
         "visual_marginalization_prior_zero_bias_columns"
     )
@@ -672,6 +675,7 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_adaptive_state_retention_max_states", default_value="64"),
             DeclareLaunchArgument("enable_visual_expired_factor_projection", default_value="false"),
             DeclareLaunchArgument("enable_visual_marginalization_prior", default_value="false"),
+            DeclareLaunchArgument("enable_visual_marginalization_prior_batching", default_value="false"),
             DeclareLaunchArgument("visual_marginalization_prior_zero_bias_columns", default_value="false"),
             DeclareLaunchArgument("enable_visual_factor_reference_snapshot", default_value="false"),
             DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false"),
@@ -1060,6 +1064,7 @@ def generate_launch_description():
                             enable_visual_expired_factor_projection
                         ),
                         "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
+                        "enable_visual_marginalization_prior_batching": enable_visual_marginalization_prior_batching,
                         "visual_marginalization_prior_zero_bias_columns": visual_marginalization_prior_zero_bias_columns,
                         "enable_visual_factor_reference_snapshot": (
                             enable_visual_factor_reference_snapshot
