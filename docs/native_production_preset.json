@@ -160,6 +160,44 @@
       "promotion_status": "structural support: removes Image-stamp-only ownership from typed feedback without changing BA scalar weights; full-window promotion still requires bag evidence"
     },
     {
+      "id": "observed_primary_rendered_feedback_depth_selection",
+      "scope": "SE3 photometric sparse-depth ownership for typed source-indexed rendered feedback",
+      "status_fields": [
+        "visual_depth_observed_stamp_matches",
+        "visual_depth_source_pointcloud_fallback_queries",
+        "visual_depth_source_pointcloud_fallback_matches",
+        "visual_depth_source_pointcloud_fallback_misses"
+      ],
+      "selection_rule": "select observed-image-stamp depth first; use rendered-feedback source point-cloud stamp only when the observed-depth lookup misses",
+      "smoke_report": "results/fastlivo2/CBD_Building_01_observed_depth_primary_12s_probe/native_tracking_report.json",
+      "smoke_num_rendered_feedbacks": 103,
+      "smoke_total_visual_factors": 103,
+      "smoke_total_se3_photometric_factors": 103,
+      "smoke_observed_depth_matches": 103,
+      "smoke_source_pointcloud_fallback_queries": 0,
+      "smoke_source_pointcloud_fallback_matches": 0,
+      "smoke_source_pointcloud_fallback_misses": 0,
+      "smoke_depth_stale_drops": 0,
+      "full122_report": "results/fastlivo2/CBD_Building_01_observed_depth_primary_marg_prior_full122_drain1015_probe/native_tracking_report.json",
+      "full122_trajectory_compare": "results/fastlivo2/CBD_Building_01_observed_depth_primary_marg_prior_full122_drain1015_probe/native_tracking_trajectory_compare.json",
+      "full122_health_ok": true,
+      "full122_num_rendered_feedbacks": 1015,
+      "full122_total_visual_factors": 1015,
+      "full122_total_se3_photometric_factors": 1015,
+      "full122_observed_depth_matches": 1015,
+      "full122_source_pointcloud_fallback_queries": 0,
+      "full122_depth_stale_drops": 0,
+      "full122_source_id_regressions": 0,
+      "full122_source_id_gap_count": 0,
+      "full122_source_id_missing": 0,
+      "full122_duplicate_source_ids": 0,
+      "full122_visual_marginalization_priors": 89,
+      "full122_se3_marginalization_priors": 89,
+      "full122_translation_rmse_m": 2.1362806941743484,
+      "full122_path_drift": 0.0581972652772662,
+      "promotion_status": "not promoted: the typed/source-indexed path reaches full visual/SE3 drain with zero stale depth and clean source ids, but trajectory regresses versus the accepted production preset; the remaining gap is observation trust/global coupling"
+    },
+    {
       "id": "rendered_feedback_contract_source_pointcloud_12s",
       "report": "results/fastlivo2/CBD_Building_01_rendered_feedback_contract_source_pointcloud_12s_probe_v2/native_tracking_report.json",
       "scope": "default-off source-stamped RenderedFeedback contract smoke",
@@ -1286,6 +1324,33 @@
         }
     ],
     "rejected_evidence": [
+    {
+      "id": "observed_primary_rendered_feedback_depth_full122",
+      "report": "results/fastlivo2/CBD_Building_01_observed_depth_primary_marg_prior_full122_drain1015_probe/native_tracking_report.json",
+      "trajectory_compare": "results/fastlivo2/CBD_Building_01_observed_depth_primary_marg_prior_full122_drain1015_probe/native_tracking_trajectory_compare.json",
+      "total_visual_factors": 1015,
+      "total_se3_photometric_factors": 1015,
+      "observed_depth_matches": 1015,
+      "source_pointcloud_fallback_queries": 0,
+      "depth_stale_drops": 0,
+      "visual_marginalization_priors": 89,
+      "se3_marginalization_priors": 89,
+      "translation_rmse_m": 2.1362806941743484,
+      "path_drift": 0.0581972652772662,
+      "reason": "observed-primary SE3 depth selection reaches the full visual/SE3 drain and clears stale-depth/source-id ownership, but the trajectory regresses versus the accepted production preset; it proves depth selection is not the remaining parity blocker"
+    },
+    {
+      "id": "production_depth_selector_regression_full122",
+      "report": "results/fastlivo2/CBD_Building_01_production_depth_selector_regression_full122_probe/native_tracking_report.json",
+      "translation_rmse_m": 1.4405821237441396,
+      "path_drift": 0.04152410311678421,
+      "total_visual_factors": 887,
+      "total_se3_photometric_factors": 887,
+      "observed_depth_matches": 887,
+      "source_pointcloud_fallback_queries": 0,
+      "depth_stale_drops": 0,
+      "reason": "the legacy production path remains trajectory-close after the depth-selector change, but this stricter replay misses the 1015 visual/SE3 drain at 887/1015 and therefore cannot replace the accepted production evidence"
+    },
     {
       "id": "dense_prior_bias_observability_full122",
       "report": "results/fastlivo2/CBD_Building_01_dense_prior_bias_observability_full122_drain1015_probe/native_tracking_report.json",

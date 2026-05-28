@@ -473,13 +473,24 @@ def check_local_evidence(
                 errors.append(f"rejected evidence report missing: {rejected['report']}")
             continue
         report = load_json(report_path)
-        rmse = number_at_path(report, "trajectory_compare.translation.rmse_m")
+        metric_report = report
+        if "trajectory_compare" not in metric_report and rejected.get("trajectory_compare"):
+            trajectory_path = root / str(rejected["trajectory_compare"])
+            if trajectory_path.is_file():
+                metric_report = {"trajectory_compare": load_json(trajectory_path)}
+            elif require_local_evidence:
+                errors.append(
+                    f"rejected evidence trajectory compare missing: "
+                    f"{rejected['trajectory_compare']}"
+                )
+                continue
+        rmse = number_at_path(metric_report, "trajectory_compare.translation.rmse_m")
         expected_rmse = float(rejected["translation_rmse_m"])
         if not approx_equal(rmse, expected_rmse):
             errors.append(
                 f"{rejected['id']} RMSE {rmse:g} does not match manifest {expected_rmse:g}"
             )
-        drift = number_at_path(report, "trajectory_compare.path_length.relative_drift")
+        drift = number_at_path(metric_report, "trajectory_compare.path_length.relative_drift")
         expected_drift = float(rejected["path_drift"])
         if not approx_equal(drift, expected_drift):
             errors.append(

@@ -5619,6 +5619,70 @@ private:
     return best;
   }
 
+  const DepthFrame * select_depth_frame_for_visual_pair(
+    const gaussian_lic_tracking::VisualFrame & rendered,
+    const gaussian_lic_tracking::VisualFrame & observed,
+    int64_t * selected_delta_ns = nullptr,
+    bool * cache_had_size_match = nullptr)
+  {
+    bool had_size_match = false;
+    int64_t observed_delta_ns = 0;
+    bool observed_had_size_match = false;
+    const DepthFrame * observed_depth =
+      select_depth_frame_for_stamp(
+      observed.stamp_ns,
+      observed.width,
+      observed.height,
+      &observed_delta_ns,
+      &observed_had_size_match);
+    had_size_match = had_size_match || observed_had_size_match;
+    if (observed_depth != nullptr) {
+      ++visual_depth_observed_stamp_matches_;
+      if (selected_delta_ns != nullptr) {
+        *selected_delta_ns = observed_delta_ns;
+      }
+      if (cache_had_size_match != nullptr) {
+        *cache_had_size_match = had_size_match;
+      }
+      return observed_depth;
+    }
+
+    if (
+      rendered.has_rendered_feedback_metadata &&
+      rendered.rendered_feedback_pointcloud_stamp_ns != 0)
+    {
+      ++visual_depth_source_pointcloud_fallback_queries_;
+      int64_t source_delta_ns = 0;
+      bool source_had_size_match = false;
+      const DepthFrame * source_depth =
+        select_depth_frame_for_stamp(
+        rendered.rendered_feedback_pointcloud_stamp_ns,
+        observed.width,
+        observed.height,
+        &source_delta_ns,
+        &source_had_size_match);
+      had_size_match = had_size_match || source_had_size_match;
+      if (source_depth != nullptr) {
+        ++visual_depth_source_pointcloud_fallback_matches_;
+        if (selected_delta_ns != nullptr) {
+          *selected_delta_ns = source_delta_ns;
+        }
+        if (cache_had_size_match != nullptr) {
+          *cache_had_size_match = had_size_match;
+        }
+        return source_depth;
+      }
+      ++visual_depth_source_pointcloud_fallback_misses_;
+    }
+    if (selected_delta_ns != nullptr) {
+      *selected_delta_ns = 0;
+    }
+    if (cache_had_size_match != nullptr) {
+      *cache_had_size_match = had_size_match;
+    }
+    return nullptr;
+  }
+
   const gaussian_lic_tracking::VisualFrame * select_rendered_frame_for_stamp(
     const int64_t image_stamp_ns,
     const size_t width,
@@ -5850,10 +5914,9 @@ private:
     int64_t depth_match_delta_ns = 0;
     bool depth_cache_had_size_match = false;
     const DepthFrame * depth_frame =
-      select_depth_frame_for_stamp(
-      observed.stamp_ns,
-      observed.width,
-      observed.height,
+      select_depth_frame_for_visual_pair(
+      rendered,
+      observed,
       &depth_match_delta_ns,
       &depth_cache_had_size_match);
     last_visual_depth_cache_size_ = depth_frame_cache_.size();
@@ -7127,6 +7190,14 @@ private:
     status.visual_depth_miss_count = visual_depth_miss_count_;
     status.visual_depth_stale_count = visual_depth_stale_count_;
     status.visual_depth_size_mismatch_count = visual_depth_size_mismatch_count_;
+    status.visual_depth_observed_stamp_matches =
+      visual_depth_observed_stamp_matches_;
+    status.visual_depth_source_pointcloud_fallback_queries =
+      visual_depth_source_pointcloud_fallback_queries_;
+    status.visual_depth_source_pointcloud_fallback_matches =
+      visual_depth_source_pointcloud_fallback_matches_;
+    status.visual_depth_source_pointcloud_fallback_misses =
+      visual_depth_source_pointcloud_fallback_misses_;
     status.visual_alignment_pending_queue_size =
       static_cast<uint64_t>(pending_visual_alignment_factors_.size());
     status.visual_se3_photometric_pending_queue_size =
@@ -7722,6 +7793,10 @@ private:
   uint64_t visual_depth_miss_count_{0};
   uint64_t visual_depth_stale_count_{0};
   uint64_t visual_depth_size_mismatch_count_{0};
+  uint64_t visual_depth_observed_stamp_matches_{0};
+  uint64_t visual_depth_source_pointcloud_fallback_queries_{0};
+  uint64_t visual_depth_source_pointcloud_fallback_matches_{0};
+  uint64_t visual_depth_source_pointcloud_fallback_misses_{0};
   bool has_camera_intrinsics_{false};
   size_t last_observed_image_width_{0};
   size_t last_observed_image_height_{0};

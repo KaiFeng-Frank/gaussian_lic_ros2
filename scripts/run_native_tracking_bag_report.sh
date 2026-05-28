@@ -3457,6 +3457,10 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_depth_miss_count",
     "visual_depth_stale_count",
     "visual_depth_size_mismatch_count",
+    "visual_depth_observed_stamp_matches",
+    "visual_depth_source_pointcloud_fallback_queries",
+    "visual_depth_source_pointcloud_fallback_matches",
+    "visual_depth_source_pointcloud_fallback_misses",
     "visual_se3_photometric_total_batches",
     "visual_se3_photometric_valid_batches",
     "visual_se3_photometric_insufficient_sample_batches",
@@ -3540,6 +3544,14 @@ def build_visual_factor_continuity(status):
         "max_rendered_stale_delta": max_delta("visual_rendered_stale_count"),
         "max_observed_stale_delta": max_delta("visual_observed_stale_count"),
         "max_depth_stale_delta": max_delta("visual_depth_stale_count"),
+        "max_depth_observed_stamp_match_delta": max_delta(
+            "visual_depth_observed_stamp_matches"),
+        "max_depth_source_pointcloud_fallback_query_delta": max_delta(
+            "visual_depth_source_pointcloud_fallback_queries"),
+        "max_depth_source_pointcloud_fallback_match_delta": max_delta(
+            "visual_depth_source_pointcloud_fallback_matches"),
+        "max_depth_source_pointcloud_fallback_miss_delta": max_delta(
+            "visual_depth_source_pointcloud_fallback_misses"),
         "max_rendered_feedback_frame_regression_delta": max_delta(
             "rendered_feedback_frame_index_regressions"),
         "max_rendered_feedback_preview_regression_delta": max_delta(
@@ -4174,6 +4186,10 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
+        "visual_depth_observed_stamp_matches",
+        "visual_depth_source_pointcloud_fallback_queries",
+        "visual_depth_source_pointcloud_fallback_matches",
+        "visual_depth_source_pointcloud_fallback_misses",
         "rendered_feedback_contract_enabled",
         "num_rendered_feedbacks",
         "last_rendered_feedback_frame_index",

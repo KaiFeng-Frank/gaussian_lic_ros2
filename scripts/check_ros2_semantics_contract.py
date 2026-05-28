@@ -427,6 +427,19 @@ def main() -> int:
             "status.visual_depth_dilation_px" not in tracking_node_text:
         errors.append("TrackingStatus must publish the sparse LiDAR depth dilation radius")
     for field_name in (
+        "visual_depth_observed_stamp_matches",
+        "visual_depth_source_pointcloud_fallback_queries",
+        "visual_depth_source_pointcloud_fallback_matches",
+        "visual_depth_source_pointcloud_fallback_misses",
+    ):
+        if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
+            errors.append(f"TrackingStatus must publish source-index depth selection diagnostics: {field_name}")
+    if "select_depth_frame_for_visual_pair" not in tracking_node_text or \
+            "rendered.rendered_feedback_pointcloud_stamp_ns" not in tracking_node_text:
+        errors.append(
+            "tracking_node must prefer observed-stamp depth and fall back to "
+            "source-pointcloud depth for rendered-feedback SE3 factors")
+    for field_name in (
         "visual_se3_photometric_total_batches",
         "visual_se3_photometric_valid_batches",
         "visual_se3_photometric_insufficient_sample_batches",
