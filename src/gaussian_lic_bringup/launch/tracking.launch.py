@@ -138,6 +138,9 @@ def generate_launch_description():
     enable_rendered_feedback_source_motion_factor = LaunchConfiguration(
         "enable_rendered_feedback_source_motion_factor"
     )
+    enable_rendered_feedback_source_motion_marginalized_prior = LaunchConfiguration(
+        "enable_rendered_feedback_source_motion_marginalized_prior"
+    )
     rendered_feedback_source_motion_translation_weight = LaunchConfiguration(
         "rendered_feedback_source_motion_translation_weight"
     )
@@ -658,6 +661,10 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false"),
             DeclareLaunchArgument("enable_rendered_feedback_source_motion_factor", default_value="false"),
             DeclareLaunchArgument(
+                "enable_rendered_feedback_source_motion_marginalized_prior",
+                default_value="false",
+            ),
+            DeclareLaunchArgument(
                 "rendered_feedback_source_motion_translation_weight", default_value="0.0"
             ),
             DeclareLaunchArgument(
@@ -1040,6 +1047,9 @@ def generate_launch_description():
                         "enable_rendered_feedback_source_pose_reference": enable_rendered_feedback_source_pose_reference,
                         "enable_rendered_feedback_source_motion_factor": (
                             enable_rendered_feedback_source_motion_factor
+                        ),
+                        "enable_rendered_feedback_source_motion_marginalized_prior": (
+                            enable_rendered_feedback_source_motion_marginalized_prior
                         ),
                         "rendered_feedback_source_motion_translation_weight": (
                             rendered_feedback_source_motion_translation_weight

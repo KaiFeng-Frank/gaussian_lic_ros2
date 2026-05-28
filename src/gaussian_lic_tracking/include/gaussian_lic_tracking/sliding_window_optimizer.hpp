@@ -343,6 +343,8 @@ public:
   void add_se3_photometric_factor(const SlidingWindowSe3PhotometricFactor & factor);
   bool add_marginalized_visual_alignment_prior(const SlidingWindowVisualAlignmentFactor & factor);
   bool add_marginalized_se3_photometric_prior(const SlidingWindowSe3PhotometricFactor & factor);
+  bool add_marginalized_relative_translation_prior(
+    const SlidingWindowRelativeTranslationFactor & factor);
   void add_relative_translation_factor(const SlidingWindowRelativeTranslationFactor & factor);
   void add_relative_distance_factor(const SlidingWindowRelativeDistanceFactor & factor);
   void add_trajectory_smoothness_factor(const SlidingWindowTrajectorySmoothnessFactor & factor);
@@ -383,6 +385,16 @@ private:
     Eigen::MatrixXd marginalized_delta_from_retained;
     bool interpolated{false};
   };
+  struct MeasurementEndpointBacksubstitution
+  {
+    SlidingWindowState reference_state;
+    std::vector<int64_t> retained_stamp_ns;
+    std::vector<SlidingWindowState> retained_reference_states;
+    Eigen::Matrix<double, 15, 1> target_delta{Eigen::Matrix<double, 15, 1>::Zero()};
+    Eigen::MatrixXd delta_from_retained;
+    bool active{false};
+    bool interpolated{false};
+  };
 
   static Eigen::Vector3d rotation_residual(
     const Eigen::Quaterniond & measured_q,
@@ -417,6 +429,13 @@ private:
     int64_t factor_stamp_ns,
     const Eigen::VectorXd & residual,
     const Eigen::MatrixXd & marginalized_jacobian);
+  bool add_dense_measurement_prior(
+    const std::vector<int64_t> & retained_stamp_ns,
+    const std::vector<SlidingWindowState> & retained_reference_states,
+    const Eigen::VectorXd & residual,
+    const Eigen::MatrixXd & jacobian);
+  std::optional<MeasurementEndpointBacksubstitution> build_measurement_endpoint_backsubstitution(
+    int64_t factor_stamp_ns) const;
   const MarginalizedStateBacksubstitution * select_marginalized_backsubstitution(
     int64_t factor_stamp_ns) const;
   std::optional<MarginalizedMeasurementBacksubstitution> build_marginalized_measurement_backsubstitution(

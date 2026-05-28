@@ -388,6 +388,15 @@ def main() -> int:
         errors.append("tracking_node must keep rendered-feedback source-motion factors default-off")
     if 'DeclareLaunchArgument("enable_rendered_feedback_source_motion_factor", default_value="false")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose rendered-feedback source-motion factors as default-off")
+    if (
+            'declare_parameter<bool>("enable_rendered_feedback_source_motion_marginalized_prior", false)'
+            not in tracking_node_text):
+        errors.append("tracking_node must keep rendered-feedback source-motion marginalized priors default-off")
+    if (
+            '"enable_rendered_feedback_source_motion_marginalized_prior"' not in tracking_launch_text or
+            'default_value="false"' not in tracking_launch_text):
+        errors.append(
+            "tracking.launch.py must expose rendered-feedback source-motion marginalized priors as default-off")
     if "queue_rendered_feedback_source_motion_factor" not in tracking_node_text or \
             "append_rendered_feedback_source_motion_factors" not in tracking_node_text:
         errors.append("tracking_node must queue typed rendered-feedback source-pose motion into sliding-window relative factors")
@@ -1033,6 +1042,7 @@ def main() -> int:
         "rendered_feedback_source_pose_reference_factors",
         "rendered_feedback_source_pose_invalid",
         "rendered_feedback_source_motion_factor_enabled",
+        "rendered_feedback_source_motion_marginalized_prior_enabled",
         "rendered_feedback_source_motion_queued_factors",
         "rendered_feedback_source_motion_factors",
         "rendered_feedback_source_motion_pending_factors",
@@ -1040,6 +1050,8 @@ def main() -> int:
         "rendered_feedback_source_motion_dt_skip_count",
         "rendered_feedback_source_motion_stale_drops",
         "rendered_feedback_source_motion_future_deferrals",
+        "rendered_feedback_source_motion_marginalized_priors",
+        "rendered_feedback_source_motion_marginalized_prior_skips",
         "rendered_feedback_embedded_depth_pairs",
         "rendered_feedback_embedded_depth_invalid",
         "visual_depth_embedded_observed_matches",

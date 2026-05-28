@@ -467,6 +467,62 @@ bool check_late_visual_priors_preserve_explicit_reference_pose()
   return true;
 }
 
+bool check_late_relative_translation_prior_survives_marginalization()
+{
+  gaussian_lic_tracking::SlidingWindowConfig config;
+  config.max_states = 2;
+  config.max_iterations = 1;
+  config.marginalization_prior_weight = 0.0;
+  gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+
+  std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+  for (int i = 0; i < 3; ++i) {
+    states.push_back(make_state(static_cast<int64_t>(i), static_cast<double>(i)));
+    optimizer.add_or_update_state(states.back());
+    optimizer.add_state_prior(make_full_state_prior(states.back()));
+    if (i > 0) {
+      optimizer.add_relative_translation_factor(
+        make_relative_factor(
+          states[static_cast<size_t>(i - 1)].stamp_ns,
+          states[static_cast<size_t>(i)].stamp_ns,
+          states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+    }
+  }
+
+  const auto marginalization_summary = optimizer.optimize();
+  if (marginalization_summary.marginalized_backsubstitution_count == 0U) {
+    std::cerr << "missing marginalized back-substitution for late relative prior probe\n";
+    return false;
+  }
+
+  auto late_relative = make_relative_factor(
+    states.front().stamp_ns,
+    states[1].stamp_ns,
+    states[1].p_w_i - states.front().p_w_i);
+  late_relative.source_id = 71U;
+  late_relative.rotation_weight = 1.0;
+  late_relative.rotation_huber_delta_rad = 1.0;
+  if (!optimizer.add_marginalized_relative_translation_prior(late_relative)) {
+    std::cerr << "late relative translation factor did not build a marginalized prior\n";
+    return false;
+  }
+
+  const auto late_summary = optimizer.optimize();
+  std::cout << "late_relative_translation_prior_probe dense_priors="
+            << late_summary.dense_prior_count
+            << " interpolations="
+            << late_summary.marginalized_backsubstitution_interpolation_count
+            << " relative_factors="
+            << late_summary.relative_translation_factor_count << "\n";
+  if (late_summary.dense_prior_count <= marginalization_summary.dense_prior_count ||
+    late_summary.relative_translation_factor_count == 0U)
+  {
+    std::cerr << "late relative translation marginalized prior was not retained\n";
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main()
@@ -588,6 +644,9 @@ int main()
     return 1;
   }
   if (!check_late_visual_priors_preserve_explicit_reference_pose()) {
+    return 1;
+  }
+  if (!check_late_relative_translation_prior_survives_marginalization()) {
     return 1;
   }
   std::cout << "sliding_window_schur_marginalization_probe OK\n";

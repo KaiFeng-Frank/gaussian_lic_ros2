@@ -411,6 +411,8 @@ public:
     }
     rendered_feedback_source_motion_in_from_frame_ =
       declare_parameter<bool>("rendered_feedback_source_motion_in_from_frame", false);
+    enable_rendered_feedback_source_motion_marginalized_prior_ =
+      declare_parameter<bool>("enable_rendered_feedback_source_motion_marginalized_prior", false);
     visual_expired_factor_projection_max_age_s_ =
       declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
     if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
@@ -3345,6 +3347,27 @@ private:
     return best_stamp_ns;
   }
 
+  gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor
+  make_rendered_feedback_source_motion_factor(
+    const PendingRenderedFeedbackSourceMotionFactor & pending,
+    const int64_t from_stamp_ns,
+    const int64_t to_stamp_ns) const
+  {
+    gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
+    factor.from_stamp_ns = from_stamp_ns;
+    factor.to_stamp_ns = to_stamp_ns;
+    factor.source_id = pending.source_id;
+    factor.delta_p_w = pending.delta_p_w;
+    factor.delta_q_from_to = pending.delta_q_from_to.normalized();
+    factor.translation_in_from_frame = rendered_feedback_source_motion_in_from_frame_;
+    factor.weight = rendered_feedback_source_motion_translation_weight_;
+    factor.huber_delta_m = rendered_feedback_source_motion_huber_delta_m_;
+    factor.rotation_weight = rendered_feedback_source_motion_rotation_weight_;
+    factor.rotation_huber_delta_rad =
+      rendered_feedback_source_motion_rotation_huber_delta_rad_;
+    return factor;
+  }
+
   void append_rendered_feedback_source_motion_factors(
     const gaussian_lic_tracking::TrajectoryPose & tracking_pose,
     std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor> & factors)
@@ -3373,6 +3396,18 @@ private:
       if (!from_stamp_ns.has_value() || !to_stamp_ns.has_value() ||
         from_stamp_ns.value() >= to_stamp_ns.value())
       {
+        if (enable_rendered_feedback_source_motion_marginalized_prior_) {
+          const auto late_factor =
+            make_rendered_feedback_source_motion_factor(
+            pending,
+            pending.from_reference_stamp_ns,
+            pending.to_reference_stamp_ns);
+          if (sliding_window_optimizer_.add_marginalized_relative_translation_prior(late_factor)) {
+            ++rendered_feedback_source_motion_marginalized_priors_;
+            continue;
+          }
+          ++rendered_feedback_source_motion_marginalized_prior_skips_;
+        }
         if (visual_factor_stamp_is_expired(
             pending.to_reference_stamp_ns, tracking_pose.stamp_ns) ||
           visual_factor_stamp_is_before_active_window(pending.from_reference_stamp_ns))
@@ -3384,19 +3419,9 @@ private:
         continue;
       }
 
-      gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
-      factor.from_stamp_ns = from_stamp_ns.value();
-      factor.to_stamp_ns = to_stamp_ns.value();
-      factor.source_id = pending.source_id;
-      factor.delta_p_w = pending.delta_p_w;
-      factor.delta_q_from_to = pending.delta_q_from_to.normalized();
-      factor.translation_in_from_frame = rendered_feedback_source_motion_in_from_frame_;
-      factor.weight = rendered_feedback_source_motion_translation_weight_;
-      factor.huber_delta_m = rendered_feedback_source_motion_huber_delta_m_;
-      factor.rotation_weight = rendered_feedback_source_motion_rotation_weight_;
-      factor.rotation_huber_delta_rad =
-        rendered_feedback_source_motion_rotation_huber_delta_rad_;
-      factors.push_back(factor);
+      factors.push_back(
+        make_rendered_feedback_source_motion_factor(
+          pending, from_stamp_ns.value(), to_stamp_ns.value()));
       ++rendered_feedback_source_motion_factors_;
     }
     pending_rendered_feedback_source_motion_factors_ = std::move(retained_pending);
@@ -7372,6 +7397,8 @@ private:
       rendered_feedback_source_pose_invalid_;
     status.rendered_feedback_source_motion_factor_enabled =
       enable_rendered_feedback_source_motion_factor_;
+    status.rendered_feedback_source_motion_marginalized_prior_enabled =
+      enable_rendered_feedback_source_motion_marginalized_prior_;
     status.rendered_feedback_source_motion_queued_factors =
       rendered_feedback_source_motion_queued_factors_;
     status.rendered_feedback_source_motion_factors =
@@ -7386,6 +7413,10 @@ private:
       rendered_feedback_source_motion_stale_drops_;
     status.rendered_feedback_source_motion_future_deferrals =
       rendered_feedback_source_motion_future_deferrals_;
+    status.rendered_feedback_source_motion_marginalized_priors =
+      rendered_feedback_source_motion_marginalized_priors_;
+    status.rendered_feedback_source_motion_marginalized_prior_skips =
+      rendered_feedback_source_motion_marginalized_prior_skips_;
     status.last_rendered_feedback_frame_index = last_rendered_feedback_frame_index_;
     status.last_rendered_feedback_preview_index = last_rendered_feedback_preview_index_;
     status.rendered_feedback_frame_index_regressions =
@@ -8053,6 +8084,7 @@ private:
   VisualFactorReferenceStampMode visual_factor_reference_stamp_mode_{
     VisualFactorReferenceStampMode::kObserved};
   bool enable_rendered_feedback_source_motion_factor_{false};
+  bool enable_rendered_feedback_source_motion_marginalized_prior_{false};
   double rendered_feedback_source_motion_translation_weight_{0.0};
   double rendered_feedback_source_motion_rotation_weight_{0.0};
   double rendered_feedback_source_motion_huber_delta_m_{0.1};
@@ -8433,6 +8465,8 @@ private:
   uint64_t rendered_feedback_source_motion_dt_skip_count_{0};
   uint64_t rendered_feedback_source_motion_stale_drops_{0};
   uint64_t rendered_feedback_source_motion_future_deferrals_{0};
+  uint64_t rendered_feedback_source_motion_marginalized_priors_{0};
+  uint64_t rendered_feedback_source_motion_marginalized_prior_skips_{0};
   size_t last_visual_depth_cache_size_{0};
   int64_t last_visual_depth_match_delta_ns_{0};
   uint64_t visual_depth_miss_count_{0};

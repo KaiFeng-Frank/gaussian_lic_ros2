@@ -173,6 +173,7 @@ VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
 ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR=false
+ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR=false
 RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT=0.0
 RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT=0.0
 RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M=0.1
@@ -759,6 +760,10 @@ Options:
                                Queue cross-frame relative motion factors from consecutive typed RenderedFeedback.source_pose samples. Default: disabled.
   --disable-rendered-feedback-source-motion-factor
                                Disable RenderedFeedback.source_pose relative motion factors.
+  --enable-rendered-feedback-source-motion-marginalized-prior
+                               Convert late source-motion factors into Schur back-substitution dense priors. Default: disabled until full-window promotion.
+  --disable-rendered-feedback-source-motion-marginalized-prior
+                               Drop late source-motion factors instead of adding marginalized dense priors.
   --rendered-feedback-source-motion-translation-weight W
                                Translation weight for source-pose relative motion factors. Default: 0.0.
   --rendered-feedback-source-motion-rotation-weight W
@@ -1749,6 +1754,17 @@ while [[ $# -gt 0 ]]; do
       ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR=false
       shift
       ;;
+    --enable-rendered-feedback-source-motion-marginalized-prior)
+      ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR=true
+      ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR=true
+      ENABLE_RENDERED_FEEDBACK_CONTRACT=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-rendered-feedback-source-motion-marginalized-prior)
+      ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR=false
+      shift
+      ;;
     --rendered-feedback-source-motion-translation-weight)
       RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT="$2"
       shift 2
@@ -2558,6 +2574,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
   enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
   enable_rendered_feedback_source_motion_factor:="${ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR}" \
+  enable_rendered_feedback_source_motion_marginalized_prior:="${ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR}" \
   rendered_feedback_source_motion_translation_weight:="${RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT}" \
   rendered_feedback_source_motion_rotation_weight:="${RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT}" \
   rendered_feedback_source_motion_huber_delta_m:="${RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M}" \
@@ -2946,6 +2963,7 @@ VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
 ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR}" \
+ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR}" \
 RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT}" \
 RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT}" \
 RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M}" \
@@ -3248,6 +3266,9 @@ enable_rendered_feedback_source_pose_reference = (
 )
 enable_rendered_feedback_source_motion_factor = (
     os.environ["ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR_REPORT"].lower() == "true"
+)
+enable_rendered_feedback_source_motion_marginalized_prior = (
+    os.environ["ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_MARGINALIZED_PRIOR_REPORT"].lower() == "true"
 )
 rendered_feedback_source_motion_translation_weight = float(
     os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT_REPORT"]
@@ -4680,6 +4701,7 @@ if enable_visual_factors:
         "rendered_feedback_source_pose_reference_factors",
         "rendered_feedback_source_pose_invalid",
         "rendered_feedback_source_motion_factor_enabled",
+        "rendered_feedback_source_motion_marginalized_prior_enabled",
         "rendered_feedback_source_motion_queued_factors",
         "rendered_feedback_source_motion_factors",
         "rendered_feedback_source_motion_pending_factors",
@@ -4687,6 +4709,8 @@ if enable_visual_factors:
         "rendered_feedback_source_motion_dt_skip_count",
         "rendered_feedback_source_motion_stale_drops",
         "rendered_feedback_source_motion_future_deferrals",
+        "rendered_feedback_source_motion_marginalized_priors",
+        "rendered_feedback_source_motion_marginalized_prior_skips",
         "last_rendered_feedback_frame_index",
         "last_rendered_feedback_preview_index",
         "rendered_feedback_frame_index_regressions",
@@ -4748,8 +4772,13 @@ if enable_visual_factors:
     if enable_rendered_feedback_source_motion_factor:
         if int(last.get("rendered_feedback_source_motion_queued_factors", 0)) <= 0:
             errors.append("rendered_feedback_source_motion_queued_factors is zero")
-        if int(last.get("rendered_feedback_source_motion_factors", 0)) <= 0:
-            errors.append("rendered_feedback_source_motion_factors is zero")
+        active_source_motion = int(last.get("rendered_feedback_source_motion_factors", 0))
+        marginalized_source_motion = int(
+            last.get("rendered_feedback_source_motion_marginalized_priors", 0))
+        if active_source_motion + marginalized_source_motion <= 0:
+            errors.append(
+                "rendered_feedback_source_motion_factors plus "
+                "rendered_feedback_source_motion_marginalized_priors is zero")
         if int(last.get("rendered_feedback_source_motion_invalid", 0)) != 0:
             errors.append(
                 "rendered_feedback_source_motion_invalid is "
@@ -4942,6 +4971,9 @@ report = {
         ),
         "enable_rendered_feedback_source_motion_factor": (
             enable_rendered_feedback_source_motion_factor
+        ),
+        "enable_rendered_feedback_source_motion_marginalized_prior": (
+            enable_rendered_feedback_source_motion_marginalized_prior
         ),
         "rendered_feedback_source_motion_translation_weight": (
             rendered_feedback_source_motion_translation_weight
