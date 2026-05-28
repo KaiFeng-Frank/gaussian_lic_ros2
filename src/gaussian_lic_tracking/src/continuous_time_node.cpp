@@ -459,6 +459,8 @@ public:
       declare_parameter<double>("retained_knot_orientation_prior_weight", 0.0);
     options.retained_knot_orientation_prior_huber_delta_rad =
       declare_parameter<double>("retained_knot_orientation_prior_huber_delta_rad", 0.0);
+    options.enable_spline_orientation_marginalization_prior =
+      declare_parameter<bool>("enable_spline_orientation_marginalization_prior", false);
     options.gyro_bias_prior_weight =
       declare_parameter<double>("gyro_bias_prior_weight", 0.0);
     options.gyro_bias_prior_huber_delta_radps =

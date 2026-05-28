@@ -167,6 +167,7 @@ RETAINED_KNOT_POSITION_PRIOR_WEIGHT="${RETAINED_KNOT_POSITION_PRIOR_WEIGHT:-0.0}
 RETAINED_KNOT_POSITION_PRIOR_HUBER_DELTA_M="${RETAINED_KNOT_POSITION_PRIOR_HUBER_DELTA_M:-0.0}"
 RETAINED_KNOT_ORIENTATION_PRIOR_WEIGHT="${RETAINED_KNOT_ORIENTATION_PRIOR_WEIGHT:-0.0}"
 RETAINED_KNOT_ORIENTATION_PRIOR_HUBER_DELTA_RAD="${RETAINED_KNOT_ORIENTATION_PRIOR_HUBER_DELTA_RAD:-0.0}"
+ENABLE_SPLINE_ORIENTATION_MARGINALIZATION_PRIOR="${ENABLE_SPLINE_ORIENTATION_MARGINALIZATION_PRIOR:-false}"
 GYRO_BIAS_PRIOR_WEIGHT="${GYRO_BIAS_PRIOR_WEIGHT:-0.0}"
 GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS="${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS:-0.0}"
 ACCEL_BIAS_PRIOR_WEIGHT="${ACCEL_BIAS_PRIOR_WEIGHT:-0.0}"
@@ -308,6 +309,7 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p retained_knot_position_prior_huber_delta_m:="${RETAINED_KNOT_POSITION_PRIOR_HUBER_DELTA_M}" \
   -p retained_knot_orientation_prior_weight:="${RETAINED_KNOT_ORIENTATION_PRIOR_WEIGHT}" \
   -p retained_knot_orientation_prior_huber_delta_rad:="${RETAINED_KNOT_ORIENTATION_PRIOR_HUBER_DELTA_RAD}" \
+  -p enable_spline_orientation_marginalization_prior:="${ENABLE_SPLINE_ORIENTATION_MARGINALIZATION_PRIOR}" \
   -p gyro_bias_prior_weight:="${GYRO_BIAS_PRIOR_WEIGHT}" \
   -p gyro_bias_prior_huber_delta_radps:="${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS}" \
   -p accel_bias_prior_weight:="${ACCEL_BIAS_PRIOR_WEIGHT}" \
@@ -681,6 +683,7 @@ native = {
     "retained_knot_position_prior_huber_delta_m": float("${RETAINED_KNOT_POSITION_PRIOR_HUBER_DELTA_M}"),
     "retained_knot_orientation_prior_weight": float("${RETAINED_KNOT_ORIENTATION_PRIOR_WEIGHT}"),
     "retained_knot_orientation_prior_huber_delta_rad": float("${RETAINED_KNOT_ORIENTATION_PRIOR_HUBER_DELTA_RAD}"),
+    "enable_spline_orientation_marginalization_prior": "${ENABLE_SPLINE_ORIENTATION_MARGINALIZATION_PRIOR}".lower() == "true",
     "gyro_bias_prior_weight": float("${GYRO_BIAS_PRIOR_WEIGHT}"),
     "gyro_bias_prior_huber_delta_radps": float("${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS}"),
     "accel_bias_prior_weight": float("${ACCEL_BIAS_PRIOR_WEIGHT}"),

@@ -31,6 +31,15 @@ namespace
 
 constexpr int N = ContinuousTimeSlidingWindowEstimator::N;
 
+void check_orientation_marginalization_is_default_off()
+{
+  const ContinuousTimeSlidingWindowOptions options;
+  if (options.enable_spline_orientation_marginalization_prior) {
+    std::fprintf(stderr, "SO(3) spline marginalization prior must be explicit opt-in\n");
+    std::exit(1);
+  }
+}
+
 struct TruthTrajectory
 {
   std::vector<Eigen::Quaterniond> rotation_knots;
@@ -611,6 +620,7 @@ void check_marginalization_keeps_window_bounded()
   options.retained_knot_position_prior_weight = 5.0;
   options.retained_knot_orientation_prior_weight = 5.0;
   options.rotation_smoothness_weight = 2.0;
+  options.enable_spline_orientation_marginalization_prior = true;
 
   ContinuousTimeSlidingWindowEstimator estimator(options);
   std::vector<Eigen::Quaterniond> initial_rot(
@@ -686,6 +696,7 @@ void check_marginalization_keeps_window_bounded()
 int main()
 {
   try {
+    check_orientation_marginalization_is_default_off();
     check_single_step_solves_within_seeded_window();
     check_solver_step_rejection_keeps_window_finite();
     check_limited_position_update_clamps_without_rejecting();

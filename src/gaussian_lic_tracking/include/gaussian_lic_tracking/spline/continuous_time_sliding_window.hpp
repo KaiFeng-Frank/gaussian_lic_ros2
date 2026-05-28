@@ -78,6 +78,10 @@ struct ContinuousTimeSlidingWindowOptions
   double gyro_bias_prior_huber_delta_radps{0.0};
   double accel_bias_prior_weight{0.0};
   double accel_bias_prior_huber_delta_mps2{0.0};
+  // Default-off until full-window evidence proves the SO(3) Schur prior helps
+  // the real-bag parity gate. Deterministic probes and ablations enable it
+  // explicitly.
+  bool enable_spline_orientation_marginalization_prior{false};
   double lidar_huber_delta_m{0.10};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};

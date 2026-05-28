@@ -1143,7 +1143,9 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     const std::vector<int64_t> marginalized_stamp_ns{impl_->knot_stamps.front()};
     const auto dense_prior = build_position_marginalization_prior(marginalized_stamp_ns);
     const auto dense_orientation_prior =
-      build_orientation_marginalization_prior(marginalized_stamp_ns);
+      impl_->options.enable_spline_orientation_marginalization_prior ?
+      build_orientation_marginalization_prior(marginalized_stamp_ns) :
+      std::optional<BufferedDenseOrientationPrior>{};
     impl_->active_dense_position_priors.erase(
       std::remove_if(
         impl_->active_dense_position_priors.begin(),
@@ -1334,6 +1336,9 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     }
   }
   for (const auto & prior : impl_->active_dense_orientation_priors) {
+    if (!impl_->options.enable_spline_orientation_marginalization_prior) {
+      break;
+    }
     if (prior.knot_stamps.empty() ||
       prior.knot_stamps.size() != prior.reference_rotations.size() ||
       prior.jacobian.cols() != static_cast<Eigen::Index>(3 * prior.knot_stamps.size()) ||

@@ -320,13 +320,14 @@ completed.
 position and SO(3) rotation information. Position/velocity/smoothness factors
 produce dense linearized position priors, while orientation priors,
 second-difference rotation smoothness, and retained dense orientation priors
-produce dense SO(3) tangent-space priors. `TrajectoryEstimator` reinjects these
-through `add_dense_position_prior_factor` and
+produce dense SO(3) tangent-space priors when
+`enable_spline_orientation_marginalization_prior` is explicitly enabled.
+`TrajectoryEstimator` reinjects these through `add_dense_position_prior_factor` and
 `add_dense_orientation_prior_factor`; runtime diagnostics report both position
 and orientation marginalization prior rows. The change closes a measured
 information-retention gap without changing replay time/QoS/executor semantics or
 promoting a tuned production preset before full CBD replay evidence. The CBD
-12 s liveness proof
+12 s opt-in liveness proof
 `results/fastlivo2/CBD_Building_01_ct_dense_orientation_marg_12s_probe/native_tracking_report.json`
 confirms the runtime path produces nonzero position and orientation
 marginalization priors, but the trajectory is explicitly not a parity promotion.
