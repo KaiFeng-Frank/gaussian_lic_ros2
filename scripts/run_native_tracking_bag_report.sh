@@ -4710,6 +4710,7 @@ if enable_visual_factors:
         "rendered_feedback_source_motion_stale_drops",
         "rendered_feedback_source_motion_future_deferrals",
         "rendered_feedback_source_motion_marginalized_priors",
+        "rendered_feedback_source_motion_marginalized_source_factors",
         "rendered_feedback_source_motion_marginalized_prior_skips",
         "last_rendered_feedback_frame_index",
         "last_rendered_feedback_preview_index",

@@ -1051,6 +1051,7 @@ def main() -> int:
         "rendered_feedback_source_motion_stale_drops",
         "rendered_feedback_source_motion_future_deferrals",
         "rendered_feedback_source_motion_marginalized_priors",
+        "rendered_feedback_source_motion_marginalized_source_factors",
         "rendered_feedback_source_motion_marginalized_prior_skips",
         "rendered_feedback_embedded_depth_pairs",
         "rendered_feedback_embedded_depth_invalid",
