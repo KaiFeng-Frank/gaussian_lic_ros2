@@ -1339,10 +1339,34 @@
                 "scripts/check_ros2_semantics_contract.py"
             ],
             "accepted_preset_impact": "unchanged: typed rendered-feedback source identity is inert for the accepted untyped production preset",
-            "promotion_status": "code-level structural evidence only; full122 replay must beat the accepted 1.346 m / 5.00% preset before this path can be promoted"
+            "promotion_status": "code-level structural evidence plus rejected full122 replay; source ids are clean, but visual/SE3 factors still expire late and the path is not promoted"
         }
     ],
     "rejected_evidence": [
+    {
+      "id": "typed_rendered_feedback_source_identity_preupdate_full122",
+      "report": "results/fastlivo2/CBD_Building_01_typed_source_identity_preupdate_full122_drain1015_probe/native_tracking_report.json",
+      "trajectory_compare": "results/fastlivo2/CBD_Building_01_typed_source_identity_preupdate_full122_drain1015_probe/native_tracking_trajectory_compare.json",
+      "matched_poses": 1173,
+      "coverage": 0.9528838342810723,
+      "trajectory_poses": 1185,
+      "post_play_pose_target": 1186,
+      "num_rendered_feedbacks": 926,
+      "total_visual_factors": 910,
+      "total_se3_photometric_factors": 910,
+      "visual_factor_target": 1015,
+      "visual_alignment_pending_stale_drops": 16,
+      "visual_se3_photometric_pending_stale_drops": 16,
+      "visual_expired_projection_skipped_factors": 32,
+      "rendered_feedback_source_regressions": 0,
+      "rendered_feedback_source_gaps": 0,
+      "rendered_feedback_duplicate_source_ids": 0,
+      "translation_rmse_m": 1.4794564533722545,
+      "translation_mean_m": 1.282046305569637,
+      "translation_max_m": 3.5567353877513166,
+      "path_drift": 0.05043952048212103,
+      "reason": "typed RenderedFeedback frame/preview identity keeps source ids clean and avoids stamp-collapse ambiguity, but the full-window replay still misses the pose and visual/SE3 drain targets after late visual factors expire; the remaining blocker is visual-factor lifetime through sliding-window marginalization"
+    },
     {
       "id": "visual_marginalization_prior_zero_bias_columns_full122",
       "report": "results/fastlivo2/CBD_Building_01_visual_marg_prior_zero_bias_full122_drain1015_retry_probe/native_tracking_report.json",
