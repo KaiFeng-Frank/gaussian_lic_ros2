@@ -172,6 +172,9 @@ GYRO_BIAS_PRIOR_WEIGHT="${GYRO_BIAS_PRIOR_WEIGHT:-0.0}"
 GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS="${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS:-0.0}"
 ACCEL_BIAS_PRIOR_WEIGHT="${ACCEL_BIAS_PRIOR_WEIGHT:-0.0}"
 ACCEL_BIAS_PRIOR_HUBER_DELTA_MPS2="${ACCEL_BIAS_PRIOR_HUBER_DELTA_MPS2:-0.0}"
+BIAS_RANDOM_WALK_REFERENCE_DT_S="${BIAS_RANDOM_WALK_REFERENCE_DT_S:-1.0}"
+GYRO_BIAS_RANDOM_WALK_SIGMA_RADPS_PER_SQRT_S="${GYRO_BIAS_RANDOM_WALK_SIGMA_RADPS_PER_SQRT_S:-0.0}"
+ACCEL_BIAS_RANDOM_WALK_SIGMA_MPS2_PER_SQRT_S="${ACCEL_BIAS_RANDOM_WALK_SIGMA_MPS2_PER_SQRT_S:-0.0}"
 APPLY_POSITION_UPDATE_ON_ROTATION_REJECT="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT:-false}"
 APPLY_LIMITED_ROTATION_UPDATE="${APPLY_LIMITED_ROTATION_UPDATE:-false}"
 APPLY_LIMITED_POSITION_UPDATE="${APPLY_LIMITED_POSITION_UPDATE:-false}"
@@ -314,6 +317,9 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p gyro_bias_prior_huber_delta_radps:="${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS}" \
   -p accel_bias_prior_weight:="${ACCEL_BIAS_PRIOR_WEIGHT}" \
   -p accel_bias_prior_huber_delta_mps2:="${ACCEL_BIAS_PRIOR_HUBER_DELTA_MPS2}" \
+  -p bias_random_walk_reference_dt_s:="${BIAS_RANDOM_WALK_REFERENCE_DT_S}" \
+  -p gyro_bias_random_walk_sigma_radps_per_sqrt_s:="${GYRO_BIAS_RANDOM_WALK_SIGMA_RADPS_PER_SQRT_S}" \
+  -p accel_bias_random_walk_sigma_mps2_per_sqrt_s:="${ACCEL_BIAS_RANDOM_WALK_SIGMA_MPS2_PER_SQRT_S}" \
   -p seed_min_imu_count:=30 \
   -p enable_startup_bias_autocal:="${ENABLE_STARTUP_BIAS_AUTOCAL}" \
   -p imu_linear_acceleration_scale:="${IMU_LINEAR_ACCELERATION_SCALE}" \
@@ -673,6 +679,10 @@ if os.path.isfile(node_log):
             "accel_bias_norm_max": max(numeric_values("accel_bias_norm"), default=None),
             "accel_bias_step_norm_max": vector_step_norm("accel_bias"),
             "gravity_norm_max": max(numeric_values("gravity_norm"), default=None),
+            "effective_gyro_bias_prior_weight_max": max(
+                numeric_values("effective_gyro_bias_prior_weight"), default=None),
+            "effective_accel_bias_prior_weight_max": max(
+                numeric_values("effective_accel_bias_prior_weight"), default=None),
             "last_imu_factors_min": min(numeric_values("last_imu_factors"), default=None),
             "last_lidar_factors_min": min(numeric_values("last_lidar_factors"), default=None),
             "last_lidar_point_factors_min": min(
@@ -736,6 +746,9 @@ native = {
     "gyro_bias_prior_huber_delta_radps": float("${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS}"),
     "accel_bias_prior_weight": float("${ACCEL_BIAS_PRIOR_WEIGHT}"),
     "accel_bias_prior_huber_delta_mps2": float("${ACCEL_BIAS_PRIOR_HUBER_DELTA_MPS2}"),
+    "bias_random_walk_reference_dt_s": float("${BIAS_RANDOM_WALK_REFERENCE_DT_S}"),
+    "gyro_bias_random_walk_sigma_radps_per_sqrt_s": float("${GYRO_BIAS_RANDOM_WALK_SIGMA_RADPS_PER_SQRT_S}"),
+    "accel_bias_random_walk_sigma_mps2_per_sqrt_s": float("${ACCEL_BIAS_RANDOM_WALK_SIGMA_MPS2_PER_SQRT_S}"),
     "pointcloud_factor_weight": float("${POINTCLOUD_FACTOR_WEIGHT}"),
     "pointcloud_use_lidar_scale": "${POINTCLOUD_USE_LIDAR_SCALE}" == "true",
     "pointcloud_min_lidar_scale": float("${POINTCLOUD_MIN_LIDAR_SCALE}"),

@@ -89,6 +89,58 @@ ImuSample synthesize_imu(
   return sample;
 }
 
+void check_bias_random_walk_model_creates_prior()
+{
+  const double dt_s = 0.05;
+  const Eigen::Vector3d gravity(0.0, 0.0, -9.81);
+  const auto truth = build_truth(dt_s, 12);
+
+  ContinuousTimeSlidingWindowOptions options;
+  options.dt_s = dt_s;
+  options.window_knot_count = 12;
+  options.marginalize_oldest_count = 0;
+  options.gravity_world = gravity;
+  options.initial_gyro_bias = Eigen::Vector3d(0.01, -0.02, 0.03);
+  options.initial_accel_bias = Eigen::Vector3d(0.10, -0.05, 0.02);
+  options.hold_gravity_constant = true;
+  options.max_iterations_per_step = 2;
+  options.bias_random_walk_reference_dt_s = 4.0;
+  options.gyro_bias_random_walk_sigma_radps_per_sqrt_s = 0.5;
+  options.accel_bias_random_walk_sigma_mps2_per_sqrt_s = 2.0;
+
+  ContinuousTimeSlidingWindowEstimator estimator(options);
+  estimator.initialize(0, truth.rotation_knots, truth.position_knots);
+  const int64_t imu_period_ns = static_cast<int64_t>(std::llround(dt_s * 1.0e9 / 10.0));
+  const int64_t last_interior_ns =
+    static_cast<int64_t>(truth.rotation_knots.size() - 3) * truth.dt_ns;
+  for (int64_t t = truth.dt_ns; t < last_interior_ns; t += imu_period_ns) {
+    estimator.add_imu_sample(t, synthesize_imu(truth, t, gravity));
+  }
+  if (!estimator.step()) {
+    std::fprintf(stderr, "bias random-walk prior solve refused to run\n");
+    std::exit(1);
+  }
+
+  const auto & diag = estimator.diagnostics();
+  const double gyro_weight_error =
+    std::abs(diag.last_step_effective_gyro_bias_prior_weight - 1.0);
+  const double accel_weight_error =
+    std::abs(diag.last_step_effective_accel_bias_prior_weight - 0.25);
+  if (diag.last_step_gyro_bias_prior_factors != 1U ||
+    diag.last_step_accel_bias_prior_factors != 1U ||
+    gyro_weight_error > 1.0e-12 || accel_weight_error > 1.0e-12)
+  {
+    std::fprintf(stderr,
+      "bias random-walk prior did not create expected factors/weights: "
+      "gyro_factors=%zu accel_factors=%zu gyro_w=%.9g accel_w=%.9g\n",
+      diag.last_step_gyro_bias_prior_factors,
+      diag.last_step_accel_bias_prior_factors,
+      diag.last_step_effective_gyro_bias_prior_weight,
+      diag.last_step_effective_accel_bias_prior_weight);
+    std::exit(1);
+  }
+}
+
 void truth_pose_at(
   const TruthTrajectory & truth,
   int64_t stamp_ns,
@@ -697,6 +749,7 @@ int main()
 {
   try {
     check_orientation_marginalization_is_default_off();
+    check_bias_random_walk_model_creates_prior();
     check_single_step_solves_within_seeded_window();
     check_solver_step_rejection_keeps_window_finite();
     check_limited_position_update_clamps_without_rejecting();

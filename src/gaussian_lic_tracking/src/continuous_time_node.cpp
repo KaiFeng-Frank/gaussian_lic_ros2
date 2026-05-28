@@ -469,6 +469,12 @@ public:
       declare_parameter<double>("accel_bias_prior_weight", 0.0);
     options.accel_bias_prior_huber_delta_mps2 =
       declare_parameter<double>("accel_bias_prior_huber_delta_mps2", 0.0);
+    options.bias_random_walk_reference_dt_s =
+      declare_parameter<double>("bias_random_walk_reference_dt_s", 1.0);
+    options.gyro_bias_random_walk_sigma_radps_per_sqrt_s =
+      declare_parameter<double>("gyro_bias_random_walk_sigma_radps_per_sqrt_s", 0.0);
+    options.accel_bias_random_walk_sigma_mps2_per_sqrt_s =
+      declare_parameter<double>("accel_bias_random_walk_sigma_mps2_per_sqrt_s", 0.0);
     if (!std::isfinite(options.position_smoothness_weight) ||
       options.position_smoothness_weight < 0.0 ||
       !std::isfinite(options.position_smoothness_huber_delta_m) ||
@@ -500,6 +506,15 @@ public:
       options.accel_bias_prior_huber_delta_mps2 < 0.0)
     {
       throw std::runtime_error("bias prior parameters must be finite and non-negative");
+    }
+    if (!std::isfinite(options.bias_random_walk_reference_dt_s) ||
+      options.bias_random_walk_reference_dt_s <= 0.0 ||
+      !std::isfinite(options.gyro_bias_random_walk_sigma_radps_per_sqrt_s) ||
+      options.gyro_bias_random_walk_sigma_radps_per_sqrt_s < 0.0 ||
+      !std::isfinite(options.accel_bias_random_walk_sigma_mps2_per_sqrt_s) ||
+      options.accel_bias_random_walk_sigma_mps2_per_sqrt_s < 0.0)
+    {
+      throw std::runtime_error("bias random-walk parameters must be finite and non-negative");
     }
     options.lidar_huber_delta_m =
       declare_parameter<double>("lidar_huber_delta_m", 0.10);
@@ -2506,6 +2521,7 @@ private:
       "initial_orientation_prior_cost=%.9g final_orientation_prior_cost=%.9g "
       "initial_bias_prior_cost=%.9g final_bias_prior_cost=%.9g "
       "initial_smoothness_cost=%.9g final_smoothness_cost=%.9g "
+      "effective_gyro_bias_prior_weight=%.9g effective_accel_bias_prior_weight=%.9g "
       "max_position_update_m=%.9g max_rotation_update_rad=%.9g "
       "position_prior_factors=%zu velocity_prior_factors=%zu "
       "angular_velocity_prior_factors=%zu "
@@ -2640,6 +2656,8 @@ private:
       diagnostics.last_step_final_bias_prior_cost,
       diagnostics.last_step_initial_smoothness_cost,
       diagnostics.last_step_final_smoothness_cost,
+      diagnostics.last_step_effective_gyro_bias_prior_weight,
+      diagnostics.last_step_effective_accel_bias_prior_weight,
       diagnostics.last_step_max_position_update_m,
       diagnostics.last_step_max_rotation_update_rad,
       diagnostics.total_position_prior_factors,

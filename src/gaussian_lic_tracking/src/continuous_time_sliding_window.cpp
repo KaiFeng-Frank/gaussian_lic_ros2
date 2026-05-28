@@ -214,6 +214,15 @@ ContinuousTimeSlidingWindowEstimator::ContinuousTimeSlidingWindowEstimator(
   {
     throw std::runtime_error("bias prior parameters must be finite and non-negative");
   }
+  if (!std::isfinite(options.bias_random_walk_reference_dt_s) ||
+    options.bias_random_walk_reference_dt_s <= 0.0 ||
+    !std::isfinite(options.gyro_bias_random_walk_sigma_radps_per_sqrt_s) ||
+    options.gyro_bias_random_walk_sigma_radps_per_sqrt_s < 0.0 ||
+    !std::isfinite(options.accel_bias_random_walk_sigma_mps2_per_sqrt_s) ||
+    options.accel_bias_random_walk_sigma_mps2_per_sqrt_s < 0.0)
+  {
+    throw std::runtime_error("bias random-walk parameters must be finite and non-negative");
+  }
   if (options.window_knot_count < N + 2) {
     throw std::runtime_error("window must hold at least N+2 knots to expose interior samples");
   }
@@ -1481,16 +1490,37 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       }
     }
   }
-  if (impl_->options.gyro_bias_prior_weight > 0.0 &&
+  auto effective_bias_prior_weight = [this](double manual_weight, double sigma) {
+      if (std::isfinite(manual_weight) && manual_weight > 0.0) {
+        return manual_weight;
+      }
+      if (!std::isfinite(sigma) || sigma <= 0.0) {
+        return 0.0;
+      }
+      const double reference_dt_s = std::isfinite(impl_->options.bias_random_walk_reference_dt_s) ?
+        std::max(impl_->options.bias_random_walk_reference_dt_s, 1.0e-6) : 1.0;
+      return 1.0 / (sigma * std::sqrt(reference_dt_s));
+    };
+  const double effective_gyro_bias_prior_weight = effective_bias_prior_weight(
+    impl_->options.gyro_bias_prior_weight,
+    impl_->options.gyro_bias_random_walk_sigma_radps_per_sqrt_s);
+  const double effective_accel_bias_prior_weight = effective_bias_prior_weight(
+    impl_->options.accel_bias_prior_weight,
+    impl_->options.accel_bias_random_walk_sigma_mps2_per_sqrt_s);
+  impl_->diagnostics.last_step_effective_gyro_bias_prior_weight =
+    effective_gyro_bias_prior_weight;
+  impl_->diagnostics.last_step_effective_accel_bias_prior_weight =
+    effective_accel_bias_prior_weight;
+  if (effective_gyro_bias_prior_weight > 0.0 &&
     estimator.add_gyro_bias_prior_factor(
-      impl_->gyro_bias, impl_->options.gyro_bias_prior_weight,
+      impl_->gyro_bias, effective_gyro_bias_prior_weight,
       impl_->options.gyro_bias_prior_huber_delta_radps))
   {
     ++impl_->diagnostics.total_gyro_bias_prior_factors;
   }
-  if (impl_->options.accel_bias_prior_weight > 0.0 &&
+  if (effective_accel_bias_prior_weight > 0.0 &&
     estimator.add_accel_bias_prior_factor(
-      impl_->accel_bias, impl_->options.accel_bias_prior_weight,
+      impl_->accel_bias, effective_accel_bias_prior_weight,
       impl_->options.accel_bias_prior_huber_delta_mps2))
   {
     ++impl_->diagnostics.total_accel_bias_prior_factors;

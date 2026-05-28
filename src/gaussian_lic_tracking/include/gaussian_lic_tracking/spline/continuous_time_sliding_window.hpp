@@ -78,6 +78,13 @@ struct ContinuousTimeSlidingWindowOptions
   double gyro_bias_prior_huber_delta_radps{0.0};
   double accel_bias_prior_weight{0.0};
   double accel_bias_prior_huber_delta_mps2{0.0};
+  // Optional physical random-walk model for the per-window IMU biases. When a
+  // manual bias prior weight is zero and sigma is positive, the estimator uses
+  // weight = 1 / (sigma * sqrt(reference_dt_s)) against the last accepted
+  // bias. This is a model-level prior, not a replay-specific tuned scalar.
+  double bias_random_walk_reference_dt_s{1.0};
+  double gyro_bias_random_walk_sigma_radps_per_sqrt_s{0.0};
+  double accel_bias_random_walk_sigma_mps2_per_sqrt_s{0.0};
   // Default-off until full-window evidence proves the SO(3) Schur prior helps
   // the real-bag parity gate. Deterministic probes and ablations enable it
   // explicitly.
@@ -188,6 +195,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   double last_step_final_bias_prior_cost{0.0};
   double last_step_initial_smoothness_cost{0.0};
   double last_step_final_smoothness_cost{0.0};
+  double last_step_effective_gyro_bias_prior_weight{0.0};
+  double last_step_effective_accel_bias_prior_weight{0.0};
   std::size_t rejected_solver_steps{0};
   std::size_t invalid_update_rejections{0};
   std::size_t position_update_rejections{0};

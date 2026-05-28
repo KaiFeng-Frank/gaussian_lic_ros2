@@ -351,6 +351,32 @@ observability collapse without manual graphing. The 4 s CBD proof at
 `results/fastlivo2/CBD_Building_01_ct_diagnostic_series_4s_probe/native_tracking_report.json`
 records `19` diagnostic samples and confirms the new bias/gravity keys survive
 the script-to-report path.
+
+The first full CBD diagnostic with this time-series,
+`results/fastlivo2/CBD_Building_01_ct_diagnostic_series_full_default_probe/native_tracking_report.json`,
+keeps coverage high (`1173` matches / `95.29%`) but exposes the missing
+continuous-time bias model directly: final gyro bias norm is `17.3 rad/s`,
+final accel-bias norm is `25.3 m/s^2`, and max logged accel-bias norm is
+`41.8 m/s^2`. To close that structural gap, `ContinuousTimeSlidingWindowOptions`
+now supports an opt-in IMU bias random-walk prior. If manual bias-prior weights
+are zero and `gyro_bias_random_walk_sigma_radps_per_sqrt_s` or
+`accel_bias_random_walk_sigma_mps2_per_sqrt_s` is positive, the estimator
+derives the prior weight from `1 / (sigma * sqrt(bias_random_walk_reference_dt_s))`
+against the last accepted bias. The parity script forwards and archives those
+sigmas, and runtime diagnostics report the effective per-step bias prior
+weights. This is a physics-model hook for upstream-style bias continuity, not a
+production preset change. The opt-in 4 s proof at
+`results/fastlivo2/CBD_Building_01_ct_bias_random_walk_4s_probe/native_tracking_report.json`
+checks the full CLI/node/report path (`effective_gyro_bias_prior_weight=1`,
+`effective_accel_bias_prior_weight=0.25`) and reduces the short slice to
+`0.032 m` RMSE with final bias norms under `0.001 rad/s` and `0.081 m/s^2`.
+The 60 s replay at
+`results/fastlivo2/CBD_Building_01_ct_bias_random_walk_60s_probe/native_tracking_report.json`
+keeps bias physical (`0.086 rad/s`, `1.90 m/s^2`) but is rejected at
+`1.928 m` RMSE and `2080.86%` path drift, with 69 position-update rejections.
+So bias continuity is necessary but not sufficient; the next non-tuning target
+is the continuous-time position/trajectory-shape coupling after bias drift is
+bounded.
 `lidar_scan_to_scan_relative_translation_gain` now scales the relative
 translation before both position and velocity priors are formed, so future sweeps
 can damp ICP translation scale without forking the node. A CBD 12 s gain `0.15`
