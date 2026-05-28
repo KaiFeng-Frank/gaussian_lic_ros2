@@ -1212,6 +1212,8 @@ private:
     int64_t stamp_ns{0};
     int64_t pair_stamp_delta_ns{0};
     uint64_t source_id{0};
+    bool has_reference_pose{false};
+    Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
     gaussian_lic_tracking::VisualAlignment alignment;
   };
 
@@ -1233,6 +1235,9 @@ private:
     int64_t stamp_ns{0};
     int64_t pair_stamp_delta_ns{0};
     uint64_t source_id{0};
+    bool has_reference_pose{false};
+    Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
+    Eigen::Quaterniond reference_q_w_i{Eigen::Quaterniond::Identity()};
     double mean_abs_residual{0.0};
     double sample_inlier_ratio{0.0};
     double step_norm{0.0};
@@ -2359,6 +2364,7 @@ private:
         pending.coverage_tiles = se3_samples.coverage_tiles;
         pending.coverage_total_tiles = se3_samples.coverage_total_tiles;
         pending.linearization = last_visual_se3_photometric_linearization_;
+        attach_visual_reference_snapshot(pending);
         pending_visual_se3_photometric_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
       } else if (se3_samples.accepted_pixels > 0U) {
@@ -2394,6 +2400,7 @@ private:
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
         pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
         pending.alignment = window_alignment.value();
+        attach_visual_reference_snapshot(pending);
         pending_visual_alignment_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
       }
@@ -2494,6 +2501,36 @@ private:
     return bounded_visual_factor_quality_weight(1.0 - (pair_dt_ns / max_dt_ns));
   }
 
+  std::optional<VisualFactorReference> snapshot_visual_factor_reference(
+    const int64_t factor_stamp_ns) const
+  {
+    if (!enable_sliding_window_optimizer_ || !last_output_tracking_pose_.has_value()) {
+      return std::nullopt;
+    }
+    return select_visual_factor_reference(factor_stamp_ns, last_output_tracking_pose_.value());
+  }
+
+  void attach_visual_reference_snapshot(PendingVisualAlignmentFactor & pending) const
+  {
+    const auto reference = snapshot_visual_factor_reference(pending.stamp_ns);
+    if (!reference.has_value()) {
+      return;
+    }
+    pending.has_reference_pose = true;
+    pending.reference_p_w_i = reference->pose.p_w_i;
+  }
+
+  void attach_visual_reference_snapshot(PendingSe3PhotometricFactor & pending) const
+  {
+    const auto reference = snapshot_visual_factor_reference(pending.stamp_ns);
+    if (!reference.has_value()) {
+      return;
+    }
+    pending.has_reference_pose = true;
+    pending.reference_p_w_i = reference->pose.p_w_i;
+    pending.reference_q_w_i = reference->pose.q_w_i.normalized();
+  }
+
   double visual_alignment_quality_weight_scale(const PendingVisualAlignmentFactor & pending) const
   {
     if (!enable_visual_factor_quality_weighting_) {
@@ -2550,6 +2587,10 @@ private:
     gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor factor;
     factor.stamp_ns = pending.stamp_ns;
     factor.source_id = pending.source_id;
+    factor.has_reference_pose = pending.has_reference_pose;
+    if (pending.has_reference_pose) {
+      factor.reference_p_w_i = pending.reference_p_w_i;
+    }
     factor.measured_shift_px = Eigen::Vector2d{
       pending.alignment.subpixel_dx,
       pending.alignment.subpixel_dy};
@@ -2589,6 +2630,11 @@ private:
     gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor factor;
     factor.stamp_ns = pending.stamp_ns;
     factor.source_id = pending.source_id;
+    factor.has_reference_pose = pending.has_reference_pose;
+    if (pending.has_reference_pose) {
+      factor.reference_p_w_i = pending.reference_p_w_i;
+      factor.reference_q_w_i = pending.reference_q_w_i.normalized();
+    }
     factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
       q_i_c_,
       p_i_c_,
@@ -2829,7 +2875,8 @@ private:
         visual_factor.source_id = pending.source_id;
         visual_factor.support_stamp_ns = visual_reference->support_stamp_ns;
         visual_factor.support_weights = visual_reference->support_weights;
-        visual_factor.reference_p_w_i = visual_reference->pose.p_w_i;
+        visual_factor.reference_p_w_i =
+          pending.has_reference_pose ? pending.reference_p_w_i : visual_reference->pose.p_w_i;
         visual_factor.measured_shift_px = Eigen::Vector2d{
           pending.alignment.subpixel_dx,
           pending.alignment.subpixel_dy};
@@ -2904,8 +2951,11 @@ private:
         factor.source_id = pending.source_id;
         factor.support_stamp_ns = visual_reference->support_stamp_ns;
         factor.support_weights = visual_reference->support_weights;
-        factor.reference_p_w_i = visual_reference->pose.p_w_i;
-        factor.reference_q_w_i = visual_reference->pose.q_w_i;
+        factor.reference_p_w_i =
+          pending.has_reference_pose ? pending.reference_p_w_i : visual_reference->pose.p_w_i;
+        factor.reference_q_w_i =
+          pending.has_reference_pose ? pending.reference_q_w_i.normalized() :
+          visual_reference->pose.q_w_i;
         factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
           q_i_c_,
           p_i_c_,
@@ -3437,7 +3487,8 @@ private:
         visual_factor.source_id = pending.source_id;
         visual_factor.support_stamp_ns = visual_reference->support_stamp_ns;
         visual_factor.support_weights = visual_reference->support_weights;
-        visual_factor.reference_p_w_i = visual_reference->pose.p_w_i;
+        visual_factor.reference_p_w_i =
+          pending.has_reference_pose ? pending.reference_p_w_i : visual_reference->pose.p_w_i;
         visual_factor.measured_shift_px = Eigen::Vector2d{
           pending.alignment.subpixel_dx,
           pending.alignment.subpixel_dy};
@@ -3493,8 +3544,11 @@ private:
         factor.source_id = pending.source_id;
         factor.support_stamp_ns = visual_reference->support_stamp_ns;
         factor.support_weights = visual_reference->support_weights;
-        factor.reference_p_w_i = visual_reference->pose.p_w_i;
-        factor.reference_q_w_i = visual_reference->pose.q_w_i;
+        factor.reference_p_w_i =
+          pending.has_reference_pose ? pending.reference_p_w_i : visual_reference->pose.p_w_i;
+        factor.reference_q_w_i =
+          pending.has_reference_pose ? pending.reference_q_w_i.normalized() :
+          visual_reference->pose.q_w_i;
         factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
           q_i_c_,
           p_i_c_,

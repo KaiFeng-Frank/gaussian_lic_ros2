@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 namespace
 {
@@ -366,6 +367,106 @@ bool check_visual_marginalization_prior_can_remove_bias_columns()
   return true;
 }
 
+bool check_late_visual_priors_preserve_explicit_reference_pose()
+{
+  auto make_optimizer_with_marginalized_state = []() {
+      gaussian_lic_tracking::SlidingWindowConfig config;
+      config.max_states = 2;
+      config.max_iterations = 1;
+      config.marginalization_prior_weight = 0.0;
+      gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
+      std::vector<gaussian_lic_tracking::SlidingWindowState> states;
+      for (int i = 0; i < 3; ++i) {
+        states.push_back(make_state(static_cast<int64_t>(i), static_cast<double>(i)));
+        optimizer.add_or_update_state(states.back());
+        optimizer.add_state_prior(make_full_state_prior(states.back()));
+        if (i > 0) {
+          optimizer.add_relative_translation_factor(
+            make_relative_factor(
+              states[static_cast<size_t>(i - 1)].stamp_ns,
+              states[static_cast<size_t>(i)].stamp_ns,
+              states[static_cast<size_t>(i)].p_w_i - states[static_cast<size_t>(i - 1)].p_w_i));
+        }
+      }
+      const auto summary = optimizer.optimize();
+      if (summary.marginalized_backsubstitution_count == 0U) {
+        throw std::runtime_error("missing marginalized state for explicit reference probe");
+      }
+      return optimizer;
+    };
+
+  auto visual_cost_for_reference = [&make_optimizer_with_marginalized_state](
+      const Eigen::Vector3d & reference_p_w_i) {
+      auto optimizer = make_optimizer_with_marginalized_state();
+      gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor late_visual;
+      late_visual.stamp_ns = 0;
+      late_visual.source_id = 61U;
+      late_visual.has_reference_pose = true;
+      late_visual.reference_p_w_i = reference_p_w_i;
+      late_visual.measured_shift_px = Eigen::Vector2d::Zero();
+      late_visual.meters_per_pixel = 1.0;
+      late_visual.weight = 1.0;
+      late_visual.huber_delta_m = 10.0;
+      if (!optimizer.add_marginalized_visual_alignment_prior(late_visual)) {
+        throw std::runtime_error("explicit-reference visual prior was not created");
+      }
+      const auto normal = optimizer.build_normal_equation();
+      if (!normal.valid) {
+        throw std::runtime_error("explicit-reference visual normal equation is invalid");
+      }
+      return normal.cost;
+    };
+
+  auto se3_cost_for_reference = [&make_optimizer_with_marginalized_state](
+      const Eigen::Vector3d & reference_p_w_i) {
+      auto optimizer = make_optimizer_with_marginalized_state();
+      gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor late_se3;
+      late_se3.stamp_ns = 0;
+      late_se3.source_id = 62U;
+      late_se3.has_reference_pose = true;
+      late_se3.reference_p_w_i = reference_p_w_i;
+      late_se3.reference_q_w_i = Eigen::Quaterniond::Identity();
+      late_se3.target_delta = Eigen::Matrix<double, 6, 1>::Zero();
+      late_se3.sqrt_information = Eigen::Matrix<double, 6, 6>::Identity();
+      late_se3.weight = 1.0;
+      late_se3.huber_delta = 10.0;
+      if (!optimizer.add_marginalized_se3_photometric_prior(late_se3)) {
+        throw std::runtime_error("explicit-reference SE3 prior was not created");
+      }
+      const auto normal = optimizer.build_normal_equation();
+      if (!normal.valid) {
+        throw std::runtime_error("explicit-reference SE3 normal equation is invalid");
+      }
+      return normal.cost;
+    };
+
+  try {
+    const Eigen::Vector3d aligned_reference = make_state(0, 0.0).p_w_i;
+    const Eigen::Vector3d shifted_reference = aligned_reference + Eigen::Vector3d{0.2, -0.1, 0.05};
+    const double visual_aligned_cost = visual_cost_for_reference(aligned_reference);
+    const double visual_shifted_cost = visual_cost_for_reference(shifted_reference);
+    const double se3_aligned_cost = se3_cost_for_reference(aligned_reference);
+    const double se3_shifted_cost = se3_cost_for_reference(shifted_reference);
+    std::cout << "late_visual_reference_pose_probe visual_aligned_cost="
+              << visual_aligned_cost
+              << " visual_shifted_cost=" << visual_shifted_cost
+              << " se3_aligned_cost=" << se3_aligned_cost
+              << " se3_shifted_cost=" << se3_shifted_cost << "\n";
+    if (!std::isfinite(visual_aligned_cost) || !std::isfinite(visual_shifted_cost) ||
+      !std::isfinite(se3_aligned_cost) || !std::isfinite(se3_shifted_cost) ||
+      visual_shifted_cost <= visual_aligned_cost + 1.0e-6 ||
+      se3_shifted_cost <= se3_aligned_cost + 1.0e-6)
+    {
+      std::cerr << "late visual/SE3 marginalized priors ignored explicit reference pose\n";
+      return false;
+    }
+  } catch (const std::exception & ex) {
+    std::cerr << "explicit-reference marginalized prior probe failed: " << ex.what() << "\n";
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main()
@@ -484,6 +585,9 @@ int main()
     return 1;
   }
   if (!check_visual_marginalization_prior_can_remove_bias_columns()) {
+    return 1;
+  }
+  if (!check_late_visual_priors_preserve_explicit_reference_pose()) {
     return 1;
   }
   std::cout << "sliding_window_schur_marginalization_probe OK\n";

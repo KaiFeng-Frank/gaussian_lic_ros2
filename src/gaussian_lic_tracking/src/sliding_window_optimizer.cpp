@@ -1096,7 +1096,8 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
   if (!std::isfinite(factor.weight) || !std::isfinite(factor.meters_per_pixel) ||
     factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0 ||
     !std::isfinite(factor.huber_delta_m) || factor.huber_delta_m < 0.0 ||
-    !factor.measured_shift_px.allFinite())
+    !factor.measured_shift_px.allFinite() ||
+    (factor.has_reference_pose && !factor.reference_p_w_i.allFinite()))
   {
     return false;
   }
@@ -1104,12 +1105,15 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
   if (!support.has_value()) {
     return false;
   }
+  const Eigen::Vector3d reference_p_w_i =
+    factor.has_reference_pose ? factor.reference_p_w_i :
+    support->marginalized_reference_state.p_w_i;
   Eigen::Vector2d target_xy;
   target_xy.x() =
-    support->marginalized_reference_state.p_w_i.x() +
+    reference_p_w_i.x() +
     factor.measured_shift_px.x() * factor.meters_per_pixel;
   target_xy.y() =
-    support->marginalized_reference_state.p_w_i.y() +
+    reference_p_w_i.y() +
     factor.measured_shift_px.y() * factor.meters_per_pixel;
   const Eigen::Vector2d residual_xy =
     support->marginalized_reference_state.p_w_i.head<2>() - target_xy;
@@ -1135,7 +1139,10 @@ bool SlidingWindowOptimizer::add_marginalized_se3_photometric_prior(
 {
   if (!std::isfinite(factor.weight) || factor.weight <= 0.0 ||
     !std::isfinite(factor.huber_delta) || factor.huber_delta < 0.0 ||
-    !factor.target_delta.allFinite() || !factor.sqrt_information.allFinite())
+    !factor.target_delta.allFinite() || !factor.sqrt_information.allFinite() ||
+    (factor.has_reference_pose &&
+    (!factor.reference_p_w_i.allFinite() ||
+    !quaternion_is_finite_and_nonzero(factor.reference_q_w_i))))
   {
     return false;
   }
@@ -1143,10 +1150,17 @@ bool SlidingWindowOptimizer::add_marginalized_se3_photometric_prior(
   if (!support.has_value()) {
     return false;
   }
-  const auto reference_q = support->marginalized_reference_state.q_w_i.normalized();
+  const Eigen::Vector3d reference_p_w_i =
+    factor.has_reference_pose ? factor.reference_p_w_i :
+    support->marginalized_reference_state.p_w_i;
+  Eigen::Quaterniond reference_q =
+    factor.has_reference_pose ? factor.reference_q_w_i :
+    support->marginalized_reference_state.q_w_i;
+  reference_q.normalize();
+  const auto marginalized_q = support->marginalized_reference_state.q_w_i.normalized();
   Eigen::Matrix<double, 6, 1> delta;
-  delta.template segment<3>(0) = Eigen::Vector3d::Zero();
-  delta.template segment<3>(3) = Eigen::Vector3d::Zero();
+  delta.template segment<3>(0) = rotation_residual(reference_q, marginalized_q);
+  delta.template segment<3>(3) = support->marginalized_reference_state.p_w_i - reference_p_w_i;
   const Eigen::Matrix<double, 6, 1> whitened_residual =
     factor.sqrt_information * (delta - factor.target_delta);
   const double robust_scale =
@@ -1156,7 +1170,7 @@ bool SlidingWindowOptimizer::add_marginalized_se3_photometric_prior(
   Eigen::MatrixXd delta_jacobian =
     Eigen::MatrixXd::Zero(6, static_cast<Eigen::Index>(kStateDof));
   delta_jacobian.block<3, 3>(0, 0) =
-    rotation_residual_left_perturbation_jacobian(reference_q, reference_q);
+    rotation_residual_left_perturbation_jacobian(reference_q, marginalized_q);
   delta_jacobian.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity();
   const Eigen::MatrixXd marginalized_jacobian =
     robust_scale * factor.sqrt_information * delta_jacobian;

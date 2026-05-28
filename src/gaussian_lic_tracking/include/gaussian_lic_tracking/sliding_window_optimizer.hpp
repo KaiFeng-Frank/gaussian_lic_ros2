@@ -118,6 +118,7 @@ struct SlidingWindowVisualAlignmentFactor
   uint64_t source_id{0};
   std::vector<int64_t> support_stamp_ns;
   std::vector<double> support_weights;
+  bool has_reference_pose{false};
   Eigen::Vector2d measured_shift_px{Eigen::Vector2d::Zero()};
   Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
   double meters_per_pixel{0.01};
@@ -131,6 +132,7 @@ struct SlidingWindowSe3PhotometricFactor
   uint64_t source_id{0};
   std::vector<int64_t> support_stamp_ns;
   std::vector<double> support_weights;
+  bool has_reference_pose{false};
   Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond reference_q_w_i{Eigen::Quaterniond::Identity()};
   Eigen::Matrix<double, 6, 1> target_delta{Eigen::Matrix<double, 6, 1>::Zero()};
