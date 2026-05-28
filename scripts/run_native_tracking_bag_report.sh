@@ -237,6 +237,14 @@ MAPPER_FEEDBACK_TORCH_MAX_FOREGROUND=400000
 MAPPER_FEEDBACK_TORCH_PRUNE_COUNT_POLICY=uniform
 MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE=false
 MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM=aligned_frame
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC=__inherit__
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC=__inherit__
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY=best_effort
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY=keep_last
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH=64
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY=best_effort
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY=keep_last
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH=64
 RENDERED_IMAGE_QOS_RELIABILITY=reliable
 RENDERED_IMAGE_QOS_DURABILITY=transient_local
 RENDERED_IMAGE_QOS_DEPTH=1
@@ -1935,6 +1943,38 @@ while [[ $# -gt 0 ]]; do
       MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM="$2"
       shift 2
       ;;
+    --mapper-feedback-rendered-feedback-image-topic)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-pose-topic)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-image-qos-reliability)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-image-qos-history)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-image-qos-depth)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-pose-qos-reliability)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-pose-qos-history)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY="$2"
+      shift 2
+      ;;
+    --mapper-feedback-rendered-feedback-pose-qos-depth)
+      MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH="$2"
+      shift 2
+      ;;
     --rendered-image-qos-reliability)
       RENDERED_IMAGE_QOS_RELIABILITY="$2"
       shift 2
@@ -2373,6 +2413,14 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_rendered_feedback_contract:="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" \
   rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
   rendered_feedback_source_stream:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
+  rendered_feedback_image_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
+  rendered_feedback_pose_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC}" \
+  rendered_feedback_image_qos_reliability:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY}" \
+  rendered_feedback_image_qos_history:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY}" \
+  rendered_feedback_image_qos_depth:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH}" \
+  rendered_feedback_pose_qos_reliability:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY}" \
+  rendered_feedback_pose_qos_history:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY}" \
+  rendered_feedback_pose_qos_depth:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH}" \
   rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
   rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
   rendered_image_qos_depth:="${RENDERED_IMAGE_QOS_DEPTH}" \
@@ -2598,6 +2646,14 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
     -p rendered_feedback_source_stream:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
+    -p rendered_feedback_image_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
+    -p rendered_feedback_pose_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC}" \
+    -p rendered_feedback_image_qos_reliability:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY}" \
+    -p rendered_feedback_image_qos_history:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY}" \
+    -p rendered_feedback_image_qos_depth:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH}" \
+    -p rendered_feedback_pose_qos_reliability:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY}" \
+    -p rendered_feedback_pose_qos_history:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY}" \
+    -p rendered_feedback_pose_qos_depth:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH}" \
     -p publish_rendered_feedback_before_update:="${MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE}" \
     -p rendered_image_qos_reliability:="${RENDERED_IMAGE_QOS_RELIABILITY}" \
     -p rendered_image_qos_durability:="${RENDERED_IMAGE_QOS_DURABILITY}" \
@@ -2859,6 +2915,14 @@ ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" 
 RENDERED_FEEDBACK_TOPIC_REPORT="${RENDERED_FEEDBACK_TOPIC}" \
 MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT="${MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE}" \
 MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY}" \
+MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH}" \
 MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM_REPORT="${MAPPER_FEEDBACK_SYNC_ANCHOR_STREAM}" \
 RENDERED_FRAME_CACHE_SIZE_REPORT="${RENDERED_FRAME_CACHE_SIZE}" \
 OBSERVED_FRAME_CACHE_SIZE_REPORT="${OBSERVED_FRAME_CACHE_SIZE}" \
@@ -2964,6 +3028,30 @@ mapper_feedback_publish_rendered_before_update = (
 mapper_feedback_rendered_feedback_source_stream = os.environ[
     "MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM_REPORT"
 ]
+mapper_feedback_rendered_feedback_image_topic = os.environ[
+    "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC_REPORT"
+]
+mapper_feedback_rendered_feedback_pose_topic = os.environ[
+    "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC_REPORT"
+]
+mapper_feedback_rendered_feedback_image_qos_reliability = os.environ[
+    "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY_REPORT"
+]
+mapper_feedback_rendered_feedback_image_qos_history = os.environ[
+    "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY_REPORT"
+]
+mapper_feedback_rendered_feedback_image_qos_depth = int(
+    os.environ["MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH_REPORT"]
+)
+mapper_feedback_rendered_feedback_pose_qos_reliability = os.environ[
+    "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY_REPORT"
+]
+mapper_feedback_rendered_feedback_pose_qos_history = os.environ[
+    "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY_REPORT"
+]
+mapper_feedback_rendered_feedback_pose_qos_depth = int(
+    os.environ["MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH_REPORT"]
+)
 enable_visual_factor_time_interpolation = (
     os.environ["ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION_REPORT"].lower() == "true"
 )
@@ -4405,6 +4493,30 @@ report = {
         ),
         "mapper_feedback_rendered_feedback_source_stream": (
             mapper_feedback_rendered_feedback_source_stream
+        ),
+        "mapper_feedback_rendered_feedback_image_topic": (
+            mapper_feedback_rendered_feedback_image_topic
+        ),
+        "mapper_feedback_rendered_feedback_pose_topic": (
+            mapper_feedback_rendered_feedback_pose_topic
+        ),
+        "mapper_feedback_rendered_feedback_image_qos_reliability": (
+            mapper_feedback_rendered_feedback_image_qos_reliability
+        ),
+        "mapper_feedback_rendered_feedback_image_qos_history": (
+            mapper_feedback_rendered_feedback_image_qos_history
+        ),
+        "mapper_feedback_rendered_feedback_image_qos_depth": (
+            mapper_feedback_rendered_feedback_image_qos_depth
+        ),
+        "mapper_feedback_rendered_feedback_pose_qos_reliability": (
+            mapper_feedback_rendered_feedback_pose_qos_reliability
+        ),
+        "mapper_feedback_rendered_feedback_pose_qos_history": (
+            mapper_feedback_rendered_feedback_pose_qos_history
+        ),
+        "mapper_feedback_rendered_feedback_pose_qos_depth": (
+            mapper_feedback_rendered_feedback_pose_qos_depth
         ),
         "visual_factor_max_dt_ns": visual_factor_max_dt_ns,
         "visual_depth_max_dt_ns": visual_depth_max_dt_ns,

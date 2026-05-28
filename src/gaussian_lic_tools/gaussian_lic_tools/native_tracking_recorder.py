@@ -65,6 +65,8 @@ BINNED_MAPPING_STATUS_FIELDS = {
     "rendered_feedback_source_stream",
     "image_pose_feedback_candidates",
     "image_pose_feedback_published",
+    "image_pose_feedback_image_messages",
+    "image_pose_feedback_pose_messages",
     "image_pose_feedback_pose_waits",
     "image_pose_feedback_pose_window_drops",
     "image_pose_feedback_dropped_images",

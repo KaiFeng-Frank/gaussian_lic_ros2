@@ -95,6 +95,8 @@ uint64 render_error_count
 # cloud/map synchronization.
 uint64 image_pose_feedback_candidates
 uint64 image_pose_feedback_published
+uint64 image_pose_feedback_image_messages
+uint64 image_pose_feedback_pose_messages
 uint64 image_pose_feedback_pose_waits
 uint64 image_pose_feedback_pose_window_drops
 uint64 image_pose_feedback_dropped_images

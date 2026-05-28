@@ -143,6 +143,30 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM": (
             preset["mapper_feedback_rendered_feedback_source_stream"]
         ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC": (
+            preset["mapper_feedback_rendered_feedback_image_topic"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC": (
+            preset["mapper_feedback_rendered_feedback_pose_topic"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_RELIABILITY": (
+            preset["mapper_feedback_rendered_feedback_image_qos_reliability"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_HISTORY": (
+            preset["mapper_feedback_rendered_feedback_image_qos_history"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_QOS_DEPTH": (
+            preset["mapper_feedback_rendered_feedback_image_qos_depth"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_RELIABILITY": (
+            preset["mapper_feedback_rendered_feedback_pose_qos_reliability"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_HISTORY": (
+            preset["mapper_feedback_rendered_feedback_pose_qos_history"]
+        ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_QOS_DEPTH": (
+            preset["mapper_feedback_rendered_feedback_pose_qos_depth"]
+        ),
         "ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION": (
             preset["enable_visual_factor_time_interpolation"]
         ),
@@ -278,6 +302,14 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "mapper_feedback_publish_rendered_before_update",
         "--mapper-feedback-rendered-feedback-source-stream",
         "mapper_feedback_rendered_feedback_source_stream",
+        "--mapper-feedback-rendered-feedback-image-topic",
+        "mapper_feedback_rendered_feedback_image_topic",
+        "--mapper-feedback-rendered-feedback-pose-topic",
+        "mapper_feedback_rendered_feedback_pose_topic",
+        "--mapper-feedback-rendered-feedback-image-qos-depth",
+        "mapper_feedback_rendered_feedback_image_qos_depth",
+        "--mapper-feedback-rendered-feedback-pose-qos-depth",
+        "mapper_feedback_rendered_feedback_pose_qos_depth",
         "visual_factor_continuity",
         "mapper_feedback_continuity",
         "rendered_delivery_continuity",
@@ -408,6 +440,21 @@ def check_report_gate_config(
             if key == "enable_visual_factor_reference_snapshot" and wanted is False:
                 continue
             if key == "mapper_feedback_rendered_feedback_source_stream" and wanted == "aligned_frame":
+                continue
+            if (
+                key in {
+                    "mapper_feedback_rendered_feedback_image_topic",
+                    "mapper_feedback_rendered_feedback_pose_topic",
+                }
+                and wanted == "__inherit__"
+                and gate_config.get("mapper_feedback_rendered_feedback_source_stream") != "image_pose"
+            ):
+                continue
+            if (
+                key.startswith("mapper_feedback_rendered_feedback_")
+                and "qos" in key
+                and gate_config.get("mapper_feedback_rendered_feedback_source_stream") != "image_pose"
+            ):
                 continue
             if (
                 key == "visual_watermark_pair_scheduler_max_pairs_per_pointcloud"

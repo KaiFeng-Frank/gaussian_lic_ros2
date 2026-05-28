@@ -104,6 +104,22 @@ def generate_launch_description():
     render_mode = LaunchConfiguration("render_mode")
     rendered_feedback_topic = LaunchConfiguration("rendered_feedback_topic")
     rendered_feedback_source_stream = LaunchConfiguration("rendered_feedback_source_stream")
+    rendered_feedback_image_topic = LaunchConfiguration("rendered_feedback_image_topic")
+    rendered_feedback_pose_topic = LaunchConfiguration("rendered_feedback_pose_topic")
+    rendered_feedback_image_qos_reliability = LaunchConfiguration(
+        "rendered_feedback_image_qos_reliability"
+    )
+    rendered_feedback_image_qos_history = LaunchConfiguration(
+        "rendered_feedback_image_qos_history"
+    )
+    rendered_feedback_image_qos_depth = LaunchConfiguration("rendered_feedback_image_qos_depth")
+    rendered_feedback_pose_qos_reliability = LaunchConfiguration(
+        "rendered_feedback_pose_qos_reliability"
+    )
+    rendered_feedback_pose_qos_history = LaunchConfiguration(
+        "rendered_feedback_pose_qos_history"
+    )
+    rendered_feedback_pose_qos_depth = LaunchConfiguration("rendered_feedback_pose_qos_depth")
     publish_rendered_feedback_before_update = LaunchConfiguration(
         "publish_rendered_feedback_before_update"
     )
@@ -164,6 +180,14 @@ def generate_launch_description():
             "render_mode": render_mode,
             "rendered_feedback_topic": rendered_feedback_topic,
             "rendered_feedback_source_stream": rendered_feedback_source_stream,
+            "rendered_feedback_image_topic": rendered_feedback_image_topic,
+            "rendered_feedback_pose_topic": rendered_feedback_pose_topic,
+            "rendered_feedback_image_qos_reliability": rendered_feedback_image_qos_reliability,
+            "rendered_feedback_image_qos_history": rendered_feedback_image_qos_history,
+            "rendered_feedback_image_qos_depth": rendered_feedback_image_qos_depth,
+            "rendered_feedback_pose_qos_reliability": rendered_feedback_pose_qos_reliability,
+            "rendered_feedback_pose_qos_history": rendered_feedback_pose_qos_history,
+            "rendered_feedback_pose_qos_depth": rendered_feedback_pose_qos_depth,
             "publish_rendered_feedback_before_update": publish_rendered_feedback_before_update,
             "rendered_image_mode": rendered_image_mode,
             "publish_tf": publish_tf,
@@ -512,6 +536,46 @@ def generate_launch_description():
             "rendered_feedback_source_stream",
             default_value="aligned_frame",
             description="Typed rendered-feedback source stream: aligned_frame or image_pose",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_image_topic",
+            default_value="__inherit__",
+            description="Dedicated image_pose feedback image topic; __inherit__ uses image_topic",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_pose_topic",
+            default_value="__inherit__",
+            description="Dedicated image_pose feedback pose topic; __inherit__ uses pose_topic",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_image_qos_reliability",
+            default_value="best_effort",
+            description="Dedicated image_pose feedback image QoS reliability",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_image_qos_history",
+            default_value="keep_last",
+            description="Dedicated image_pose feedback image QoS history",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_image_qos_depth",
+            default_value="64",
+            description="Dedicated image_pose feedback image QoS depth",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_pose_qos_reliability",
+            default_value="best_effort",
+            description="Dedicated image_pose feedback pose QoS reliability",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_pose_qos_history",
+            default_value="keep_last",
+            description="Dedicated image_pose feedback pose QoS history",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_pose_qos_depth",
+            default_value="64",
+            description="Dedicated image_pose feedback pose QoS depth",
         ),
         DeclareLaunchArgument(
             "publish_rendered_feedback_before_update",

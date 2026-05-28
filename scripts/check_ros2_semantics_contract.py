@@ -662,6 +662,8 @@ def main() -> int:
         "sync_anchor_stream",
         "rendered_feedback_source_stream",
         "image_pose_feedback_published",
+        "image_pose_feedback_image_messages",
+        "image_pose_feedback_pose_messages",
         "image_pose_feedback_pose_window_drops",
         "pending_image_pose_feedback_images",
         "pending_image_pose_feedback_poses",
@@ -677,6 +679,22 @@ def main() -> int:
         errors.append("run_bag.launch.py must expose rendered_feedback_source_stream")
     if "--mapper-feedback-rendered-feedback-source-stream" not in native_tracking_report_text:
         errors.append("native tracking real-bag report must expose mapper rendered-feedback source stream")
+    for suffix in ("image-topic", "pose-topic"):
+        if f"--mapper-feedback-rendered-feedback-{suffix}" not in native_tracking_report_text:
+            errors.append(
+                "native tracking real-bag report must expose independent "
+                f"image_pose feedback {suffix}"
+            )
+    if "--mapper-feedback-rendered-feedback-image-qos-depth" not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose image_pose feedback image QoS depth")
+    for topic_param in ("rendered_feedback_image_topic", "rendered_feedback_pose_topic"):
+        if f'"{topic_param}"' not in launch_text or f"{topic_param}_" not in mapping_text:
+            errors.append(f"image_pose feedback must expose independent topic param: {topic_param}")
+    for prefix in ("rendered_feedback_image", "rendered_feedback_pose"):
+        if f'declare_topic_qos("{prefix}"' not in mapping_text:
+            errors.append(f"image_pose feedback must declare independent DDS QoS prefix: {prefix}")
+        if f'"{prefix}_qos_depth"' not in launch_text:
+            errors.append(f"image_pose feedback must expose independent DDS QoS depth: {prefix}")
     if "--mapper-feedback-sync-anchor" not in native_tracking_report_text or \
             "mapper_feedback_sync_anchor_stream" not in native_tracking_report_text:
         errors.append("native tracking real-bag report must expose and record the mapper feedback sync anchor")

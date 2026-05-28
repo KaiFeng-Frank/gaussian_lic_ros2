@@ -108,6 +108,26 @@ public:
       parse_rendered_feedback_source_stream(rendered_feedback_source_stream_name_);
     rendered_feedback_source_stream_name_ =
       rendered_feedback_source_stream_to_string(rendered_feedback_source_stream_);
+    rendered_feedback_image_topic_ =
+      declare_parameter<std::string>("rendered_feedback_image_topic", "");
+    rendered_feedback_pose_topic_ =
+      declare_parameter<std::string>("rendered_feedback_pose_topic", "");
+    if (
+      rendered_feedback_image_topic_.empty() ||
+      rendered_feedback_image_topic_ == "__inherit__")
+    {
+      rendered_feedback_image_topic_ = image_topic_;
+    }
+    if (
+      rendered_feedback_pose_topic_.empty() ||
+      rendered_feedback_pose_topic_ == "__inherit__")
+    {
+      rendered_feedback_pose_topic_ = pose_topic_;
+    }
+    rendered_feedback_image_uses_primary_subscription_ =
+      rendered_feedback_image_topic_ == image_topic_;
+    rendered_feedback_pose_uses_primary_subscription_ =
+      rendered_feedback_pose_topic_ == pose_topic_;
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     save_map_service_ = declare_parameter<std::string>("save_map_service", "/gaussian_lic/save_map");
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
@@ -128,6 +148,16 @@ public:
     camera_info_qos_ = declare_topic_qos("camera_info");
     depth_qos_ = declare_topic_qos("depth");
     imu_qos_ = declare_topic_qos("imu");
+    QosProfileParams feedback_image_qos_defaults;
+    feedback_image_qos_defaults.reliability = "best_effort";
+    feedback_image_qos_defaults.history = "keep_last";
+    feedback_image_qos_defaults.depth = 64;
+    rendered_feedback_image_qos_ =
+      declare_topic_qos("rendered_feedback_image", feedback_image_qos_defaults);
+    QosProfileParams feedback_pose_qos_defaults = pose_qos_;
+    feedback_pose_qos_defaults.depth = std::max(pose_qos_.depth, 64);
+    rendered_feedback_pose_qos_ =
+      declare_topic_qos("rendered_feedback_pose", feedback_pose_qos_defaults);
     process_period_ms_ = declare_parameter<int>("process_period_ms", 5);
     select_every_k_frame_ = declare_parameter<int>("select_every_k_frame", 8);
     test_frame_stride_ =
@@ -276,7 +306,13 @@ public:
         {
           std::scoped_lock lock(buffer_mutex_);
           push_bounded(pose_buf_, msg, dropped_pose_count_);
-          push_bounded(feedback_pose_buf_, msg, image_pose_feedback_pose_queue_drops_);
+          if (
+            rendered_feedback_source_stream_ == RenderedFeedbackSourceStream::kImagePose &&
+            rendered_feedback_pose_uses_primary_subscription_)
+          {
+            ++image_pose_feedback_pose_messages_;
+            push_bounded(feedback_pose_buf_, msg, image_pose_feedback_pose_queue_drops_);
+          }
         }
       });
 
@@ -287,9 +323,41 @@ public:
         {
           std::scoped_lock lock(buffer_mutex_);
           push_bounded(image_buf_, msg, dropped_image_count_);
-          push_bounded(feedback_image_buf_, msg, image_pose_feedback_image_queue_drops_);
+          if (
+            rendered_feedback_source_stream_ == RenderedFeedbackSourceStream::kImagePose &&
+            rendered_feedback_image_uses_primary_subscription_)
+          {
+            ++image_pose_feedback_image_messages_;
+            push_bounded(feedback_image_buf_, msg, image_pose_feedback_image_queue_drops_);
+          }
         }
       });
+
+    if (rendered_feedback_source_stream_ == RenderedFeedbackSourceStream::kImagePose) {
+      if (!rendered_feedback_pose_uses_primary_subscription_) {
+        auto feedback_pose_qos =
+          make_sensor_qos("rendered_feedback_pose", rendered_feedback_pose_qos_);
+        feedback_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+          rendered_feedback_pose_topic_, feedback_pose_qos,
+          [this](geometry_msgs::msg::PoseStamped::ConstSharedPtr msg) {
+            ++image_pose_feedback_pose_messages_;
+            std::scoped_lock lock(buffer_mutex_);
+            push_bounded(feedback_pose_buf_, msg, image_pose_feedback_pose_queue_drops_);
+          });
+      }
+
+      if (!rendered_feedback_image_uses_primary_subscription_) {
+        auto feedback_image_qos =
+          make_sensor_qos("rendered_feedback_image", rendered_feedback_image_qos_);
+        feedback_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
+          rendered_feedback_image_topic_, feedback_image_qos,
+          [this](sensor_msgs::msg::Image::ConstSharedPtr msg) {
+            ++image_pose_feedback_image_messages_;
+            std::scoped_lock lock(buffer_mutex_);
+            push_bounded(feedback_image_buf_, msg, image_pose_feedback_image_queue_drops_);
+          });
+      }
+    }
 
     camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
       camera_info_topic_, camera_info_qos,
@@ -372,6 +440,17 @@ public:
     RCLCPP_INFO(get_logger(), "Publishing rendered image preview to %s (%s, render_mode=%s)",
       rendered_image_topic_.c_str(), publish_rendered_preview_ ? "enabled" : "disabled",
       render_mode_.c_str());
+    if (rendered_feedback_source_stream_ == RenderedFeedbackSourceStream::kImagePose) {
+      RCLCPP_INFO(
+        get_logger(),
+        "image_pose rendered feedback uses image=%s (%s) pose=%s (%s)",
+        rendered_feedback_image_topic_.c_str(),
+        rendered_feedback_image_uses_primary_subscription_ ? "primary subscription" :
+        "dedicated subscription",
+        rendered_feedback_pose_topic_.c_str(),
+        rendered_feedback_pose_uses_primary_subscription_ ? "primary subscription" :
+        "dedicated subscription");
+    }
     RCLCPP_INFO(get_logger(), "TF publishing %s (%s -> %s)",
       publish_tf_ ? "enabled" : "disabled", world_frame_.c_str(), camera_frame_.c_str());
     RCLCPP_INFO(get_logger(), "Save-map service available at %s",
@@ -582,6 +661,18 @@ private:
       declare_parameter<std::string>(prefix + "_qos_reliability", sensor_qos_reliability_);
     params.history = declare_parameter<std::string>(prefix + "_qos_history", sensor_qos_history_);
     params.depth = declare_parameter<int>(prefix + "_qos_depth", sensor_qos_depth_);
+    return params;
+  }
+
+  QosProfileParams declare_topic_qos(
+    const std::string & prefix,
+    const QosProfileParams & defaults)
+  {
+    QosProfileParams params;
+    params.reliability =
+      declare_parameter<std::string>(prefix + "_qos_reliability", defaults.reliability);
+    params.history = declare_parameter<std::string>(prefix + "_qos_history", defaults.history);
+    params.depth = declare_parameter<int>(prefix + "_qos_depth", defaults.depth);
     return params;
   }
 
@@ -2761,6 +2852,8 @@ private:
     msg.render_error_count = render_error_count_;
     msg.image_pose_feedback_candidates = image_pose_feedback_candidates_;
     msg.image_pose_feedback_published = image_pose_feedback_published_;
+    msg.image_pose_feedback_image_messages = image_pose_feedback_image_messages_;
+    msg.image_pose_feedback_pose_messages = image_pose_feedback_pose_messages_;
     msg.image_pose_feedback_pose_waits = image_pose_feedback_pose_waits_;
     msg.image_pose_feedback_pose_window_drops = image_pose_feedback_pose_window_drops_;
     msg.image_pose_feedback_dropped_images = image_pose_feedback_dropped_images_;
@@ -2850,6 +2943,10 @@ private:
   std::string map_points_topic_;
   std::string rendered_image_topic_;
   std::string rendered_feedback_topic_;
+  std::string rendered_feedback_image_topic_;
+  std::string rendered_feedback_pose_topic_;
+  bool rendered_feedback_image_uses_primary_subscription_{false};
+  bool rendered_feedback_pose_uses_primary_subscription_{false};
   std::string gaussian_map_topic_;
   std::string save_map_service_;
   std::string depth_completion_engine_path_;
@@ -2873,6 +2970,8 @@ private:
   QosProfileParams camera_info_qos_;
   QosProfileParams depth_qos_;
   QosProfileParams imu_qos_;
+  QosProfileParams rendered_feedback_image_qos_;
+  QosProfileParams rendered_feedback_pose_qos_;
   std::string rendered_image_qos_reliability_{"reliable"};
   std::string rendered_image_qos_durability_{"transient_local"};
   int rendered_image_qos_depth_{1};
@@ -2918,6 +3017,8 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr points_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr feedback_pose_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr feedback_image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr depth_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
@@ -3004,6 +3105,8 @@ private:
   uint64_t rendered_preview_count_{0};
   uint64_t image_pose_feedback_candidates_{0};
   uint64_t image_pose_feedback_published_{0};
+  uint64_t image_pose_feedback_image_messages_{0};
+  uint64_t image_pose_feedback_pose_messages_{0};
   uint64_t image_pose_feedback_pose_waits_{0};
   uint64_t image_pose_feedback_pose_window_drops_{0};
   uint64_t image_pose_feedback_dropped_images_{0};
