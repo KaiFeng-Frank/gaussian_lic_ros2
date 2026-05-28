@@ -235,6 +235,15 @@ public:
     double weight = 1.0,
     double huber_delta_rad = 0.0);
 
+  // Adds a dense linearized prior over position control knots:
+  //   r = J * (p_current - p_reference) + r0
+  // where columns are stacked in the same order as `knot_indices`.
+  bool add_dense_position_prior_factor(
+    const std::vector<std::size_t> & knot_indices,
+    const std::vector<Eigen::Vector3d> & reference_positions,
+    const Eigen::MatrixXd & jacobian,
+    const Eigen::VectorXd & residual);
+
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
   std::size_t lidar_point_factor_count() const { return lidar_point_factor_count_; }
@@ -250,6 +259,10 @@ public:
   std::size_t accel_bias_prior_factor_count() const { return accel_bias_prior_factor_count_; }
   std::size_t position_smoothness_factor_count() const { return position_smoothness_factor_count_; }
   std::size_t rotation_smoothness_factor_count() const { return rotation_smoothness_factor_count_; }
+  std::size_t dense_position_prior_factor_count() const
+  {
+    return dense_position_prior_factor_count_;
+  }
 
   TrajectoryEstimatorSummary solve(const TrajectoryEstimatorOptions & options);
 
@@ -281,6 +294,7 @@ private:
   std::size_t accel_bias_prior_factor_count_{0};
   std::size_t position_smoothness_factor_count_{0};
   std::size_t rotation_smoothness_factor_count_{0};
+  std::size_t dense_position_prior_factor_count_{0};
 };
 
 }  // namespace spline

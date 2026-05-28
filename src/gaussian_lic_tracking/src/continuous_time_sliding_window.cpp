@@ -3,7 +3,9 @@
 #include <gaussian_lic_tracking/spline/continuous_time_sliding_window.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 #include <gaussian_lic_tracking/spline/so3_ops.hpp>
@@ -102,6 +104,14 @@ struct BufferedOrientationPrior
   double huber_delta_rad{0.0};
 };
 
+struct BufferedDensePositionPrior
+{
+  std::vector<int64_t> knot_stamps;
+  std::vector<Eigen::Vector3d> reference_positions;
+  Eigen::MatrixXd jacobian;
+  Eigen::VectorXd residual;
+};
+
 bool quaternion_is_valid(const Eigen::Quaterniond & q)
 {
   return q.coeffs().allFinite() && std::isfinite(q.norm()) && q.norm() > 1.0e-9;
@@ -134,6 +144,7 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedRelativePositionPrior> active_relative_position_priors;
   std::deque<BufferedRelativeOrientationPrior> active_relative_orientation_priors;
   std::deque<BufferedOrientationPrior> active_orientation_priors;
+  std::deque<BufferedDensePositionPrior> active_dense_position_priors;
 
   // Brand-new samples waiting for their first solve.
   std::deque<BufferedImu> pending_imu;
@@ -400,6 +411,9 @@ bool ContinuousTimeSlidingWindowEstimator::apply_pose_hint(
 
 bool ContinuousTimeSlidingWindowEstimator::step()
 {
+  impl_->diagnostics.last_step_spline_marginalization_prior_factors = 0U;
+  impl_->diagnostics.last_step_spline_marginalization_prior_rows = 0U;
+
   if (impl_->knot_stamps.size() < static_cast<std::size_t>(N)) {
     return false;
   }
@@ -538,12 +552,165 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
   impl_->pending_orientation_priors = orientation_prior_still_pending;
 
+  auto knot_index_for_stamp = [this](const int64_t stamp_ns) -> std::optional<std::size_t> {
+      const auto it = std::find(impl_->knot_stamps.begin(), impl_->knot_stamps.end(), stamp_ns);
+      if (it == impl_->knot_stamps.end()) {
+        return std::nullopt;
+      }
+      return static_cast<std::size_t>(std::distance(impl_->knot_stamps.begin(), it));
+    };
+  auto dense_prior_references_any =
+    [](const BufferedDensePositionPrior & prior, const std::vector<int64_t> & stamp_ns) {
+      return std::any_of(
+        prior.knot_stamps.begin(), prior.knot_stamps.end(),
+        [&stamp_ns](const int64_t prior_stamp_ns) {
+          return std::find(stamp_ns.begin(), stamp_ns.end(), prior_stamp_ns) != stamp_ns.end();
+        });
+    };
+  auto build_position_marginalization_prior =
+    [this, &knot_index_for_stamp, &dense_prior_references_any](
+      const std::vector<int64_t> & marginalized_stamp_ns) -> std::optional<BufferedDensePositionPrior>
+    {
+      if (marginalized_stamp_ns.empty()) {
+        return std::nullopt;
+      }
+
+      SplineMarginalizationInfo marginalization;
+      for (const auto stamp_ns : marginalized_stamp_ns) {
+        marginalization.mark_block_to_marginalize(stamp_ns);
+      }
+
+      const double smoothness_weight =
+        std::isfinite(impl_->options.position_smoothness_weight) ?
+        impl_->options.position_smoothness_weight : 0.0;
+      if (smoothness_weight > 0.0) {
+        for (std::size_t i = 0; i + 2U < impl_->knot_stamps.size(); ++i) {
+          const std::array<int64_t, 3U> stamps{
+            impl_->knot_stamps[i],
+            impl_->knot_stamps[i + 1U],
+            impl_->knot_stamps[i + 2U]};
+          const bool touches_marginalized = std::any_of(
+            stamps.begin(), stamps.end(),
+            [&marginalized_stamp_ns](const int64_t stamp_ns) {
+              return std::find(
+                marginalized_stamp_ns.begin(), marginalized_stamp_ns.end(), stamp_ns) !=
+                     marginalized_stamp_ns.end();
+            });
+          if (!touches_marginalized) {
+            continue;
+          }
+
+          LinearizedResidualBlock block;
+          block.parameter_block_ids = {stamps[0], stamps[1], stamps[2]};
+          block.parameter_block_sizes = {3, 3, 3};
+          block.jacobians = {
+            smoothness_weight * Eigen::Matrix3d::Identity(),
+            -2.0 * smoothness_weight * Eigen::Matrix3d::Identity(),
+            smoothness_weight * Eigen::Matrix3d::Identity()};
+          block.residual =
+            smoothness_weight *
+            (impl_->position_knots[i + 2U] - 2.0 * impl_->position_knots[i + 1U] +
+            impl_->position_knots[i]);
+          if (block.residual.allFinite()) {
+            marginalization.add_residual_block(block);
+          }
+        }
+      }
+
+      for (const auto & prior : impl_->active_dense_position_priors) {
+        if (!dense_prior_references_any(prior, marginalized_stamp_ns)) {
+          continue;
+        }
+        if (prior.knot_stamps.empty() ||
+          prior.knot_stamps.size() != prior.reference_positions.size() ||
+          prior.jacobian.cols() != static_cast<Eigen::Index>(3 * prior.knot_stamps.size()) ||
+          prior.jacobian.rows() != prior.residual.size())
+        {
+          continue;
+        }
+
+        Eigen::VectorXd delta(prior.jacobian.cols());
+        bool complete = true;
+        for (std::size_t i = 0; i < prior.knot_stamps.size(); ++i) {
+          const auto knot_index = knot_index_for_stamp(prior.knot_stamps[i]);
+          if (!knot_index.has_value()) {
+            complete = false;
+            break;
+          }
+          delta.template segment<3>(static_cast<Eigen::Index>(3 * i)) =
+            impl_->position_knots[knot_index.value()] - prior.reference_positions[i];
+        }
+        if (!complete || !delta.allFinite()) {
+          continue;
+        }
+
+        LinearizedResidualBlock block;
+        block.parameter_block_ids = prior.knot_stamps;
+        block.parameter_block_sizes.assign(prior.knot_stamps.size(), 3);
+        block.jacobians.reserve(prior.knot_stamps.size());
+        for (std::size_t i = 0; i < prior.knot_stamps.size(); ++i) {
+          block.jacobians.push_back(
+            prior.jacobian.block(
+              0, static_cast<Eigen::Index>(3 * i), prior.jacobian.rows(), 3));
+        }
+        block.residual = prior.jacobian * delta + prior.residual;
+        if (block.residual.allFinite()) {
+          marginalization.add_residual_block(block);
+        }
+      }
+
+      MarginalizationResult result;
+      if (!marginalization.marginalize(result) ||
+        result.kept_block_ids.empty() ||
+        result.jacobian.rows() != result.residual.size() ||
+        result.jacobian.cols() != result.keep_rows ||
+        !result.jacobian.allFinite() ||
+        !result.residual.allFinite())
+      {
+        return std::nullopt;
+      }
+
+      BufferedDensePositionPrior prior;
+      prior.knot_stamps = result.kept_block_ids;
+      prior.reference_positions.reserve(result.kept_block_ids.size());
+      for (std::size_t i = 0; i < result.kept_block_ids.size(); ++i) {
+        if (result.kept_block_sizes[i] != 3) {
+          return std::nullopt;
+        }
+        const auto knot_index = knot_index_for_stamp(result.kept_block_ids[i]);
+        if (!knot_index.has_value()) {
+          return std::nullopt;
+        }
+        prior.reference_positions.push_back(impl_->position_knots[knot_index.value()]);
+      }
+      prior.jacobian = std::move(result.jacobian);
+      prior.residual = std::move(result.residual);
+      return prior;
+    };
+
   // Marginalize oldest knots once the window exceeds the configured size.
   while (
     static_cast<int>(impl_->knot_stamps.size()) >
     impl_->options.window_knot_count &&
     impl_->options.marginalize_oldest_count > 0)
   {
+    const std::vector<int64_t> marginalized_stamp_ns{impl_->knot_stamps.front()};
+    const auto dense_prior = build_position_marginalization_prior(marginalized_stamp_ns);
+    impl_->active_dense_position_priors.erase(
+      std::remove_if(
+        impl_->active_dense_position_priors.begin(),
+        impl_->active_dense_position_priors.end(),
+        [&dense_prior_references_any, &marginalized_stamp_ns](
+          const BufferedDensePositionPrior & prior) {
+          return dense_prior_references_any(prior, marginalized_stamp_ns);
+        }),
+      impl_->active_dense_position_priors.end());
+    if (dense_prior.has_value()) {
+      impl_->active_dense_position_priors.push_back(dense_prior.value());
+      ++impl_->diagnostics.total_spline_marginalization_priors;
+      impl_->diagnostics.total_spline_marginalization_prior_rows +=
+        static_cast<std::size_t>(dense_prior->residual.size());
+    }
     impl_->knot_stamps.pop_front();
     impl_->rotation_knots.pop_front();
     impl_->position_knots.pop_front();
@@ -616,7 +783,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     impl_->active_angular_velocity_priors.empty() &&
     impl_->active_relative_position_priors.empty() &&
     impl_->active_relative_orientation_priors.empty() &&
-    impl_->active_orientation_priors.empty())
+    impl_->active_orientation_priors.empty() &&
+    impl_->active_dense_position_priors.empty())
   {
     return false;
   }
@@ -662,6 +830,43 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     step_retained_position_priors;
   impl_->diagnostics.total_retained_knot_orientation_prior_factors +=
     step_retained_orientation_priors;
+
+  std::size_t step_spline_marginalization_prior_factors = 0U;
+  std::size_t step_spline_marginalization_prior_rows = 0U;
+  for (const auto & prior : impl_->active_dense_position_priors) {
+    if (prior.knot_stamps.empty() ||
+      prior.knot_stamps.size() != prior.reference_positions.size() ||
+      prior.jacobian.cols() != static_cast<Eigen::Index>(3 * prior.knot_stamps.size()) ||
+      prior.jacobian.rows() != prior.residual.size() ||
+      !prior.jacobian.allFinite() ||
+      !prior.residual.allFinite())
+    {
+      continue;
+    }
+
+    std::vector<std::size_t> knot_indices;
+    knot_indices.reserve(prior.knot_stamps.size());
+    bool complete = true;
+    for (const auto stamp_ns : prior.knot_stamps) {
+      const auto knot_index = knot_index_for_stamp(stamp_ns);
+      if (!knot_index.has_value()) {
+        complete = false;
+        break;
+      }
+      knot_indices.push_back(knot_index.value());
+    }
+    if (!complete) {
+      continue;
+    }
+
+    if (estimator.add_dense_position_prior_factor(
+        knot_indices, prior.reference_positions, prior.jacobian, prior.residual))
+    {
+      ++step_spline_marginalization_prior_factors;
+      step_spline_marginalization_prior_rows +=
+        static_cast<std::size_t>(prior.residual.size());
+    }
+  }
 
   Eigen::Matrix<double, 6, 1> info_diag;
   info_diag <<
@@ -796,7 +1001,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.gyro_bias_prior_factor_count() == 0 &&
     estimator.accel_bias_prior_factor_count() == 0 &&
     estimator.position_smoothness_factor_count() == 0 &&
-    estimator.rotation_smoothness_factor_count() == 0)
+    estimator.rotation_smoothness_factor_count() == 0 &&
+    estimator.dense_position_prior_factor_count() == 0)
   {
     return false;
   }
@@ -825,6 +1031,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     step_retained_position_priors;
   impl_->diagnostics.last_step_retained_knot_orientation_prior_factors =
     step_retained_orientation_priors;
+  impl_->diagnostics.last_step_spline_marginalization_prior_factors =
+    step_spline_marginalization_prior_factors;
+  impl_->diagnostics.last_step_spline_marginalization_prior_rows =
+    step_spline_marginalization_prior_rows;
 
   TrajectoryEstimatorOptions solve_options;
   solve_options.max_num_iterations = impl_->options.max_iterations_per_step;

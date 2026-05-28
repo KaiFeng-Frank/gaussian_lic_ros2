@@ -140,6 +140,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_rotation_smoothness_factors{0};
   std::size_t total_retained_knot_position_prior_factors{0};
   std::size_t total_retained_knot_orientation_prior_factors{0};
+  std::size_t total_spline_marginalization_priors{0};
+  std::size_t total_spline_marginalization_prior_rows{0};
   std::size_t total_marginalized_knots{0};
   std::size_t accepted_solver_steps{0};
   std::size_t last_step_imu_factors{0};
@@ -156,6 +158,8 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t last_step_rotation_smoothness_factors{0};
   std::size_t last_step_retained_knot_position_prior_factors{0};
   std::size_t last_step_retained_knot_orientation_prior_factors{0};
+  std::size_t last_step_spline_marginalization_prior_factors{0};
+  std::size_t last_step_spline_marginalization_prior_rows{0};
   bool last_step_update_accepted{false};
   bool last_step_update_rejected{false};
   bool last_step_rotation_limited{false};

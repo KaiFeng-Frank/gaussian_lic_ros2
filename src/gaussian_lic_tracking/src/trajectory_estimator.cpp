@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
+#include <utility>
 
 namespace gaussian_lic_tracking
 {
@@ -537,6 +538,70 @@ struct KnotOrientationPriorAutoDiffFunctor
     r = T(weight) * quaternion_log_t<T>(error);
     return true;
   }
+};
+
+class DensePositionPriorCost final : public ceres::CostFunction
+{
+public:
+  DensePositionPriorCost(
+    std::vector<Eigen::Vector3d> reference_positions,
+    Eigen::MatrixXd jacobian,
+    Eigen::VectorXd residual)
+  : reference_positions_(std::move(reference_positions)),
+    jacobian_(std::move(jacobian)),
+    residual_(std::move(residual))
+  {
+    if (
+      reference_positions_.empty() ||
+      jacobian_.rows() != residual_.size() ||
+      jacobian_.cols() != static_cast<Eigen::Index>(3 * reference_positions_.size()))
+    {
+      throw std::runtime_error("dense position prior dimensions are inconsistent");
+    }
+    set_num_residuals(static_cast<int>(residual_.size()));
+    mutable_parameter_block_sizes()->reserve(reference_positions_.size());
+    for (std::size_t i = 0; i < reference_positions_.size(); ++i) {
+      mutable_parameter_block_sizes()->push_back(3);
+    }
+  }
+
+  bool Evaluate(
+    double const * const * parameters,
+    double * residuals,
+    double ** jacobians) const override
+  {
+    Eigen::VectorXd delta(jacobian_.cols());
+    for (std::size_t block = 0; block < reference_positions_.size(); ++block) {
+      const Eigen::Map<const Eigen::Vector3d> p(parameters[block]);
+      delta.template segment<3>(static_cast<Eigen::Index>(3 * block)) =
+        p - reference_positions_[block];
+    }
+
+    const Eigen::VectorXd evaluated = jacobian_ * delta + residual_;
+    for (Eigen::Index row = 0; row < evaluated.size(); ++row) {
+      residuals[row] = evaluated[row];
+    }
+
+    if (jacobians != nullptr) {
+      for (std::size_t block = 0; block < reference_positions_.size(); ++block) {
+        if (jacobians[block] == nullptr) {
+          continue;
+        }
+        const Eigen::Index col_offset = static_cast<Eigen::Index>(3 * block);
+        for (Eigen::Index row = 0; row < jacobian_.rows(); ++row) {
+          for (Eigen::Index col = 0; col < 3; ++col) {
+            jacobians[block][row * 3 + col] = jacobian_(row, col_offset + col);
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+private:
+  std::vector<Eigen::Vector3d> reference_positions_;
+  Eigen::MatrixXd jacobian_;
+  Eigen::VectorXd residual_;
 };
 
 struct RotationSmoothnessAutoDiffFunctor
@@ -1380,6 +1445,51 @@ bool TrajectoryEstimator::add_knot_orientation_prior_factor(
     cost, loss, impl_->rotation_storage[knot_index].data());
   impl_->orientation_prior_residual_blocks.push_back(block);
   ++orientation_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_dense_position_prior_factor(
+  const std::vector<std::size_t> & knot_indices,
+  const std::vector<Eigen::Vector3d> & reference_positions,
+  const Eigen::MatrixXd & jacobian,
+  const Eigen::VectorXd & residual)
+{
+  if (
+    knot_indices.empty() ||
+    knot_indices.size() != reference_positions.size() ||
+    jacobian.rows() != residual.size() ||
+    jacobian.cols() != static_cast<Eigen::Index>(3 * knot_indices.size()) ||
+    residual.size() == 0 ||
+    !jacobian.allFinite() ||
+    !residual.allFinite())
+  {
+    return false;
+  }
+  for (std::size_t i = 0; i < knot_indices.size(); ++i) {
+    if (knot_indices[i] >= position_knots_.size() || !reference_positions[i].allFinite()) {
+      return false;
+    }
+    for (std::size_t j = 0; j < i; ++j) {
+      if (knot_indices[j] == knot_indices[i]) {
+        return false;
+      }
+    }
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(knot_indices.size());
+  for (const auto knot_index : knot_indices) {
+    parameter_blocks.push_back(impl_->position_storage[knot_index].data());
+  }
+
+  auto * cost = new DensePositionPriorCost(reference_positions, jacobian, residual);
+  const auto block = impl_->problem->AddResidualBlock(cost, nullptr, parameter_blocks);
+  impl_->position_prior_residual_blocks.push_back(block);
+  ++position_prior_factor_count_;
+  ++dense_position_prior_factor_count_;
   return true;
 }
 

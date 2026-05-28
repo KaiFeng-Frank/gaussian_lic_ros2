@@ -610,6 +610,7 @@ void check_marginalization_keeps_window_bounded()
   options.retained_knot_prior_count = 4;
   options.retained_knot_position_prior_weight = 5.0;
   options.retained_knot_orientation_prior_weight = 5.0;
+  options.position_smoothness_weight = 1.0;
 
   ContinuousTimeSlidingWindowEstimator estimator(options);
   std::vector<Eigen::Quaterniond> initial_rot(
@@ -653,6 +654,15 @@ void check_marginalization_keeps_window_bounded()
       "retained knot priors were not injected: pos=%zu rot=%zu\n",
       estimator.diagnostics().total_retained_knot_position_prior_factors,
       estimator.diagnostics().total_retained_knot_orientation_prior_factors);
+    std::exit(1);
+  }
+  if (estimator.diagnostics().total_spline_marginalization_priors == 0 ||
+    estimator.diagnostics().total_spline_marginalization_prior_rows == 0)
+  {
+    std::fprintf(stderr,
+      "dense spline marginalization priors were not generated: priors=%zu rows=%zu\n",
+      estimator.diagnostics().total_spline_marginalization_priors,
+      estimator.diagnostics().total_spline_marginalization_prior_rows);
     std::exit(1);
   }
 }
