@@ -186,6 +186,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS": (
             preset["visual_marginalization_prior_zero_bias_columns"]
         ),
+        "ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT": (
+            preset["enable_visual_factor_reference_snapshot"]
+        ),
         "VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S": (
             preset["visual_expired_factor_projection_max_age_s"]
         ),
@@ -254,6 +257,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "enable_visual_expired_factor_projection",
         "--enable-visual-marginalization-prior",
         "enable_visual_marginalization_prior",
+        "--enable-visual-factor-reference-snapshot",
+        "enable_visual_factor_reference_snapshot",
         "--visual-expired-factor-projection-max-age-s",
         "visual_expired_factor_projection_max_age_s",
         "--enable-visual-cache-reconciliation-defer-to-pointcloud",
@@ -394,6 +399,8 @@ def check_report_gate_config(
                 key == "rendered_feedback_topic"
                 and not bool(gate_config.get("enable_rendered_feedback_contract", False))
             ):
+                continue
+            if key == "enable_visual_factor_reference_snapshot" and wanted is False:
                 continue
             if (
                 key == "visual_watermark_pair_scheduler_max_pairs_per_pointcloud"

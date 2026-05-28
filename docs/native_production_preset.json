@@ -52,6 +52,7 @@
     "enable_visual_expired_factor_projection": false,
     "enable_visual_marginalization_prior": false,
     "visual_marginalization_prior_zero_bias_columns": false,
+    "enable_visual_factor_reference_snapshot": false,
     "visual_expired_factor_projection_max_age_s": 5.0,
     "visual_cache_reconciliation_defer_to_pointcloud": false,
     "visual_pair_processing_defer_to_pointcloud": false
@@ -1688,6 +1689,24 @@
       "translation_rmse_m": 2.2138446509322978,
       "path_drift": 0.04728234263858191,
       "reason": "late-only pre-BA agreement release is live and improves final-bin/path-length shape, but it underfeeds visual/SE3 continuity at 794/1015 and moves the worst RMSE into bins 5/6"
+    },
+    {
+      "id": "late_visual_reference_pose_full122",
+      "report": "results/fastlivo2/CBD_Building_01_late_visual_reference_pose_full122_probe/native_tracking_report.json",
+      "total_visual_factors": 895,
+      "total_se3_photometric_factors": 895,
+      "translation_rmse_m": 1.530710256506472,
+      "path_drift": 0.05272042505910728,
+      "reason": "explicit visual/SE3 reference-pose snapshots preserve late-prior linearization semantics in the deterministic probe, but the full122 replay underfeeds visual/SE3 continuity and regresses trajectory quality; the snapshot path remains default-off"
+    },
+    {
+      "id": "active_visual_reference_pose_full122",
+      "report": "results/fastlivo2/CBD_Building_01_active_reference_pose_full122_probe/native_tracking_report.json",
+      "total_visual_factors": 877,
+      "total_se3_photometric_factors": 877,
+      "translation_rmse_m": 1.4522386630913842,
+      "path_drift": 0.04599878554458827,
+      "reason": "using active-window support poses while preserving explicit late-prior references improves path drift relative to the full snapshot replay, but it still underfeeds visual/SE3 continuity and regresses RMSE versus the accepted production preset"
     }
   ],
   "forbidden_readme_snippets": [

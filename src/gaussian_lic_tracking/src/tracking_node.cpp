@@ -334,6 +334,8 @@ public:
       declare_parameter<bool>("enable_visual_marginalization_prior", false);
     visual_marginalization_prior_zero_bias_columns_ =
       declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false);
+    enable_visual_factor_reference_snapshot_ =
+      declare_parameter<bool>("enable_visual_factor_reference_snapshot", false);
     visual_expired_factor_projection_max_age_s_ =
       declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
     if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
@@ -2504,6 +2506,9 @@ private:
   std::optional<VisualFactorReference> snapshot_visual_factor_reference(
     const int64_t factor_stamp_ns) const
   {
+    if (!enable_visual_factor_reference_snapshot_) {
+      return std::nullopt;
+    }
     if (!enable_sliding_window_optimizer_ || !last_output_tracking_pose_.has_value()) {
       return std::nullopt;
     }
@@ -7462,6 +7467,7 @@ private:
   bool enable_visual_expired_factor_projection_{false};
   bool enable_visual_marginalization_prior_{false};
   bool visual_marginalization_prior_zero_bias_columns_{false};
+  bool enable_visual_factor_reference_snapshot_{false};
   double visual_expired_factor_projection_max_age_s_{5.0};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   bool visual_pair_processing_defer_to_pointcloud_{false};

@@ -168,6 +168,7 @@ VISUAL_ADAPTIVE_STATE_RETENTION_MAX_STATES=64
 ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
+ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
 VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S=5.0
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
@@ -719,6 +720,10 @@ Options:
                                Prevent late visual/SE3 marginalized priors from writing IMU gyro/accel bias columns.
   --no-visual-marginalization-prior-zero-bias-columns
                                Keep full Schur back-substitution coupling, including IMU bias columns.
+  --enable-visual-factor-reference-snapshot
+                               Snapshot visual/SE3 linearization reference poses when factors are produced. Default: disabled until full-window promotion.
+  --disable-visual-factor-reference-snapshot
+                               Use the active/marginalized support pose as the visual/SE3 factor reference.
   --visual-expired-factor-projection-max-age-s SEC
                                Maximum age for projected expired visual/SE3 factors. Use <=0 for unlimited. Default: 5.0.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
@@ -1660,6 +1665,15 @@ while [[ $# -gt 0 ]]; do
       VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
       shift
       ;;
+    --enable-visual-factor-reference-snapshot)
+      ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-factor-reference-snapshot)
+      ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
+      shift
+      ;;
     --visual-expired-factor-projection-max-age-s)
       VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S="$2"
       shift 2
@@ -2374,6 +2388,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_expired_factor_projection:="${ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION}" \
   enable_visual_marginalization_prior:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
   visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
+  enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
   visual_expired_factor_projection_max_age_s:="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
@@ -2738,6 +2753,7 @@ SLIDING_WINDOW_MAX_STATES_REPORT="${SLIDING_WINDOW_MAX_STATES}" \
 SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
+ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
@@ -2981,6 +2997,9 @@ enable_visual_marginalization_prior = (
 )
 visual_marginalization_prior_zero_bias_columns = (
     os.environ["VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT"].lower() == "true"
+)
+enable_visual_factor_reference_snapshot = (
+    os.environ["ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT"].lower() == "true"
 )
 visual_expired_factor_projection_max_age_s = float(
     os.environ["VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT"]
@@ -4411,6 +4430,9 @@ report = {
         "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
         "visual_marginalization_prior_zero_bias_columns": (
             visual_marginalization_prior_zero_bias_columns
+        ),
+        "enable_visual_factor_reference_snapshot": (
+            enable_visual_factor_reference_snapshot
         ),
         "visual_expired_factor_projection_max_age_s": (
             visual_expired_factor_projection_max_age_s
