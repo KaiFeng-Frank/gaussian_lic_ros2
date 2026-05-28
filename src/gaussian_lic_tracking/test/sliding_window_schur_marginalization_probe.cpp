@@ -45,12 +45,13 @@ gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor make_relative_fact
   const Eigen::Vector3d & delta_p_w);
 
 gaussian_lic_tracking::SlidingWindowSummary run_front_marginalization_with_optional_retained_prior(
-  const bool add_retained_only_prior)
+  const bool add_retained_only_prior,
+  const double marginalization_prior_weight = 0.0)
 {
   gaussian_lic_tracking::SlidingWindowConfig config;
   config.max_states = 3;
   config.max_iterations = 1;
-  config.marginalization_prior_weight = 0.0;
+  config.marginalization_prior_weight = marginalization_prior_weight;
   gaussian_lic_tracking::SlidingWindowOptimizer optimizer(config);
 
   for (int i = 0; i < 4; ++i) {
@@ -92,6 +93,37 @@ bool check_marginalization_excludes_retained_only_priors()
     with_retained_prior.state_prior_count != 1U)
   {
     std::cerr << "retained-only priors leaked into the front-state Schur prior\n";
+    return false;
+  }
+  return true;
+}
+
+bool check_nullspace_floor_preserves_retained_prior_scope()
+{
+  const auto without_retained_prior =
+    run_front_marginalization_with_optional_retained_prior(false, 1.0);
+  const auto with_retained_prior =
+    run_front_marginalization_with_optional_retained_prior(true, 1.0);
+  std::cout << "schur_nullspace_floor_scope_probe base_rank="
+            << without_retained_prior.dense_prior_rank
+            << " base_cols=" << without_retained_prior.dense_prior_cols
+            << " retained_rank=" << with_retained_prior.dense_prior_rank
+            << " retained_cols=" << with_retained_prior.dense_prior_cols
+            << " retained_state_priors=" << with_retained_prior.state_prior_count
+            << " base_max_sv=" << without_retained_prior.dense_prior_max_singular_value
+            << " retained_max_sv=" << with_retained_prior.dense_prior_max_singular_value << "\n";
+  const double max_singular_delta = std::abs(
+    without_retained_prior.dense_prior_max_singular_value -
+    with_retained_prior.dense_prior_max_singular_value);
+  if (without_retained_prior.dense_prior_count != 1U ||
+    with_retained_prior.dense_prior_count != 1U ||
+    without_retained_prior.dense_prior_rank != without_retained_prior.dense_prior_cols ||
+    with_retained_prior.dense_prior_rank != with_retained_prior.dense_prior_cols ||
+    without_retained_prior.dense_prior_rank != with_retained_prior.dense_prior_rank ||
+    with_retained_prior.state_prior_count != 1U ||
+    max_singular_delta > 1.0e-9)
+  {
+    std::cerr << "Schur nullspace floor changed when a retained-only prior was added\n";
     return false;
   }
   return true;
@@ -893,6 +925,9 @@ int main()
     return 1;
   }
   if (!check_marginalization_excludes_retained_only_priors()) {
+    return 1;
+  }
+  if (!check_nullspace_floor_preserves_retained_prior_scope()) {
     return 1;
   }
   if (!check_chained_marginalized_prior_survives_retained_state_marginalization()) {

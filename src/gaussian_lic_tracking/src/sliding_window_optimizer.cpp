@@ -220,6 +220,32 @@ Eigen::MatrixXd sqrt_information_from_hessian(const Eigen::MatrixXd & hessian)
   return sqrt_values.asDiagonal() * solver.eigenvectors().transpose();
 }
 
+Eigen::MatrixXd sqrt_information_from_hessian_with_nullspace_floor(
+  const Eigen::MatrixXd & hessian,
+  const double nullspace_hessian_floor)
+{
+  if (hessian.rows() != hessian.cols() || hessian.rows() == 0 || !hessian.allFinite()) {
+    return {};
+  }
+  const Eigen::MatrixXd symmetric = 0.5 * (hessian + hessian.transpose());
+  const Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(symmetric);
+  if (solver.info() != Eigen::Success) {
+    return {};
+  }
+  const double max_eigenvalue = std::max(0.0, solver.eigenvalues().maxCoeff());
+  const double threshold = static_cast<double>(hessian.rows()) *
+    std::numeric_limits<double>::epsilon() * std::max(max_eigenvalue, 1.0);
+  Eigen::VectorXd sqrt_values(solver.eigenvalues().size());
+  for (Eigen::Index i = 0; i < solver.eigenvalues().size(); ++i) {
+    double eigenvalue = std::max(0.0, solver.eigenvalues()[i]);
+    if (eigenvalue <= threshold && nullspace_hessian_floor > 0.0) {
+      eigenvalue = nullspace_hessian_floor;
+    }
+    sqrt_values[i] = std::sqrt(eigenvalue);
+  }
+  return sqrt_values.asDiagonal() * solver.eigenvectors().transpose();
+}
+
 Eigen::Matrix3d skew_symmetric(const Eigen::Vector3d & value)
 {
   Eigen::Matrix3d skew;
@@ -3569,7 +3595,9 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
   const Eigen::MatrixXd regularized =
     schur.hessian + config_.damping * Eigen::MatrixXd::Identity(retained_dim, retained_dim);
   const Eigen::VectorXd target_delta = regularized.ldlt().solve(schur.rhs);
-  const Eigen::MatrixXd sqrt_information = sqrt_information_from_hessian(schur.hessian);
+  const Eigen::MatrixXd sqrt_information = sqrt_information_from_hessian_with_nullspace_floor(
+    schur.hessian,
+    config_.marginalization_prior_weight);
   if (!target_delta.allFinite() || sqrt_information.rows() == 0 || !sqrt_information.allFinite()) {
     return false;
   }
