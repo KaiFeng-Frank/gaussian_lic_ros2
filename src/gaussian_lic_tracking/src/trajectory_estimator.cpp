@@ -604,6 +604,38 @@ private:
   Eigen::VectorXd residual_;
 };
 
+struct DenseOrientationPriorFunctor
+{
+  std::vector<Eigen::Quaterniond> reference_rotations;
+  Eigen::MatrixXd jacobian;
+  Eigen::VectorXd residual;
+
+  bool operator()(double const * const * parameters, double * residuals) const
+  {
+    if (
+      reference_rotations.empty() ||
+      jacobian.rows() != residual.size() ||
+      jacobian.cols() != static_cast<Eigen::Index>(3 * reference_rotations.size()))
+    {
+      return false;
+    }
+
+    Eigen::VectorXd delta(jacobian.cols());
+    for (std::size_t block = 0; block < reference_rotations.size(); ++block) {
+      const Eigen::Quaterniond q = quaternion_from_coeffs_t<double>(parameters[block]);
+      const Eigen::Quaterniond reference = reference_rotations[block].normalized();
+      delta.template segment<3>(static_cast<Eigen::Index>(3 * block)) =
+        quaternion_log((reference.conjugate() * q).normalized());
+    }
+
+    const Eigen::VectorXd evaluated = jacobian * delta + residual;
+    for (Eigen::Index row = 0; row < evaluated.size(); ++row) {
+      residuals[row] = evaluated[row];
+    }
+    return true;
+  }
+};
+
 struct RotationSmoothnessAutoDiffFunctor
 {
   double weight{1.0};
@@ -1490,6 +1522,67 @@ bool TrajectoryEstimator::add_dense_position_prior_factor(
   impl_->position_prior_residual_blocks.push_back(block);
   ++position_prior_factor_count_;
   ++dense_position_prior_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_dense_orientation_prior_factor(
+  const std::vector<std::size_t> & knot_indices,
+  const std::vector<Eigen::Quaterniond> & reference_rotations,
+  const Eigen::MatrixXd & jacobian,
+  const Eigen::VectorXd & residual)
+{
+  if (
+    knot_indices.empty() ||
+    knot_indices.size() != reference_rotations.size() ||
+    jacobian.rows() != residual.size() ||
+    jacobian.cols() != static_cast<Eigen::Index>(3 * knot_indices.size()) ||
+    residual.size() == 0 ||
+    !jacobian.allFinite() ||
+    !residual.allFinite())
+  {
+    return false;
+  }
+  for (std::size_t i = 0; i < knot_indices.size(); ++i) {
+    if (
+      knot_indices[i] >= rotation_knots_.size() ||
+      !reference_rotations[i].coeffs().allFinite() ||
+      reference_rotations[i].norm() <= 1.0e-9)
+    {
+      return false;
+    }
+    for (std::size_t j = 0; j < i; ++j) {
+      if (knot_indices[j] == knot_indices[i]) {
+        return false;
+      }
+    }
+  }
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  auto * functor = new DenseOrientationPriorFunctor();
+  functor->reference_rotations = reference_rotations;
+  for (auto & q : functor->reference_rotations) {
+    q.normalize();
+  }
+  functor->jacobian = jacobian;
+  functor->residual = residual;
+
+  auto * cost =
+    new ceres::DynamicNumericDiffCostFunction<DenseOrientationPriorFunctor, ceres::CENTRAL>(
+    functor);
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(knot_indices.size());
+  for (const auto knot_index : knot_indices) {
+    cost->AddParameterBlock(4);
+    parameter_blocks.push_back(impl_->rotation_storage[knot_index].data());
+  }
+  cost->SetNumResiduals(static_cast<int>(residual.size()));
+
+  const auto block = impl_->problem->AddResidualBlock(cost, nullptr, parameter_blocks);
+  impl_->orientation_prior_residual_blocks.push_back(block);
+  ++orientation_prior_factor_count_;
+  ++dense_orientation_prior_factor_count_;
   return true;
 }
 

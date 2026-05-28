@@ -244,6 +244,17 @@ public:
     const Eigen::MatrixXd & jacobian,
     const Eigen::VectorXd & residual);
 
+  // Dense linearized prior over rotation control knots in SO(3) tangent space:
+  //   r = J * Log(q_reference^-1 * q_current) + r0
+  // The Ceres factor evaluates the Log residual against quaternion parameter
+  // blocks so the active EigenQuaternionManifold remains responsible for local
+  // updates.
+  bool add_dense_orientation_prior_factor(
+    const std::vector<std::size_t> & knot_indices,
+    const std::vector<Eigen::Quaterniond> & reference_rotations,
+    const Eigen::MatrixXd & jacobian,
+    const Eigen::VectorXd & residual);
+
   std::size_t imu_factor_count() const { return imu_factor_count_; }
   std::size_t lidar_factor_count() const { return lidar_factor_count_; }
   std::size_t lidar_point_factor_count() const { return lidar_point_factor_count_; }
@@ -262,6 +273,10 @@ public:
   std::size_t dense_position_prior_factor_count() const
   {
     return dense_position_prior_factor_count_;
+  }
+  std::size_t dense_orientation_prior_factor_count() const
+  {
+    return dense_orientation_prior_factor_count_;
   }
 
   TrajectoryEstimatorSummary solve(const TrajectoryEstimatorOptions & options);
@@ -295,6 +310,7 @@ private:
   std::size_t position_smoothness_factor_count_{0};
   std::size_t rotation_smoothness_factor_count_{0};
   std::size_t dense_position_prior_factor_count_{0};
+  std::size_t dense_orientation_prior_factor_count_{0};
 };
 
 }  // namespace spline

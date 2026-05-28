@@ -113,6 +113,14 @@ struct BufferedDensePositionPrior
   Eigen::VectorXd residual;
 };
 
+struct BufferedDenseOrientationPrior
+{
+  std::vector<int64_t> knot_stamps;
+  std::vector<Eigen::Quaterniond> reference_rotations;
+  Eigen::MatrixXd jacobian;
+  Eigen::VectorXd residual;
+};
+
 bool quaternion_is_valid(const Eigen::Quaterniond & q)
 {
   return q.coeffs().allFinite() && std::isfinite(q.norm()) && q.norm() > 1.0e-9;
@@ -146,6 +154,7 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedRelativeOrientationPrior> active_relative_orientation_priors;
   std::deque<BufferedOrientationPrior> active_orientation_priors;
   std::deque<BufferedDensePositionPrior> active_dense_position_priors;
+  std::deque<BufferedDenseOrientationPrior> active_dense_orientation_priors;
 
   // Brand-new samples waiting for their first solve.
   std::deque<BufferedImu> pending_imu;
@@ -414,6 +423,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
 {
   impl_->diagnostics.last_step_spline_marginalization_prior_factors = 0U;
   impl_->diagnostics.last_step_spline_marginalization_prior_rows = 0U;
+  impl_->diagnostics.last_step_spline_orientation_marginalization_prior_factors = 0U;
+  impl_->diagnostics.last_step_spline_orientation_marginalization_prior_rows = 0U;
 
   if (impl_->knot_stamps.size() < static_cast<std::size_t>(N)) {
     return false;
@@ -566,6 +577,14 @@ bool ContinuousTimeSlidingWindowEstimator::step()
         prior.knot_stamps.begin(), prior.knot_stamps.end(),
         [&stamp_ns](const int64_t prior_stamp_ns) {
           return std::find(stamp_ns.begin(), stamp_ns.end(), prior_stamp_ns) != stamp_ns.end();
+        });
+    };
+  auto dense_orientation_prior_references_any =
+    [](const BufferedDenseOrientationPrior & prior, const std::vector<int64_t> & stamp_ns) {
+      return std::any_of(
+        prior.knot_stamps.begin(), prior.knot_stamps.end(),
+        [&stamp_ns](const int64_t prior_stamp_ns) {
+          return std::find(stamp_ns.begin(), stamp_ns.end(), prior_stamp_ns) != stamp_ns.end();
             });
     };
   auto robust_sqrt_scale =
@@ -631,6 +650,95 @@ bool ContinuousTimeSlidingWindowEstimator::step()
         positions[i] = impl_->position_knots[base + static_cast<std::size_t>(i)];
       }
       return coefficients.allFinite();
+    };
+  auto spline_rotation_support =
+    [this](
+      int64_t stamp_ns,
+      std::array<int64_t, N> & stamps,
+      std::array<Eigen::Quaterniond, N> & rotations,
+      double & u) {
+      if (impl_->knot_stamps.size() < static_cast<std::size_t>(N) ||
+        !(impl_->options.dt_s > 0.0))
+      {
+        return false;
+      }
+      const double t_s = static_cast<double>(stamp_ns - impl_->knot_stamps.front()) * 1.0e-9;
+      if (!std::isfinite(t_s) || t_s < 0.0) {
+        return false;
+      }
+      const double scaled = t_s / impl_->options.dt_s;
+      const int segment_index = static_cast<int>(std::floor(scaled));
+      if (segment_index < 1 ||
+        segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
+      {
+        return false;
+      }
+      u = scaled - static_cast<double>(segment_index);
+      if (u < 0.0) {
+        u = 0.0;
+      }
+      if (u >= 1.0) {
+        u = 1.0 - 1.0e-12;
+      }
+
+      const std::size_t base = static_cast<std::size_t>(segment_index - 1);
+      for (int i = 0; i < N; ++i) {
+        stamps[i] = impl_->knot_stamps[base + static_cast<std::size_t>(i)];
+        rotations[i] = impl_->rotation_knots[base + static_cast<std::size_t>(i)].normalized();
+      }
+      return true;
+    };
+  auto evaluate_rotation_support =
+    [](const std::array<Eigen::Quaterniond, N> & rotations, double u) {
+      Eigen::Quaterniond q_w_b;
+      CeresSplineHelper<N>::evaluate_lie_so3(rotations, u, 1.0, &q_w_b, nullptr, nullptr);
+      return q_w_b.normalized();
+    };
+  auto rotation_residual_jacobians =
+    [&evaluate_rotation_support, &robust_sqrt_scale](
+      const std::array<Eigen::Quaterniond, N> & rotations,
+      double u,
+      const Eigen::Quaterniond & target,
+      double weight,
+      double huber_delta,
+      Eigen::Vector3d & weighted_residual,
+      std::array<Eigen::Matrix3d, N> & jacobians) {
+      if (
+        target.norm() <= 1.0e-9 ||
+        !target.coeffs().allFinite() ||
+        !std::isfinite(weight) || weight <= 0.0 ||
+        !std::isfinite(huber_delta) || huber_delta < 0.0)
+      {
+        return false;
+      }
+      const Eigen::Quaterniond normalized_target = target.normalized();
+      const auto residual_at = [&](const std::array<Eigen::Quaterniond, N> & knots) {
+          return weight * quaternion_log(
+            (normalized_target.conjugate() * evaluate_rotation_support(knots, u)).normalized());
+        };
+
+      weighted_residual = residual_at(rotations);
+      const double sqrt_scale = robust_sqrt_scale(weighted_residual, huber_delta, weight);
+      weighted_residual *= sqrt_scale;
+      if (!weighted_residual.allFinite()) {
+        return false;
+      }
+
+      constexpr double epsilon = 1.0e-6;
+      for (int knot = 0; knot < N; ++knot) {
+        for (int axis = 0; axis < 3; ++axis) {
+          Eigen::Vector3d delta = Eigen::Vector3d::Zero();
+          delta[axis] = epsilon;
+          auto plus = rotations;
+          auto minus = rotations;
+          plus[knot] = (plus[knot] * quaternion_exp(delta)).normalized();
+          minus[knot] = (minus[knot] * quaternion_exp(-delta)).normalized();
+          const Eigen::Vector3d diff =
+            (residual_at(plus) - residual_at(minus)) / (2.0 * epsilon);
+          jacobians[static_cast<std::size_t>(knot)].col(axis) = sqrt_scale * diff;
+        }
+      }
+      return true;
     };
   auto add_position_like_marginalization_block =
     [&](
@@ -819,6 +927,212 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       prior.residual = std::move(result.residual);
       return prior;
     };
+  auto add_orientation_marginalization_block =
+    [&](
+      SplineMarginalizationInfo & marginalization,
+      int64_t stamp_ns,
+      const Eigen::Quaterniond & target,
+      double weight,
+      double huber_delta,
+      const std::vector<int64_t> & marginalized_stamp_ns) {
+      std::array<int64_t, N> stamps{};
+      std::array<Eigen::Quaterniond, N> rotations{};
+      double u = 0.0;
+      if (!spline_rotation_support(stamp_ns, stamps, rotations, u)) {
+        return;
+      }
+      const bool touches_marginalized = std::any_of(
+        stamps.begin(), stamps.end(),
+        [&marginalized_stamp_ns](const int64_t support_stamp_ns) {
+          return std::find(
+            marginalized_stamp_ns.begin(), marginalized_stamp_ns.end(), support_stamp_ns) !=
+                 marginalized_stamp_ns.end();
+        });
+      if (!touches_marginalized) {
+        return;
+      }
+
+      Eigen::Vector3d weighted_residual = Eigen::Vector3d::Zero();
+      std::array<Eigen::Matrix3d, N> jacobians{};
+      if (!rotation_residual_jacobians(
+          rotations, u, target, weight, huber_delta, weighted_residual, jacobians))
+      {
+        return;
+      }
+
+      LinearizedResidualBlock block;
+      block.parameter_block_ids.assign(stamps.begin(), stamps.end());
+      block.parameter_block_sizes.assign(static_cast<std::size_t>(N), 3);
+      block.jacobians.reserve(static_cast<std::size_t>(N));
+      for (const auto & jacobian : jacobians) {
+        block.jacobians.push_back(jacobian);
+      }
+      block.residual = weighted_residual;
+      marginalization.add_residual_block(block);
+    };
+  auto build_orientation_marginalization_prior =
+    [this, &knot_index_for_stamp, &dense_orientation_prior_references_any,
+    &add_orientation_marginalization_block](
+      const std::vector<int64_t> & marginalized_stamp_ns) -> std::optional<BufferedDenseOrientationPrior>
+    {
+      if (marginalized_stamp_ns.empty()) {
+        return std::nullopt;
+      }
+
+      SplineMarginalizationInfo marginalization;
+      for (const auto stamp_ns : marginalized_stamp_ns) {
+        marginalization.mark_block_to_marginalize(stamp_ns);
+      }
+
+      for (const auto & prior : impl_->active_orientation_priors) {
+        add_orientation_marginalization_block(
+          marginalization, prior.stamp_ns, prior.q_world_body, prior.weight,
+          prior.huber_delta_rad, marginalized_stamp_ns);
+      }
+
+      const double smoothness_weight =
+        std::isfinite(impl_->options.rotation_smoothness_weight) ?
+        impl_->options.rotation_smoothness_weight : 0.0;
+      if (smoothness_weight > 0.0) {
+        for (std::size_t i = 0; i + 2U < impl_->knot_stamps.size(); ++i) {
+          const std::array<int64_t, 3U> stamps{
+            impl_->knot_stamps[i],
+            impl_->knot_stamps[i + 1U],
+            impl_->knot_stamps[i + 2U]};
+          const bool touches_marginalized = std::any_of(
+            stamps.begin(), stamps.end(),
+            [&marginalized_stamp_ns](const int64_t stamp_ns) {
+              return std::find(
+                marginalized_stamp_ns.begin(), marginalized_stamp_ns.end(), stamp_ns) !=
+                     marginalized_stamp_ns.end();
+            });
+          if (!touches_marginalized) {
+            continue;
+          }
+
+          const std::array<Eigen::Quaterniond, 3U> rotations{
+            impl_->rotation_knots[i].normalized(),
+            impl_->rotation_knots[i + 1U].normalized(),
+            impl_->rotation_knots[i + 2U].normalized()};
+          const Eigen::Quaterniond delta01 =
+            (rotations[0].conjugate() * rotations[1]).normalized();
+          const Eigen::Quaterniond delta12 =
+            (rotations[1].conjugate() * rotations[2]).normalized();
+          const Eigen::Quaterniond second_delta =
+            (delta01.conjugate() * delta12).normalized();
+          Eigen::Vector3d weighted_residual =
+            smoothness_weight * quaternion_log(second_delta);
+          if (!weighted_residual.allFinite()) {
+            continue;
+          }
+
+          constexpr double epsilon = 1.0e-6;
+          std::array<Eigen::Matrix3d, 3U> jacobians{};
+          auto smoothness_residual_at =
+            [smoothness_weight](const std::array<Eigen::Quaterniond, 3U> & knots) {
+              const Eigen::Quaterniond d01 =
+                (knots[0].conjugate() * knots[1]).normalized();
+              const Eigen::Quaterniond d12 =
+                (knots[1].conjugate() * knots[2]).normalized();
+              return smoothness_weight * quaternion_log((d01.conjugate() * d12).normalized());
+            };
+          for (int knot = 0; knot < 3; ++knot) {
+            for (int axis = 0; axis < 3; ++axis) {
+              Eigen::Vector3d delta = Eigen::Vector3d::Zero();
+              delta[axis] = epsilon;
+              auto plus = rotations;
+              auto minus = rotations;
+              plus[static_cast<std::size_t>(knot)] =
+                (plus[static_cast<std::size_t>(knot)] * quaternion_exp(delta)).normalized();
+              minus[static_cast<std::size_t>(knot)] =
+                (minus[static_cast<std::size_t>(knot)] * quaternion_exp(-delta)).normalized();
+              jacobians[static_cast<std::size_t>(knot)].col(axis) =
+                (smoothness_residual_at(plus) - smoothness_residual_at(minus)) /
+                (2.0 * epsilon);
+            }
+          }
+
+          LinearizedResidualBlock block;
+          block.parameter_block_ids = {stamps[0], stamps[1], stamps[2]};
+          block.parameter_block_sizes = {3, 3, 3};
+          block.jacobians = {jacobians[0], jacobians[1], jacobians[2]};
+          block.residual = weighted_residual;
+          marginalization.add_residual_block(block);
+        }
+      }
+
+      for (const auto & prior : impl_->active_dense_orientation_priors) {
+        if (!dense_orientation_prior_references_any(prior, marginalized_stamp_ns)) {
+          continue;
+        }
+        if (prior.knot_stamps.empty() ||
+          prior.knot_stamps.size() != prior.reference_rotations.size() ||
+          prior.jacobian.cols() != static_cast<Eigen::Index>(3 * prior.knot_stamps.size()) ||
+          prior.jacobian.rows() != prior.residual.size())
+        {
+          continue;
+        }
+
+        Eigen::VectorXd delta(prior.jacobian.cols());
+        bool complete = true;
+        for (std::size_t i = 0; i < prior.knot_stamps.size(); ++i) {
+          const auto knot_index = knot_index_for_stamp(prior.knot_stamps[i]);
+          if (!knot_index.has_value()) {
+            complete = false;
+            break;
+          }
+          delta.template segment<3>(static_cast<Eigen::Index>(3 * i)) =
+            quaternion_log(
+              (prior.reference_rotations[i].normalized().conjugate() *
+              impl_->rotation_knots[knot_index.value()].normalized()).normalized());
+        }
+        if (!complete || !delta.allFinite()) {
+          continue;
+        }
+
+        LinearizedResidualBlock block;
+        block.parameter_block_ids = prior.knot_stamps;
+        block.parameter_block_sizes.assign(prior.knot_stamps.size(), 3);
+        block.jacobians.reserve(prior.knot_stamps.size());
+        for (std::size_t i = 0; i < prior.knot_stamps.size(); ++i) {
+          block.jacobians.push_back(
+            prior.jacobian.block(
+              0, static_cast<Eigen::Index>(3 * i), prior.jacobian.rows(), 3));
+        }
+        block.residual = prior.jacobian * delta + prior.residual;
+        if (block.residual.allFinite()) {
+          marginalization.add_residual_block(block);
+        }
+      }
+
+      MarginalizationResult result;
+      if (!marginalization.marginalize(result) ||
+        result.kept_block_ids.empty() ||
+        result.jacobian.rows() != result.residual.size() ||
+        result.jacobian.cols() != result.keep_rows ||
+        !result.jacobian.allFinite() ||
+        !result.residual.allFinite())
+      {
+        return std::nullopt;
+      }
+
+      BufferedDenseOrientationPrior prior;
+      prior.knot_stamps = result.kept_block_ids;
+      prior.reference_rotations.reserve(result.kept_block_ids.size());
+      for (std::size_t i = 0; i < result.kept_block_ids.size(); ++i) {
+        if (result.kept_block_sizes[i] != 3) {
+          return std::nullopt;
+        }
+        const auto knot_index = knot_index_for_stamp(result.kept_block_ids[i]);
+        if (!knot_index.has_value()) {
+          return std::nullopt;
+        }
+        prior.reference_rotations.push_back(impl_->rotation_knots[knot_index.value()].normalized());
+      }
+      prior.jacobian = std::move(result.jacobian);
+      prior.residual = std::move(result.residual);
+      return prior;
+    };
 
   // Marginalize oldest knots once the window exceeds the configured size.
   while (
@@ -828,6 +1142,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   {
     const std::vector<int64_t> marginalized_stamp_ns{impl_->knot_stamps.front()};
     const auto dense_prior = build_position_marginalization_prior(marginalized_stamp_ns);
+    const auto dense_orientation_prior =
+      build_orientation_marginalization_prior(marginalized_stamp_ns);
     impl_->active_dense_position_priors.erase(
       std::remove_if(
         impl_->active_dense_position_priors.begin(),
@@ -842,6 +1158,21 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       ++impl_->diagnostics.total_spline_marginalization_priors;
       impl_->diagnostics.total_spline_marginalization_prior_rows +=
         static_cast<std::size_t>(dense_prior->residual.size());
+    }
+    impl_->active_dense_orientation_priors.erase(
+      std::remove_if(
+        impl_->active_dense_orientation_priors.begin(),
+        impl_->active_dense_orientation_priors.end(),
+        [&dense_orientation_prior_references_any, &marginalized_stamp_ns](
+          const BufferedDenseOrientationPrior & prior) {
+          return dense_orientation_prior_references_any(prior, marginalized_stamp_ns);
+        }),
+      impl_->active_dense_orientation_priors.end());
+    if (dense_orientation_prior.has_value()) {
+      impl_->active_dense_orientation_priors.push_back(dense_orientation_prior.value());
+      ++impl_->diagnostics.total_spline_orientation_marginalization_priors;
+      impl_->diagnostics.total_spline_orientation_marginalization_prior_rows +=
+        static_cast<std::size_t>(dense_orientation_prior->residual.size());
     }
     impl_->knot_stamps.pop_front();
     impl_->rotation_knots.pop_front();
@@ -916,7 +1247,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     impl_->active_relative_position_priors.empty() &&
     impl_->active_relative_orientation_priors.empty() &&
     impl_->active_orientation_priors.empty() &&
-    impl_->active_dense_position_priors.empty())
+    impl_->active_dense_position_priors.empty() &&
+    impl_->active_dense_orientation_priors.empty())
   {
     return false;
   }
@@ -965,6 +1297,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
 
   std::size_t step_spline_marginalization_prior_factors = 0U;
   std::size_t step_spline_marginalization_prior_rows = 0U;
+  std::size_t step_spline_orientation_marginalization_prior_factors = 0U;
+  std::size_t step_spline_orientation_marginalization_prior_rows = 0U;
   for (const auto & prior : impl_->active_dense_position_priors) {
     if (prior.knot_stamps.empty() ||
       prior.knot_stamps.size() != prior.reference_positions.size() ||
@@ -996,6 +1330,40 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     {
       ++step_spline_marginalization_prior_factors;
       step_spline_marginalization_prior_rows +=
+        static_cast<std::size_t>(prior.residual.size());
+    }
+  }
+  for (const auto & prior : impl_->active_dense_orientation_priors) {
+    if (prior.knot_stamps.empty() ||
+      prior.knot_stamps.size() != prior.reference_rotations.size() ||
+      prior.jacobian.cols() != static_cast<Eigen::Index>(3 * prior.knot_stamps.size()) ||
+      prior.jacobian.rows() != prior.residual.size() ||
+      !prior.jacobian.allFinite() ||
+      !prior.residual.allFinite())
+    {
+      continue;
+    }
+
+    std::vector<std::size_t> knot_indices;
+    knot_indices.reserve(prior.knot_stamps.size());
+    bool complete = true;
+    for (const auto stamp_ns : prior.knot_stamps) {
+      const auto knot_index = knot_index_for_stamp(stamp_ns);
+      if (!knot_index.has_value()) {
+        complete = false;
+        break;
+      }
+      knot_indices.push_back(knot_index.value());
+    }
+    if (!complete) {
+      continue;
+    }
+
+    if (estimator.add_dense_orientation_prior_factor(
+        knot_indices, prior.reference_rotations, prior.jacobian, prior.residual))
+    {
+      ++step_spline_orientation_marginalization_prior_factors;
+      step_spline_orientation_marginalization_prior_rows +=
         static_cast<std::size_t>(prior.residual.size());
     }
   }
@@ -1134,7 +1502,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     estimator.accel_bias_prior_factor_count() == 0 &&
     estimator.position_smoothness_factor_count() == 0 &&
     estimator.rotation_smoothness_factor_count() == 0 &&
-    estimator.dense_position_prior_factor_count() == 0)
+    estimator.dense_position_prior_factor_count() == 0 &&
+    estimator.dense_orientation_prior_factor_count() == 0)
   {
     return false;
   }
@@ -1167,6 +1536,10 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     step_spline_marginalization_prior_factors;
   impl_->diagnostics.last_step_spline_marginalization_prior_rows =
     step_spline_marginalization_prior_rows;
+  impl_->diagnostics.last_step_spline_orientation_marginalization_prior_factors =
+    step_spline_orientation_marginalization_prior_factors;
+  impl_->diagnostics.last_step_spline_orientation_marginalization_prior_rows =
+    step_spline_orientation_marginalization_prior_rows;
 
   TrajectoryEstimatorOptions solve_options;
   solve_options.max_num_iterations = impl_->options.max_iterations_per_step;

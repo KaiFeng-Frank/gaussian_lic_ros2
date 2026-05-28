@@ -316,6 +316,16 @@ scan-to-scan position priors record RMSE `0.170 m` and path `5.77 m`; velocity
 only records RMSE `0.184 m`. The stable short-window configuration remains the
 safer default while full Schur marginalization/global visual-map coupling is
 completed.
+2026-05-28 update: the optional continuous-time Schur path now preserves both
+position and SO(3) rotation information. Position/velocity/smoothness factors
+produce dense linearized position priors, while orientation priors,
+second-difference rotation smoothness, and retained dense orientation priors
+produce dense SO(3) tangent-space priors. `TrajectoryEstimator` reinjects these
+through `add_dense_position_prior_factor` and
+`add_dense_orientation_prior_factor`; runtime diagnostics report both position
+and orientation marginalization prior rows. The change closes a measured
+information-retention gap without changing replay time/QoS/executor semantics or
+promoting a tuned production preset before full CBD replay evidence.
 `lidar_scan_to_scan_relative_translation_gain` now scales the relative
 translation before both position and velocity priors are formed, so future sweeps
 can damp ICP translation scale without forking the node. A CBD 12 s gain `0.15`

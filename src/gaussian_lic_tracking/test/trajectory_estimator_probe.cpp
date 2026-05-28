@@ -794,6 +794,53 @@ void check_relative_pose_priors_constrain_motion_without_global_anchor()
   }
 }
 
+void check_dense_orientation_prior_anchors_control_points()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+  TrajectoryEstimator estimator(dt);
+
+  auto perturbed_rotations = truth.rotation_knots;
+  perturbed_rotations[2] =
+    (perturbed_rotations[2] *
+    Eigen::Quaterniond(Eigen::AngleAxisd(0.20, Eigen::Vector3d::UnitX()))).normalized();
+  perturbed_rotations[3] =
+    (perturbed_rotations[3] *
+    Eigen::Quaterniond(Eigen::AngleAxisd(-0.15, Eigen::Vector3d::UnitZ()))).normalized();
+  estimator.set_knots(perturbed_rotations, truth.position_knots);
+
+  const std::vector<std::size_t> knot_indices{2U, 3U};
+  const std::vector<Eigen::Quaterniond> reference_rotations{
+    truth.rotation_knots[2],
+    truth.rotation_knots[3]};
+  if (!estimator.add_dense_orientation_prior_factor(
+      knot_indices, reference_rotations, Eigen::MatrixXd::Identity(6, 6),
+      Eigen::VectorXd::Zero(6)))
+  {
+    std::fprintf(stderr, "dense orientation prior factor was not added\n");
+    std::exit(1);
+  }
+
+  TrajectoryEstimatorOptions options;
+  options.max_num_iterations = 80;
+  options.hold_gyro_bias_constant = true;
+  options.hold_accel_bias_constant = true;
+  options.hold_gravity_constant = true;
+  const auto summary = estimator.solve(options);
+  const auto rotations = estimator.rotation_knots();
+  const double r2_error = rotations[2].angularDistance(truth.rotation_knots[2]);
+  const double r3_error = rotations[3].angularDistance(truth.rotation_knots[3]);
+  if (r2_error > 1.0e-8 || r3_error > 1.0e-8 ||
+    summary.final_orientation_prior_cost > 1.0e-10)
+  {
+    std::fprintf(stderr,
+      "dense orientation prior failed: r2=%.9g r3=%.9g rot_cost=%.9g (%s)\n",
+      r2_error, r3_error, summary.final_orientation_prior_cost,
+      summary.brief_report.c_str());
+    std::exit(1);
+  }
+}
+
 }  // namespace
 
 int main()
@@ -812,6 +859,7 @@ int main()
     check_fixed_control_point_prefix_stays_constant();
     check_direct_knot_priors_anchor_control_point();
     check_relative_pose_priors_constrain_motion_without_global_anchor();
+    check_dense_orientation_prior_anchors_control_points();
   } catch (const std::exception & exception) {
     std::fprintf(stderr, "trajectory_estimator_probe exception: %s\n", exception.what());
     return 1;

@@ -2472,12 +2472,18 @@ private:
       "lidar_point_factors=%zu lidar_normal_factors=%zu "
       "position_smoothness_factors=%zu rotation_smoothness_factors=%zu "
       "retained_knot_position_priors=%zu retained_knot_orientation_priors=%zu "
+      "spline_position_marginalization_priors=%zu spline_position_marginalization_rows=%zu "
+      "spline_orientation_marginalization_priors=%zu spline_orientation_marginalization_rows=%zu "
       "accepted_steps=%zu "
       "last_imu_factors=%zu last_lidar_factors=%zu "
       "last_lidar_point_factors=%zu last_lidar_normal_factors=%zu "
       "last_position_smoothness_factors=%zu last_rotation_smoothness_factors=%zu "
       "last_retained_knot_position_priors=%zu "
       "last_retained_knot_orientation_priors=%zu "
+      "last_spline_position_marginalization_priors=%zu "
+      "last_spline_position_marginalization_rows=%zu "
+      "last_spline_orientation_marginalization_priors=%zu "
+      "last_spline_orientation_marginalization_rows=%zu "
       "last_position_prior_factors=%zu last_velocity_prior_factors=%zu "
       "last_angular_velocity_prior_factors=%zu "
       "last_orientation_prior_factors=%zu "
@@ -2572,6 +2578,10 @@ private:
       diagnostics.total_rotation_smoothness_factors,
       diagnostics.total_retained_knot_position_prior_factors,
       diagnostics.total_retained_knot_orientation_prior_factors,
+      diagnostics.total_spline_marginalization_priors,
+      diagnostics.total_spline_marginalization_prior_rows,
+      diagnostics.total_spline_orientation_marginalization_priors,
+      diagnostics.total_spline_orientation_marginalization_prior_rows,
       diagnostics.accepted_solver_steps,
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
@@ -2581,6 +2591,10 @@ private:
       diagnostics.last_step_rotation_smoothness_factors,
       diagnostics.last_step_retained_knot_position_prior_factors,
       diagnostics.last_step_retained_knot_orientation_prior_factors,
+      diagnostics.last_step_spline_marginalization_prior_factors,
+      diagnostics.last_step_spline_marginalization_prior_rows,
+      diagnostics.last_step_spline_orientation_marginalization_prior_factors,
+      diagnostics.last_step_spline_orientation_marginalization_prior_rows,
       diagnostics.last_step_position_prior_factors,
       diagnostics.last_step_velocity_prior_factors,
       diagnostics.last_step_angular_velocity_prior_factors,
