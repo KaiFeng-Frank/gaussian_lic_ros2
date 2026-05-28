@@ -2719,7 +2719,8 @@ private:
     factor.source_id = pending.source_id;
     factor.support_stamp_ns = {reference_pose.stamp_ns};
     factor.support_weights = {1.0};
-    factor.reference_p_w_i = reference_pose.p_w_i;
+    factor.reference_p_w_i =
+      pending.has_reference_pose ? pending.reference_p_w_i : reference_pose.p_w_i;
     factor.measured_shift_px = Eigen::Vector2d{
       pending.alignment.subpixel_dx,
       pending.alignment.subpixel_dy};
@@ -2748,8 +2749,11 @@ private:
     factor.source_id = pending.source_id;
     factor.support_stamp_ns = {reference_pose.stamp_ns};
     factor.support_weights = {1.0};
-    factor.reference_p_w_i = reference_pose.p_w_i;
-    factor.reference_q_w_i = reference_pose.q_w_i.normalized();
+    factor.reference_p_w_i =
+      pending.has_reference_pose ? pending.reference_p_w_i : reference_pose.p_w_i;
+    factor.reference_q_w_i =
+      pending.has_reference_pose ? pending.reference_q_w_i.normalized() :
+      reference_pose.q_w_i.normalized();
     factor.target_delta = gaussian_lic_tracking::transform_camera_delta_to_body(
       q_i_c_,
       p_i_c_,
