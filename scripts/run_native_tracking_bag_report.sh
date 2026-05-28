@@ -265,6 +265,10 @@ RENDERED_FEEDBACK_TOPIC=/gaussian_lic/rendered_feedback
 RENDERED_FEEDBACK_QOS_RELIABILITY=reliable
 RENDERED_FEEDBACK_QOS_DURABILITY=volatile
 RENDERED_FEEDBACK_QOS_DEPTH=128
+ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE=true
+RENDERED_FEEDBACK_INGRESS_QUEUE_SIZE=512
+RENDERED_FEEDBACK_INGRESS_DRAIN_MAX_PER_CYCLE=64
+RENDERED_FEEDBACK_INGRESS_DRAIN_PERIOD_MS=5
 VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
@@ -870,6 +874,16 @@ Options:
                                QoS durability for typed /gaussian_lic/rendered_feedback: transient_local or volatile. Default: volatile.
   --rendered-feedback-qos-depth N
                                QoS keep-last depth for typed /gaussian_lic/rendered_feedback. Default: 128.
+  --enable-rendered-feedback-ingress-queue
+                               Keep typed rendered-feedback ROS callbacks lightweight by enqueueing images before serialized estimator processing. Default enabled.
+  --disable-rendered-feedback-ingress-queue
+                               Process typed rendered-feedback directly in the serialized callback path.
+  --rendered-feedback-ingress-queue-size N
+                               Internal typed rendered-feedback ingress queue depth. Default: 512.
+  --rendered-feedback-ingress-drain-max-per-cycle N
+                               Max queued typed rendered-feedback messages drained per serialized cycle. Default: 64.
+  --rendered-feedback-ingress-drain-period-ms N
+                               Wall-timer period for draining queued typed rendered-feedback messages. Default: 5.
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
@@ -2126,6 +2140,26 @@ while [[ $# -gt 0 ]]; do
       RENDERED_FEEDBACK_QOS_DEPTH="$2"
       shift 2
       ;;
+    --enable-rendered-feedback-ingress-queue)
+      ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE=true
+      shift
+      ;;
+    --disable-rendered-feedback-ingress-queue)
+      ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE=false
+      shift
+      ;;
+    --rendered-feedback-ingress-queue-size)
+      RENDERED_FEEDBACK_INGRESS_QUEUE_SIZE="$2"
+      shift 2
+      ;;
+    --rendered-feedback-ingress-drain-max-per-cycle)
+      RENDERED_FEEDBACK_INGRESS_DRAIN_MAX_PER_CYCLE="$2"
+      shift 2
+      ;;
+    --rendered-feedback-ingress-drain-period-ms)
+      RENDERED_FEEDBACK_INGRESS_DRAIN_PERIOD_MS="$2"
+      shift 2
+      ;;
     --visual-factor-max-dt-ns)
       VISUAL_FACTOR_MAX_DT_NS="$2"
       shift 2
@@ -2541,6 +2575,10 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   rendered_feedback_qos_reliability:="${RENDERED_FEEDBACK_QOS_RELIABILITY}" \
   rendered_feedback_qos_durability:="${RENDERED_FEEDBACK_QOS_DURABILITY}" \
   rendered_feedback_qos_depth:="${RENDERED_FEEDBACK_QOS_DEPTH}" \
+  enable_rendered_feedback_ingress_queue:="${ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE}" \
+  rendered_feedback_ingress_queue_size:="${RENDERED_FEEDBACK_INGRESS_QUEUE_SIZE}" \
+  rendered_feedback_ingress_drain_max_per_cycle:="${RENDERED_FEEDBACK_INGRESS_DRAIN_MAX_PER_CYCLE}" \
+  rendered_feedback_ingress_drain_period_ms:="${RENDERED_FEEDBACK_INGRESS_DRAIN_PERIOD_MS}" \
   rendered_feedback_source_stream:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
   rendered_feedback_image_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
   rendered_feedback_pose_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC}" \
@@ -3071,6 +3109,10 @@ RENDERED_FEEDBACK_TOPIC_REPORT="${RENDERED_FEEDBACK_TOPIC}" \
 RENDERED_FEEDBACK_QOS_RELIABILITY_REPORT="${RENDERED_FEEDBACK_QOS_RELIABILITY}" \
 RENDERED_FEEDBACK_QOS_DURABILITY_REPORT="${RENDERED_FEEDBACK_QOS_DURABILITY}" \
 RENDERED_FEEDBACK_QOS_DEPTH_REPORT="${RENDERED_FEEDBACK_QOS_DEPTH}" \
+ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE_REPORT="${ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE}" \
+RENDERED_FEEDBACK_INGRESS_QUEUE_SIZE_REPORT="${RENDERED_FEEDBACK_INGRESS_QUEUE_SIZE}" \
+RENDERED_FEEDBACK_INGRESS_DRAIN_MAX_PER_CYCLE_REPORT="${RENDERED_FEEDBACK_INGRESS_DRAIN_MAX_PER_CYCLE}" \
+RENDERED_FEEDBACK_INGRESS_DRAIN_PERIOD_MS_REPORT="${RENDERED_FEEDBACK_INGRESS_DRAIN_PERIOD_MS}" \
 MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT="${MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE}" \
 MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
 MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
@@ -3183,6 +3225,15 @@ rendered_feedback_topic = os.environ["RENDERED_FEEDBACK_TOPIC_REPORT"]
 rendered_feedback_qos_reliability = os.environ["RENDERED_FEEDBACK_QOS_RELIABILITY_REPORT"]
 rendered_feedback_qos_durability = os.environ["RENDERED_FEEDBACK_QOS_DURABILITY_REPORT"]
 rendered_feedback_qos_depth = int(os.environ["RENDERED_FEEDBACK_QOS_DEPTH_REPORT"])
+enable_rendered_feedback_ingress_queue = (
+    os.environ["ENABLE_RENDERED_FEEDBACK_INGRESS_QUEUE_REPORT"].lower() == "true"
+)
+rendered_feedback_ingress_queue_size = int(
+    os.environ["RENDERED_FEEDBACK_INGRESS_QUEUE_SIZE_REPORT"])
+rendered_feedback_ingress_drain_max_per_cycle = int(
+    os.environ["RENDERED_FEEDBACK_INGRESS_DRAIN_MAX_PER_CYCLE_REPORT"])
+rendered_feedback_ingress_drain_period_ms = int(
+    os.environ["RENDERED_FEEDBACK_INGRESS_DRAIN_PERIOD_MS_REPORT"])
 mapper_feedback_publish_rendered_before_update = (
     os.environ["MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT"].lower() == "true"
 )
@@ -3782,6 +3833,10 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "num_raw_images",
     "num_rendered_images",
     "num_rendered_feedbacks",
+    "rendered_feedback_ingress_received",
+    "rendered_feedback_ingress_drained",
+    "rendered_feedback_ingress_drops",
+    "rendered_feedback_ingress_queue_size",
     "rendered_feedback_frame_index_regressions",
     "rendered_feedback_preview_index_regressions",
     "rendered_feedback_frame_index_gap_count",
@@ -4158,6 +4213,9 @@ def build_rendered_delivery_continuity(status, mapping_status):
         preview_delta = summary_delta(mapping_bin, "rendered_preview_count")
         feedback_delta = summary_delta(mapping_bin, "rendered_feedback_published")
         produced_delta = feedback_delta if feedback_delta > 0 else preview_delta
+        ingress_received_delta = summary_delta(status_bin, "rendered_feedback_ingress_received")
+        ingress_drained_delta = summary_delta(status_bin, "rendered_feedback_ingress_drained")
+        ingress_drops_delta = summary_delta(status_bin, "rendered_feedback_ingress_drops")
         received_delta = summary_delta(status_bin, "num_rendered_images")
         consumed_delta = summary_delta(status_bin, "visual_pair_processed_count")
         bins.append({
@@ -4167,8 +4225,17 @@ def build_rendered_delivery_continuity(status, mapping_status):
             "rendered_preview_count_delta": preview_delta,
             "rendered_feedback_published_delta": feedback_delta,
             "produced_count_delta": produced_delta,
+            "rendered_feedback_ingress_received_delta": ingress_received_delta,
+            "rendered_feedback_ingress_drained_delta": ingress_drained_delta,
+            "rendered_feedback_ingress_drops_delta": ingress_drops_delta,
+            "rendered_feedback_ingress_queue_size_max": summary_value(
+                status_bin, "rendered_feedback_ingress_queue_size", "max"),
             "num_rendered_images_delta": received_delta,
             "visual_pair_processed_count_delta": consumed_delta,
+            "produced_minus_ingress_received_delta": produced_delta - ingress_received_delta,
+            "ingress_received_minus_drained_delta": (
+                ingress_received_delta - ingress_drained_delta
+            ),
             "produced_minus_received_delta": produced_delta - received_delta,
             "received_minus_consumed_delta": received_delta - consumed_delta,
         })
@@ -4179,12 +4246,23 @@ def build_rendered_delivery_continuity(status, mapping_status):
         mapping_last.get(
             "rendered_feedback_published",
             mapping_last.get("rendered_preview_count", 0)) or 0)
+    ingress_received_total = int(
+        tracking_last.get("rendered_feedback_ingress_received", 0) or 0)
+    ingress_drained_total = int(
+        tracking_last.get("rendered_feedback_ingress_drained", 0) or 0)
+    ingress_drops_total = int(
+        tracking_last.get("rendered_feedback_ingress_drops", 0) or 0)
     received_total = int(tracking_last.get("num_rendered_images", 0) or 0)
     consumed_total = int(tracking_last.get("visual_pair_processed_count", 0) or 0)
     result = {
         "produced_total": produced_total,
+        "ingress_received_total": ingress_received_total,
+        "ingress_drained_total": ingress_drained_total,
+        "ingress_drops_total": ingress_drops_total,
         "received_total": received_total,
         "consumed_total": consumed_total,
+        "produced_minus_ingress_received_total": produced_total - ingress_received_total,
+        "ingress_received_minus_drained_total": ingress_received_total - ingress_drained_total,
         "produced_minus_received_total": produced_total - received_total,
         "received_minus_consumed_total": received_total - consumed_total,
         "available": bool(bins),
@@ -4199,6 +4277,12 @@ def build_rendered_delivery_continuity(status, mapping_status):
         return result
     result["max_produced_minus_received_delta"] = max(
         item["produced_minus_received_delta"] for item in bins)
+    result["max_produced_minus_ingress_received_delta"] = max(
+        item["produced_minus_ingress_received_delta"] for item in bins)
+    result["max_ingress_received_minus_drained_delta"] = max(
+        item["ingress_received_minus_drained_delta"] for item in bins)
+    result["max_ingress_drops_delta"] = max(
+        item["rendered_feedback_ingress_drops_delta"] for item in bins)
     result["max_received_minus_consumed_delta"] = max(
         item["received_minus_consumed_delta"] for item in bins)
     result["worst_delivery_bins"] = sorted(
@@ -4695,6 +4779,12 @@ if enable_visual_factors:
         "visual_depth_source_pointcloud_fallback_misses",
         "rendered_feedback_contract_enabled",
         "num_rendered_feedbacks",
+        "rendered_feedback_ingress_queue_enabled",
+        "rendered_feedback_ingress_received",
+        "rendered_feedback_ingress_drained",
+        "rendered_feedback_ingress_drops",
+        "rendered_feedback_ingress_queue_size",
+        "rendered_feedback_ingress_queue_peak_size",
         "rendered_feedback_embedded_depth_pairs",
         "rendered_feedback_embedded_depth_invalid",
         "rendered_feedback_source_pose_reference_enabled",
@@ -4800,6 +4890,13 @@ if enable_visual_factors:
         ):
             if int(last.get(key, 0)) != 0:
                 errors.append(f"{key} is {last.get(key)}")
+        if enable_rendered_feedback_ingress_queue:
+            if not bool(last.get("rendered_feedback_ingress_queue_enabled", False)):
+                errors.append("rendered_feedback_ingress_queue_enabled is false")
+            if int(last.get("rendered_feedback_ingress_drops", 0)) != 0:
+                errors.append(
+                    "rendered_feedback_ingress_drops is "
+                    f"{last.get('rendered_feedback_ingress_drops')}")
     if int(last.get("visual_se3_photometric_valid_batches", 0)) <= 0:
         errors.append("visual_se3_photometric_valid_batches is zero")
     if int(last.get("visual_se3_photometric_total_samples", 0)) <= 0:
@@ -4895,6 +4992,14 @@ report = {
         "rendered_feedback_qos_reliability": rendered_feedback_qos_reliability,
         "rendered_feedback_qos_durability": rendered_feedback_qos_durability,
         "rendered_feedback_qos_depth": rendered_feedback_qos_depth,
+        "enable_rendered_feedback_ingress_queue": enable_rendered_feedback_ingress_queue,
+        "rendered_feedback_ingress_queue_size": rendered_feedback_ingress_queue_size,
+        "rendered_feedback_ingress_drain_max_per_cycle": (
+            rendered_feedback_ingress_drain_max_per_cycle
+        ),
+        "rendered_feedback_ingress_drain_period_ms": (
+            rendered_feedback_ingress_drain_period_ms
+        ),
         "mapper_feedback_publish_rendered_before_update": (
             mapper_feedback_publish_rendered_before_update
         ),

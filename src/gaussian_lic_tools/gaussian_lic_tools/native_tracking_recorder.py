@@ -38,6 +38,7 @@ BINNED_STATUS_FIELDS = {
     "stamp_ns",
     "num_raw_images",
     "num_rendered_images",
+    "num_rendered_feedbacks",
     "num_raw_pointclouds",
     "num_raw_imus",
     "num_published_poses",

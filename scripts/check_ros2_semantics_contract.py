@@ -181,6 +181,10 @@ def main() -> int:
         "visual_factor_max_dt_ns",
         "enable_rendered_feedback_contract",
         "rendered_feedback_topic",
+        "enable_rendered_feedback_ingress_queue",
+        "rendered_feedback_ingress_queue_size",
+        "rendered_feedback_ingress_drain_max_per_cycle",
+        "rendered_feedback_ingress_drain_period_ms",
         "enable_visual_factor_time_interpolation",
         "enable_visual_cache_reconciliation",
         "visual_depth_max_dt_ns",
@@ -538,6 +542,12 @@ def main() -> int:
         "visual_pair_duplicate_count",
         "rendered_feedback_contract_enabled",
         "num_rendered_feedbacks",
+        "rendered_feedback_ingress_queue_enabled",
+        "rendered_feedback_ingress_received",
+        "rendered_feedback_ingress_drained",
+        "rendered_feedback_ingress_drops",
+        "rendered_feedback_ingress_queue_size",
+        "rendered_feedback_ingress_queue_peak_size",
         "last_rendered_feedback_frame_index",
         "last_rendered_feedback_preview_index",
         "rendered_feedback_frame_index_regressions",
@@ -760,6 +770,24 @@ def main() -> int:
             or f"--{qos_name.replace('_', '-')}" not in native_tracking_report_text
         ):
             errors.append(f"launch/report tools must expose typed rendered feedback QoS: {qos_name}")
+    if 'declare_parameter<bool>("enable_rendered_feedback_ingress_queue", true)' not in tracking_node_text:
+        errors.append("tracking_node must default typed rendered-feedback ingress queue on")
+    if 'DeclareLaunchArgument("enable_rendered_feedback_ingress_queue", default_value="true")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose typed rendered-feedback ingress queue as default-on")
+    if "--enable-rendered-feedback-ingress-queue" not in native_tracking_report_text or \
+            "--disable-rendered-feedback-ingress-queue" not in native_tracking_report_text:
+        errors.append("native tracking report must expose rendered-feedback ingress queue toggles")
+    for ingress_name in (
+        "rendered_feedback_ingress_queue_size",
+        "rendered_feedback_ingress_drain_max_per_cycle",
+        "rendered_feedback_ingress_drain_period_ms",
+    ):
+        if f'"{ingress_name}"' not in tracking_node_text or f'"{ingress_name}"' not in tracking_launch_text:
+            errors.append(f"tracking must expose rendered-feedback ingress queue parameter: {ingress_name}")
+        if f"--{ingress_name.replace('_', '-')}" not in native_tracking_report_text:
+            errors.append(f"native tracking report must expose rendered-feedback ingress queue parameter: {ingress_name}")
+    if "enqueue_rendered_feedback" not in tracking_node_text or "drain_rendered_feedback_ingress_queue" not in tracking_node_text:
+        errors.append("tracking_node must decouple typed rendered-feedback DDS callback from serialized visual processing")
     if (
         "import signal" not in native_tracking_recorder_text
         or "signal.SIGTERM" not in native_tracking_recorder_text
@@ -1038,6 +1066,12 @@ def main() -> int:
         "sliding_window_max_feedback_translation_m",
         "sliding_window_max_feedback_rotation_rad",
         "sliding_window_max_feedback_velocity_mps",
+        "rendered_feedback_ingress_queue_enabled",
+        "rendered_feedback_ingress_received",
+        "rendered_feedback_ingress_drained",
+        "rendered_feedback_ingress_drops",
+        "rendered_feedback_ingress_queue_size",
+        "rendered_feedback_ingress_queue_peak_size",
         "rendered_feedback_source_pose_reference_enabled",
         "rendered_feedback_source_pose_reference_factors",
         "rendered_feedback_source_pose_invalid",

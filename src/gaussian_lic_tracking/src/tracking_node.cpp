@@ -312,6 +312,20 @@ public:
       "rendered_feedback_qos_depth",
       declare_parameter<int>("rendered_feedback_qos_depth", 128),
       1);
+    enable_rendered_feedback_ingress_queue_ =
+      declare_parameter<bool>("enable_rendered_feedback_ingress_queue", true);
+    rendered_feedback_ingress_queue_size_ = integer_parameter_at_least(
+      "rendered_feedback_ingress_queue_size",
+      declare_parameter<int>("rendered_feedback_ingress_queue_size", 512),
+      1);
+    rendered_feedback_ingress_drain_max_per_cycle_ = integer_parameter_at_least(
+      "rendered_feedback_ingress_drain_max_per_cycle",
+      declare_parameter<int>("rendered_feedback_ingress_drain_max_per_cycle", 64),
+      1);
+    rendered_feedback_ingress_drain_period_ms_ = integer_parameter_at_least(
+      "rendered_feedback_ingress_drain_period_ms",
+      declare_parameter<int>("rendered_feedback_ingress_drain_period_ms", 5),
+      1);
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     gaussian_snapshot_qos_depth_ = integer_parameter_at_least(
       "gaussian_snapshot_qos_depth",
@@ -1196,10 +1210,19 @@ public:
         create_subscription<gaussian_lic_msgs::msg::RenderedFeedback>(
         rendered_feedback_topic_, make_rendered_feedback_qos(),
         [this](gaussian_lic_msgs::msg::RenderedFeedback::ConstSharedPtr msg) {
-          run_serialized_callback([this, msg]() {
-            handle_rendered_feedback(*msg);
-          });
+          if (enable_rendered_feedback_ingress_queue_) {
+            enqueue_rendered_feedback(msg);
+            return;
+          }
+          run_serialized_callback([this, msg]() { handle_rendered_feedback(*msg); });
         });
+      if (enable_rendered_feedback_ingress_queue_) {
+        rendered_feedback_ingress_timer_ = create_wall_timer(
+          std::chrono::milliseconds(rendered_feedback_ingress_drain_period_ms_),
+          [this]() {
+            run_serialized_callback([this]() { drain_rendered_feedback_ingress_queue(); });
+          });
+      }
     } else {
       rendered_image_sub_ = create_subscription<sensor_msgs::msg::Image>(
         rendered_image_topic_, make_rendered_image_qos(),
@@ -2094,6 +2117,49 @@ private:
   void handle_rendered_image(const sensor_msgs::msg::Image & msg)
   {
     handle_rendered_image_with_metadata(msg, std::nullopt);
+  }
+
+  void enqueue_rendered_feedback(
+    const gaussian_lic_msgs::msg::RenderedFeedback::ConstSharedPtr & msg)
+  {
+    if (!msg) {
+      return;
+    }
+    ++rendered_feedback_ingress_received_;
+    std::scoped_lock lock(rendered_feedback_ingress_mutex_);
+    while (rendered_feedback_ingress_queue_.size() >=
+      static_cast<size_t>(rendered_feedback_ingress_queue_size_))
+    {
+      rendered_feedback_ingress_queue_.pop_front();
+      ++rendered_feedback_ingress_drops_;
+    }
+    rendered_feedback_ingress_queue_.push_back(msg);
+    rendered_feedback_ingress_queue_last_size_ = rendered_feedback_ingress_queue_.size();
+    rendered_feedback_ingress_queue_peak_size_ = std::max(
+      rendered_feedback_ingress_queue_peak_size_, rendered_feedback_ingress_queue_last_size_);
+  }
+
+  void drain_rendered_feedback_ingress_queue()
+  {
+    if (!enable_rendered_feedback_ingress_queue_) {
+      return;
+    }
+    std::vector<gaussian_lic_msgs::msg::RenderedFeedback::ConstSharedPtr> batch;
+    batch.reserve(static_cast<size_t>(rendered_feedback_ingress_drain_max_per_cycle_));
+    {
+      std::scoped_lock lock(rendered_feedback_ingress_mutex_);
+      while (!rendered_feedback_ingress_queue_.empty() &&
+        batch.size() < static_cast<size_t>(rendered_feedback_ingress_drain_max_per_cycle_))
+      {
+        batch.push_back(rendered_feedback_ingress_queue_.front());
+        rendered_feedback_ingress_queue_.pop_front();
+      }
+      rendered_feedback_ingress_queue_last_size_ = rendered_feedback_ingress_queue_.size();
+    }
+    for (const auto & msg : batch) {
+      ++rendered_feedback_ingress_drained_;
+      handle_rendered_feedback(*msg);
+    }
   }
 
   void handle_rendered_feedback(const gaussian_lic_msgs::msg::RenderedFeedback & msg)
@@ -3616,6 +3682,7 @@ private:
     }
     ++num_raw_pointclouds_;
     last_pointcloud_stamp_ns_ = tracking_pose.stamp_ns;
+    drain_rendered_feedback_ingress_queue();
     tracking_pose.q_w_i = Eigen::Quaterniond::Identity();
     if (imu_propagator_.initialized()) {
       gaussian_lic_tracking::ImuState state;
@@ -7458,6 +7525,18 @@ private:
     status.num_rendered_images = num_rendered_images_;
     status.rendered_feedback_contract_enabled = enable_rendered_feedback_contract_;
     status.num_rendered_feedbacks = num_rendered_feedbacks_;
+    status.rendered_feedback_ingress_queue_enabled =
+      enable_rendered_feedback_ingress_queue_;
+    status.rendered_feedback_ingress_received =
+      rendered_feedback_ingress_received_;
+    status.rendered_feedback_ingress_drained =
+      rendered_feedback_ingress_drained_;
+    status.rendered_feedback_ingress_drops =
+      rendered_feedback_ingress_drops_;
+    status.rendered_feedback_ingress_queue_size =
+      static_cast<uint64_t>(rendered_feedback_ingress_queue_last_size_);
+    status.rendered_feedback_ingress_queue_peak_size =
+      static_cast<uint64_t>(rendered_feedback_ingress_queue_peak_size_);
     status.rendered_feedback_embedded_observed_pairs =
       rendered_feedback_embedded_observed_pairs_;
     status.rendered_feedback_embedded_depth_pairs =
@@ -8109,6 +8188,10 @@ private:
   std::string rendered_feedback_qos_durability_{"volatile"};
   int rendered_feedback_qos_depth_{128};
   bool enable_rendered_feedback_contract_{false};
+  bool enable_rendered_feedback_ingress_queue_{true};
+  int rendered_feedback_ingress_queue_size_{512};
+  int rendered_feedback_ingress_drain_max_per_cycle_{64};
+  int rendered_feedback_ingress_drain_period_ms_{5};
   bool serialize_callbacks_{true};
   bool enable_visual_factor_{true};
   bool enable_gaussian_snapshot_{true};
@@ -8376,7 +8459,9 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rendered_image_sub_;
   rclcpp::Subscription<gaussian_lic_msgs::msg::RenderedFeedback>::SharedPtr rendered_feedback_sub_;
   rclcpp::Subscription<gaussian_lic_msgs::msg::GaussianArray>::SharedPtr gaussian_map_sub_;
+  rclcpp::TimerBase::SharedPtr rendered_feedback_ingress_timer_;
   std::mutex callback_mutex_;
+  std::mutex rendered_feedback_ingress_mutex_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_pub_;
@@ -8494,6 +8579,8 @@ private:
   double last_visual_alignment_effective_weight_{0.0};
   gaussian_lic_tracking::VisualSe3PhotometricLinearization last_visual_se3_photometric_linearization_;
   std::deque<QueuedRenderedFeedbackPair> rendered_feedback_watermark_queue_;
+  std::deque<gaussian_lic_msgs::msg::RenderedFeedback::ConstSharedPtr>
+    rendered_feedback_ingress_queue_;
   std::deque<PendingVisualAlignmentFactor> pending_visual_alignment_factors_;
   std::deque<PendingSe3PhotometricFactor> pending_visual_se3_photometric_factors_;
   std::deque<PendingRenderedFeedbackSourceMotionFactor>
@@ -8600,6 +8687,11 @@ private:
   uint64_t num_raw_images_{0};
   uint64_t num_rendered_images_{0};
   uint64_t num_rendered_feedbacks_{0};
+  uint64_t rendered_feedback_ingress_received_{0};
+  uint64_t rendered_feedback_ingress_drained_{0};
+  uint64_t rendered_feedback_ingress_drops_{0};
+  size_t rendered_feedback_ingress_queue_last_size_{0};
+  size_t rendered_feedback_ingress_queue_peak_size_{0};
   uint64_t rendered_feedback_embedded_observed_pairs_{0};
   uint64_t rendered_feedback_embedded_depth_pairs_{0};
   uint64_t rendered_feedback_embedded_depth_invalid_{0};

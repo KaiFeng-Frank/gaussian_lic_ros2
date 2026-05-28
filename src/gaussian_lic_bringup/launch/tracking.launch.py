@@ -28,6 +28,18 @@ def generate_launch_description():
     rendered_feedback_qos_reliability = LaunchConfiguration("rendered_feedback_qos_reliability")
     rendered_feedback_qos_durability = LaunchConfiguration("rendered_feedback_qos_durability")
     rendered_feedback_qos_depth = LaunchConfiguration("rendered_feedback_qos_depth")
+    enable_rendered_feedback_ingress_queue = LaunchConfiguration(
+        "enable_rendered_feedback_ingress_queue"
+    )
+    rendered_feedback_ingress_queue_size = LaunchConfiguration(
+        "rendered_feedback_ingress_queue_size"
+    )
+    rendered_feedback_ingress_drain_max_per_cycle = LaunchConfiguration(
+        "rendered_feedback_ingress_drain_max_per_cycle"
+    )
+    rendered_feedback_ingress_drain_period_ms = LaunchConfiguration(
+        "rendered_feedback_ingress_drain_period_ms"
+    )
     gaussian_map_topic = LaunchConfiguration("gaussian_map_topic")
     serialize_callbacks = LaunchConfiguration("serialize_callbacks")
     sensor_qos_reliability = LaunchConfiguration("sensor_qos_reliability")
@@ -606,6 +618,10 @@ def generate_launch_description():
             DeclareLaunchArgument("rendered_feedback_qos_reliability", default_value="reliable"),
             DeclareLaunchArgument("rendered_feedback_qos_durability", default_value="volatile"),
             DeclareLaunchArgument("rendered_feedback_qos_depth", default_value="128"),
+            DeclareLaunchArgument("enable_rendered_feedback_ingress_queue", default_value="true"),
+            DeclareLaunchArgument("rendered_feedback_ingress_queue_size", default_value="512"),
+            DeclareLaunchArgument("rendered_feedback_ingress_drain_max_per_cycle", default_value="64"),
+            DeclareLaunchArgument("rendered_feedback_ingress_drain_period_ms", default_value="5"),
             DeclareLaunchArgument("gaussian_map_topic", default_value="/gaussian_lic/gaussian_map"),
             DeclareLaunchArgument("serialize_callbacks", default_value="true"),
             DeclareLaunchArgument("sensor_qos_reliability", default_value="best_effort"),
@@ -974,6 +990,10 @@ def generate_launch_description():
                         "rendered_feedback_qos_reliability": rendered_feedback_qos_reliability,
                         "rendered_feedback_qos_durability": rendered_feedback_qos_durability,
                         "rendered_feedback_qos_depth": rendered_feedback_qos_depth,
+                        "enable_rendered_feedback_ingress_queue": enable_rendered_feedback_ingress_queue,
+                        "rendered_feedback_ingress_queue_size": rendered_feedback_ingress_queue_size,
+                        "rendered_feedback_ingress_drain_max_per_cycle": rendered_feedback_ingress_drain_max_per_cycle,
+                        "rendered_feedback_ingress_drain_period_ms": rendered_feedback_ingress_drain_period_ms,
                         "gaussian_map_topic": gaussian_map_topic,
                         "serialize_callbacks": serialize_callbacks,
                         "sensor_qos_reliability": sensor_qos_reliability,
