@@ -325,7 +325,11 @@ through `add_dense_position_prior_factor` and
 `add_dense_orientation_prior_factor`; runtime diagnostics report both position
 and orientation marginalization prior rows. The change closes a measured
 information-retention gap without changing replay time/QoS/executor semantics or
-promoting a tuned production preset before full CBD replay evidence.
+promoting a tuned production preset before full CBD replay evidence. The CBD
+12 s liveness proof
+`results/fastlivo2/CBD_Building_01_ct_dense_orientation_marg_12s_probe/native_tracking_report.json`
+confirms the runtime path produces nonzero position and orientation
+marginalization priors, but the trajectory is explicitly not a parity promotion.
 `lidar_scan_to_scan_relative_translation_gain` now scales the relative
 translation before both position and velocity priors are formed, so future sweeps
 can damp ICP translation scale without forking the node. A CBD 12 s gain `0.15`
