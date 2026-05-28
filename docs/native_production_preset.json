@@ -63,6 +63,7 @@
     "enable_visual_marginalization_prior": false,
     "visual_marginalization_prior_zero_bias_columns": false,
     "enable_visual_factor_reference_snapshot": false,
+    "enable_rendered_feedback_source_pose_reference": false,
     "visual_expired_factor_projection_max_age_s": 5.0,
     "visual_cache_reconciliation_defer_to_pointcloud": false,
     "visual_pair_processing_defer_to_pointcloud": false

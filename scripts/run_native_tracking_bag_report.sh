@@ -170,6 +170,7 @@ ENABLE_VISUAL_EXPIRED_FACTOR_PROJECTION=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
+ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
 VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S=5.0
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
@@ -739,6 +740,10 @@ Options:
                                Snapshot visual/SE3 linearization reference poses when factors are produced. Default: disabled until full-window promotion.
   --disable-visual-factor-reference-snapshot
                                Use the active/marginalized support pose as the visual/SE3 factor reference.
+  --enable-rendered-feedback-source-pose-reference
+                               Use the mapper-provided rendered source pose as the visual/SE3 factor reference for typed RenderedFeedback. Default: disabled.
+  --disable-rendered-feedback-source-pose-reference
+                               Ignore RenderedFeedback.source_pose and use the active/marginalized support pose.
   --visual-expired-factor-projection-max-age-s SEC
                                Maximum age for projected expired visual/SE3 factors. Use <=0 for unlimited. Default: 5.0.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
@@ -1699,6 +1704,16 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
       shift
       ;;
+    --enable-rendered-feedback-source-pose-reference)
+      ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=true
+      ENABLE_RENDERED_FEEDBACK_CONTRACT=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-rendered-feedback-source-pose-reference)
+      ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
+      shift
+      ;;
     --visual-expired-factor-projection-max-age-s)
       VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S="$2"
       shift 2
@@ -2474,6 +2489,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_marginalization_prior:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR}" \
   visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
   enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
+  enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
   visual_expired_factor_projection_max_age_s:="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
@@ -2852,6 +2868,7 @@ SLIDING_WINDOW_MAX_ITERATIONS_REPORT="${SLIDING_WINDOW_MAX_ITERATIONS}" \
 SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT}" \
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
+ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
@@ -3141,6 +3158,9 @@ visual_marginalization_prior_zero_bias_columns = (
 )
 enable_visual_factor_reference_snapshot = (
     os.environ["ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT"].lower() == "true"
+)
+enable_rendered_feedback_source_pose_reference = (
+    os.environ["ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT"].lower() == "true"
 )
 visual_expired_factor_projection_max_age_s = float(
     os.environ["VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT"]
@@ -4404,6 +4424,9 @@ if enable_visual_factors:
         "visual_depth_source_pointcloud_fallback_misses",
         "rendered_feedback_contract_enabled",
         "num_rendered_feedbacks",
+        "rendered_feedback_source_pose_reference_enabled",
+        "rendered_feedback_source_pose_reference_factors",
+        "rendered_feedback_source_pose_invalid",
         "last_rendered_feedback_frame_index",
         "last_rendered_feedback_preview_index",
         "rendered_feedback_frame_index_regressions",
@@ -4455,6 +4478,13 @@ if enable_visual_factors:
     ):
         if key not in last:
             errors.append(f"{key} is missing")
+    if enable_rendered_feedback_source_pose_reference:
+        if int(last.get("rendered_feedback_source_pose_reference_factors", 0)) <= 0:
+            errors.append("rendered_feedback_source_pose_reference_factors is zero")
+        if int(last.get("rendered_feedback_source_pose_invalid", 0)) != 0:
+            errors.append(
+                "rendered_feedback_source_pose_invalid is "
+                f"{last.get('rendered_feedback_source_pose_invalid')}")
     for key in ("visual_alignment_pending_queue_size", "visual_se3_photometric_pending_queue_size"):
         if int(last.get(key, 0)) > visual_pending_factor_queue_size:
             errors.append(f"{key} exceeds report queue budget: {last.get(key)}")
@@ -4636,6 +4666,9 @@ report = {
         ),
         "enable_visual_factor_reference_snapshot": (
             enable_visual_factor_reference_snapshot
+        ),
+        "enable_rendered_feedback_source_pose_reference": (
+            enable_rendered_feedback_source_pose_reference
         ),
         "visual_expired_factor_projection_max_age_s": (
             visual_expired_factor_projection_max_age_s

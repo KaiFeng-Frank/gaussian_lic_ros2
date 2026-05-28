@@ -132,6 +132,9 @@ def generate_launch_description():
     enable_visual_factor_reference_snapshot = LaunchConfiguration(
         "enable_visual_factor_reference_snapshot"
     )
+    enable_rendered_feedback_source_pose_reference = LaunchConfiguration(
+        "enable_rendered_feedback_source_pose_reference"
+    )
     visual_expired_factor_projection_max_age_s = LaunchConfiguration(
         "visual_expired_factor_projection_max_age_s"
     )
@@ -628,6 +631,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_marginalization_prior", default_value="false"),
             DeclareLaunchArgument("visual_marginalization_prior_zero_bias_columns", default_value="false"),
             DeclareLaunchArgument("enable_visual_factor_reference_snapshot", default_value="false"),
+            DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false"),
             DeclareLaunchArgument("visual_expired_factor_projection_max_age_s", default_value="5.0"),
             DeclareLaunchArgument("visual_cache_reconciliation_defer_to_pointcloud", default_value="false"),
             DeclareLaunchArgument("visual_pair_processing_defer_to_pointcloud", default_value="false"),
@@ -986,6 +990,7 @@ def generate_launch_description():
                         "enable_visual_factor_reference_snapshot": (
                             enable_visual_factor_reference_snapshot
                         ),
+                        "enable_rendered_feedback_source_pose_reference": enable_rendered_feedback_source_pose_reference,
                         "visual_expired_factor_projection_max_age_s": (
                             visual_expired_factor_projection_max_age_s
                         ),

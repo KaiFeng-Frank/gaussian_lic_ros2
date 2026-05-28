@@ -196,6 +196,7 @@ def main() -> int:
         "enable_rendered_feedback_watermark_queue",
         "enable_visual_marginalization_prior",
         "visual_marginalization_prior_zero_bias_columns",
+        "enable_rendered_feedback_source_pose_reference",
         "visual_alignment_meters_per_pixel",
         "visual_alignment_window_weight",
         "visual_alignment_huber_delta_m",
@@ -369,6 +370,13 @@ def main() -> int:
         errors.append("tracking.launch.py must expose typed rendered-feedback subscription as default-off")
     if "msg/RenderedFeedback.msg" not in (ROOT / "src" / "gaussian_lic_msgs" / "CMakeLists.txt").read_text():
         errors.append("gaussian_lic_msgs must generate the typed RenderedFeedback contract")
+    rendered_feedback_msg = (ROOT / "src" / "gaussian_lic_msgs" / "msg" / "RenderedFeedback.msg").read_text()
+    if "geometry_msgs/Pose source_pose" not in rendered_feedback_msg:
+        errors.append("RenderedFeedback must carry the mapper source pose used for rendering")
+    if 'declare_parameter<bool>("enable_rendered_feedback_source_pose_reference", false)' not in tracking_node_text:
+        errors.append("tracking_node must keep rendered-feedback source-pose references default-off")
+    if 'DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose rendered-feedback source-pose references as default-off")
     if "uint64_t source_id{0}" not in sliding_window_header_text:
         errors.append("sliding-window factors must carry 64-bit source ids to avoid replacement collisions")
     if 'DeclareLaunchArgument("visual_alignment_huber_delta_m", default_value="0.05")' not in tracking_launch_text:
@@ -734,6 +742,9 @@ def main() -> int:
         or "node.flush(final=True)" not in native_tracking_recorder_text
     ):
         errors.append("native_tracking_recorder must convert shutdown signals into a final binned-summary flush")
+    if "--enable-rendered-feedback-source-pose-reference" not in native_tracking_report_text or \
+            'enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}"' not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose rendered-feedback source-pose references")
     if "VISUAL_DEPTH_FRAME_CACHE_SIZE=64" not in native_tracking_report_text or \
             'depth_frame_cache_size:="${VISUAL_DEPTH_FRAME_CACHE_SIZE}"' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must enlarge the visual depth-frame cache")
@@ -996,6 +1007,9 @@ def main() -> int:
         "sliding_window_max_feedback_translation_m",
         "sliding_window_max_feedback_rotation_rad",
         "sliding_window_max_feedback_velocity_mps",
+        "rendered_feedback_source_pose_reference_enabled",
+        "rendered_feedback_source_pose_reference_factors",
+        "rendered_feedback_source_pose_invalid",
         "sliding_window_bias_feedback_ownership",
         "sliding_window_bias_feedback_ownership_holds",
         "sliding_window_schur_marginalizations",

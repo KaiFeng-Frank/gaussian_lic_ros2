@@ -2720,6 +2720,15 @@ private:
     feedback.header = image.header;
     feedback.image = image;
     feedback.observed_image = make_observed_feedback_image_message(frame);
+    const Eigen::Quaterniond source_q_wc(frame.r_wc);
+    const Eigen::Quaterniond normalized_source_q_wc = source_q_wc.normalized();
+    feedback.source_pose.position.x = frame.t_wc.x();
+    feedback.source_pose.position.y = frame.t_wc.y();
+    feedback.source_pose.position.z = frame.t_wc.z();
+    feedback.source_pose.orientation.x = normalized_source_q_wc.x();
+    feedback.source_pose.orientation.y = normalized_source_q_wc.y();
+    feedback.source_pose.orientation.z = normalized_source_q_wc.z();
+    feedback.source_pose.orientation.w = normalized_source_q_wc.w();
     feedback.observed_stamp = frame.image_stamp;
     feedback.pose_stamp = frame.pose_stamp;
     feedback.pointcloud_stamp = frame.pointcloud_stamp;

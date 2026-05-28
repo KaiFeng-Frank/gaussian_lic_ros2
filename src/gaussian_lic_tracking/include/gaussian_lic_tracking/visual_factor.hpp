@@ -21,6 +21,9 @@ struct VisualFrame
   int64_t rendered_feedback_pointcloud_stamp_ns{0};
   uint64_t rendered_feedback_frame_index{0};
   uint64_t rendered_feedback_preview_index{0};
+  bool has_rendered_feedback_source_pose{false};
+  Eigen::Vector3d rendered_feedback_source_p_w_i{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond rendered_feedback_source_q_w_i{Eigen::Quaterniond::Identity()};
   size_t width{0};
   size_t height{0};
   std::vector<float> gray;

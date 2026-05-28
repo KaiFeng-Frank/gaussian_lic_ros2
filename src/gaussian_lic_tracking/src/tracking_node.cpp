@@ -380,6 +380,8 @@ public:
       declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false);
     enable_visual_factor_reference_snapshot_ =
       declare_parameter<bool>("enable_visual_factor_reference_snapshot", false);
+    enable_rendered_feedback_source_pose_reference_ =
+      declare_parameter<bool>("enable_rendered_feedback_source_pose_reference", false);
     visual_expired_factor_projection_max_age_s_ =
       declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
     if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
@@ -1227,6 +1229,9 @@ private:
     int64_t pointcloud_stamp_ns{0};
     uint64_t frame_index{0};
     uint64_t rendered_preview_index{0};
+    bool has_source_pose{false};
+    Eigen::Vector3d source_p_w_i{Eigen::Vector3d::Zero()};
+    Eigen::Quaterniond source_q_w_i{Eigen::Quaterniond::Identity()};
   };
 
   struct Se3PhotometricSampleBatch
@@ -2047,6 +2052,20 @@ private:
         gaussian_lic_tracking::stamp_to_nanoseconds(msg.pointcloud_stamp);
       metadata.frame_index = msg.frame_index;
       metadata.rendered_preview_index = msg.rendered_preview_index;
+      if (valid_pose_msg(msg.source_pose)) {
+        metadata.has_source_pose = true;
+        metadata.source_p_w_i = Eigen::Vector3d{
+          msg.source_pose.position.x,
+          msg.source_pose.position.y,
+          msg.source_pose.position.z};
+        metadata.source_q_w_i = Eigen::Quaterniond{
+          msg.source_pose.orientation.w,
+          msg.source_pose.orientation.x,
+          msg.source_pose.orientation.y,
+          msg.source_pose.orientation.z}.normalized();
+      } else if (enable_rendered_feedback_source_pose_reference_) {
+        ++rendered_feedback_source_pose_invalid_;
+      }
       last_rendered_feedback_observed_delta_ns_ =
         metadata.observed_stamp_ns - rendered_stamp_ns;
       last_rendered_feedback_pose_delta_ns_ =
@@ -2122,6 +2141,9 @@ private:
     rendered.rendered_feedback_pointcloud_stamp_ns = metadata.pointcloud_stamp_ns;
     rendered.rendered_feedback_frame_index = metadata.frame_index;
     rendered.rendered_feedback_preview_index = metadata.rendered_preview_index;
+    rendered.has_rendered_feedback_source_pose = metadata.has_source_pose;
+    rendered.rendered_feedback_source_p_w_i = metadata.source_p_w_i;
+    rendered.rendered_feedback_source_q_w_i = metadata.source_q_w_i;
     last_visual_rendered_match_delta_ns_ = 0;
     last_visual_rendered_nearest_delta_ns_ = 0;
     last_visual_rendered_nearest_signed_delta_ns_ = 0;
@@ -2293,6 +2315,9 @@ private:
         rendered.rendered_feedback_pointcloud_stamp_ns = metadata->pointcloud_stamp_ns;
         rendered.rendered_feedback_frame_index = metadata->frame_index;
         rendered.rendered_feedback_preview_index = metadata->rendered_preview_index;
+        rendered.has_rendered_feedback_source_pose = metadata->has_source_pose;
+        rendered.rendered_feedback_source_p_w_i = metadata->source_p_w_i;
+        rendered.rendered_feedback_source_q_w_i = metadata->source_q_w_i;
       }
       cache_rendered_frame(rendered);
       int64_t observed_match_delta_ns = 0;
@@ -2446,7 +2471,7 @@ private:
         pending.coverage_tiles = se3_samples.coverage_tiles;
         pending.coverage_total_tiles = se3_samples.coverage_total_tiles;
         pending.linearization = last_visual_se3_photometric_linearization_;
-        attach_visual_reference_snapshot(pending);
+        attach_visual_reference(pending, rendered);
         pending_visual_se3_photometric_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
       } else if (se3_samples.accepted_pixels > 0U) {
@@ -2482,7 +2507,7 @@ private:
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
         pending.source_id = factor_source_id;
         pending.alignment = window_alignment.value();
-        attach_visual_reference_snapshot(pending);
+        attach_visual_reference(pending, rendered);
         pending_visual_alignment_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
       }
@@ -2614,6 +2639,61 @@ private:
     pending.has_reference_pose = true;
     pending.reference_p_w_i = reference->pose.p_w_i;
     pending.reference_q_w_i = reference->pose.q_w_i.normalized();
+  }
+
+  bool attach_rendered_feedback_source_pose_reference(
+    PendingVisualAlignmentFactor & pending,
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    if (!enable_rendered_feedback_source_pose_reference_ ||
+      !rendered.has_rendered_feedback_source_pose ||
+      !rendered.rendered_feedback_source_p_w_i.allFinite())
+    {
+      return false;
+    }
+    pending.has_reference_pose = true;
+    pending.reference_p_w_i = rendered.rendered_feedback_source_p_w_i;
+    ++rendered_feedback_source_pose_reference_factors_;
+    return true;
+  }
+
+  bool attach_rendered_feedback_source_pose_reference(
+    PendingSe3PhotometricFactor & pending,
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    if (!enable_rendered_feedback_source_pose_reference_ ||
+      !rendered.has_rendered_feedback_source_pose ||
+      !rendered.rendered_feedback_source_p_w_i.allFinite() ||
+      !rendered.rendered_feedback_source_q_w_i.coeffs().allFinite() ||
+      rendered.rendered_feedback_source_q_w_i.norm() <= std::numeric_limits<double>::epsilon())
+    {
+      return false;
+    }
+    pending.has_reference_pose = true;
+    pending.reference_p_w_i = rendered.rendered_feedback_source_p_w_i;
+    pending.reference_q_w_i = rendered.rendered_feedback_source_q_w_i.normalized();
+    ++rendered_feedback_source_pose_reference_factors_;
+    return true;
+  }
+
+  void attach_visual_reference(
+    PendingVisualAlignmentFactor & pending,
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    if (attach_rendered_feedback_source_pose_reference(pending, rendered)) {
+      return;
+    }
+    attach_visual_reference_snapshot(pending);
+  }
+
+  void attach_visual_reference(
+    PendingSe3PhotometricFactor & pending,
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    if (attach_rendered_feedback_source_pose_reference(pending, rendered)) {
+      return;
+    }
+    attach_visual_reference_snapshot(pending);
   }
 
   double visual_alignment_quality_weight_scale(const PendingVisualAlignmentFactor & pending) const
@@ -7028,6 +7108,12 @@ private:
     status.num_rendered_feedbacks = num_rendered_feedbacks_;
     status.rendered_feedback_embedded_observed_pairs =
       rendered_feedback_embedded_observed_pairs_;
+    status.rendered_feedback_source_pose_reference_enabled =
+      enable_rendered_feedback_source_pose_reference_;
+    status.rendered_feedback_source_pose_reference_factors =
+      rendered_feedback_source_pose_reference_factors_;
+    status.rendered_feedback_source_pose_invalid =
+      rendered_feedback_source_pose_invalid_;
     status.last_rendered_feedback_frame_index = last_rendered_feedback_frame_index_;
     status.last_rendered_feedback_preview_index = last_rendered_feedback_preview_index_;
     status.rendered_feedback_frame_index_regressions =
@@ -7663,6 +7749,7 @@ private:
   bool enable_visual_marginalization_prior_{false};
   bool visual_marginalization_prior_zero_bias_columns_{false};
   bool enable_visual_factor_reference_snapshot_{false};
+  bool enable_rendered_feedback_source_pose_reference_{false};
   double visual_expired_factor_projection_max_age_s_{5.0};
   bool visual_cache_reconciliation_defer_to_pointcloud_{false};
   bool visual_pair_processing_defer_to_pointcloud_{false};
@@ -8053,6 +8140,8 @@ private:
   uint64_t rendered_feedback_watermark_deferred_pairs_{0};
   uint64_t rendered_feedback_watermark_queue_drops_{0};
   uint64_t rendered_feedback_watermark_reordered_pairs_{0};
+  uint64_t rendered_feedback_source_pose_reference_factors_{0};
+  uint64_t rendered_feedback_source_pose_invalid_{0};
   size_t last_visual_depth_cache_size_{0};
   int64_t last_visual_depth_match_delta_ns_{0};
   uint64_t visual_depth_miss_count_{0};
