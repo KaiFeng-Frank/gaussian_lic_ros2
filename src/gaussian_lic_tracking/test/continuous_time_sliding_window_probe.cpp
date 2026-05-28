@@ -610,7 +610,6 @@ void check_marginalization_keeps_window_bounded()
   options.retained_knot_prior_count = 4;
   options.retained_knot_position_prior_weight = 5.0;
   options.retained_knot_orientation_prior_weight = 5.0;
-  options.position_smoothness_weight = 1.0;
 
   ContinuousTimeSlidingWindowEstimator estimator(options);
   std::vector<Eigen::Quaterniond> initial_rot(
@@ -630,6 +629,10 @@ void check_marginalization_keeps_window_bounded()
   for (int64_t t = truth.dt_ns; t < end_stamp_ns; t += imu_period_ns) {
     estimator.add_imu_sample(t, synthesize_imu(truth, t, gravity));
     if (t >= next_step_stamp) {
+      Eigen::Quaterniond q;
+      Eigen::Vector3d p;
+      truth_pose_at(truth, t, q, p);
+      estimator.add_position_prior(t, p, 5.0, 0.0);
       estimator.step();
       max_seen_window = std::max(max_seen_window, estimator.active_knot_count());
       next_step_stamp += truth.dt_ns * 4;

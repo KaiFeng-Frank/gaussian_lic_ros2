@@ -8,6 +8,7 @@
 #include <optional>
 #include <stdexcept>
 
+#include <gaussian_lic_tracking/spline/ceres_spline_helper.hpp>
 #include <gaussian_lic_tracking/spline/so3_ops.hpp>
 
 namespace gaussian_lic_tracking
@@ -565,10 +566,130 @@ bool ContinuousTimeSlidingWindowEstimator::step()
         prior.knot_stamps.begin(), prior.knot_stamps.end(),
         [&stamp_ns](const int64_t prior_stamp_ns) {
           return std::find(stamp_ns.begin(), stamp_ns.end(), prior_stamp_ns) != stamp_ns.end();
+            });
+    };
+  auto robust_sqrt_scale =
+    [](const Eigen::Vector3d & weighted_residual, double huber_delta, double weight) {
+      if (!std::isfinite(huber_delta) || huber_delta <= 0.0 ||
+        !std::isfinite(weight) || weight <= 0.0)
+      {
+        return 1.0;
+      }
+      const double norm = weighted_residual.norm();
+      const double effective_delta = huber_delta * weight;
+      if (!std::isfinite(norm) || norm <= effective_delta || effective_delta <= 0.0) {
+        return 1.0;
+      }
+      return std::sqrt(effective_delta / norm);
+    };
+  auto spline_position_support =
+    [this](
+      int64_t stamp_ns,
+      int derivative,
+      Eigen::Matrix<double, N, 1> & coefficients,
+      std::array<int64_t, N> & stamps,
+      std::array<Eigen::Vector3d, N> & positions) {
+      if (impl_->knot_stamps.size() < static_cast<std::size_t>(N) ||
+        !(impl_->options.dt_s > 0.0))
+      {
+        return false;
+      }
+      const double t_s = static_cast<double>(stamp_ns - impl_->knot_stamps.front()) * 1.0e-9;
+      if (!std::isfinite(t_s) || t_s < 0.0) {
+        return false;
+      }
+      const double scaled = t_s / impl_->options.dt_s;
+      const int segment_index = static_cast<int>(std::floor(scaled));
+      if (segment_index < 1 ||
+        segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
+      {
+        return false;
+      }
+      double u = scaled - static_cast<double>(segment_index);
+      if (u < 0.0) {
+        u = 0.0;
+      }
+      if (u >= 1.0) {
+        u = 1.0 - 1.0e-12;
+      }
+
+      typename CeresSplineHelper<N>::VecN raw;
+      if (derivative == 0) {
+        CeresSplineHelper<N>::template base_coefficients_with_time<0>(raw, u);
+      } else if (derivative == 1) {
+        CeresSplineHelper<N>::template base_coefficients_with_time<1>(raw, u);
+      } else {
+        return false;
+      }
+      coefficients =
+        std::pow(1.0 / impl_->options.dt_s, derivative) *
+        CeresSplineHelper<N>::blending_matrix() * raw;
+
+      const std::size_t base = static_cast<std::size_t>(segment_index - 1);
+      for (int i = 0; i < N; ++i) {
+        stamps[i] = impl_->knot_stamps[base + static_cast<std::size_t>(i)];
+        positions[i] = impl_->position_knots[base + static_cast<std::size_t>(i)];
+      }
+      return coefficients.allFinite();
+    };
+  auto add_position_like_marginalization_block =
+    [&](
+      SplineMarginalizationInfo & marginalization,
+      int64_t stamp_ns,
+      const Eigen::Vector3d & target,
+      double weight,
+      double huber_delta,
+      int derivative,
+      const std::vector<int64_t> & marginalized_stamp_ns) {
+      if (!target.allFinite() || !std::isfinite(weight) || weight <= 0.0 ||
+        !std::isfinite(huber_delta) || huber_delta < 0.0)
+      {
+        return;
+      }
+
+      Eigen::Matrix<double, N, 1> coefficients;
+      std::array<int64_t, N> stamps{};
+      std::array<Eigen::Vector3d, N> positions{};
+      if (!spline_position_support(stamp_ns, derivative, coefficients, stamps, positions)) {
+        return;
+      }
+
+      const bool touches_marginalized = std::any_of(
+        stamps.begin(), stamps.end(),
+        [&marginalized_stamp_ns](const int64_t support_stamp_ns) {
+          return std::find(
+            marginalized_stamp_ns.begin(), marginalized_stamp_ns.end(), support_stamp_ns) !=
+                 marginalized_stamp_ns.end();
         });
+      if (!touches_marginalized) {
+        return;
+      }
+
+      Eigen::Vector3d predicted = Eigen::Vector3d::Zero();
+      for (int i = 0; i < N; ++i) {
+        predicted.noalias() += coefficients[i] * positions[i];
+      }
+      Eigen::Vector3d weighted_residual = weight * (predicted - target);
+      const double sqrt_scale = robust_sqrt_scale(weighted_residual, huber_delta, weight);
+      weighted_residual *= sqrt_scale;
+      if (!weighted_residual.allFinite()) {
+        return;
+      }
+
+      LinearizedResidualBlock block;
+      block.parameter_block_ids.assign(stamps.begin(), stamps.end());
+      block.parameter_block_sizes.assign(static_cast<std::size_t>(N), 3);
+      block.jacobians.reserve(static_cast<std::size_t>(N));
+      for (int i = 0; i < N; ++i) {
+        block.jacobians.push_back(
+          sqrt_scale * weight * coefficients[i] * Eigen::Matrix3d::Identity());
+      }
+      block.residual = weighted_residual;
+      marginalization.add_residual_block(block);
     };
   auto build_position_marginalization_prior =
-    [this, &knot_index_for_stamp, &dense_prior_references_any](
+    [this, &knot_index_for_stamp, &dense_prior_references_any,
+    &add_position_like_marginalization_block](
       const std::vector<int64_t> & marginalized_stamp_ns) -> std::optional<BufferedDensePositionPrior>
     {
       if (marginalized_stamp_ns.empty()) {
@@ -578,6 +699,17 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       SplineMarginalizationInfo marginalization;
       for (const auto stamp_ns : marginalized_stamp_ns) {
         marginalization.mark_block_to_marginalize(stamp_ns);
+      }
+
+      for (const auto & prior : impl_->active_position_priors) {
+        add_position_like_marginalization_block(
+          marginalization, prior.stamp_ns, prior.position_world, prior.weight,
+          prior.huber_delta_m, 0, marginalized_stamp_ns);
+      }
+      for (const auto & prior : impl_->active_velocity_priors) {
+        add_position_like_marginalization_block(
+          marginalization, prior.stamp_ns, prior.velocity_world, prior.weight,
+          prior.huber_delta_mps, 1, marginalized_stamp_ns);
       }
 
       const double smoothness_weight =
