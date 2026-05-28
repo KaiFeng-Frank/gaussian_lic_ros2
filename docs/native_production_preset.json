@@ -1330,6 +1330,16 @@
             "produced_minus_received_total": 16,
             "received_minus_consumed_total": 0,
             "promotion_status": "not promoted: full-window adaptive retention removes time-expired drops, but retaining a 42-state active BA window collapses replay throughput to 118/1186 poses and 29/1015 visual/SE3 factors; the next structural target is asynchronous/global rendered-feedback coupling rather than growing the active window"
+        },
+        {
+            "id": "typed_rendered_feedback_source_identity_code_contract",
+            "scope": "source-indexed RenderedFeedback ownership now drives visual pair identity and BA factor source_id before any full-window promotion",
+            "code_paths": [
+                "src/gaussian_lic_tracking/src/tracking_node.cpp",
+                "scripts/check_ros2_semantics_contract.py"
+            ],
+            "accepted_preset_impact": "unchanged: typed rendered-feedback source identity is inert for the accepted untyped production preset",
+            "promotion_status": "code-level structural evidence only; full122 replay must beat the accepted 1.346 m / 5.00% preset before this path can be promoted"
         }
     ],
     "rejected_evidence": [

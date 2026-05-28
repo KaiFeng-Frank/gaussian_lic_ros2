@@ -1223,6 +1223,9 @@ private:
   {
     int64_t observed_stamp_ns{0};
     int64_t rendered_stamp_ns{0};
+    bool has_rendered_feedback_source{false};
+    uint64_t rendered_feedback_frame_index{0};
+    uint64_t rendered_feedback_preview_index{0};
   };
 
   struct QueuedRenderedFeedbackPair
@@ -2271,21 +2274,22 @@ private:
     const bool force_callback_ingest = false)
   {
     if (visual_pair_was_processed(
-        observed.stamp_ns,
-        rendered.stamp_ns,
+        observed,
+        rendered,
         visual_pair_requires_unique_observed_stamp(),
         visual_pair_requires_unique_rendered_stamp()))
     {
       ++visual_pair_duplicate_count_;
       return;
     }
-    remember_visual_pair(observed.stamp_ns, rendered.stamp_ns);
+    remember_visual_pair(observed, rendered);
     last_processed_visual_observed_stamp_ns_ = observed.stamp_ns;
     last_processed_visual_rendered_stamp_ns_ = rendered.stamp_ns;
     ++visual_pair_processed_count_;
     const int64_t pair_stamp_delta_ns = stamp_delta_ns(rendered.stamp_ns, observed.stamp_ns);
     const int64_t factor_reference_stamp_ns =
       visual_factor_reference_stamp_ns(observed, rendered);
+    const uint64_t factor_source_id = visual_factor_source_id(observed, rendered);
 
     last_visual_residual_ = visual_factor_.evaluate(rendered, observed);
     last_visual_alignment_ = visual_factor_.estimate_translation(
@@ -2357,7 +2361,7 @@ private:
         PendingSe3PhotometricFactor pending;
         pending.stamp_ns = factor_reference_stamp_ns;
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
-        pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
+        pending.source_id = factor_source_id;
         pending.mean_abs_residual = se3_samples.mean_abs_residual;
         pending.sample_inlier_ratio = se3_photometric_sample_inlier_ratio(se3_samples);
         pending.step_norm = last_visual_se3_photometric_linearization_.gauss_newton_step.norm();
@@ -2400,7 +2404,7 @@ private:
         PendingVisualAlignmentFactor pending;
         pending.stamp_ns = factor_reference_stamp_ns;
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
-        pending.source_id = visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
+        pending.source_id = factor_source_id;
         pending.alignment = window_alignment.value();
         attach_visual_reference_snapshot(pending);
         pending_visual_alignment_factors_.push_back(std::move(pending));
@@ -5278,22 +5282,44 @@ private:
     return true;
   }
 
-  uint64_t visual_factor_source_id(
-    const int64_t observed_stamp_ns,
-    const int64_t rendered_stamp_ns) const
+  static uint64_t mix_visual_factor_source_id(uint64_t mixed, const uint64_t value)
   {
-    uint64_t mixed = static_cast<uint64_t>(observed_stamp_ns);
-    mixed ^= static_cast<uint64_t>(rendered_stamp_ns) + 0x9e3779b97f4a7c15ULL +
+    mixed ^= value + 0x9e3779b97f4a7c15ULL +
       (mixed << 6U) + (mixed >> 2U);
     mixed ^= mixed >> 30U;
     mixed *= 0xbf58476d1ce4e5b9ULL;
     mixed ^= mixed >> 27U;
     mixed *= 0x94d049bb133111ebULL;
     mixed ^= mixed >> 31U;
+    return mixed == 0U ? 1U : mixed;
+  }
+
+  uint64_t visual_factor_source_id(
+    const int64_t observed_stamp_ns,
+    const int64_t rendered_stamp_ns) const
+  {
+    const uint64_t mixed = mix_visual_factor_source_id(
+      static_cast<uint64_t>(observed_stamp_ns),
+      static_cast<uint64_t>(rendered_stamp_ns));
     if (visual_factor_source_id_mode_ == VisualFactorSourceIdMode::kLegacy8Bit) {
       return 1U + (mixed % 254U);
     }
-    return mixed == 0U ? 1U : mixed;
+    return mixed;
+  }
+
+  uint64_t visual_factor_source_id(
+    const gaussian_lic_tracking::VisualFrame & observed,
+    const gaussian_lic_tracking::VisualFrame & rendered) const
+  {
+    if (rendered.has_rendered_feedback_metadata) {
+      uint64_t mixed = 0xd6e8feb86659fd93ULL;
+      mixed = mix_visual_factor_source_id(mixed, rendered.rendered_feedback_frame_index);
+      mixed = mix_visual_factor_source_id(mixed, rendered.rendered_feedback_preview_index);
+      mixed = mix_visual_factor_source_id(
+        mixed, static_cast<uint64_t>(rendered.rendered_feedback_observed_stamp_ns));
+      return mixed;
+    }
+    return visual_factor_source_id(observed.stamp_ns, rendered.stamp_ns);
   }
 
   int64_t visual_factor_reference_stamp_ns(
@@ -5475,6 +5501,37 @@ private:
     }
   }
 
+  static bool visual_frame_has_rendered_feedback_source(
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    return rendered.has_rendered_feedback_metadata;
+  }
+
+  static bool visual_pair_sources_match(
+    const VisualPairKey & key,
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    return key.has_rendered_feedback_source &&
+           visual_frame_has_rendered_feedback_source(rendered) &&
+           key.rendered_feedback_frame_index == rendered.rendered_feedback_frame_index &&
+           key.rendered_feedback_preview_index == rendered.rendered_feedback_preview_index;
+  }
+
+  static VisualPairKey make_visual_pair_key(
+    const gaussian_lic_tracking::VisualFrame & observed,
+    const gaussian_lic_tracking::VisualFrame & rendered)
+  {
+    VisualPairKey key;
+    key.observed_stamp_ns = observed.stamp_ns;
+    key.rendered_stamp_ns = rendered.stamp_ns;
+    key.has_rendered_feedback_source = visual_frame_has_rendered_feedback_source(rendered);
+    if (key.has_rendered_feedback_source) {
+      key.rendered_feedback_frame_index = rendered.rendered_feedback_frame_index;
+      key.rendered_feedback_preview_index = rendered.rendered_feedback_preview_index;
+    }
+    return key;
+  }
+
   bool visual_pair_was_processed(
     const int64_t observed_stamp_ns,
     const int64_t rendered_stamp_ns,
@@ -5498,6 +5555,51 @@ private:
       });
   }
 
+  bool visual_pair_was_processed(
+    const gaussian_lic_tracking::VisualFrame & observed,
+    const gaussian_lic_tracking::VisualFrame & rendered,
+    const bool collapse_observed_stamp,
+    const bool collapse_rendered_stamp) const
+  {
+    return std::any_of(
+      processed_visual_pairs_.begin(), processed_visual_pairs_.end(),
+      [this, &observed, &rendered, collapse_observed_stamp, collapse_rendered_stamp](
+        const VisualPairKey & key)
+      {
+        const bool observed_matches = key.observed_stamp_ns == observed.stamp_ns;
+        const bool rendered_matches = key.rendered_stamp_ns == rendered.stamp_ns;
+        if (collapse_observed_stamp && observed_matches) {
+          return true;
+        }
+        if (collapse_rendered_stamp && rendered_matches) {
+          return true;
+        }
+        if (visual_pair_sources_match(key, rendered)) {
+          return true;
+        }
+        if (key.has_rendered_feedback_source || visual_frame_has_rendered_feedback_source(rendered)) {
+          return false;
+        }
+        return observed_matches && rendered_matches;
+      });
+  }
+
+  bool rendered_frame_was_processed(
+    const gaussian_lic_tracking::VisualFrame & rendered) const
+  {
+    return std::any_of(
+      processed_visual_pairs_.begin(), processed_visual_pairs_.end(),
+      [&rendered](const VisualPairKey & key) {
+        if (visual_pair_sources_match(key, rendered)) {
+          return true;
+        }
+        if (key.has_rendered_feedback_source || visual_frame_has_rendered_feedback_source(rendered)) {
+          return false;
+        }
+        return key.rendered_stamp_ns == rendered.stamp_ns;
+      });
+  }
+
   bool visual_pair_requires_unique_observed_stamp() const
   {
     return enable_visual_cache_reconciliation_ || visual_pair_monotonic_unique_;
@@ -5509,10 +5611,10 @@ private:
   }
 
   void remember_visual_pair(
-    const int64_t observed_stamp_ns,
-    const int64_t rendered_stamp_ns)
+    const gaussian_lic_tracking::VisualFrame & observed,
+    const gaussian_lic_tracking::VisualFrame & rendered)
   {
-    processed_visual_pairs_.push_back(VisualPairKey{observed_stamp_ns, rendered_stamp_ns});
+    processed_visual_pairs_.push_back(make_visual_pair_key(observed, rendered));
     const auto cache_bound = static_cast<size_t>(
       std::max(256, 4 * (rendered_frame_cache_size_ + observed_frame_cache_size_)));
     while (processed_visual_pairs_.size() > cache_bound) {
@@ -5557,8 +5659,7 @@ private:
         continue;
       }
       if (visual_pair_was_processed(
-          observed.stamp_ns, rendered->stamp_ns, true,
-          visual_pair_requires_unique_rendered_stamp()))
+          observed, *rendered, true, visual_pair_requires_unique_rendered_stamp()))
       {
         continue;
       }
@@ -5624,7 +5725,7 @@ private:
           ++visual_watermark_pair_scheduler_deferred_pairs_;
           continue;
         }
-        if (visual_pair_was_processed(observed.stamp_ns, rendered->stamp_ns, true, true)) {
+        if (visual_pair_was_processed(observed, *rendered, true, true)) {
           continue;
         }
         selected_observed = &observed;
@@ -5770,9 +5871,7 @@ private:
         continue;
       }
       had_size_match = true;
-      if (require_unprocessed_rendered &&
-        visual_pair_was_processed(
-          std::numeric_limits<int64_t>::min(), frame.stamp_ns, false, true))
+      if (require_unprocessed_rendered && rendered_frame_was_processed(frame))
       {
         continue;
       }

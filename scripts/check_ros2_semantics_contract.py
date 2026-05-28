@@ -351,6 +351,12 @@ def main() -> int:
         errors.append("tracking_node must default visual source-id hashing to the accepted legacy_8bit mode")
     if "uint64_t visual_factor_source_id" not in tracking_node_text or "VisualFactorSourceIdMode::kFull64Bit" not in tracking_node_text:
         errors.append("tracking_node must keep a default-off full_64bit visual source-id diagnostic")
+    if "visual_pair_sources_match" not in tracking_node_text or \
+            "rendered.rendered_feedback_frame_index" not in tracking_node_text or \
+            "rendered.rendered_feedback_preview_index" not in tracking_node_text:
+        errors.append(
+            "tracking_node must use typed RenderedFeedback frame/preview indices for visual pair/factor identity"
+        )
     if 'declare_parameter<std::string>("visual_factor_reference_stamp_mode", "observed")' not in tracking_node_text:
         errors.append("tracking_node must default visual factor reference stamps to observed")
     if "VisualFactorReferenceStampMode::kRendered" not in tracking_node_text:
