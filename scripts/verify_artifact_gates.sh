@@ -29,6 +29,19 @@ EOF
 grep -q '"ok": true' "${ARTIFACT_DIR}/trajectory_compare.json"
 grep -q '"current_to_baseline_ratio"' "${ARTIFACT_DIR}/trajectory_compare.json"
 grep -q '"signed_relative_drift"' "${ARTIFACT_DIR}/trajectory_compare.json"
+./scripts/trajectory_compare.py \
+  --baseline /tmp/gaussian_lic_baseline.tum \
+  --current /tmp/gaussian_lic_current.tum \
+  --output "${ARTIFACT_DIR}/trajectory_compare_offset_sweep.json" \
+  --max-rmse-m 0.01 \
+  --max-mean-m 0.01 \
+  --max-error-m 0.01 \
+  --time-offset-sweep-min -0.1 \
+  --time-offset-sweep-max 0.1 \
+  --time-offset-sweep-step 0.1
+grep -q '"best_offset_sec"' "${ARTIFACT_DIR}/trajectory_compare_offset_sweep.json"
+grep -q '"best_rmse_m"' "${ARTIFACT_DIR}/trajectory_compare_offset_sweep.json"
+grep -q '"candidate_count": 3' "${ARTIFACT_DIR}/trajectory_compare_offset_sweep.json"
 
 set +e
 ./scripts/trajectory_compare.py \

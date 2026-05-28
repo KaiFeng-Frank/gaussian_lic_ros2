@@ -470,13 +470,21 @@ def compute_time_offset_sweep(baseline, current, args):
         })
 
     candidates.sort(key=lambda item: (item["translation_rmse_m"], -item["matched_poses"]))
+    best = candidates[0] if candidates else None
     return {
         "enabled": True,
         "min_offset_sec": args.time_offset_sweep_min,
         "max_offset_sec": args.time_offset_sweep_max,
         "step_sec": step,
         "min_matches": min_matches,
-        "best": candidates[0] if candidates else None,
+        "candidate_count": len(candidates),
+        "best": best,
+        "best_offset_sec": None if best is None else best["offset_sec"],
+        "best_matched_poses": None if best is None else best["matched_poses"],
+        "best_coverage": None if best is None else best["coverage"],
+        "best_rmse_m": None if best is None else best["translation_rmse_m"],
+        "best_mean_m": None if best is None else best["translation_mean_m"],
+        "best_path_drift": None if best is None else best["path_relative_drift"],
         "top_offsets": candidates[:10],
     }
 
