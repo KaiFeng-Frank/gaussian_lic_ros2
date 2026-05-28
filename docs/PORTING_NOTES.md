@@ -392,7 +392,9 @@ LiDAR-pose-derived acceleration targets as well as the scan-to-scan clamp, and
 can require LiDAR pose and scan-to-scan acceleration targets to agree before
 either source injects a curvature prior. The native parity script forwards and
 archives the acceleration weights, robust deltas, optional clamps, agreement
-gate controls, and diagnostic counts. This is not a new production preset; it is a missing curvature
+gate controls, and diagnostic counts, and it rejects opt-in reports where the
+requested acceleration prior path never reaches the optimizer or the agreement
+gate logs no checks. This is not a new production preset; it is a missing curvature
 constraint needed to test whether long-window path-shape drift is caused by
 velocity-only motion information. `continuous_time_sliding_window_probe`
 contains the deterministic gate that perturbs spline curvature and verifies the

@@ -782,9 +782,22 @@ def nested(payload, *keys):
         current = current.get(key)
     return current
 
+report_errors = []
+if "${ENABLE_LIDAR_ACCELERATION_AGREEMENT_GATE}" == "true":
+    agreement_checks = runtime_diagnostic_summary.get(
+        "lidar_acceleration_agreement_checks_final")
+    if agreement_checks is None or int(agreement_checks) <= 0:
+        report_errors.append("lidar acceleration agreement gate enabled but no checks were logged")
+if float("${LIDAR_POSE_PRIOR_ACCELERATION_WEIGHT}") > 0.0 or \
+   float("${LIDAR_SCAN_TO_SCAN_ACCELERATION_WEIGHT}") > 0.0:
+    acceleration_factors = runtime_diagnostic_summary.get("acceleration_prior_factors_final")
+    if acceleration_factors is None or int(acceleration_factors) <= 0:
+        report_errors.append("acceleration prior requested but no optimizer factors were logged")
+
 native = {
-    "ok": (tum_lines > 0 and finite_positions > 0),
+    "ok": (tum_lines > 0 and finite_positions > 0 and not report_errors),
     "schema": "gaussian_lic_continuous_time_native_tracking_report/v1",
+    "errors": report_errors,
     "bag": "${BAG_DIR##*/}",
     "playback_duration_source": "${PLAYBACK_DURATION_SOURCE}",
     "playback_duration_s": float("${PLAYBACK_DURATION}"),
