@@ -141,6 +141,9 @@ def generate_launch_description():
     enable_visual_marginalization_prior_batching = LaunchConfiguration(
         "enable_visual_marginalization_prior_batching"
     )
+    enable_visual_marginalization_prior_saturation_gate = LaunchConfiguration(
+        "enable_visual_marginalization_prior_saturation_gate"
+    )
     visual_marginalization_prior_zero_bias_columns = LaunchConfiguration(
         "visual_marginalization_prior_zero_bias_columns"
     )
@@ -676,6 +679,7 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_visual_expired_factor_projection", default_value="false"),
             DeclareLaunchArgument("enable_visual_marginalization_prior", default_value="false"),
             DeclareLaunchArgument("enable_visual_marginalization_prior_batching", default_value="false"),
+            DeclareLaunchArgument("enable_visual_marginalization_prior_saturation_gate", default_value="false"),
             DeclareLaunchArgument("visual_marginalization_prior_zero_bias_columns", default_value="false"),
             DeclareLaunchArgument("enable_visual_factor_reference_snapshot", default_value="false"),
             DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false"),
@@ -1065,6 +1069,7 @@ def generate_launch_description():
                         ),
                         "enable_visual_marginalization_prior": enable_visual_marginalization_prior,
                         "enable_visual_marginalization_prior_batching": enable_visual_marginalization_prior_batching,
+                        "enable_visual_marginalization_prior_saturation_gate": enable_visual_marginalization_prior_saturation_gate,
                         "visual_marginalization_prior_zero_bias_columns": visual_marginalization_prior_zero_bias_columns,
                         "enable_visual_factor_reference_snapshot": (
                             enable_visual_factor_reference_snapshot

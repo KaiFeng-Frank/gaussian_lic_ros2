@@ -392,6 +392,8 @@ public:
       declare_parameter<bool>("enable_visual_marginalization_prior", false);
     enable_visual_marginalization_prior_batching_ =
       declare_parameter<bool>("enable_visual_marginalization_prior_batching", false);
+    enable_visual_marginalization_prior_saturation_gate_ =
+      declare_parameter<bool>("enable_visual_marginalization_prior_saturation_gate", false);
     visual_marginalization_prior_zero_bias_columns_ =
       declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false);
     enable_visual_factor_reference_snapshot_ =
@@ -1374,6 +1376,7 @@ private:
     int64_t stamp_ns{0};
     int64_t pair_stamp_delta_ns{0};
     uint64_t source_id{0};
+    bool visual_alignment_saturated{false};
     bool has_reference_pose{false};
     Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
     Eigen::Quaterniond reference_q_w_i{Eigen::Quaterniond::Identity()};
@@ -2706,6 +2709,7 @@ private:
         pending.stamp_ns = factor_reference_stamp_ns;
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
         pending.source_id = factor_source_id;
+        pending.visual_alignment_saturated = last_visual_alignment_saturated_;
         pending.mean_abs_residual = se3_samples.mean_abs_residual;
         pending.sample_inlier_ratio = se3_photometric_sample_inlier_ratio(se3_samples);
         pending.step_norm = last_visual_se3_photometric_linearization_.gauss_newton_step.norm();
@@ -3058,6 +3062,10 @@ private:
     if (!enable_visual_marginalization_prior_) {
       return false;
     }
+    if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
+      ++visual_marginalization_prior_saturation_rejected_factors_;
+      return false;
+    }
     const auto factor = make_marginalized_visual_factor_from_pending(pending);
     if (!factor.has_value()) {
       if (count_skip_on_failure) {
@@ -3091,6 +3099,10 @@ private:
     const bool count_skip_on_failure = true)
   {
     if (!enable_visual_marginalization_prior_) {
+      return false;
+    }
+    if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
+      ++visual_marginalization_prior_saturation_rejected_factors_;
       return false;
     }
     const auto factor = make_marginalized_se3_factor_from_pending(pending);
@@ -3139,6 +3151,20 @@ private:
     return visual_factor_stamp_is_expired(stamp_ns, tracking_pose.stamp_ns);
   }
 
+  bool visual_marginalization_prior_saturation_gate_rejects(
+    const PendingVisualAlignmentFactor & pending) const
+  {
+    return enable_visual_marginalization_prior_saturation_gate_ &&
+      visual_alignment_is_saturated(pending.alignment);
+  }
+
+  bool visual_marginalization_prior_saturation_gate_rejects(
+    const PendingSe3PhotometricFactor & pending) const
+  {
+    return enable_visual_marginalization_prior_saturation_gate_ &&
+      pending.visual_alignment_saturated;
+  }
+
   bool add_batched_marginalized_visual_priors_from_pending(
     const gaussian_lic_tracking::TrajectoryPose & tracking_pose,
     const bool callback_ingest)
@@ -3153,8 +3179,14 @@ private:
     std::vector<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor> se3_factors;
     visual_factors.reserve(pending_visual_alignment_factors_.size());
     se3_factors.reserve(pending_visual_se3_photometric_factors_.size());
+    bool rejected_by_saturation_gate = false;
     for (const auto & pending : pending_visual_alignment_factors_) {
       if (!visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose)) {
+        continue;
+      }
+      if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
+        ++visual_marginalization_prior_saturation_rejected_factors_;
+        rejected_by_saturation_gate = true;
         continue;
       }
       const auto factor = make_marginalized_visual_factor_from_pending(pending);
@@ -3167,6 +3199,11 @@ private:
       if (!visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose)) {
         continue;
       }
+      if (visual_marginalization_prior_saturation_gate_rejects(pending)) {
+        ++visual_marginalization_prior_saturation_rejected_factors_;
+        rejected_by_saturation_gate = true;
+        continue;
+      }
       const auto factor = make_marginalized_se3_factor_from_pending(pending);
       if (!factor.has_value()) {
         return false;
@@ -3174,6 +3211,26 @@ private:
       se3_factors.push_back(factor.value());
     }
     if (visual_factors.empty() && se3_factors.empty()) {
+      if (rejected_by_saturation_gate) {
+        pending_visual_alignment_factors_.erase(
+          std::remove_if(
+            pending_visual_alignment_factors_.begin(),
+            pending_visual_alignment_factors_.end(),
+            [this, &tracking_pose](const PendingVisualAlignmentFactor & pending) {
+              return visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose) &&
+                visual_marginalization_prior_saturation_gate_rejects(pending);
+            }),
+          pending_visual_alignment_factors_.end());
+        pending_visual_se3_photometric_factors_.erase(
+          std::remove_if(
+            pending_visual_se3_photometric_factors_.begin(),
+            pending_visual_se3_photometric_factors_.end(),
+            [this, &tracking_pose](const PendingSe3PhotometricFactor & pending) {
+              return visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose) &&
+                visual_marginalization_prior_saturation_gate_rejects(pending);
+            }),
+          pending_visual_se3_photometric_factors_.end());
+      }
       return false;
     }
     const auto result =
@@ -3388,6 +3445,12 @@ private:
           ++visual_alignment_pending_future_deferrals_;
           continue;
         }
+        if (visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose) &&
+          visual_marginalization_prior_saturation_gate_rejects(pending))
+        {
+          ++visual_marginalization_prior_saturation_rejected_factors_;
+          continue;
+        }
         if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
           add_marginalized_visual_prior_from_pending(pending, true, false))
         {
@@ -3462,6 +3525,12 @@ private:
         if (visual_factor_should_defer_future_reference(pending.stamp_ns, tracking_pose)) {
           retained_pending.push_back(pending);
           ++visual_se3_photometric_pending_future_deferrals_;
+          continue;
+        }
+        if (visual_pending_factor_needs_marginalized_prior(pending.stamp_ns, tracking_pose) &&
+          visual_marginalization_prior_saturation_gate_rejects(pending))
+        {
+          ++visual_marginalization_prior_saturation_rejected_factors_;
           continue;
         }
         if (visual_factor_stamp_is_before_active_window(pending.stamp_ns) &&
@@ -8080,6 +8149,8 @@ private:
       enable_visual_marginalization_prior_;
     status.visual_marginalization_prior_batching_enabled =
       enable_visual_marginalization_prior_batching_;
+    status.visual_marginalization_prior_saturation_gate_enabled =
+      enable_visual_marginalization_prior_saturation_gate_;
     status.visual_marginalization_prior_zero_bias_columns =
       visual_marginalization_prior_zero_bias_columns_;
     status.visual_alignment_expired_projected_factors =
@@ -8094,6 +8165,8 @@ private:
       visual_se3_photometric_marginalization_priors_;
     status.visual_marginalization_prior_skipped_factors =
       visual_marginalization_prior_skipped_factors_;
+    status.visual_marginalization_prior_saturation_rejected_factors =
+      visual_marginalization_prior_saturation_rejected_factors_;
     status.visual_batched_marginalization_prior_batches =
       visual_batched_marginalization_prior_batches_;
     status.visual_batched_marginalization_prior_visual_factors =
@@ -8359,6 +8432,7 @@ private:
   bool enable_visual_expired_factor_projection_{false};
   bool enable_visual_marginalization_prior_{false};
   bool enable_visual_marginalization_prior_batching_{false};
+  bool enable_visual_marginalization_prior_saturation_gate_{false};
   bool visual_marginalization_prior_zero_bias_columns_{false};
   bool enable_visual_factor_reference_snapshot_{false};
   bool enable_rendered_feedback_source_pose_reference_{false};
@@ -8809,6 +8883,7 @@ private:
   uint64_t visual_alignment_marginalization_priors_{0};
   uint64_t visual_se3_photometric_marginalization_priors_{0};
   uint64_t visual_marginalization_prior_skipped_factors_{0};
+  uint64_t visual_marginalization_prior_saturation_rejected_factors_{0};
   uint64_t visual_batched_marginalization_prior_batches_{0};
   uint64_t visual_batched_marginalization_prior_visual_factors_{0};
   uint64_t visual_batched_marginalization_prior_se3_factors_{0};
