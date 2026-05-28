@@ -67,6 +67,12 @@ LIDAR_POSE_PRIOR_POSITION_HUBER_DELTA_M="${LIDAR_POSE_PRIOR_POSITION_HUBER_DELTA
 LIDAR_POSE_PRIOR_VELOCITY_HUBER_DELTA_MPS="${LIDAR_POSE_PRIOR_VELOCITY_HUBER_DELTA_MPS:-0.25}"
 LIDAR_POSE_PRIOR_ACCELERATION_HUBER_DELTA_MPS2="${LIDAR_POSE_PRIOR_ACCELERATION_HUBER_DELTA_MPS2:-0.50}"
 LIDAR_POSE_PRIOR_MAX_ACCELERATION_MPS2="${LIDAR_POSE_PRIOR_MAX_ACCELERATION_MPS2:-0.0}"
+ENABLE_LIDAR_ACCELERATION_AGREEMENT_GATE="${ENABLE_LIDAR_ACCELERATION_AGREEMENT_GATE:-false}"
+LIDAR_ACCELERATION_AGREEMENT_MAX_AGE_S="${LIDAR_ACCELERATION_AGREEMENT_MAX_AGE_S:-0.20}"
+LIDAR_ACCELERATION_AGREEMENT_MAX_DELTA_MPS2="${LIDAR_ACCELERATION_AGREEMENT_MAX_DELTA_MPS2:-1.0}"
+LIDAR_ACCELERATION_AGREEMENT_MAX_ANGLE_RAD="${LIDAR_ACCELERATION_AGREEMENT_MAX_ANGLE_RAD:-0.75}"
+LIDAR_ACCELERATION_AGREEMENT_MAX_RATIO="${LIDAR_ACCELERATION_AGREEMENT_MAX_RATIO:-4.0}"
+LIDAR_ACCELERATION_AGREEMENT_MIN_NORM_MPS2="${LIDAR_ACCELERATION_AGREEMENT_MIN_NORM_MPS2:-0.05}"
 LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_HUBER_DELTA_RADPS="${LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_HUBER_DELTA_RADPS:-0.25}"
 LIDAR_POSE_PRIOR_ORIENTATION_HUBER_DELTA_RAD="${LIDAR_POSE_PRIOR_ORIENTATION_HUBER_DELTA_RAD:-0.25}"
 LIDAR_POSE_FACTOR_KEYFRAME_STRIDE="${LIDAR_POSE_FACTOR_KEYFRAME_STRIDE:-5}"
@@ -352,6 +358,12 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p lidar_pose_prior_velocity_huber_delta_mps:="${LIDAR_POSE_PRIOR_VELOCITY_HUBER_DELTA_MPS}" \
   -p lidar_pose_prior_acceleration_huber_delta_mps2:="${LIDAR_POSE_PRIOR_ACCELERATION_HUBER_DELTA_MPS2}" \
   -p lidar_pose_prior_max_acceleration_mps2:="${LIDAR_POSE_PRIOR_MAX_ACCELERATION_MPS2}" \
+  -p enable_lidar_acceleration_agreement_gate:="${ENABLE_LIDAR_ACCELERATION_AGREEMENT_GATE}" \
+  -p lidar_acceleration_agreement_max_age_s:="${LIDAR_ACCELERATION_AGREEMENT_MAX_AGE_S}" \
+  -p lidar_acceleration_agreement_max_delta_mps2:="${LIDAR_ACCELERATION_AGREEMENT_MAX_DELTA_MPS2}" \
+  -p lidar_acceleration_agreement_max_angle_rad:="${LIDAR_ACCELERATION_AGREEMENT_MAX_ANGLE_RAD}" \
+  -p lidar_acceleration_agreement_max_ratio:="${LIDAR_ACCELERATION_AGREEMENT_MAX_RATIO}" \
+  -p lidar_acceleration_agreement_min_norm_mps2:="${LIDAR_ACCELERATION_AGREEMENT_MIN_NORM_MPS2}" \
   -p lidar_pose_prior_angular_velocity_huber_delta_radps:="${LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_HUBER_DELTA_RADPS}" \
   -p lidar_pose_prior_orientation_huber_delta_rad:="${LIDAR_POSE_PRIOR_ORIENTATION_HUBER_DELTA_RAD}" \
   -p lidar_pose_factor_keyframe_stride:="${LIDAR_POSE_FACTOR_KEYFRAME_STRIDE}" \
@@ -671,6 +683,12 @@ if os.path.isfile(node_log):
                 if key in item and isinstance(item[key], (int, float))
             ]
 
+        def bounded_numeric_values(key):
+            return [
+                value for value in numeric_values(key)
+                if math.isfinite(value) and abs(value) < 1.0e29
+            ]
+
         def vector_step_norm(prefix):
             keys = [f"{prefix}_x", f"{prefix}_y", f"{prefix}_z"]
             max_step = 0.0
@@ -712,6 +730,22 @@ if os.path.isfile(node_log):
                 numeric_values("lidar_pose_last_target_accel_mps2"), default=None),
             "lidar_scan_to_scan_target_acceleration_mps2_max": max(
                 numeric_values("lidar_scan_to_scan_target_accel_mps2"), default=None),
+            "lidar_acceleration_agreement_checks_final": final_value(
+                "lidar_accel_agreement_checks"),
+            "lidar_acceleration_agreement_accepted_final": final_value(
+                "lidar_accel_agreement_accepted"),
+            "lidar_acceleration_agreement_rejected_final": final_value(
+                "lidar_accel_agreement_rejected"),
+            "lidar_acceleration_agreement_missing_peer_final": final_value(
+                "lidar_accel_agreement_missing_peer"),
+            "lidar_acceleration_agreement_stale_peer_final": final_value(
+                "lidar_accel_agreement_stale_peer"),
+            "lidar_acceleration_agreement_last_delta_mps2_max": max(
+                bounded_numeric_values("lidar_accel_agreement_last_delta_mps2"), default=None),
+            "lidar_acceleration_agreement_last_angle_rad_max": max(
+                bounded_numeric_values("lidar_accel_agreement_last_angle_rad"), default=None),
+            "lidar_acceleration_agreement_last_ratio_max": max(
+                bounded_numeric_values("lidar_accel_agreement_last_ratio"), default=None),
             "max_position_update_m_max": max(
                 numeric_values("max_position_update_m"), default=None),
             "max_rotation_update_rad_max": max(
@@ -803,6 +837,12 @@ native = {
     "lidar_pose_prior_velocity_huber_delta_mps": float("${LIDAR_POSE_PRIOR_VELOCITY_HUBER_DELTA_MPS}"),
     "lidar_pose_prior_acceleration_huber_delta_mps2": float("${LIDAR_POSE_PRIOR_ACCELERATION_HUBER_DELTA_MPS2}"),
     "lidar_pose_prior_max_acceleration_mps2": float("${LIDAR_POSE_PRIOR_MAX_ACCELERATION_MPS2}"),
+    "enable_lidar_acceleration_agreement_gate": "${ENABLE_LIDAR_ACCELERATION_AGREEMENT_GATE}" == "true",
+    "lidar_acceleration_agreement_max_age_s": float("${LIDAR_ACCELERATION_AGREEMENT_MAX_AGE_S}"),
+    "lidar_acceleration_agreement_max_delta_mps2": float("${LIDAR_ACCELERATION_AGREEMENT_MAX_DELTA_MPS2}"),
+    "lidar_acceleration_agreement_max_angle_rad": float("${LIDAR_ACCELERATION_AGREEMENT_MAX_ANGLE_RAD}"),
+    "lidar_acceleration_agreement_max_ratio": float("${LIDAR_ACCELERATION_AGREEMENT_MAX_RATIO}"),
+    "lidar_acceleration_agreement_min_norm_mps2": float("${LIDAR_ACCELERATION_AGREEMENT_MIN_NORM_MPS2}"),
     "lidar_pose_prior_angular_velocity_huber_delta_radps": float("${LIDAR_POSE_PRIOR_ANGULAR_VELOCITY_HUBER_DELTA_RADPS}"),
     "lidar_pose_prior_orientation_huber_delta_rad": float("${LIDAR_POSE_PRIOR_ORIENTATION_HUBER_DELTA_RAD}"),
     "lidar_pose_factor_keyframe_stride": int("${LIDAR_POSE_FACTOR_KEYFRAME_STRIDE}"),

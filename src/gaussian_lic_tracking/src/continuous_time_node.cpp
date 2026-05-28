@@ -820,6 +820,18 @@ public:
       declare_parameter<double>("lidar_pose_prior_acceleration_huber_delta_mps2", 0.50);
     lidar_pose_prior_max_acceleration_mps2_ =
       declare_parameter<double>("lidar_pose_prior_max_acceleration_mps2", 0.0);
+    enable_lidar_acceleration_agreement_gate_ =
+      declare_parameter<bool>("enable_lidar_acceleration_agreement_gate", false);
+    lidar_acceleration_agreement_max_age_s_ =
+      declare_parameter<double>("lidar_acceleration_agreement_max_age_s", 0.20);
+    lidar_acceleration_agreement_max_delta_mps2_ =
+      declare_parameter<double>("lidar_acceleration_agreement_max_delta_mps2", 1.0);
+    lidar_acceleration_agreement_max_angle_rad_ =
+      declare_parameter<double>("lidar_acceleration_agreement_max_angle_rad", 0.75);
+    lidar_acceleration_agreement_max_ratio_ =
+      declare_parameter<double>("lidar_acceleration_agreement_max_ratio", 4.0);
+    lidar_acceleration_agreement_min_norm_mps2_ =
+      declare_parameter<double>("lidar_acceleration_agreement_min_norm_mps2", 0.05);
     lidar_pose_prior_angular_velocity_huber_delta_radps_ =
       declare_parameter<double>("lidar_pose_prior_angular_velocity_huber_delta_radps", 0.25);
     lidar_pose_prior_orientation_huber_delta_rad_ =
@@ -902,6 +914,16 @@ public:
       lidar_pose_prior_acceleration_huber_delta_mps2_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_max_acceleration_mps2_) ||
       lidar_pose_prior_max_acceleration_mps2_ < 0.0 ||
+      !std::isfinite(lidar_acceleration_agreement_max_age_s_) ||
+      lidar_acceleration_agreement_max_age_s_ < 0.0 ||
+      !std::isfinite(lidar_acceleration_agreement_max_delta_mps2_) ||
+      lidar_acceleration_agreement_max_delta_mps2_ < 0.0 ||
+      !std::isfinite(lidar_acceleration_agreement_max_angle_rad_) ||
+      lidar_acceleration_agreement_max_angle_rad_ < 0.0 ||
+      !std::isfinite(lidar_acceleration_agreement_max_ratio_) ||
+      lidar_acceleration_agreement_max_ratio_ < 0.0 ||
+      !std::isfinite(lidar_acceleration_agreement_min_norm_mps2_) ||
+      lidar_acceleration_agreement_min_norm_mps2_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_angular_velocity_huber_delta_radps_) ||
       lidar_pose_prior_angular_velocity_huber_delta_radps_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_huber_delta_rad_) ||
@@ -1214,6 +1236,84 @@ private:
     int64_t first_stamp_ns{0};
     int64_t last_stamp_ns{0};
   };
+
+  bool lidar_acceleration_target_is_agreed(
+    int64_t stamp_ns,
+    const Eigen::Vector3d & target_acceleration,
+    bool have_peer_target,
+    int64_t peer_stamp_ns,
+    const Eigen::Vector3d & peer_acceleration)
+  {
+    if (!enable_lidar_acceleration_agreement_gate_) {
+      return true;
+    }
+    constexpr double kInvalidAgreementMetric = 1.0e30;
+
+    ++lidar_acceleration_agreement_checks_;
+    if (!target_acceleration.allFinite() || !have_peer_target ||
+      !peer_acceleration.allFinite())
+    {
+      ++lidar_acceleration_agreement_missing_peer_;
+      ++lidar_acceleration_agreement_rejected_;
+      lidar_acceleration_agreement_last_age_s_ = kInvalidAgreementMetric;
+      lidar_acceleration_agreement_last_delta_mps2_ = kInvalidAgreementMetric;
+      lidar_acceleration_agreement_last_angle_rad_ = kInvalidAgreementMetric;
+      lidar_acceleration_agreement_last_ratio_ = kInvalidAgreementMetric;
+      return false;
+    }
+
+    const double age_s =
+      std::abs(static_cast<double>(stamp_ns - peer_stamp_ns) * 1.0e-9);
+    lidar_acceleration_agreement_last_age_s_ = age_s;
+    if (lidar_acceleration_agreement_max_age_s_ > 0.0 &&
+      age_s > lidar_acceleration_agreement_max_age_s_)
+    {
+      ++lidar_acceleration_agreement_stale_peer_;
+      ++lidar_acceleration_agreement_rejected_;
+      return false;
+    }
+
+    const double target_norm = target_acceleration.norm();
+    const double peer_norm = peer_acceleration.norm();
+    const double min_observed_norm = std::min(target_norm, peer_norm);
+    const double max_observed_norm = std::max(target_norm, peer_norm);
+    const double norm_floor =
+      std::max(1.0e-12, lidar_acceleration_agreement_min_norm_mps2_);
+    const double delta = (target_acceleration - peer_acceleration).norm();
+    double angle = 0.0;
+    double ratio = 1.0;
+    if (max_observed_norm > norm_floor) {
+      if (min_observed_norm > norm_floor) {
+        const double cosine = std::clamp(
+          target_acceleration.dot(peer_acceleration) / (target_norm * peer_norm),
+          -1.0, 1.0);
+        angle = std::acos(cosine);
+        ratio = max_observed_norm / min_observed_norm;
+      } else {
+        angle = kInvalidAgreementMetric;
+        ratio = kInvalidAgreementMetric;
+      }
+    }
+
+    lidar_acceleration_agreement_last_delta_mps2_ = delta;
+    lidar_acceleration_agreement_last_angle_rad_ = angle;
+    lidar_acceleration_agreement_last_ratio_ = ratio;
+    const bool delta_ok =
+      lidar_acceleration_agreement_max_delta_mps2_ <= 0.0 ||
+      delta <= lidar_acceleration_agreement_max_delta_mps2_;
+    const bool angle_ok =
+      lidar_acceleration_agreement_max_angle_rad_ <= 0.0 ||
+      angle <= lidar_acceleration_agreement_max_angle_rad_;
+    const bool ratio_ok =
+      lidar_acceleration_agreement_max_ratio_ <= 0.0 ||
+      ratio <= lidar_acceleration_agreement_max_ratio_;
+    if (delta_ok && angle_ok && ratio_ok) {
+      ++lidar_acceleration_agreement_accepted_;
+      return true;
+    }
+    ++lidar_acceleration_agreement_rejected_;
+    return false;
+  }
 
   void on_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
   {
@@ -2593,6 +2693,15 @@ private:
       "lidar_pose_matches=%zu lidar_pose_keyframes=%zu "
       "lidar_pose_rejected=%zu lidar_pose_last_residual=%.9g "
       "lidar_pose_last_target_accel_mps2=%.9g "
+      "lidar_accel_agreement_checks=%zu "
+      "lidar_accel_agreement_accepted=%zu "
+      "lidar_accel_agreement_rejected=%zu "
+      "lidar_accel_agreement_missing_peer=%zu "
+      "lidar_accel_agreement_stale_peer=%zu "
+      "lidar_accel_agreement_last_age_s=%.9g "
+      "lidar_accel_agreement_last_delta_mps2=%.9g "
+      "lidar_accel_agreement_last_angle_rad=%.9g "
+      "lidar_accel_agreement_last_ratio=%.9g "
       "lidar_scan_to_scan_priors=%zu lidar_scan_to_scan_velocity_priors=%zu "
       "lidar_scan_to_scan_acceleration_priors=%zu "
       "lidar_scan_to_scan_angular_velocity_priors=%zu "
@@ -2769,6 +2878,15 @@ private:
       lidar_pose_prior_rejected_,
       lidar_pose_prior_last_mean_residual_m_,
       lidar_pose_prior_last_target_acceleration_mps2_,
+      lidar_acceleration_agreement_checks_,
+      lidar_acceleration_agreement_accepted_,
+      lidar_acceleration_agreement_rejected_,
+      lidar_acceleration_agreement_missing_peer_,
+      lidar_acceleration_agreement_stale_peer_,
+      lidar_acceleration_agreement_last_age_s_,
+      lidar_acceleration_agreement_last_delta_mps2_,
+      lidar_acceleration_agreement_last_angle_rad_,
+      lidar_acceleration_agreement_last_ratio_,
       lidar_scan_to_scan_priors_,
       lidar_scan_to_scan_velocity_priors_,
       lidar_scan_to_scan_acceleration_priors_,
@@ -3402,6 +3520,11 @@ private:
       }
       lidar_scan_to_scan_last_target_acceleration_mps2_ =
         have_target_acceleration ? target_acceleration.norm() : 0.0;
+      if (have_target_acceleration) {
+        last_lidar_scan_to_scan_acceleration_target_world_ = target_acceleration;
+        last_lidar_scan_to_scan_acceleration_target_stamp_ns_ = stamp_ns;
+        have_last_lidar_scan_to_scan_acceleration_target_ = true;
+      }
     } else {
       lidar_scan_to_scan_last_target_acceleration_mps2_ = 0.0;
     }
@@ -3461,7 +3584,13 @@ private:
     if (lidar_scan_to_scan_acceleration_weight_ > 0.0) {
       if (skip_translation_priors) {
         ++lidar_scan_to_scan_translation_priors_skipped_;
-      } else if (have_target_acceleration) {
+      } else if (have_target_acceleration &&
+        lidar_acceleration_target_is_agreed(
+          stamp_ns, target_acceleration,
+          have_last_lidar_pose_acceleration_target_,
+          last_lidar_pose_acceleration_target_stamp_ns_,
+          last_lidar_pose_acceleration_target_world_))
+      {
         estimator_->add_acceleration_prior(
           stamp_ns, target_acceleration, lidar_scan_to_scan_acceleration_weight_,
           lidar_scan_to_scan_acceleration_huber_delta_mps2_);
@@ -3579,10 +3708,20 @@ private:
                 }
               }
               lidar_pose_prior_last_target_acceleration_mps2_ = target_acceleration.norm();
-              estimator_->add_acceleration_prior(
-                stamp_ns, target_acceleration, lidar_pose_prior_acceleration_weight_,
-                lidar_pose_prior_acceleration_huber_delta_mps2_);
-              ++lidar_pose_prior_acceleration_factors_;
+              last_lidar_pose_acceleration_target_world_ = target_acceleration;
+              last_lidar_pose_acceleration_target_stamp_ns_ = stamp_ns;
+              have_last_lidar_pose_acceleration_target_ = true;
+              if (lidar_acceleration_target_is_agreed(
+                  stamp_ns, target_acceleration,
+                  have_last_lidar_scan_to_scan_acceleration_target_,
+                  last_lidar_scan_to_scan_acceleration_target_stamp_ns_,
+                  last_lidar_scan_to_scan_acceleration_target_world_))
+              {
+                estimator_->add_acceleration_prior(
+                  stamp_ns, target_acceleration, lidar_pose_prior_acceleration_weight_,
+                  lidar_pose_prior_acceleration_huber_delta_mps2_);
+                ++lidar_pose_prior_acceleration_factors_;
+              }
             }
           }
           last_lidar_pose_prior_velocity_world_ = target_velocity;
@@ -3882,6 +4021,12 @@ private:
   double lidar_pose_prior_velocity_huber_delta_mps_{0.25};
   double lidar_pose_prior_acceleration_huber_delta_mps2_{0.50};
   double lidar_pose_prior_max_acceleration_mps2_{0.0};
+  bool enable_lidar_acceleration_agreement_gate_{false};
+  double lidar_acceleration_agreement_max_age_s_{0.20};
+  double lidar_acceleration_agreement_max_delta_mps2_{1.0};
+  double lidar_acceleration_agreement_max_angle_rad_{0.75};
+  double lidar_acceleration_agreement_max_ratio_{4.0};
+  double lidar_acceleration_agreement_min_norm_mps2_{0.05};
   double lidar_pose_prior_angular_velocity_huber_delta_radps_{0.25};
   double lidar_pose_prior_orientation_huber_delta_rad_{0.25};
   int lidar_pose_factor_keyframe_stride_{5};
@@ -3927,18 +4072,33 @@ private:
   std::size_t lidar_pose_prior_rejected_{0};
   double lidar_pose_prior_last_mean_residual_m_{0.0};
   double lidar_pose_prior_last_target_acceleration_mps2_{0.0};
+  std::size_t lidar_acceleration_agreement_checks_{0};
+  std::size_t lidar_acceleration_agreement_accepted_{0};
+  std::size_t lidar_acceleration_agreement_rejected_{0};
+  std::size_t lidar_acceleration_agreement_missing_peer_{0};
+  std::size_t lidar_acceleration_agreement_stale_peer_{0};
+  double lidar_acceleration_agreement_last_age_s_{0.0};
+  double lidar_acceleration_agreement_last_delta_mps2_{0.0};
+  double lidar_acceleration_agreement_last_angle_rad_{0.0};
+  double lidar_acceleration_agreement_last_ratio_{1.0};
   bool have_last_lidar_pose_prior_{false};
   bool have_last_lidar_pose_prior_velocity_{false};
+  bool have_last_lidar_pose_acceleration_target_{false};
   int64_t last_lidar_pose_prior_stamp_ns_{0};
+  int64_t last_lidar_pose_acceleration_target_stamp_ns_{0};
   Eigen::Vector3d last_lidar_pose_prior_position_{Eigen::Vector3d::Zero()};
   Eigen::Vector3d last_lidar_pose_prior_velocity_world_{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d last_lidar_pose_acceleration_target_world_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond last_lidar_pose_prior_orientation_{Eigen::Quaterniond::Identity()};
   bool have_last_lidar_scan_to_scan_{false};
   bool have_last_lidar_scan_to_scan_velocity_{false};
+  bool have_last_lidar_scan_to_scan_acceleration_target_{false};
   std::vector<Eigen::Vector3d> last_lidar_scan_to_scan_points_imu_;
   TrajectoryPose last_lidar_scan_to_scan_pose_;
   Eigen::Vector3d last_lidar_scan_to_scan_velocity_world_{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d last_lidar_scan_to_scan_acceleration_target_world_{Eigen::Vector3d::Zero()};
   Eigen::Vector3d last_lidar_scan_to_scan_angular_velocity_body_{Eigen::Vector3d::Zero()};
+  int64_t last_lidar_scan_to_scan_acceleration_target_stamp_ns_{0};
   std::size_t lidar_scan_to_scan_priors_{0};
   std::size_t lidar_scan_to_scan_position_priors_{0};
   std::size_t lidar_scan_to_scan_velocity_priors_{0};
