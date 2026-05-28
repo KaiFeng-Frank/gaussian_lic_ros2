@@ -22,6 +22,7 @@ MIN_STATUS_SAMPLES=1
 MIN_STATUS_BIN_SAMPLE_COUNT=0
 MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN=0
 MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN=0
+MIN_MOTION_TARGET_DELTA_PER_STATUS_BIN=0
 MIN_POINT_FRAMES=10
 LIDAR_MIN_POINTS=32
 LIDAR_MAX_FRAME_POINTS=4000
@@ -429,6 +430,8 @@ Options:
                                Minimum cumulative visual-factor increase required in each TrackingStatus bin when visual factors are enabled. Default: 0 disabled.
   --min-se3-photometric-factor-delta-per-status-bin N
                                Minimum cumulative SE3 photometric-factor increase required in each TrackingStatus bin when visual factors are enabled. Default: 0 disabled.
+  --min-motion-target-delta-per-status-bin N
+                               Minimum cumulative smoothness motion-target activations required in each TrackingStatus bin when motion targets are enabled. Default: 0 disabled.
   --max-rendered-delivery-lag N
                                Fail if mapper rendered previews exceed tracking received rendered images by more than N. Default: 0 disabled.
   --min-rendered-delivery-received-ratio R
@@ -1035,6 +1038,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --min-se3-photometric-factor-delta-per-status-bin)
       MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN="$2"
+      shift 2
+      ;;
+    --min-motion-target-delta-per-status-bin)
+      MIN_MOTION_TARGET_DELTA_PER_STATUS_BIN="$2"
       shift 2
       ;;
     --max-rendered-delivery-lag)
@@ -2834,6 +2841,7 @@ MAX_LIDAR_INVALID_FRAMES_REPORT="${MAX_LIDAR_INVALID_FRAMES}" \
 MIN_STATUS_BIN_SAMPLE_COUNT_REPORT="${MIN_STATUS_BIN_SAMPLE_COUNT}" \
 MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN_REPORT="${MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN}" \
 MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN_REPORT="${MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN}" \
+MIN_MOTION_TARGET_DELTA_PER_STATUS_BIN_REPORT="${MIN_MOTION_TARGET_DELTA_PER_STATUS_BIN}" \
 MAPPER_FEEDBACK_POINTCLOUD_COORDINATES_REPORT="${MAPPER_FEEDBACK_POINTCLOUD_COORDINATES}" \
 MAPPER_FEEDBACK_MAX_DEPTH_REPORT="${MAPPER_FEEDBACK_MAX_DEPTH}" \
 MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR_REPORT="${MAPPER_FEEDBACK_REQUIRE_PROJECTED_POINT_COLOR}" \
@@ -3586,6 +3594,8 @@ min_visual_factor_delta_per_status_bin = int(
     os.environ["MIN_VISUAL_FACTOR_DELTA_PER_STATUS_BIN_REPORT"])
 min_se3_photometric_factor_delta_per_status_bin = int(
     os.environ["MIN_SE3_PHOTOMETRIC_FACTOR_DELTA_PER_STATUS_BIN_REPORT"])
+min_motion_target_delta_per_status_bin = int(
+    os.environ["MIN_MOTION_TARGET_DELTA_PER_STATUS_BIN_REPORT"])
 
 
 def count_tum_poses(path: Path | None) -> int:
@@ -4172,6 +4182,124 @@ def build_step_guard_continuity(status, trajectory_poses):
 step_guard_continuity = build_step_guard_continuity(
     status, metrics.get("trajectory_poses", 0))
 
+
+MOTION_TARGET_DELTA_FIELDS = (
+    "sliding_window_smoothness_motion_target_applied_count",
+    "sliding_window_smoothness_motion_target_support_skip_count",
+    "sliding_window_smoothness_motion_target_recent_support_skip_count",
+    "sliding_window_smoothness_motion_target_warmup_skip_count",
+    "sliding_window_smoothness_motion_target_history_miss_count",
+    "sliding_window_smoothness_motion_target_invalid_count",
+    "sliding_window_smoothness_motion_target_clamp_count",
+)
+
+MOTION_TARGET_VALUE_FIELDS = (
+    "sliding_window_smoothness_motion_target_last_rotation_rate_delta_norm",
+    "sliding_window_smoothness_motion_target_last_position_rate_delta_norm",
+    "sliding_window_smoothness_motion_target_last_velocity_acceleration_delta_norm",
+    "sliding_window_smoothness_motion_target_max_rotation_rate_delta_norm",
+    "sliding_window_smoothness_motion_target_max_position_rate_delta_norm",
+    "sliding_window_smoothness_motion_target_max_velocity_acceleration_delta_norm",
+    "sliding_window_smoothness_motion_target_recent_visual_factors",
+    "sliding_window_smoothness_motion_target_recent_se3_photometric_factors",
+)
+
+
+def build_motion_target_continuity(status):
+    bins = []
+    for bin_summary in status.get("binned_summary", []):
+        if not isinstance(bin_summary, dict):
+            continue
+        item = {
+            "index": int(bin_summary.get("index", len(bins))),
+            "sample_count": int(bin_summary.get("sample_count", 0) or 0),
+        }
+        for field_name in MOTION_TARGET_DELTA_FIELDS:
+            item[f"{field_name}_delta"] = summary_delta(bin_summary, field_name)
+        for field_name in MOTION_TARGET_VALUE_FIELDS:
+            item[f"{field_name}_min"] = summary_value(bin_summary, field_name, "min")
+            item[f"{field_name}_max"] = summary_value(bin_summary, field_name, "max")
+            item[f"{field_name}_last"] = summary_value(bin_summary, field_name, "last")
+        bins.append(item)
+
+    tracking_last = status.get("last") or {}
+    result = {
+        "available": bool(bins),
+        "binned_summary_finalized": bool(status.get("binned_summary_finalized", False)),
+        "bin_count": len(bins),
+        "total_applied": int(
+            tracking_last.get("sliding_window_smoothness_motion_target_applied_count", 0) or 0),
+        "total_support_skips": int(
+            tracking_last.get(
+                "sliding_window_smoothness_motion_target_support_skip_count", 0) or 0),
+        "total_recent_support_skips": int(
+            tracking_last.get(
+                "sliding_window_smoothness_motion_target_recent_support_skip_count", 0) or 0),
+        "total_warmup_skips": int(
+            tracking_last.get(
+                "sliding_window_smoothness_motion_target_warmup_skip_count", 0) or 0),
+        "total_history_misses": int(
+            tracking_last.get(
+                "sliding_window_smoothness_motion_target_history_miss_count", 0) or 0),
+        "total_invalid": int(
+            tracking_last.get("sliding_window_smoothness_motion_target_invalid_count", 0) or 0),
+        "total_clamps": int(
+            tracking_last.get("sliding_window_smoothness_motion_target_clamp_count", 0) or 0),
+        "bins": bins,
+    }
+    if not bins:
+        result["reason"] = "tracking_status.binned_summary is missing or empty"
+        return result
+
+    def min_delta(field_name):
+        return min(item[f"{field_name}_delta"] for item in bins)
+
+    def max_delta(field_name):
+        return max(item[f"{field_name}_delta"] for item in bins)
+
+    def max_value(field_name, statistic):
+        return max(item[f"{field_name}_{statistic}"] for item in bins)
+
+    result.update({
+        "min_applied_delta": min_delta(
+            "sliding_window_smoothness_motion_target_applied_count"),
+        "max_applied_delta": max_delta(
+            "sliding_window_smoothness_motion_target_applied_count"),
+        "max_support_skip_delta": max_delta(
+            "sliding_window_smoothness_motion_target_support_skip_count"),
+        "max_recent_support_skip_delta": max_delta(
+            "sliding_window_smoothness_motion_target_recent_support_skip_count"),
+        "max_warmup_skip_delta": max_delta(
+            "sliding_window_smoothness_motion_target_warmup_skip_count"),
+        "max_history_miss_delta": max_delta(
+            "sliding_window_smoothness_motion_target_history_miss_count"),
+        "max_invalid_delta": max_delta(
+            "sliding_window_smoothness_motion_target_invalid_count"),
+        "max_clamp_delta": max_delta(
+            "sliding_window_smoothness_motion_target_clamp_count"),
+        "max_rotation_rate_delta_norm": max_value(
+            "sliding_window_smoothness_motion_target_max_rotation_rate_delta_norm", "max"),
+        "max_position_rate_delta_norm": max_value(
+            "sliding_window_smoothness_motion_target_max_position_rate_delta_norm", "max"),
+        "max_velocity_acceleration_delta_norm": max_value(
+            "sliding_window_smoothness_motion_target_max_velocity_acceleration_delta_norm", "max"),
+        "worst_activation_bins": sorted(
+            bins,
+            key=lambda item: (
+                item["sliding_window_smoothness_motion_target_applied_count_delta"],
+                -item["sliding_window_smoothness_motion_target_support_skip_count_delta"] -
+                item[
+                    "sliding_window_smoothness_motion_target_recent_support_skip_count_delta"],
+                -item["sliding_window_smoothness_motion_target_history_miss_count_delta"],
+                item["index"],
+            ),
+        )[:3],
+    })
+    return result
+
+
+motion_target_continuity = build_motion_target_continuity(status)
+
 if metrics.get("trajectory_poses", 0) < min_poses:
     errors.append(f"trajectory poses {metrics.get('trajectory_poses', 0)} < {min_poses}")
 if (
@@ -4372,10 +4500,13 @@ if (
     )
 ):
     errors.append("per-bin visual factor gates require --enable-visual-factors")
+if min_motion_target_delta_per_status_bin > 0 and not sliding_window_smoothness_use_motion_targets:
+    errors.append("per-bin motion-target gates require --sliding-window-smoothness-use-motion-targets")
 if (
     min_status_bin_sample_count > 0
     or min_visual_factor_delta_per_status_bin > 0
     or min_se3_photometric_factor_delta_per_status_bin > 0
+    or min_motion_target_delta_per_status_bin > 0
 ):
     binned_summary = status.get("binned_summary", [])
     if not bool(status.get("binned_summary_finalized", False)):
@@ -4411,6 +4542,21 @@ if (
                     errors.append(
                         f"tracking_status bin {bin_index} SE3 photometric-factor delta "
                         f"{se3_delta} < {min_se3_photometric_factor_delta_per_status_bin}")
+            if sliding_window_smoothness_use_motion_targets:
+                motion_target_delta = summary_delta(
+                    bin_summary, "sliding_window_smoothness_motion_target_applied_count")
+                if (
+                    min_motion_target_delta_per_status_bin > 0
+                    and motion_target_delta < min_motion_target_delta_per_status_bin
+                ):
+                    errors.append(
+                        f"tracking_status bin {bin_index} motion-target delta "
+                        f"{motion_target_delta} < {min_motion_target_delta_per_status_bin}")
+if (
+    sliding_window_smoothness_use_motion_targets
+    and int(last.get("sliding_window_smoothness_motion_target_applied_count", 0) or 0) <= 0
+):
+    errors.append("sliding-window smoothness motion targets requested but no targets were applied")
 if enable_visual_factors:
     for key in (
         "visual_alignment_pending_queue_size",
@@ -4589,6 +4735,7 @@ report = {
     "mapper_feedback_continuity": mapper_feedback_continuity,
     "rendered_delivery_continuity": rendered_delivery_continuity,
     "step_guard_continuity": step_guard_continuity,
+    "motion_target_continuity": motion_target_continuity,
     "gate_config": {
         "max_rendered_delivery_lag": max_rendered_delivery_lag,
         "min_rendered_delivery_received_ratio": min_rendered_delivery_received_ratio,
@@ -4765,6 +4912,7 @@ report = {
         "min_se3_photometric_factor_delta_per_status_bin": (
             min_se3_photometric_factor_delta_per_status_bin
         ),
+        "min_motion_target_delta_per_status_bin": min_motion_target_delta_per_status_bin,
         "lidar_pose_factor_iterations": lidar_pose_factor_iterations,
         "lidar_window_point_factor_weight": lidar_window_point_factor_weight,
         "lidar_window_plane_factor_weight": lidar_window_plane_factor_weight,

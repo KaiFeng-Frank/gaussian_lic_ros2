@@ -839,6 +839,9 @@ def main() -> int:
     ):
         if field not in tracking_status_msg_text or f"status.{field}" not in tracking_node_text:
             errors.append(f"TrackingStatus must publish bounded smoothness target diagnostic {field}")
+    if "--min-motion-target-delta-per-status-bin" not in native_tracking_report_text or \
+            "motion_target_continuity" not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must gate and summarize smoothness motion-target continuity")
     if "run_serialized_callback" not in tracking_node_text or "std::scoped_lock<std::mutex>" not in tracking_node_text:
         errors.append("tracking_node callbacks must pass through the serialization guard")
     if "accept_stream_stamp" not in tracking_node_text or "non-monotonic stamp" not in tracking_node_text:
