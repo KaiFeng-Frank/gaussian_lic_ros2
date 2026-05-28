@@ -120,6 +120,7 @@ struct SlidingWindowVisualAlignmentFactor
   std::vector<double> support_weights;
   bool has_reference_pose{false};
   Eigen::Vector2d measured_shift_px{Eigen::Vector2d::Zero()};
+  Eigen::Vector2d component_weight_xy{Eigen::Vector2d::Ones()};
   Eigen::Vector3d reference_p_w_i{Eigen::Vector3d::Zero()};
   double meters_per_pixel{0.01};
   double weight{1.0};

@@ -398,6 +398,8 @@ public:
       declare_parameter<bool>("visual_marginalization_prior_saturation_gate_visual_factors", true);
     visual_marginalization_prior_saturation_gate_se3_factors_ =
       declare_parameter<bool>("visual_marginalization_prior_saturation_gate_se3_factors", true);
+    enable_visual_alignment_saturation_axis_mask_ =
+      declare_parameter<bool>("enable_visual_alignment_saturation_axis_mask", false);
     visual_marginalization_prior_zero_bias_columns_ =
       declare_parameter<bool>("visual_marginalization_prior_zero_bias_columns", false);
     enable_visual_factor_reference_snapshot_ =
@@ -1357,6 +1359,7 @@ private:
     std::vector<int64_t> reference_support_stamp_ns;
     std::vector<double> reference_support_weights;
     gaussian_lic_tracking::VisualAlignment alignment;
+    Eigen::Vector2d component_weight_xy{Eigen::Vector2d::Ones()};
   };
 
   struct VisualPairKey
@@ -2750,7 +2753,16 @@ private:
       }
     }
     if (window_alignment.has_value()) {
-      if (reconciled_pair && visual_alignment_is_saturated(window_alignment.value())) {
+      const Eigen::Vector2d component_weight_xy =
+        visual_alignment_component_weights(window_alignment.value());
+      if (!visual_alignment_has_active_component(component_weight_xy)) {
+        ++visual_alignment_saturation_axis_mask_skipped_factors_;
+        if (reconciled_pair) {
+          ++visual_cache_reconciled_alignment_skipped_pairs_;
+        }
+      } else if (reconciled_pair && visual_alignment_is_saturated(window_alignment.value()) &&
+        !enable_visual_alignment_saturation_axis_mask_)
+      {
         ++visual_cache_reconciled_alignment_skipped_pairs_;
       } else {
         PendingVisualAlignmentFactor pending;
@@ -2758,6 +2770,8 @@ private:
         pending.pair_stamp_delta_ns = pair_stamp_delta_ns;
         pending.source_id = factor_source_id;
         pending.alignment = window_alignment.value();
+        pending.component_weight_xy = component_weight_xy;
+        record_visual_alignment_saturation_axis_mask(component_weight_xy);
         attach_visual_reference(pending, rendered);
         pending_visual_alignment_factors_.push_back(std::move(pending));
         trim_pending_visual_factor_queues();
@@ -3016,6 +3030,7 @@ private:
     factor.measured_shift_px = Eigen::Vector2d{
       pending.alignment.subpixel_dx,
       pending.alignment.subpixel_dy};
+    factor.component_weight_xy = pending.component_weight_xy;
     factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
     factor.weight =
       visual_alignment_effective_weight(pending.alignment) *
@@ -3340,6 +3355,7 @@ private:
     factor.measured_shift_px = Eigen::Vector2d{
       pending.alignment.subpixel_dx,
       pending.alignment.subpixel_dy};
+    factor.component_weight_xy = pending.component_weight_xy;
     factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
     factor.weight =
       visual_alignment_effective_weight(pending.alignment) *
@@ -3516,6 +3532,7 @@ private:
         visual_factor.measured_shift_px = Eigen::Vector2d{
           pending.alignment.subpixel_dx,
           pending.alignment.subpixel_dy};
+        visual_factor.component_weight_xy = pending.component_weight_xy;
         visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
         visual_factor.weight =
           visual_alignment_effective_weight(pending.alignment) *
@@ -4290,6 +4307,7 @@ private:
         visual_factor.measured_shift_px = Eigen::Vector2d{
           pending.alignment.subpixel_dx,
           pending.alignment.subpixel_dy};
+        visual_factor.component_weight_xy = pending.component_weight_xy;
         visual_factor.meters_per_pixel = visual_alignment_meters_per_pixel_;
         visual_factor.weight =
           visual_alignment_effective_weight(pending.alignment) *
@@ -5904,6 +5922,57 @@ private:
       visual_alignment_saturation_margin_px_;
     return std::abs(alignment.subpixel_dx) >= limit ||
            std::abs(alignment.subpixel_dy) >= limit;
+  }
+
+  Eigen::Vector2d visual_alignment_component_weights(
+    const gaussian_lic_tracking::VisualAlignment & alignment) const
+  {
+    Eigen::Vector2d weights = Eigen::Vector2d::Ones();
+    if (!enable_visual_alignment_saturation_axis_mask_ || !alignment.valid ||
+      visual_alignment_max_shift_px_ <= 0)
+    {
+      return weights;
+    }
+    const double limit =
+      static_cast<double>(visual_alignment_max_shift_px_) + 0.5 -
+      visual_alignment_saturation_margin_px_;
+    if (std::abs(alignment.subpixel_dx) >= limit) {
+      weights.x() = 0.0;
+    }
+    if (std::abs(alignment.subpixel_dy) >= limit) {
+      weights.y() = 0.0;
+    }
+    return weights;
+  }
+
+  size_t visual_alignment_masked_axis_count(const Eigen::Vector2d & weights) const
+  {
+    size_t count = 0U;
+    if (weights.x() <= 0.0) {
+      ++count;
+    }
+    if (weights.y() <= 0.0) {
+      ++count;
+    }
+    return count;
+  }
+
+  bool visual_alignment_has_active_component(const Eigen::Vector2d & weights) const
+  {
+    return weights.allFinite() && (weights.x() > 0.0 || weights.y() > 0.0);
+  }
+
+  void record_visual_alignment_saturation_axis_mask(const Eigen::Vector2d & weights)
+  {
+    if (!enable_visual_alignment_saturation_axis_mask_) {
+      return;
+    }
+    const size_t masked_axes = visual_alignment_masked_axis_count(weights);
+    if (masked_axes == 0U) {
+      return;
+    }
+    ++visual_alignment_saturation_axis_masked_factors_;
+    visual_alignment_saturation_axis_masked_axes_ += static_cast<uint64_t>(masked_axes);
   }
 
   double visual_alignment_effective_weight(
@@ -8173,6 +8242,8 @@ private:
       visual_marginalization_prior_saturation_gate_visual_factors_;
     status.visual_marginalization_prior_saturation_gate_se3_factors =
       visual_marginalization_prior_saturation_gate_se3_factors_;
+    status.visual_alignment_saturation_axis_mask_enabled =
+      enable_visual_alignment_saturation_axis_mask_;
     status.visual_marginalization_prior_zero_bias_columns =
       visual_marginalization_prior_zero_bias_columns_;
     status.visual_alignment_expired_projected_factors =
@@ -8193,6 +8264,12 @@ private:
       visual_marginalization_prior_saturation_rejected_visual_factors_;
     status.visual_marginalization_prior_saturation_rejected_se3_factors =
       visual_marginalization_prior_saturation_rejected_se3_factors_;
+    status.visual_alignment_saturation_axis_masked_factors =
+      visual_alignment_saturation_axis_masked_factors_;
+    status.visual_alignment_saturation_axis_masked_axes =
+      visual_alignment_saturation_axis_masked_axes_;
+    status.visual_alignment_saturation_axis_mask_skipped_factors =
+      visual_alignment_saturation_axis_mask_skipped_factors_;
     status.visual_batched_marginalization_prior_batches =
       visual_batched_marginalization_prior_batches_;
     status.visual_batched_marginalization_prior_visual_factors =
@@ -8461,6 +8538,7 @@ private:
   bool enable_visual_marginalization_prior_saturation_gate_{false};
   bool visual_marginalization_prior_saturation_gate_visual_factors_{true};
   bool visual_marginalization_prior_saturation_gate_se3_factors_{true};
+  bool enable_visual_alignment_saturation_axis_mask_{false};
   bool visual_marginalization_prior_zero_bias_columns_{false};
   bool enable_visual_factor_reference_snapshot_{false};
   bool enable_rendered_feedback_source_pose_reference_{false};
@@ -8914,6 +8992,9 @@ private:
   uint64_t visual_marginalization_prior_saturation_rejected_factors_{0};
   uint64_t visual_marginalization_prior_saturation_rejected_visual_factors_{0};
   uint64_t visual_marginalization_prior_saturation_rejected_se3_factors_{0};
+  uint64_t visual_alignment_saturation_axis_masked_factors_{0};
+  uint64_t visual_alignment_saturation_axis_masked_axes_{0};
+  uint64_t visual_alignment_saturation_axis_mask_skipped_factors_{0};
   uint64_t visual_batched_marginalization_prior_batches_{0};
   uint64_t visual_batched_marginalization_prior_visual_factors_{0};
   uint64_t visual_batched_marginalization_prior_se3_factors_{0};

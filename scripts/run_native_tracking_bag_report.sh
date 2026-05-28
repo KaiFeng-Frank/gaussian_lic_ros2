@@ -173,6 +173,7 @@ ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING=false
 ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE=false
 VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS=true
 VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS=true
+ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK=false
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
@@ -766,6 +767,10 @@ Options:
                                Reject saturated 2D visual late priors but keep independently healthy SE3 photometric late priors.
   --visual-marginalization-prior-saturation-gate-se3-only
                                Reject saturated SE3 photometric late priors but keep saturated 2D visual late priors. Diagnostic only.
+  --enable-visual-alignment-saturation-axis-mask
+                               Zero only the saturated x/y component of a 2D visual-alignment factor instead of trusting or dropping the full factor. Default: disabled.
+  --disable-visual-alignment-saturation-axis-mask
+                               Keep legacy full-vector visual-alignment residuals.
   --visual-marginalization-prior-zero-bias-columns
                                Prevent late visual/SE3 marginalized priors from writing IMU gyro/accel bias columns.
   --no-visual-marginalization-prior-zero-bias-columns
@@ -1791,8 +1796,17 @@ while [[ $# -gt 0 ]]; do
       ENABLE_VISUAL_FACTORS=true
       shift
       ;;
-    --visual-marginalization-prior-zero-bias-columns)
-      VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=true
+    --enable-visual-alignment-saturation-axis-mask)
+      ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-visual-alignment-saturation-axis-mask)
+      ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK=false
+      shift
+      ;;
+	    --visual-marginalization-prior-zero-bias-columns)
+	      VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=true
       ENABLE_VISUAL_MARGINALIZATION_PRIOR=true
       ENABLE_VISUAL_FACTORS=true
       shift
@@ -2674,6 +2688,7 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_visual_marginalization_prior_saturation_gate:="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE}" \
   visual_marginalization_prior_saturation_gate_visual_factors:="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS}" \
   visual_marginalization_prior_saturation_gate_se3_factors:="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS}" \
+  enable_visual_alignment_saturation_axis_mask:="${ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK}" \
   visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
   enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
   enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
@@ -3067,6 +3082,7 @@ ENABLE_VISUAL_MARGINALIZATION_PRIOR_BATCHING_REPORT="${ENABLE_VISUAL_MARGINALIZA
 ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_REPORT="${ENABLE_VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE}" \
 VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_VISUAL_FACTORS}" \
 VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS}" \
+ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK_REPORT="${ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK}" \
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
@@ -3387,6 +3403,9 @@ visual_marginalization_prior_saturation_gate_visual_factors = (
 )
 visual_marginalization_prior_saturation_gate_se3_factors = (
     os.environ["VISUAL_MARGINALIZATION_PRIOR_SATURATION_GATE_SE3_FACTORS_REPORT"].lower() == "true"
+)
+enable_visual_alignment_saturation_axis_mask = (
+    os.environ["ENABLE_VISUAL_ALIGNMENT_SATURATION_AXIS_MASK_REPORT"].lower() == "true"
 )
 visual_marginalization_prior_zero_bias_columns = (
     os.environ["VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT"].lower() == "true"
@@ -3955,9 +3974,13 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_marginalization_prior_skipped_factors",
     "visual_marginalization_prior_saturation_gate_visual_factors",
     "visual_marginalization_prior_saturation_gate_se3_factors",
+    "visual_alignment_saturation_axis_mask_enabled",
     "visual_marginalization_prior_saturation_rejected_factors",
     "visual_marginalization_prior_saturation_rejected_visual_factors",
     "visual_marginalization_prior_saturation_rejected_se3_factors",
+    "visual_alignment_saturation_axis_masked_factors",
+    "visual_alignment_saturation_axis_masked_axes",
+    "visual_alignment_saturation_axis_mask_skipped_factors",
     "visual_batched_marginalization_prior_batches",
     "visual_batched_marginalization_prior_visual_factors",
     "visual_batched_marginalization_prior_se3_factors",
@@ -4918,6 +4941,7 @@ if enable_visual_factors:
         "visual_marginalization_prior_saturation_gate_enabled",
         "visual_marginalization_prior_saturation_gate_visual_factors",
         "visual_marginalization_prior_saturation_gate_se3_factors",
+        "visual_alignment_saturation_axis_mask_enabled",
         "visual_marginalization_prior_zero_bias_columns",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
@@ -4928,6 +4952,9 @@ if enable_visual_factors:
         "visual_marginalization_prior_saturation_rejected_factors",
         "visual_marginalization_prior_saturation_rejected_visual_factors",
         "visual_marginalization_prior_saturation_rejected_se3_factors",
+        "visual_alignment_saturation_axis_masked_factors",
+        "visual_alignment_saturation_axis_masked_axes",
+        "visual_alignment_saturation_axis_mask_skipped_factors",
         "visual_batched_marginalization_prior_batches",
         "visual_batched_marginalization_prior_visual_factors",
         "visual_batched_marginalization_prior_se3_factors",
@@ -5006,6 +5033,10 @@ if enable_visual_factors:
             errors.append(
                 "visual_marginalization_prior_saturation_gate_se3_factors is "
                 f"{last.get('visual_marginalization_prior_saturation_gate_se3_factors')}")
+    if enable_visual_alignment_saturation_axis_mask and not bool(
+        last.get("visual_alignment_saturation_axis_mask_enabled", False)
+    ):
+        errors.append("visual_alignment_saturation_axis_mask_enabled is false")
     if enable_rendered_feedback_contract:
         for key in (
             "rendered_feedback_frame_index_regressions",
@@ -5201,6 +5232,9 @@ report = {
         ),
         "visual_marginalization_prior_saturation_gate_se3_factors": (
             visual_marginalization_prior_saturation_gate_se3_factors
+        ),
+        "enable_visual_alignment_saturation_axis_mask": (
+            enable_visual_alignment_saturation_axis_mask
         ),
         "visual_marginalization_prior_zero_bias_columns": (
             visual_marginalization_prior_zero_bias_columns

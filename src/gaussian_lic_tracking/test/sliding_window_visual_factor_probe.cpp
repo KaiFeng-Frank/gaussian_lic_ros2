@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <iostream>
 
 int main()
@@ -164,15 +165,59 @@ int main()
             << " interpolated_numeric_blocks="
             << interpolation_summary.numeric_jacobian_block_count
             << " interpolated_jacobian_error=" << interpolation_jacobian_error;
-  if (!interpolation_normal.valid || interpolation_normal.numeric_jacobian_block_count != 0U ||
-    interpolation_jacobian_error > 1.0e-12 || !interpolation_summary.converged ||
-    interpolation_summary.numeric_jacobian_block_count != 0U ||
-    interpolation_summary.final_cost >= interpolation_summary.initial_cost ||
-    interpolation_error > 1.0e-7)
-  {
-    std::cerr << "\ninterpolated visual factor failed analytic continuous-time support solve\n";
-    return 1;
-  }
-  std::cout << "sliding_window_visual_factor_probe OK\n";
-  return 0;
-}
+	  if (!interpolation_normal.valid || interpolation_normal.numeric_jacobian_block_count != 0U ||
+	    interpolation_jacobian_error > 1.0e-12 || !interpolation_summary.converged ||
+	    interpolation_summary.numeric_jacobian_block_count != 0U ||
+	    interpolation_summary.final_cost >= interpolation_summary.initial_cost ||
+	    interpolation_error > 1.0e-7)
+	  {
+	    std::cerr << "\ninterpolated visual factor failed analytic continuous-time support solve\n";
+	    return 1;
+	  }
+	  gaussian_lic_tracking::SlidingWindowOptimizer masked_optimizer(config);
+	  gaussian_lic_tracking::SlidingWindowState masked_state;
+	  masked_state.stamp_ns = 600;
+	  masked_state.p_w_i = Eigen::Vector3d::Zero();
+	  masked_optimizer.add_or_update_state(masked_state);
+	  gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor masked_factor;
+	  masked_factor.stamp_ns = masked_state.stamp_ns;
+	  masked_factor.reference_p_w_i = masked_state.p_w_i;
+	  masked_factor.measured_shift_px = Eigen::Vector2d{50.0, -30.0};
+	  masked_factor.component_weight_xy = Eigen::Vector2d{0.0, 1.0};
+	  masked_factor.meters_per_pixel = 0.01;
+	  masked_factor.weight = 50.0;
+	  masked_optimizer.add_visual_alignment_factor(masked_factor);
+	  const auto masked_normal = masked_optimizer.build_normal_equation();
+	  const auto masked_summary = masked_optimizer.optimize();
+	  gaussian_lic_tracking::SlidingWindowState masked_out;
+	  if (!masked_optimizer.get_state(masked_state.stamp_ns, masked_out)) {
+	    std::cerr << "\nmasked visual-factor state is missing\n";
+	    return 1;
+	  }
+	  const double masked_x_abs = std::abs(masked_out.p_w_i.x());
+	  const double masked_y_error = std::abs(masked_out.p_w_i.y() + 0.3);
+	  bool rejected_zero_axis_factor = false;
+	  try {
+	    gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor invalid_masked_factor =
+	      masked_factor;
+	    invalid_masked_factor.source_id = 1U;
+	    invalid_masked_factor.component_weight_xy = Eigen::Vector2d::Zero();
+	    masked_optimizer.add_visual_alignment_factor(invalid_masked_factor);
+	  } catch (const std::exception &) {
+	    rejected_zero_axis_factor = true;
+	  }
+	  std::cout << " masked_x_abs=" << masked_x_abs
+	            << " masked_y_error=" << masked_y_error
+	            << " masked_jacobian_x=" << masked_normal.jacobian(0, 6)
+	            << " masked_jacobian_y=" << masked_normal.jacobian(1, 7);
+	  if (!masked_normal.valid || std::abs(masked_normal.jacobian(0, 6)) > 1.0e-12 ||
+	    std::abs(masked_normal.jacobian(1, 7) - std::sqrt(masked_factor.weight)) > 1.0e-12 ||
+	    !masked_summary.converged || masked_x_abs > 1.0e-12 || masked_y_error > 1.0e-8 ||
+	    !rejected_zero_axis_factor)
+	  {
+	    std::cerr << "\nvisual component axis mask failed\n";
+	    return 1;
+	  }
+	  std::cout << "sliding_window_visual_factor_probe OK\n";
+	  return 0;
+	}

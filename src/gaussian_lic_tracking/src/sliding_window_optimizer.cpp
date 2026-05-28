@@ -50,6 +50,37 @@ bool visual_support_is_valid(
   return std::isfinite(weight_sum) && std::abs(weight_sum - 1.0) <= 1.0e-6;
 }
 
+bool visual_component_weights_are_valid(const Eigen::Vector2d & weights)
+{
+  return weights.allFinite() && weights.x() >= 0.0 && weights.y() >= 0.0 &&
+         (weights.x() + weights.y()) > std::numeric_limits<double>::epsilon();
+}
+
+double huber_weight(const double residual_norm, const double huber_delta);
+
+Eigen::Vector2d visual_component_weights(const SlidingWindowVisualAlignmentFactor & factor)
+{
+  return factor.component_weight_xy.cwiseMax(Eigen::Vector2d::Zero());
+}
+
+Eigen::Vector2d visual_axis_row_scales(
+  const SlidingWindowVisualAlignmentFactor & factor,
+  const Eigen::Vector2d & residual_xy)
+{
+  const Eigen::Vector2d axis_weights = visual_component_weights(factor);
+  const Eigen::Vector2d robust_residual =
+    axis_weights.cwiseSqrt().cwiseProduct(residual_xy);
+  const double robust_weight = huber_weight(robust_residual.norm(), factor.huber_delta_m);
+  Eigen::Vector2d scales = Eigen::Vector2d::Zero();
+  if (axis_weights.x() > 0.0) {
+    scales.x() = std::sqrt(factor.weight * axis_weights.x() * robust_weight);
+  }
+  if (axis_weights.y() > 0.0) {
+    scales.y() = std::sqrt(factor.weight * axis_weights.y() * robust_weight);
+  }
+  return scales;
+}
+
 template<typename FactorT>
 bool visual_factor_references_stamp(const FactorT & factor, const int64_t stamp_ns)
 {
@@ -971,6 +1002,10 @@ void SlidingWindowOptimizer::add_visual_alignment_factor(const SlidingWindowVisu
   if (!factor.measured_shift_px.allFinite() || !factor.reference_p_w_i.allFinite()) {
     throw std::runtime_error("visual alignment factor values must be finite");
   }
+  if (!visual_component_weights_are_valid(factor.component_weight_xy)) {
+    throw std::runtime_error(
+      "visual alignment factor component weights must be finite, non-negative, and non-zero");
+  }
   if (!visual_support_is_valid(factor.support_stamp_ns, factor.support_weights)) {
     throw std::runtime_error("visual alignment factor support stamps/weights must be valid");
   }
@@ -1562,6 +1597,7 @@ SlidingWindowOptimizer::add_batched_marginalized_visual_priors(
         factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0 ||
         !std::isfinite(factor.huber_delta_m) || factor.huber_delta_m < 0.0 ||
         !factor.measured_shift_px.allFinite() ||
+        !visual_component_weights_are_valid(factor.component_weight_xy) ||
         (factor.has_reference_pose && !factor.reference_p_w_i.allFinite()) ||
         !visual_support_is_valid(factor.support_stamp_ns, factor.support_weights))
       {
@@ -1588,17 +1624,17 @@ SlidingWindowOptimizer::add_batched_marginalized_visual_priors(
         target_xy.y() =
           reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
         const Eigen::Vector2d residual_xy = predicted_p_w_i.head<2>() - target_xy;
-        const double scale =
-          std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
+        const Eigen::Vector2d row_scales = visual_axis_row_scales(factor, residual_xy);
         Eigen::VectorXd residual(2);
-        residual = scale * residual_xy;
+        residual.x() = row_scales.x() * residual_xy.x();
+        residual.y() = row_scales.y() * residual_xy.y();
         std::vector<Eigen::MatrixXd> endpoint_jacobians;
         endpoint_jacobians.reserve(factor.support_weights.size());
         for (const auto weight : factor.support_weights) {
           Eigen::MatrixXd jacobian =
             Eigen::MatrixXd::Zero(2, static_cast<Eigen::Index>(kStateDof));
-          jacobian(0, 6) = scale * weight;
-          jacobian(1, 7) = scale * weight;
+          jacobian(0, 6) = row_scales.x() * weight;
+          jacobian(1, 7) = row_scales.y() * weight;
           endpoint_jacobians.push_back(std::move(jacobian));
         }
         return build_from_endpoints(endpoints, residual, endpoint_jacobians);
@@ -1618,14 +1654,14 @@ SlidingWindowOptimizer::add_batched_marginalized_visual_priors(
         reference_p_w_i.y() + factor.measured_shift_px.y() * factor.meters_per_pixel;
       const Eigen::Vector2d residual_xy =
         support->marginalized_reference_state.p_w_i.head<2>() - target_xy;
-      const double scale =
-        std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
+      const Eigen::Vector2d row_scales = visual_axis_row_scales(factor, residual_xy);
       Eigen::VectorXd residual(2);
-      residual = scale * residual_xy;
+      residual.x() = row_scales.x() * residual_xy.x();
+      residual.y() = row_scales.y() * residual_xy.y();
       Eigen::MatrixXd marginalized_jacobian =
         Eigen::MatrixXd::Zero(2, static_cast<Eigen::Index>(kStateDof));
-      marginalized_jacobian(0, 6) = scale;
-      marginalized_jacobian(1, 7) = scale;
+      marginalized_jacobian(0, 6) = row_scales.x();
+      marginalized_jacobian(1, 7) = row_scales.y();
       LocalMeasurement measurement;
       measurement.stamp_ns = support->retained_stamp_ns;
       measurement.reference_states = support->retained_reference_states;
@@ -1908,6 +1944,7 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
     factor.weight <= 0.0 || factor.meters_per_pixel <= 0.0 ||
     !std::isfinite(factor.huber_delta_m) || factor.huber_delta_m < 0.0 ||
     !factor.measured_shift_px.allFinite() ||
+    !visual_component_weights_are_valid(factor.component_weight_xy) ||
     (factor.has_reference_pose && !factor.reference_p_w_i.allFinite()))
   {
     return false;
@@ -1938,17 +1975,17 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
       reference_p_w_i.y() +
       factor.measured_shift_px.y() * factor.meters_per_pixel;
     const Eigen::Vector2d residual_xy = predicted_p_w_i.head<2>() - target_xy;
-    const double scale =
-      std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
+    const Eigen::Vector2d row_scales = visual_axis_row_scales(factor, residual_xy);
     Eigen::VectorXd residual(2);
-    residual = scale * residual_xy;
+    residual.x() = row_scales.x() * residual_xy.x();
+    residual.y() = row_scales.y() * residual_xy.y();
     std::vector<Eigen::MatrixXd> endpoint_jacobians;
     endpoint_jacobians.reserve(factor.support_weights.size());
     for (const auto weight : factor.support_weights) {
       Eigen::MatrixXd jacobian =
         Eigen::MatrixXd::Zero(2, static_cast<Eigen::Index>(kStateDof));
-      jacobian(0, 6) = scale * weight;
-      jacobian(1, 7) = scale * weight;
+      jacobian(0, 6) = row_scales.x() * weight;
+      jacobian(1, 7) = row_scales.y() * weight;
       endpoint_jacobians.push_back(std::move(jacobian));
     }
     if (!add_marginalized_support_measurement_prior(
@@ -1975,14 +2012,14 @@ bool SlidingWindowOptimizer::add_marginalized_visual_alignment_prior(
     factor.measured_shift_px.y() * factor.meters_per_pixel;
   const Eigen::Vector2d residual_xy =
     support->marginalized_reference_state.p_w_i.head<2>() - target_xy;
-  const double scale =
-    std::sqrt(factor.weight * huber_weight(residual_xy.norm(), factor.huber_delta_m));
+  const Eigen::Vector2d row_scales = visual_axis_row_scales(factor, residual_xy);
   Eigen::VectorXd residual(2);
-  residual = scale * residual_xy;
+  residual.x() = row_scales.x() * residual_xy.x();
+  residual.y() = row_scales.y() * residual_xy.y();
   Eigen::MatrixXd marginalized_jacobian =
     Eigen::MatrixXd::Zero(2, static_cast<Eigen::Index>(kStateDof));
-  marginalized_jacobian(0, 6) = scale;
-  marginalized_jacobian(1, 7) = scale;
+  marginalized_jacobian(0, 6) = row_scales.x();
+  marginalized_jacobian(1, 7) = row_scales.y();
   if (!add_marginalized_measurement_prior(
       factor.stamp_ns, residual, marginalized_jacobian))
   {
@@ -2727,9 +2764,12 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
     Eigen::Vector2d residual;
     residual.x() = position.x() - target_xy.x();
     residual.y() = position.y() - target_xy.y();
-    const double robust_weight = huber_weight(residual.norm(), factor.huber_delta_m);
+    const Eigen::Vector2d row_scales = visual_axis_row_scales(factor, residual);
+    Eigen::Vector2d scaled_residual;
+    scaled_residual.x() = row_scales.x() * residual.x();
+    scaled_residual.y() = row_scales.y() * residual.y();
     append(
-      std::sqrt(factor.weight * robust_weight) * residual,
+      scaled_residual,
       &SlidingWindowCostBreakdown::visual_factor_cost);
   }
 
@@ -3124,12 +3164,12 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
       predicted_xy += item.second * states[static_cast<size_t>(item.first)].p_w_i.head<2>();
     }
     const Eigen::Vector2d residual = predicted_xy - target_xy;
-    const double scale = std::sqrt(factor.weight * huber_weight(residual.norm(), factor.huber_delta_m));
+    const Eigen::Vector2d row_scales = visual_axis_row_scales(factor, residual);
     for (const auto & item : support) {
       const Eigen::Index offset = variable_offsets[static_cast<size_t>(item.first)];
       if (offset >= 0) {
-        jacobian(row, offset + 6) = scale * item.second;
-        jacobian(row + 1, offset + 7) = scale * item.second;
+        jacobian(row, offset + 6) = row_scales.x() * item.second;
+        jacobian(row + 1, offset + 7) = row_scales.y() * item.second;
       }
     }
     row += 2;

@@ -203,6 +203,7 @@ def main() -> int:
         "enable_visual_marginalization_prior_saturation_gate",
         "visual_marginalization_prior_saturation_gate_visual_factors",
         "visual_marginalization_prior_saturation_gate_se3_factors",
+        "enable_visual_alignment_saturation_axis_mask",
         "visual_marginalization_prior_zero_bias_columns",
         "enable_rendered_feedback_source_pose_reference",
         "visual_alignment_meters_per_pixel",
@@ -494,9 +495,13 @@ def main() -> int:
     for field_name in (
         "visual_marginalization_prior_saturation_gate_visual_factors",
         "visual_marginalization_prior_saturation_gate_se3_factors",
+        "visual_alignment_saturation_axis_mask_enabled",
+        "visual_alignment_saturation_axis_masked_factors",
+        "visual_alignment_saturation_axis_masked_axes",
+        "visual_alignment_saturation_axis_mask_skipped_factors",
     ):
         if field_name not in tracking_status_msg_text or f"status.{field_name}" not in tracking_node_text:
-            errors.append(f"TrackingStatus must expose visual-prior saturation-gate scope: {field_name}")
+            errors.append(f"TrackingStatus must expose visual saturation modeling diagnostics: {field_name}")
     if "visual_marginalization_prior_zero_bias_columns" not in tracking_node_text or \
             "visual_marginalization_prior_zero_bias_columns" not in sliding_window_text or \
             "visual_marginalization_prior_zero_bias_columns" not in sliding_window_header_text:
@@ -599,6 +604,7 @@ def main() -> int:
         "visual_marginalization_prior_enabled",
         "visual_marginalization_prior_batching_enabled",
         "visual_marginalization_prior_saturation_gate_enabled",
+        "visual_alignment_saturation_axis_mask_enabled",
         "visual_alignment_expired_projected_factors",
         "visual_se3_photometric_expired_projected_factors",
         "visual_expired_projection_skipped_factors",
@@ -608,6 +614,9 @@ def main() -> int:
         "visual_marginalization_prior_saturation_rejected_factors",
         "visual_marginalization_prior_saturation_rejected_visual_factors",
         "visual_marginalization_prior_saturation_rejected_se3_factors",
+        "visual_alignment_saturation_axis_masked_factors",
+        "visual_alignment_saturation_axis_masked_axes",
+        "visual_alignment_saturation_axis_mask_skipped_factors",
         "visual_batched_marginalization_prior_batches",
         "visual_batched_marginalization_prior_visual_factors",
         "visual_batched_marginalization_prior_se3_factors",
@@ -665,6 +674,10 @@ def main() -> int:
         errors.append("tracking_node must expose visual-factor saturation-gate scope as default-on")
     if 'declare_parameter<bool>("visual_marginalization_prior_saturation_gate_se3_factors", true)' not in tracking_node_text:
         errors.append("tracking_node must expose SE3 saturation-gate scope as default-on")
+    if 'declare_parameter<bool>("enable_visual_alignment_saturation_axis_mask", false)' not in tracking_node_text:
+        errors.append("tracking_node must expose visual alignment saturation axis mask as default-off")
+    if "component_weight_xy" not in sliding_window_header_text or "visual_axis_row_scales" not in sliding_window_text:
+        errors.append("sliding-window visual factors must support per-axis residual weights")
     if "bool visual_alignment_saturated{false};" not in tracking_node_text:
         errors.append("SE3 pending visual factors must retain paired visual-saturation provenance")
     if "pending.visual_alignment_saturated = last_visual_alignment_saturated_" not in tracking_node_text:
@@ -693,6 +706,8 @@ def main() -> int:
         errors.append("tracking.launch.py must expose visual-factor saturation-gate scope")
     if 'DeclareLaunchArgument("visual_marginalization_prior_saturation_gate_se3_factors", default_value="true")' not in tracking_launch_text:
         errors.append("tracking.launch.py must expose SE3 saturation-gate scope")
+    if 'DeclareLaunchArgument("enable_visual_alignment_saturation_axis_mask", default_value="false")' not in tracking_launch_text:
+        errors.append("tracking.launch.py must expose visual alignment saturation axis mask")
     if "--enable-visual-pair-monotonic-unique" not in native_tracking_report_text:
         errors.append("native tracking report must expose direct visual-pair one-to-one semantics")
     if "--enable-visual-watermark-pair-scheduler" not in native_tracking_report_text:
@@ -713,6 +728,8 @@ def main() -> int:
         errors.append("native tracking report must expose visual-prior saturation gating")
     if "--visual-marginalization-prior-saturation-gate-visual-only" not in native_tracking_report_text:
         errors.append("native tracking report must expose factor-type saturation-gate scoping")
+    if "--enable-visual-alignment-saturation-axis-mask" not in native_tracking_report_text:
+        errors.append("native tracking report must expose visual alignment saturation axis masking")
     if "--visual-factor-reference-stamp-mode" not in native_tracking_report_text:
         errors.append("native tracking report must expose visual factor reference-stamp ownership")
     if "OBSERVED_FRAME_CACHE_SIZE=128" not in native_tracking_report_text or \
