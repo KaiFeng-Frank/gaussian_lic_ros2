@@ -102,6 +102,12 @@ public:
     rendered_image_qos_durability_ =
       declare_parameter<std::string>("rendered_image_qos_durability", "transient_local");
     rendered_image_qos_depth_ = declare_parameter<int>("rendered_image_qos_depth", 1);
+    rendered_feedback_source_stream_name_ =
+      declare_parameter<std::string>("rendered_feedback_source_stream", "aligned_frame");
+    rendered_feedback_source_stream_ =
+      parse_rendered_feedback_source_stream(rendered_feedback_source_stream_name_);
+    rendered_feedback_source_stream_name_ =
+      rendered_feedback_source_stream_to_string(rendered_feedback_source_stream_);
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     save_map_service_ = declare_parameter<std::string>("save_map_service", "/gaussian_lic/save_map");
     world_frame_ = declare_parameter<std::string>("world_frame", "map");
@@ -270,6 +276,7 @@ public:
         {
           std::scoped_lock lock(buffer_mutex_);
           push_bounded(pose_buf_, msg, dropped_pose_count_);
+          push_bounded(feedback_pose_buf_, msg, image_pose_feedback_pose_queue_drops_);
         }
       });
 
@@ -280,6 +287,7 @@ public:
         {
           std::scoped_lock lock(buffer_mutex_);
           push_bounded(image_buf_, msg, dropped_image_count_);
+          push_bounded(feedback_image_buf_, msg, image_pose_feedback_image_queue_drops_);
         }
       });
 
@@ -343,7 +351,10 @@ public:
     status_timer_ = create_wall_timer(1s, [this]() { publish_status(); });
     process_timer_ = create_wall_timer(
       std::chrono::milliseconds(process_period_ms_),
-      [this]() { process_available_frames(); });
+      [this]() {
+        process_image_pose_rendered_feedback();
+        process_available_frames();
+      });
     if (publish_tf_) {
       tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     }
@@ -765,6 +776,12 @@ private:
     kImage
   };
 
+  enum class RenderedFeedbackSourceStream
+  {
+    kAlignedFrame,
+    kImagePose
+  };
+
   SyncAnchorStream parse_sync_anchor_stream(const std::string & value) const
   {
     if (value == "pointcloud") {
@@ -775,6 +792,37 @@ private:
     }
     throw std::runtime_error(
       "sync_anchor_stream must be pointcloud or image, got " + value);
+  }
+
+  RenderedFeedbackSourceStream parse_rendered_feedback_source_stream(
+    const std::string & value) const
+  {
+    const std::string mode = normalized_qos_token(value);
+    if (mode == "alignedframe" || mode == "aligned") {
+      return RenderedFeedbackSourceStream::kAlignedFrame;
+    }
+    if (mode == "imagepose" || mode == "camera" || mode == "image") {
+      return RenderedFeedbackSourceStream::kImagePose;
+    }
+    throw std::runtime_error(
+      "rendered_feedback_source_stream must be aligned_frame or image_pose, got " + value);
+  }
+
+  static std::string rendered_feedback_source_stream_to_string(
+    const RenderedFeedbackSourceStream stream)
+  {
+    switch (stream) {
+      case RenderedFeedbackSourceStream::kAlignedFrame:
+        return "aligned_frame";
+      case RenderedFeedbackSourceStream::kImagePose:
+        return "image_pose";
+    }
+    return "aligned_frame";
+  }
+
+  bool rendered_feedback_from_aligned_frames() const
+  {
+    return rendered_feedback_source_stream_ == RenderedFeedbackSourceStream::kAlignedFrame;
   }
 
   AlignResult pop_aligned_locked(AlignedRosFrame & out)
@@ -933,6 +981,158 @@ private:
     return AlignResult::kAligned;
   }
 
+  struct ImagePoseFeedbackJob
+  {
+    sensor_msgs::msg::Image::ConstSharedPtr image;
+    geometry_msgs::msg::PoseStamped::ConstSharedPtr pose;
+    uint64_t frame_index{0};
+  };
+
+  geometry_msgs::msg::PoseStamped::ConstSharedPtr select_pose_for_image_feedback_locked(
+    const int64_t image_stamp_ns,
+    bool & pose_window_expired) const
+  {
+    pose_window_expired = false;
+    if (feedback_pose_buf_.empty()) {
+      return nullptr;
+    }
+
+    geometry_msgs::msg::PoseStamped::ConstSharedPtr best_pose;
+    uint64_t best_abs_delta = std::numeric_limits<uint64_t>::max();
+    const auto tolerance = static_cast<uint64_t>(sync_tolerance_nsec_);
+    for (const auto & pose : feedback_pose_buf_) {
+      const int64_t pose_stamp_ns = stamp_to_nsec(pose->header.stamp);
+      const int64_t delta_ns = pose_stamp_ns - image_stamp_ns;
+      const uint64_t abs_delta = abs_i64_to_u64(delta_ns);
+      if (abs_delta <= tolerance && abs_delta < best_abs_delta) {
+        best_pose = pose;
+        best_abs_delta = abs_delta;
+      }
+      if (delta_ns > sync_tolerance_nsec_) {
+        break;
+      }
+    }
+
+    if (best_pose) {
+      return best_pose;
+    }
+
+    const int64_t newest_pose_stamp_ns = stamp_to_nsec(feedback_pose_buf_.back()->header.stamp);
+    if (newest_pose_stamp_ns > image_stamp_ns + sync_tolerance_nsec_) {
+      pose_window_expired = true;
+    }
+    return nullptr;
+  }
+
+  gaussian_lic_mapping::CameraFrameRecord make_image_pose_feedback_record(
+    const sensor_msgs::msg::Image & image,
+    const geometry_msgs::msg::PoseStamped & pose,
+    const uint64_t frame_index) const
+  {
+    gaussian_lic_mapping::CameraFrameRecord record;
+    record.stamp = image.header.stamp;
+    record.pointcloud_stamp = image.header.stamp;
+    record.pose_stamp = pose.header.stamp;
+    record.image_stamp = image.header.stamp;
+    record.frame_index = frame_index;
+    record.is_keyframe = true;
+    record.image_name = "image_pose_feedback";
+    record.image_rgb_float = gaussian_lic_mapping::convert_image_to_rgb_float(image);
+    record.width = record.image_rgb_float.cols;
+    record.height = record.image_rgb_float.rows;
+    record.depth_m_float = cv::Mat(record.height, record.width, CV_32FC1, cv::Scalar(0.0F));
+
+    const Eigen::Quaterniond q_w_pose{
+      pose.pose.orientation.w,
+      pose.pose.orientation.x,
+      pose.pose.orientation.y,
+      pose.pose.orientation.z};
+    const Eigen::Quaterniond q_pose_camera = camera_extrinsics_.q_pose_camera.normalized();
+    const Eigen::Vector3d t_w_pose{
+      pose.pose.position.x,
+      pose.pose.position.y,
+      pose.pose.position.z};
+    record.r_wc = (q_w_pose.normalized() * q_pose_camera).normalized().toRotationMatrix();
+    record.t_wc = t_w_pose + q_w_pose.normalized() * camera_extrinsics_.p_pose_camera;
+    return record;
+  }
+
+  void process_image_pose_rendered_feedback()
+  {
+    if (
+      rendered_feedback_source_stream_ != RenderedFeedbackSourceStream::kImagePose ||
+      !publish_rendered_preview_ || normalized_qos_token(render_mode_) == "off")
+    {
+      return;
+    }
+
+    std::vector<ImagePoseFeedbackJob> jobs;
+    jobs.reserve(32U);
+    {
+      std::scoped_lock lock(buffer_mutex_);
+      while (!feedback_image_buf_.empty()) {
+        if (jobs.size() >= 32U) {
+          break;
+        }
+        const auto image = feedback_image_buf_.front();
+        const int64_t image_stamp_ns = stamp_to_nsec(image->header.stamp);
+        if (
+          image_pose_feedback_last_image_stamp_valid_ &&
+          image_stamp_ns <= image_pose_feedback_last_image_stamp_ns_)
+        {
+          feedback_image_buf_.pop_front();
+          continue;
+        }
+
+        bool pose_window_expired = false;
+        auto pose = select_pose_for_image_feedback_locked(image_stamp_ns, pose_window_expired);
+        if (!pose) {
+          if (pose_window_expired) {
+            image_pose_feedback_last_image_stamp_ns_ = image_stamp_ns;
+            image_pose_feedback_last_image_stamp_valid_ = true;
+            ++image_pose_feedback_pose_window_drops_;
+            ++image_pose_feedback_dropped_images_;
+            feedback_image_buf_.pop_front();
+            continue;
+          }
+          ++image_pose_feedback_pose_waits_;
+          break;
+        }
+
+        image_pose_feedback_last_image_stamp_ns_ = image_stamp_ns;
+        image_pose_feedback_last_image_stamp_valid_ = true;
+        ++image_pose_feedback_candidates_;
+        feedback_image_buf_.pop_front();
+        while (!feedback_pose_buf_.empty() &&
+          stamp_to_nsec(feedback_pose_buf_.front()->header.stamp) <
+          image_stamp_ns - sync_tolerance_nsec_)
+        {
+          feedback_pose_buf_.pop_front();
+        }
+        jobs.push_back(ImagePoseFeedbackJob{
+          image, pose, image_pose_feedback_next_frame_index_++});
+      }
+    }
+
+    for (const auto & job : jobs) {
+      try {
+        const auto record = make_image_pose_feedback_record(*job.image, *job.pose, job.frame_index);
+        auto rendered_image = make_rendered_preview_message_for_record(record.image_stamp, record);
+        auto rendered_feedback = make_rendered_feedback_message(rendered_image, record);
+        ++rendered_preview_count_;
+        ++image_pose_feedback_published_;
+        rendered_image_pub_->publish(std::move(rendered_image));
+        rendered_feedback_pub_->publish(std::move(rendered_feedback));
+      } catch (const std::exception & ex) {
+        ++render_error_count_;
+        ++image_pose_feedback_errors_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "failed to publish image-pose rendered feedback: %s", ex.what());
+      }
+    }
+  }
+
   void process_available_frames()
   {
     int processed = 0;
@@ -1002,7 +1202,7 @@ private:
     dataset_.trim_map_points(max_map_points_ > 0 ? static_cast<size_t>(max_map_points_) : 0U);
     map_points_pub_->publish(make_map_points_message(frame_stamp));
     (void)record;
-    if (publish_rendered_feedback_before_update_) {
+    if (publish_rendered_feedback_before_update_ && rendered_feedback_from_aligned_frames()) {
       publish_rendered_preview_for_record(frame_stamp, record);
     }
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
@@ -1027,7 +1227,7 @@ private:
     }
     maybe_update_torch_gaussians(record);
 #endif
-    if (!publish_rendered_feedback_before_update_) {
+    if (!publish_rendered_feedback_before_update_ && rendered_feedback_from_aligned_frames()) {
       publish_rendered_preview_for_record(frame_stamp, record);
     }
   }
@@ -1985,11 +2185,19 @@ private:
   sensor_msgs::msg::Image make_blank_rendered_image_message(
     const builtin_interfaces::msg::Time & stamp) const
   {
+    return make_blank_rendered_image_message(stamp, last_image_width_, last_image_height_);
+  }
+
+  sensor_msgs::msg::Image make_blank_rendered_image_message(
+    const builtin_interfaces::msg::Time & stamp,
+    const int width,
+    const int height) const
+  {
     sensor_msgs::msg::Image image;
     image.header.stamp = stamp;
     image.header.frame_id = camera_frame_;
-    image.height = static_cast<uint32_t>(std::max(last_image_height_, 0));
-    image.width = static_cast<uint32_t>(std::max(last_image_width_, 0));
+    image.height = static_cast<uint32_t>(std::max(height, 0));
+    image.width = static_cast<uint32_t>(std::max(width, 0));
     image.encoding = sensor_msgs::image_encodings::RGB8;
     image.is_bigendian = false;
     image.step = image.width * 3U;
@@ -2267,6 +2475,21 @@ private:
     frame.r_wc = last_q_wc_.toRotationMatrix();
     frame.t_wc = last_t_wc_;
 
+    return make_cuda_torch_gaussian_preview_message_for_record(stamp, device, frame);
+  }
+
+  sensor_msgs::msg::Image make_cuda_torch_gaussian_preview_message_for_record(
+    const builtin_interfaces::msg::Time & stamp,
+    const torch::Device & device,
+    const gaussian_lic_mapping::CameraFrameRecord & frame) const
+  {
+    if (
+      frame.width <= 0 || frame.height <= 0 || frame.image_rgb_float.empty() ||
+      !torch_gaussian_initialized_ || torch_gaussian_count_ == 0)
+    {
+      return make_blank_rendered_image_message(stamp, frame.width, frame.height);
+    }
+
     const auto intrinsics = current_intrinsics();
     torch::NoGradGuard no_grad;
     const auto camera = gaussian_lic_mapping::make_torch_camera(
@@ -2274,7 +2497,7 @@ private:
     const auto render_result = gaussian_lic_mapping::render_gaussian_map_from_camera(
       torch_gaussian_map_, camera, backend_config_, device);
     if (render_result.visible_count == 0 || !render_result.rendered_image.defined()) {
-      return make_torch_gaussian_splat_preview_message(stamp);
+      return make_blank_rendered_image_message(stamp, frame.width, frame.height);
     }
 
     const auto rendered = torch::clamp(render_result.rendered_image.detach(), 0.0F, 1.0F)
@@ -2282,12 +2505,12 @@ private:
       .contiguous();
     if (
       rendered.dim() != 3 || rendered.size(0) != 3 ||
-      rendered.size(1) != last_image_height_ || rendered.size(2) != last_image_width_)
+      rendered.size(1) != frame.height || rendered.size(2) != frame.width)
     {
       throw std::runtime_error("CUDA Gaussian rasterizer returned an unexpected image shape");
     }
 
-    sensor_msgs::msg::Image image = make_blank_rendered_image_message(stamp);
+    sensor_msgs::msg::Image image = make_blank_rendered_image_message(stamp, frame.width, frame.height);
     const auto rendered_a = rendered.accessor<float, 3>();
     for (uint32_t row = 0; row < image.height; ++row) {
       uint8_t * dst = image.data.data() + static_cast<size_t>(row) * image.step;
@@ -2318,6 +2541,38 @@ private:
     if (mode == "rasterizer") {
 #ifdef GAUSSIAN_LIC_ENABLE_TORCH
       return make_torch_gaussian_preview_message(stamp);
+#else
+      throw std::runtime_error(
+        "render_mode=rasterizer requested, but this build was not compiled with the Torch/CUDA Gaussian backend");
+#endif
+    }
+    throw std::runtime_error(
+      "render_mode must be debug_cpu, debug_input, rasterizer, or off, got " + render_mode_);
+  }
+
+  sensor_msgs::msg::Image make_rendered_preview_message_for_record(
+    const builtin_interfaces::msg::Time & stamp,
+    const gaussian_lic_mapping::CameraFrameRecord & frame) const
+  {
+    const std::string mode = normalized_qos_token(render_mode_);
+    if (mode == "off") {
+      return sensor_msgs::msg::Image{};
+    }
+    if (mode == "debuginput") {
+      return make_observed_feedback_image_message(frame);
+    }
+    if (mode == "debugcpu") {
+      return make_blank_rendered_image_message(stamp, frame.width, frame.height);
+    }
+    if (mode == "rasterizer") {
+#ifdef GAUSSIAN_LIC_ENABLE_TORCH
+#ifdef GAUSSIAN_LIC_ENABLE_CUDA
+      const auto device = resolve_torch_gaussian_device();
+      if (device.is_cuda()) {
+        return make_cuda_torch_gaussian_preview_message_for_record(stamp, device, frame);
+      }
+#endif
+      return make_blank_rendered_image_message(stamp, frame.width, frame.height);
 #else
       throw std::runtime_error(
         "render_mode=rasterizer requested, but this build was not compiled with the Torch/CUDA Gaussian backend");
@@ -2403,12 +2658,16 @@ private:
     size_t q_pose = 0;
     size_t q_image = 0;
     size_t q_depth = 0;
+    size_t q_feedback_pose = 0;
+    size_t q_feedback_image = 0;
     {
       std::scoped_lock lock(buffer_mutex_);
       q_points = point_buf_.size();
       q_pose = pose_buf_.size();
       q_image = image_buf_.size();
       q_depth = depth_buf_.size();
+      q_feedback_pose = feedback_pose_buf_.size();
+      q_feedback_image = feedback_image_buf_.size();
     }
 
     gaussian_lic_msgs::msg::MappingStatus msg;
@@ -2483,6 +2742,7 @@ private:
     msg.gpu_memory_mb = 0.0F;
     msg.active_profile = active_profile_;
     msg.sync_anchor_stream = sync_anchor_stream_name_;
+    msg.rendered_feedback_source_stream = rendered_feedback_source_stream_name_;
     msg.pointcloud_messages = pointcloud_count_;
     msg.pose_messages = pose_count_;
     msg.image_messages = image_count_;
@@ -2499,6 +2759,16 @@ private:
     msg.pending_depth_messages = static_cast<uint64_t>(q_depth);
     msg.rendered_preview_count = rendered_preview_count_;
     msg.render_error_count = render_error_count_;
+    msg.image_pose_feedback_candidates = image_pose_feedback_candidates_;
+    msg.image_pose_feedback_published = image_pose_feedback_published_;
+    msg.image_pose_feedback_pose_waits = image_pose_feedback_pose_waits_;
+    msg.image_pose_feedback_pose_window_drops = image_pose_feedback_pose_window_drops_;
+    msg.image_pose_feedback_dropped_images = image_pose_feedback_dropped_images_;
+    msg.image_pose_feedback_image_queue_drops = image_pose_feedback_image_queue_drops_;
+    msg.image_pose_feedback_pose_queue_drops = image_pose_feedback_pose_queue_drops_;
+    msg.pending_image_pose_feedback_images = static_cast<uint64_t>(q_feedback_image);
+    msg.pending_image_pose_feedback_poses = static_cast<uint64_t>(q_feedback_pose);
+    msg.image_pose_feedback_errors = image_pose_feedback_errors_;
     msg.last_aligned_pointcloud_pose_delta_ns = last_aligned_pointcloud_pose_delta_ns_;
     msg.last_aligned_pointcloud_image_delta_ns = last_aligned_pointcloud_image_delta_ns_;
     msg.max_abs_aligned_pointcloud_pose_delta_ns = max_abs_aligned_pointcloud_pose_delta_ns_;
@@ -2590,6 +2860,9 @@ private:
   int64_t sync_tolerance_nsec_{10000000LL};
   std::string sync_anchor_stream_name_{"pointcloud"};
   SyncAnchorStream sync_anchor_stream_{SyncAnchorStream::kPointcloud};
+  std::string rendered_feedback_source_stream_name_{"aligned_frame"};
+  RenderedFeedbackSourceStream rendered_feedback_source_stream_{
+    RenderedFeedbackSourceStream::kAlignedFrame};
   int max_queue_size_{10000};
   std::string sensor_qos_reliability_{"best_effort"};
   std::string sensor_qos_history_{"keep_last"};
@@ -2668,6 +2941,8 @@ private:
   std::deque<geometry_msgs::msg::PoseStamped::ConstSharedPtr> pose_buf_;
   std::deque<sensor_msgs::msg::Image::ConstSharedPtr> image_buf_;
   std::deque<sensor_msgs::msg::Image::ConstSharedPtr> depth_buf_;
+  std::deque<geometry_msgs::msg::PoseStamped::ConstSharedPtr> feedback_pose_buf_;
+  std::deque<sensor_msgs::msg::Image::ConstSharedPtr> feedback_image_buf_;
 
   builtin_interfaces::msg::Time last_aligned_stamp_;
   builtin_interfaces::msg::Time last_imu_stamp_;
@@ -2727,6 +3002,17 @@ private:
   uint64_t conversion_error_count_{0};
   uint64_t render_error_count_{0};
   uint64_t rendered_preview_count_{0};
+  uint64_t image_pose_feedback_candidates_{0};
+  uint64_t image_pose_feedback_published_{0};
+  uint64_t image_pose_feedback_pose_waits_{0};
+  uint64_t image_pose_feedback_pose_window_drops_{0};
+  uint64_t image_pose_feedback_dropped_images_{0};
+  uint64_t image_pose_feedback_image_queue_drops_{0};
+  uint64_t image_pose_feedback_pose_queue_drops_{0};
+  uint64_t image_pose_feedback_errors_{0};
+  uint64_t image_pose_feedback_next_frame_index_{0};
+  int64_t image_pose_feedback_last_image_stamp_ns_{0};
+  bool image_pose_feedback_last_image_stamp_valid_{false};
   int last_image_width_{0};
   int last_image_height_{0};
   cv::Mat last_image_rgb_float_;

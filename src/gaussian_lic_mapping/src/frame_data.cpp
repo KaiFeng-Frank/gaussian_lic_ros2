@@ -228,6 +228,8 @@ cv::Mat make_projected_depth_image(
   return depth_m;
 }
 
+}  // namespace
+
 cv::Mat convert_image_to_rgb_float(const sensor_msgs::msg::Image & image_msg)
 {
   namespace enc = sensor_msgs::image_encodings;
@@ -259,6 +261,9 @@ cv::Mat convert_image_to_rgb_float(const sensor_msgs::msg::Image & image_msg)
 
   throw std::runtime_error("unsupported image encoding for Gaussian-LIC mapper: " + image_msg.encoding);
 }
+
+namespace
+{
 
 cv::Mat convert_depth_to_float_m(const sensor_msgs::msg::Image & depth_msg)
 {

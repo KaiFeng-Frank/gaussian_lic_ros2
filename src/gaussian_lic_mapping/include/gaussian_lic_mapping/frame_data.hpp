@@ -91,4 +91,6 @@ MapperFrameData convert_aligned_frame(
   bool require_projected_color = false,
   bool zbuffer_projected_points = false);
 
+cv::Mat convert_image_to_rgb_float(const sensor_msgs::msg::Image & image_msg);
+
 }  // namespace gaussian_lic_mapping

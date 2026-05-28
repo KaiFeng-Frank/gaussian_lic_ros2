@@ -660,9 +660,23 @@ def main() -> int:
         "rendered_preview_count",
         "render_error_count",
         "sync_anchor_stream",
+        "rendered_feedback_source_stream",
+        "image_pose_feedback_published",
+        "image_pose_feedback_pose_window_drops",
+        "pending_image_pose_feedback_images",
+        "pending_image_pose_feedback_poses",
     ):
         if field_name not in mapping_status_msg_text or f"msg.{field_name}" not in mapping_text:
             errors.append(f"MappingStatus must publish mapper feedback liveness diagnostics: {field_name}")
+    if (
+        'declare_parameter<std::string>("rendered_feedback_source_stream", "aligned_frame")'
+        not in mapping_text
+    ):
+        errors.append("mapping_node must expose image_pose rendered-feedback source as default-off")
+    if '"rendered_feedback_source_stream"' not in launch_text:
+        errors.append("run_bag.launch.py must expose rendered_feedback_source_stream")
+    if "--mapper-feedback-rendered-feedback-source-stream" not in native_tracking_report_text:
+        errors.append("native tracking real-bag report must expose mapper rendered-feedback source stream")
     if "--mapper-feedback-sync-anchor" not in native_tracking_report_text or \
             "mapper_feedback_sync_anchor_stream" not in native_tracking_report_text:
         errors.append("native tracking real-bag report must expose and record the mapper feedback sync anchor")

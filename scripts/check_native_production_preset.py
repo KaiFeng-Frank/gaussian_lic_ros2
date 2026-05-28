@@ -140,6 +140,9 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE": (
             preset.get("mapper_feedback_publish_rendered_before_update", False)
         ),
+        "MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM": (
+            preset["mapper_feedback_rendered_feedback_source_stream"]
+        ),
         "ENABLE_VISUAL_FACTOR_TIME_INTERPOLATION": (
             preset["enable_visual_factor_time_interpolation"]
         ),
@@ -273,6 +276,8 @@ def check_script_contract(manifest: dict[str, Any], script: str, errors: list[st
         "mapper_feedback_image_qos_reliability",
         "--mapper-feedback-publish-rendered-before-update",
         "mapper_feedback_publish_rendered_before_update",
+        "--mapper-feedback-rendered-feedback-source-stream",
+        "mapper_feedback_rendered_feedback_source_stream",
         "visual_factor_continuity",
         "mapper_feedback_continuity",
         "rendered_delivery_continuity",
@@ -401,6 +406,8 @@ def check_report_gate_config(
             ):
                 continue
             if key == "enable_visual_factor_reference_snapshot" and wanted is False:
+                continue
+            if key == "mapper_feedback_rendered_feedback_source_stream" and wanted == "aligned_frame":
                 continue
             if (
                 key == "visual_watermark_pair_scheduler_max_pairs_per_pointcloud"

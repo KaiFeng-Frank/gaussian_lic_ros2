@@ -67,6 +67,7 @@ float32 gpu_memory_mb
 
 string active_profile
 string sync_anchor_stream
+string rendered_feedback_source_stream
 
 # Input synchronization diagnostics. `num_dropped_messages` keeps the legacy
 # aggregate, while these fields identify whether late feedback gaps come from
@@ -87,6 +88,21 @@ uint64 pending_image_messages
 uint64 pending_depth_messages
 uint64 rendered_preview_count
 uint64 render_error_count
+
+# Image+pose rendered-feedback diagnostics. These are nonzero only when the
+# mapper publishes typed feedback from camera frames instead of aligned
+# pointcloud frames, so visual BA support can be audited separately from point
+# cloud/map synchronization.
+uint64 image_pose_feedback_candidates
+uint64 image_pose_feedback_published
+uint64 image_pose_feedback_pose_waits
+uint64 image_pose_feedback_pose_window_drops
+uint64 image_pose_feedback_dropped_images
+uint64 image_pose_feedback_image_queue_drops
+uint64 image_pose_feedback_pose_queue_drops
+uint64 pending_image_pose_feedback_images
+uint64 pending_image_pose_feedback_poses
+uint64 image_pose_feedback_errors
 
 # Signed synchronization deltas for the last aligned frame, measured as
 # stream_stamp - pointcloud_stamp. These expose ROS2 replay/synchronizer drift
