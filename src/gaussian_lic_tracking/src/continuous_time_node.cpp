@@ -818,6 +818,8 @@ public:
       declare_parameter<double>("lidar_pose_prior_velocity_huber_delta_mps", 0.25);
     lidar_pose_prior_acceleration_huber_delta_mps2_ =
       declare_parameter<double>("lidar_pose_prior_acceleration_huber_delta_mps2", 0.50);
+    lidar_pose_prior_max_acceleration_mps2_ =
+      declare_parameter<double>("lidar_pose_prior_max_acceleration_mps2", 0.0);
     lidar_pose_prior_angular_velocity_huber_delta_radps_ =
       declare_parameter<double>("lidar_pose_prior_angular_velocity_huber_delta_radps", 0.25);
     lidar_pose_prior_orientation_huber_delta_rad_ =
@@ -898,6 +900,8 @@ public:
       lidar_pose_prior_velocity_huber_delta_mps_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_acceleration_huber_delta_mps2_) ||
       lidar_pose_prior_acceleration_huber_delta_mps2_ < 0.0 ||
+      !std::isfinite(lidar_pose_prior_max_acceleration_mps2_) ||
+      lidar_pose_prior_max_acceleration_mps2_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_angular_velocity_huber_delta_radps_) ||
       lidar_pose_prior_angular_velocity_huber_delta_radps_ < 0.0 ||
       !std::isfinite(lidar_pose_prior_orientation_huber_delta_rad_) ||
@@ -2584,9 +2588,11 @@ private:
       "visual_se_last_depth_delta_ns=%ld "
       "lidar_pose_priors=%zu lidar_pose_velocity_priors=%zu "
       "lidar_pose_acceleration_priors=%zu "
+      "lidar_pose_acceleration_clamped=%zu "
       "lidar_pose_angular_velocity_priors=%zu "
       "lidar_pose_matches=%zu lidar_pose_keyframes=%zu "
       "lidar_pose_rejected=%zu lidar_pose_last_residual=%.9g "
+      "lidar_pose_last_target_accel_mps2=%.9g "
       "lidar_scan_to_scan_priors=%zu lidar_scan_to_scan_velocity_priors=%zu "
       "lidar_scan_to_scan_acceleration_priors=%zu "
       "lidar_scan_to_scan_angular_velocity_priors=%zu "
@@ -2609,6 +2615,7 @@ private:
       "lidar_scan_to_scan_target_rel_m=%.9g "
       "lidar_scan_to_scan_target_prediction_ratio=%.9g "
       "lidar_scan_to_scan_target_speed_mps=%.9g "
+      "lidar_scan_to_scan_target_accel_mps2=%.9g "
       "lidar_scan_to_scan_target_angular_radps=%.9g "
       "lidar_scan_to_scan_cumulative_target_path_m=%.9g "
       "lidar_scan_to_scan_small_translation_targets=%zu "
@@ -2755,11 +2762,13 @@ private:
       lidar_pose_prior_factors_,
       lidar_pose_prior_velocity_factors_,
       lidar_pose_prior_acceleration_factors_,
+      lidar_pose_prior_acceleration_clamped_,
       lidar_pose_prior_angular_velocity_factors_,
       lidar_pose_prior_matches_,
       lidar_pose_factor_keyframes_,
       lidar_pose_prior_rejected_,
       lidar_pose_prior_last_mean_residual_m_,
+      lidar_pose_prior_last_target_acceleration_mps2_,
       lidar_scan_to_scan_priors_,
       lidar_scan_to_scan_velocity_priors_,
       lidar_scan_to_scan_acceleration_priors_,
@@ -2784,6 +2793,7 @@ private:
       lidar_scan_to_scan_last_target_relative_translation_m_,
       lidar_scan_to_scan_last_target_prediction_ratio_,
       lidar_scan_to_scan_last_target_speed_mps_,
+      lidar_scan_to_scan_last_target_acceleration_mps2_,
       lidar_scan_to_scan_last_target_angular_speed_radps_,
       lidar_scan_to_scan_cumulative_target_path_m_,
       lidar_scan_to_scan_small_translation_targets_,
@@ -3390,6 +3400,10 @@ private:
           ++lidar_scan_to_scan_acceleration_clamped_;
         }
       }
+      lidar_scan_to_scan_last_target_acceleration_mps2_ =
+        have_target_acceleration ? target_acceleration.norm() : 0.0;
+    } else {
+      lidar_scan_to_scan_last_target_acceleration_mps2_ = 0.0;
     }
 
     if (lidar_scan_to_scan_apply_pose_seed_) {
@@ -3552,9 +3566,19 @@ private:
           if (lidar_pose_prior_acceleration_weight_ > 0.0 &&
             have_last_lidar_pose_prior_velocity_)
           {
-            const Eigen::Vector3d target_acceleration =
+            Eigen::Vector3d target_acceleration =
               (target_velocity - last_lidar_pose_prior_velocity_world_) / dt_s;
             if (target_acceleration.allFinite()) {
+              if (lidar_pose_prior_max_acceleration_mps2_ > 0.0) {
+                const double accel_norm = target_acceleration.norm();
+                if (accel_norm > lidar_pose_prior_max_acceleration_mps2_ &&
+                  accel_norm > 1.0e-12)
+                {
+                  target_acceleration *= lidar_pose_prior_max_acceleration_mps2_ / accel_norm;
+                  ++lidar_pose_prior_acceleration_clamped_;
+                }
+              }
+              lidar_pose_prior_last_target_acceleration_mps2_ = target_acceleration.norm();
               estimator_->add_acceleration_prior(
                 stamp_ns, target_acceleration, lidar_pose_prior_acceleration_weight_,
                 lidar_pose_prior_acceleration_huber_delta_mps2_);
@@ -3857,6 +3881,7 @@ private:
   double lidar_pose_prior_position_huber_delta_m_{0.25};
   double lidar_pose_prior_velocity_huber_delta_mps_{0.25};
   double lidar_pose_prior_acceleration_huber_delta_mps2_{0.50};
+  double lidar_pose_prior_max_acceleration_mps2_{0.0};
   double lidar_pose_prior_angular_velocity_huber_delta_radps_{0.25};
   double lidar_pose_prior_orientation_huber_delta_rad_{0.25};
   int lidar_pose_factor_keyframe_stride_{5};
@@ -3896,10 +3921,12 @@ private:
   std::size_t lidar_pose_prior_factors_{0};
   std::size_t lidar_pose_prior_velocity_factors_{0};
   std::size_t lidar_pose_prior_acceleration_factors_{0};
+  std::size_t lidar_pose_prior_acceleration_clamped_{0};
   std::size_t lidar_pose_prior_angular_velocity_factors_{0};
   std::size_t lidar_pose_prior_matches_{0};
   std::size_t lidar_pose_prior_rejected_{0};
   double lidar_pose_prior_last_mean_residual_m_{0.0};
+  double lidar_pose_prior_last_target_acceleration_mps2_{0.0};
   bool have_last_lidar_pose_prior_{false};
   bool have_last_lidar_pose_prior_velocity_{false};
   int64_t last_lidar_pose_prior_stamp_ns_{0};
@@ -3936,6 +3963,7 @@ private:
   double lidar_scan_to_scan_last_target_relative_translation_m_{0.0};
   double lidar_scan_to_scan_last_target_prediction_ratio_{1.0};
   double lidar_scan_to_scan_last_target_speed_mps_{0.0};
+  double lidar_scan_to_scan_last_target_acceleration_mps2_{0.0};
   double lidar_scan_to_scan_last_target_angular_speed_radps_{0.0};
   double lidar_scan_to_scan_cumulative_target_path_m_{0.0};
   std::size_t lidar_scan_to_scan_small_translation_targets_{0};

@@ -386,10 +386,11 @@ second derivative of the Euclidean B-spline in Ceres,
 `ContinuousTimeSlidingWindowEstimator` buffers, activates, marginalizes, and
 diagnoses the residual alongside position/velocity priors, and
 `continuous_time_node` can derive default-off acceleration targets from LiDAR
-scan-to-map or scan-to-scan velocity deltas. The native parity script forwards
-and archives the acceleration weights, robust deltas, and optional scan-to-scan
-acceleration clamp, and the diagnostic summary records acceleration-prior
-factor counts. This is not a new production preset; it is a missing curvature
+scan-to-map or scan-to-scan velocity deltas. The node records target
+acceleration magnitudes and exposes a default-off physical clamp for
+LiDAR-pose-derived acceleration targets as well as the scan-to-scan clamp. The
+native parity script forwards and archives the acceleration weights, robust
+deltas, optional clamps, and diagnostic counts. This is not a new production preset; it is a missing curvature
 constraint needed to test whether long-window path-shape drift is caused by
 velocity-only motion information. `continuous_time_sliding_window_probe`
 contains the deterministic gate that perturbs spline curvature and verifies the
