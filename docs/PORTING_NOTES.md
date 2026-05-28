@@ -331,6 +331,26 @@ promoting a tuned production preset before full CBD replay evidence. The CBD
 `results/fastlivo2/CBD_Building_01_ct_dense_orientation_marg_12s_probe/native_tracking_report.json`
 confirms the runtime path produces nonzero position and orientation
 marginalization priors, but the trajectory is explicitly not a parity promotion.
+The full CBD opt-in replay
+`results/fastlivo2/CBD_Building_01_ct_dense_orientation_marg_full_probe/native_tracking_report.json`
+also proves long-window liveness (`1173` matches, `95.29%` coverage,
+`2197` orientation marginalization priors / `16470` rows), but it remains a
+rejected structural ablation at `3.665 m` RMSE and `48.98%` path drift. The
+next continuous-time parity gap is therefore not "SO(3) marginalization not
+wired"; it is bias/IMU information retention or global visual/map coupling.
+
+The same parity path now keeps diagnostic history, not just the final log line.
+`continuous_time_node` logs gyro bias, accel bias, and gravity vector/norms on
+each periodic `continuous-time diagnostics:` line, and
+`continuous_time_native_reference_parity.sh` writes both
+`runtime_diagnostic_series` and `runtime_diagnostic_summary` to the native
+report. The summary includes max bias norms, logged bias step norms, gravity
+norm, minimum last-step factor counts, and visual SE3 rank/condition extrema so
+full-window failures can be separated into bias drift, factor starvation, or
+observability collapse without manual graphing. The 4 s CBD proof at
+`results/fastlivo2/CBD_Building_01_ct_diagnostic_series_4s_probe/native_tracking_report.json`
+records `19` diagnostic samples and confirms the new bias/gravity keys survive
+the script-to-report path.
 `lidar_scan_to_scan_relative_translation_gain` now scales the relative
 translation before both position and velocity priors are formed, so future sweeps
 can damp ICP translation scale without forking the node. A CBD 12 s gain `0.15`

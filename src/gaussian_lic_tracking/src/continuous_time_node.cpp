@@ -2468,6 +2468,12 @@ private:
       return;
     }
     last_logged_diagnostic_step_ = diagnostics.steps_run;
+    const Eigen::Vector3d gyro_bias =
+      estimator_ ? estimator_->gyro_bias() : Eigen::Vector3d::Zero();
+    const Eigen::Vector3d accel_bias =
+      estimator_ ? estimator_->accel_bias() : Eigen::Vector3d::Zero();
+    const Eigen::Vector3d gravity_world =
+      estimator_ ? estimator_->gravity_world() : Eigen::Vector3d::Zero();
     RCLCPP_INFO(
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
@@ -2477,6 +2483,9 @@ private:
       "spline_position_marginalization_priors=%zu spline_position_marginalization_rows=%zu "
       "spline_orientation_marginalization_priors=%zu spline_orientation_marginalization_rows=%zu "
       "accepted_steps=%zu "
+      "gyro_bias_x=%.9g gyro_bias_y=%.9g gyro_bias_z=%.9g gyro_bias_norm=%.9g "
+      "accel_bias_x=%.9g accel_bias_y=%.9g accel_bias_z=%.9g accel_bias_norm=%.9g "
+      "gravity_x=%.9g gravity_y=%.9g gravity_z=%.9g gravity_norm=%.9g "
       "last_imu_factors=%zu last_lidar_factors=%zu "
       "last_lidar_point_factors=%zu last_lidar_normal_factors=%zu "
       "last_position_smoothness_factors=%zu last_rotation_smoothness_factors=%zu "
@@ -2585,6 +2594,18 @@ private:
       diagnostics.total_spline_orientation_marginalization_priors,
       diagnostics.total_spline_orientation_marginalization_prior_rows,
       diagnostics.accepted_solver_steps,
+      gyro_bias.x(),
+      gyro_bias.y(),
+      gyro_bias.z(),
+      gyro_bias.norm(),
+      accel_bias.x(),
+      accel_bias.y(),
+      accel_bias.z(),
+      accel_bias.norm(),
+      gravity_world.x(),
+      gravity_world.y(),
+      gravity_world.z(),
+      gravity_world.norm(),
       diagnostics.last_step_imu_factors,
       diagnostics.last_step_lidar_factors,
       diagnostics.last_step_lidar_point_factors,

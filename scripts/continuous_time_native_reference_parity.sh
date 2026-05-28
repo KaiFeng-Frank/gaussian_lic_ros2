@@ -625,16 +625,64 @@ if os.path.isfile(logger_log):
         odom_written = int(m.group(1))
 
 runtime_diagnostics = {}
+runtime_diagnostic_series = []
+runtime_diagnostic_summary = {}
 if os.path.isfile(node_log):
     txt = open(node_log, "r", encoding="utf-8", errors="replace").read()
     matches = re.findall(r"continuous-time diagnostics:\s*(.*)", txt)
     if matches:
         value_pattern = r"-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
-        for key, value in re.findall(rf"([a-z_]+)=({value_pattern})", matches[-1]):
-            if "." in value or "e" in value.lower():
-                runtime_diagnostics[key] = float(value)
-            else:
-                runtime_diagnostics[key] = int(value)
+        def parse_diagnostic(payload):
+            parsed = {}
+            for key, value in re.findall(rf"([a-z0-9_]+)=({value_pattern})", payload):
+                if "." in value or "e" in value.lower():
+                    parsed[key] = float(value)
+                else:
+                    parsed[key] = int(value)
+            return parsed
+
+        runtime_diagnostic_series = [
+            parsed for parsed in (parse_diagnostic(match) for match in matches) if parsed
+        ]
+        if runtime_diagnostic_series:
+            runtime_diagnostics = runtime_diagnostic_series[-1]
+
+        def numeric_values(key):
+            return [
+                float(item[key]) for item in runtime_diagnostic_series
+                if key in item and isinstance(item[key], (int, float))
+            ]
+
+        def vector_step_norm(prefix):
+            keys = [f"{prefix}_x", f"{prefix}_y", f"{prefix}_z"]
+            max_step = 0.0
+            count = 0
+            for previous, current in zip(runtime_diagnostic_series, runtime_diagnostic_series[1:]):
+                if not all(key in previous and key in current for key in keys):
+                    continue
+                step = math.sqrt(sum(
+                    (float(current[key]) - float(previous[key])) ** 2 for key in keys))
+                max_step = max(max_step, step)
+                count += 1
+            return max_step if count > 0 else None
+
+        runtime_diagnostic_summary = {
+            "series_count": len(runtime_diagnostic_series),
+            "gyro_bias_norm_max": max(numeric_values("gyro_bias_norm"), default=None),
+            "gyro_bias_step_norm_max": vector_step_norm("gyro_bias"),
+            "accel_bias_norm_max": max(numeric_values("accel_bias_norm"), default=None),
+            "accel_bias_step_norm_max": vector_step_norm("accel_bias"),
+            "gravity_norm_max": max(numeric_values("gravity_norm"), default=None),
+            "last_imu_factors_min": min(numeric_values("last_imu_factors"), default=None),
+            "last_lidar_factors_min": min(numeric_values("last_lidar_factors"), default=None),
+            "last_lidar_point_factors_min": min(
+                numeric_values("last_lidar_point_factors"), default=None),
+            "last_lidar_normal_factors_min": min(
+                numeric_values("last_lidar_normal_factors"), default=None),
+            "visual_se_last_rank_min": min(numeric_values("visual_se_last_rank"), default=None),
+            "visual_se_last_condition_max": max(
+                numeric_values("visual_se_last_condition"), default=None),
+        }
 
 compare_payload = {}
 compare_ok = False
@@ -871,6 +919,8 @@ native = {
         "time_offset_best": compare_payload.get("time_offset_sweep", {}).get("best"),
     },
     "runtime_diagnostics": runtime_diagnostics,
+    "runtime_diagnostic_summary": runtime_diagnostic_summary,
+    "runtime_diagnostic_series": runtime_diagnostic_series,
 }
 with open(native_report_path, "w", encoding="utf-8") as fh:
     json.dump(native, fh, indent=2, sort_keys=True)
