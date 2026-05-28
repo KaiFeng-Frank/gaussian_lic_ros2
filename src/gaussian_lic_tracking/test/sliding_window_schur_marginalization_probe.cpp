@@ -39,7 +39,13 @@ gaussian_lic_tracking::SlidingWindowStatePrior make_full_state_prior(
   return prior;
 }
 
-bool check_deferred_marginalization_includes_current_frame_priors()
+gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor make_relative_factor(
+  int64_t from_stamp_ns,
+  int64_t to_stamp_ns,
+  const Eigen::Vector3d & delta_p_w);
+
+gaussian_lic_tracking::SlidingWindowSummary run_front_marginalization_with_optional_retained_prior(
+  const bool add_retained_only_prior)
 {
   gaussian_lic_tracking::SlidingWindowConfig config;
   config.max_states = 3;
@@ -50,21 +56,42 @@ bool check_deferred_marginalization_includes_current_frame_priors()
   for (int i = 0; i < 4; ++i) {
     const auto state = make_state(static_cast<int64_t>(i), static_cast<double>(i));
     optimizer.add_or_update_state(state);
-    optimizer.add_state_prior(make_full_state_prior(state));
+    if (i == 0 || (add_retained_only_prior && i == 2)) {
+      optimizer.add_state_prior(make_full_state_prior(state));
+    }
   }
 
-  const auto summary = optimizer.optimize();
-  std::cout << "deferred_marginalization_prior_probe states=" << summary.state_count
-            << " dense_priors=" << summary.dense_prior_count
-            << " dense_prior_cols=" << summary.dense_prior_cols
-            << " dense_prior_rank=" << summary.dense_prior_rank
-            << " marginalized=" << summary.marginalized_state_count
-            << " schur=" << summary.schur_marginalization_count << "\n";
-  if (summary.state_count != config.max_states || summary.dense_prior_count != 1U ||
-    summary.dense_prior_cols != 45U || summary.dense_prior_rank != 45U ||
-    summary.marginalized_state_count != 1U || summary.schur_marginalization_count != 1U)
+  optimizer.add_relative_translation_factor(
+    make_relative_factor(0, 1, make_state(1, 1.0).p_w_i - make_state(0, 0.0).p_w_i));
+
+  return optimizer.optimize();
+}
+
+bool check_marginalization_excludes_retained_only_priors()
+{
+  const auto without_retained_prior =
+    run_front_marginalization_with_optional_retained_prior(false);
+  const auto with_retained_prior =
+    run_front_marginalization_with_optional_retained_prior(true);
+  std::cout << "retained_prior_scope_probe base_dense=" << without_retained_prior.dense_prior_count
+            << " base_rank=" << without_retained_prior.dense_prior_rank
+            << " retained_dense=" << with_retained_prior.dense_prior_count
+            << " retained_rank=" << with_retained_prior.dense_prior_rank
+            << " retained_state_priors=" << with_retained_prior.state_prior_count
+            << " schur=" << with_retained_prior.schur_marginalization_count << "\n";
+  if (without_retained_prior.state_count != 3U ||
+    with_retained_prior.state_count != 3U ||
+    without_retained_prior.dense_prior_count != 1U ||
+    with_retained_prior.dense_prior_count != 1U ||
+    without_retained_prior.dense_prior_cols != with_retained_prior.dense_prior_cols ||
+    without_retained_prior.dense_prior_rank != with_retained_prior.dense_prior_rank ||
+    without_retained_prior.schur_marginalization_count != 1U ||
+    with_retained_prior.schur_marginalization_count != 1U ||
+    without_retained_prior.marginalized_state_count != 1U ||
+    with_retained_prior.marginalized_state_count != 1U ||
+    with_retained_prior.state_prior_count != 1U)
   {
-    std::cerr << "deferred marginalization did not include current-frame priors\n";
+    std::cerr << "retained-only priors leaked into the front-state Schur prior\n";
     return false;
   }
   return true;
@@ -865,7 +892,7 @@ int main()
     std::cerr << "marginalized late visual priors were not retained in the BA normal equation\n";
     return 1;
   }
-  if (!check_deferred_marginalization_includes_current_frame_priors()) {
+  if (!check_marginalization_excludes_retained_only_priors()) {
     return 1;
   }
   if (!check_chained_marginalized_prior_survives_retained_state_marginalization()) {

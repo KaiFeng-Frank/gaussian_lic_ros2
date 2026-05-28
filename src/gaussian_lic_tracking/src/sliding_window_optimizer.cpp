@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 
@@ -3417,6 +3418,7 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
   if (states_.size() < 2U) {
     return false;
   }
+  const int64_t marginalized_stamp_ns = states_.front().stamp_ns;
   const auto variables = variable_layout();
   auto marginalized_it = std::find_if(
     variables.begin(), variables.end(),
@@ -3438,7 +3440,84 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
     return false;
   }
 
-  const auto normal = linearize(states_, variables, 0.0);
+  SlidingWindowOptimizer marginalizer(config_);
+  marginalizer.states_ = states_;
+  auto references_marginalized_stamp = [marginalized_stamp_ns](const auto & factor) {
+      return visual_factor_references_stamp(factor, marginalized_stamp_ns);
+    };
+  auto copy_touching = [](const auto & source, auto & destination, auto predicate) {
+      std::copy_if(source.begin(), source.end(), std::back_inserter(destination), predicate);
+    };
+  copy_touching(
+    imu_factors_,
+    marginalizer.imu_factors_,
+    [marginalized_stamp_ns](const SlidingWindowImuFactor & factor) {
+      return factor.from_stamp_ns == marginalized_stamp_ns ||
+             factor.to_stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    pose_priors_,
+    marginalizer.pose_priors_,
+    [marginalized_stamp_ns](const SlidingWindowPosePrior & prior) {
+      return prior.stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    state_priors_,
+    marginalizer.state_priors_,
+    [marginalized_stamp_ns](const SlidingWindowStatePrior & prior) {
+      return prior.stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    dense_priors_,
+    marginalizer.dense_priors_,
+    [marginalized_stamp_ns](const SlidingWindowDensePrior & prior) {
+      return std::find(prior.stamp_ns.begin(), prior.stamp_ns.end(), marginalized_stamp_ns) !=
+             prior.stamp_ns.end();
+    });
+  copy_touching(
+    point_factors_,
+    marginalizer.point_factors_,
+    [marginalized_stamp_ns](const SlidingWindowPointToPointFactor & factor) {
+      return factor.stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    plane_factors_,
+    marginalizer.plane_factors_,
+    [marginalized_stamp_ns](const SlidingWindowPointToPlaneFactor & factor) {
+      return factor.stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    visual_factors_,
+    marginalizer.visual_factors_,
+    references_marginalized_stamp);
+  copy_touching(
+    se3_photometric_factors_,
+    marginalizer.se3_photometric_factors_,
+    references_marginalized_stamp);
+  copy_touching(
+    relative_translation_factors_,
+    marginalizer.relative_translation_factors_,
+    [marginalized_stamp_ns](const SlidingWindowRelativeTranslationFactor & factor) {
+      return factor.from_stamp_ns == marginalized_stamp_ns ||
+             factor.to_stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    relative_distance_factors_,
+    marginalizer.relative_distance_factors_,
+    [marginalized_stamp_ns](const SlidingWindowRelativeDistanceFactor & factor) {
+      return factor.from_stamp_ns == marginalized_stamp_ns ||
+             factor.to_stamp_ns == marginalized_stamp_ns;
+    });
+  copy_touching(
+    smoothness_factors_,
+    marginalizer.smoothness_factors_,
+    [marginalized_stamp_ns](const SlidingWindowTrajectorySmoothnessFactor & factor) {
+      return factor.previous_stamp_ns == marginalized_stamp_ns ||
+             factor.current_stamp_ns == marginalized_stamp_ns ||
+             factor.next_stamp_ns == marginalized_stamp_ns;
+    });
+
+  const auto normal = marginalizer.linearize(marginalizer.states_, variables, 0.0);
   if (!normal.valid || normal.variable_count != variables.size() * kStateDof) {
     return false;
   }
@@ -3511,7 +3590,7 @@ bool SlidingWindowOptimizer::add_schur_marginalization_prior_for_front()
   Eigen::LDLT<Eigen::MatrixXd> h_mm_solver(h_mm_regularized);
   if (h_mm_solver.info() == Eigen::Success) {
     MarginalizedStateBacksubstitution record;
-    record.marginalized_stamp_ns = states_[marginalized_it->state_index].stamp_ns;
+    record.marginalized_stamp_ns = marginalized_stamp_ns;
     record.marginalized_reference_state = states_[marginalized_it->state_index];
     record.marginalized_target_delta = h_mm_solver.solve(rhs_m);
     record.marginalized_delta_from_retained = -h_mm_solver.solve(h_mr);
