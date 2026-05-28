@@ -382,6 +382,35 @@ public:
       declare_parameter<bool>("enable_visual_factor_reference_snapshot", false);
     enable_rendered_feedback_source_pose_reference_ =
       declare_parameter<bool>("enable_rendered_feedback_source_pose_reference", false);
+    enable_rendered_feedback_source_motion_factor_ =
+      declare_parameter<bool>("enable_rendered_feedback_source_motion_factor", false);
+    rendered_feedback_source_motion_translation_weight_ = finite_nonnegative_parameter(
+      "rendered_feedback_source_motion_translation_weight",
+      declare_parameter<double>("rendered_feedback_source_motion_translation_weight", 0.0));
+    rendered_feedback_source_motion_rotation_weight_ = finite_nonnegative_parameter(
+      "rendered_feedback_source_motion_rotation_weight",
+      declare_parameter<double>("rendered_feedback_source_motion_rotation_weight", 0.0));
+    rendered_feedback_source_motion_huber_delta_m_ = finite_nonnegative_parameter(
+      "rendered_feedback_source_motion_huber_delta_m",
+      declare_parameter<double>("rendered_feedback_source_motion_huber_delta_m", 0.1));
+    rendered_feedback_source_motion_rotation_huber_delta_rad_ = finite_nonnegative_parameter(
+      "rendered_feedback_source_motion_rotation_huber_delta_rad",
+      declare_parameter<double>("rendered_feedback_source_motion_rotation_huber_delta_rad", 0.05));
+    rendered_feedback_source_motion_min_dt_s_ = finite_nonnegative_parameter(
+      "rendered_feedback_source_motion_min_dt_s",
+      declare_parameter<double>("rendered_feedback_source_motion_min_dt_s", 0.0));
+    rendered_feedback_source_motion_max_dt_s_ = finite_nonnegative_parameter(
+      "rendered_feedback_source_motion_max_dt_s",
+      declare_parameter<double>("rendered_feedback_source_motion_max_dt_s", 1.0));
+    if (rendered_feedback_source_motion_max_dt_s_ <
+      rendered_feedback_source_motion_min_dt_s_)
+    {
+      throw std::runtime_error(
+              "rendered_feedback_source_motion_max_dt_s must be >= "
+              "rendered_feedback_source_motion_min_dt_s");
+    }
+    rendered_feedback_source_motion_in_from_frame_ =
+      declare_parameter<bool>("rendered_feedback_source_motion_in_from_frame", false);
     visual_expired_factor_projection_max_age_s_ =
       declare_parameter<double>("visual_expired_factor_projection_max_age_s", 5.0);
     if (!std::isfinite(visual_expired_factor_projection_max_age_s_)) {
@@ -1234,6 +1263,24 @@ private:
     Eigen::Quaterniond source_q_w_i{Eigen::Quaterniond::Identity()};
   };
 
+  struct RenderedFeedbackSourceMotionPose
+  {
+    int64_t reference_stamp_ns{0};
+    uint64_t frame_index{0};
+    uint64_t rendered_preview_index{0};
+    Eigen::Vector3d p_w_i{Eigen::Vector3d::Zero()};
+    Eigen::Quaterniond q_w_i{Eigen::Quaterniond::Identity()};
+  };
+
+  struct PendingRenderedFeedbackSourceMotionFactor
+  {
+    int64_t from_reference_stamp_ns{0};
+    int64_t to_reference_stamp_ns{0};
+    uint64_t source_id{0};
+    Eigen::Vector3d delta_p_w{Eigen::Vector3d::Zero()};
+    Eigen::Quaterniond delta_q_from_to{Eigen::Quaterniond::Identity()};
+  };
+
   struct Se3PhotometricSampleBatch
   {
     std::vector<gaussian_lic_tracking::VisualSe3PhotometricSample> samples;
@@ -2077,6 +2124,7 @@ private:
       if (!accept_rendered_feedback_source_order(metadata)) {
         return;
       }
+      queue_rendered_feedback_source_motion_factor(metadata, rendered_stamp_ns);
       auto image = msg.image;
       if (
         gaussian_lic_tracking::stamp_to_nanoseconds(image.header.stamp) != rendered_stamp_ns)
@@ -2313,6 +2361,94 @@ private:
     if (last_rendered_feedback_newest_active_state_delta_ns_ > 0) {
       ++rendered_feedback_after_active_window_;
     }
+  }
+
+  uint64_t rendered_feedback_source_motion_source_id(
+    const RenderedFeedbackSourceMotionPose & from_pose,
+    const RenderedFeedbackSourceMotionPose & to_pose) const
+  {
+    uint64_t mixed = 0x73ab86d5d3f4834bULL;
+    mixed = mix_visual_factor_source_id(mixed, from_pose.frame_index);
+    mixed = mix_visual_factor_source_id(mixed, from_pose.rendered_preview_index);
+    mixed = mix_visual_factor_source_id(mixed, to_pose.frame_index);
+    mixed = mix_visual_factor_source_id(mixed, to_pose.rendered_preview_index);
+    mixed = mix_visual_factor_source_id(
+      mixed, static_cast<uint64_t>(from_pose.reference_stamp_ns));
+    return mix_visual_factor_source_id(mixed, static_cast<uint64_t>(to_pose.reference_stamp_ns));
+  }
+
+  bool source_motion_pose_is_valid(const RenderedFeedbackSourceMotionPose & pose) const
+  {
+    return pose.reference_stamp_ns > 0 &&
+           pose.p_w_i.allFinite() &&
+           pose.q_w_i.coeffs().allFinite() &&
+           pose.q_w_i.norm() > std::numeric_limits<double>::epsilon();
+  }
+
+  void queue_rendered_feedback_source_motion_factor(
+    const RenderedFeedbackMetadata & metadata,
+    const int64_t rendered_stamp_ns)
+  {
+    if (!enable_rendered_feedback_source_motion_factor_) {
+      return;
+    }
+    if (rendered_feedback_source_motion_translation_weight_ <= 0.0) {
+      return;
+    }
+    RenderedFeedbackSourceMotionPose current;
+    current.reference_stamp_ns = rendered_feedback_reference_stamp_ns(metadata, rendered_stamp_ns);
+    current.frame_index = metadata.frame_index;
+    current.rendered_preview_index = metadata.rendered_preview_index;
+    current.p_w_i = metadata.source_p_w_i;
+    current.q_w_i = metadata.source_q_w_i.normalized();
+    if (!metadata.has_source_pose || !source_motion_pose_is_valid(current)) {
+      ++rendered_feedback_source_motion_invalid_;
+      return;
+    }
+
+    if (last_rendered_feedback_source_motion_pose_.has_value()) {
+      const auto previous = last_rendered_feedback_source_motion_pose_.value();
+      const int64_t dt_ns = current.reference_stamp_ns - previous.reference_stamp_ns;
+      if (dt_ns <= 0) {
+        ++rendered_feedback_source_motion_invalid_;
+      } else {
+        const double dt_s =
+          static_cast<double>(dt_ns) /
+          static_cast<double>(gaussian_lic_tracking::kNanosecondsPerSecond);
+        if (dt_s < rendered_feedback_source_motion_min_dt_s_ ||
+          dt_s > rendered_feedback_source_motion_max_dt_s_)
+        {
+          ++rendered_feedback_source_motion_dt_skip_count_;
+        } else {
+          PendingRenderedFeedbackSourceMotionFactor pending;
+          pending.from_reference_stamp_ns = previous.reference_stamp_ns;
+          pending.to_reference_stamp_ns = current.reference_stamp_ns;
+          pending.source_id = rendered_feedback_source_motion_source_id(previous, current);
+          const Eigen::Vector3d delta_p_w = current.p_w_i - previous.p_w_i;
+          pending.delta_p_w = rendered_feedback_source_motion_in_from_frame_
+            ? previous.q_w_i.conjugate() * delta_p_w
+            : delta_p_w;
+          pending.delta_q_from_to =
+            (previous.q_w_i.conjugate() * current.q_w_i).normalized();
+          if (pending.delta_p_w.allFinite() &&
+            pending.delta_q_from_to.coeffs().allFinite() &&
+            pending.delta_q_from_to.norm() > std::numeric_limits<double>::epsilon())
+          {
+            while (pending_rendered_feedback_source_motion_factors_.size() >=
+              static_cast<size_t>(visual_pending_factor_queue_size_))
+            {
+              pending_rendered_feedback_source_motion_factors_.pop_front();
+              ++rendered_feedback_source_motion_stale_drops_;
+            }
+            pending_rendered_feedback_source_motion_factors_.push_back(std::move(pending));
+            ++rendered_feedback_source_motion_queued_factors_;
+          } else {
+            ++rendered_feedback_source_motion_invalid_;
+          }
+        }
+      }
+    }
+    last_rendered_feedback_source_motion_pose_ = std::move(current);
   }
 
   void handle_rendered_image_with_metadata(
@@ -3188,6 +3324,84 @@ private:
     }
   }
 
+  std::optional<int64_t> select_rendered_feedback_source_motion_state_stamp(
+    const int64_t reference_stamp_ns,
+    const gaussian_lic_tracking::TrajectoryPose & tracking_pose) const
+  {
+    const int64_t max_delta_ns = max_visual_factor_reference_delta_ns();
+    std::optional<int64_t> best_stamp_ns;
+    int64_t best_delta_ns = std::numeric_limits<int64_t>::max();
+    const auto consider = [&](const int64_t candidate_stamp_ns) {
+        const int64_t delta_ns = stamp_delta_ns(candidate_stamp_ns, reference_stamp_ns);
+        if (delta_ns <= max_delta_ns && delta_ns < best_delta_ns) {
+          best_delta_ns = delta_ns;
+          best_stamp_ns = candidate_stamp_ns;
+        }
+      };
+    for (const auto & state : sliding_window_optimizer_.states()) {
+      consider(state.stamp_ns);
+    }
+    consider(tracking_pose.stamp_ns);
+    return best_stamp_ns;
+  }
+
+  void append_rendered_feedback_source_motion_factors(
+    const gaussian_lic_tracking::TrajectoryPose & tracking_pose,
+    std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor> & factors)
+  {
+    if (!enable_rendered_feedback_source_motion_factor_ ||
+      rendered_feedback_source_motion_translation_weight_ <= 0.0 ||
+      pending_rendered_feedback_source_motion_factors_.empty())
+    {
+      return;
+    }
+
+    std::deque<PendingRenderedFeedbackSourceMotionFactor> retained_pending;
+    for (const auto & pending : pending_rendered_feedback_source_motion_factors_) {
+      if (pending.to_reference_stamp_ns > tracking_pose.stamp_ns) {
+        retained_pending.push_back(pending);
+        ++rendered_feedback_source_motion_future_deferrals_;
+        continue;
+      }
+
+      const auto from_stamp_ns =
+        select_rendered_feedback_source_motion_state_stamp(
+        pending.from_reference_stamp_ns, tracking_pose);
+      const auto to_stamp_ns =
+        select_rendered_feedback_source_motion_state_stamp(
+        pending.to_reference_stamp_ns, tracking_pose);
+      if (!from_stamp_ns.has_value() || !to_stamp_ns.has_value() ||
+        from_stamp_ns.value() >= to_stamp_ns.value())
+      {
+        if (visual_factor_stamp_is_expired(
+            pending.to_reference_stamp_ns, tracking_pose.stamp_ns) ||
+          visual_factor_stamp_is_before_active_window(pending.from_reference_stamp_ns))
+        {
+          ++rendered_feedback_source_motion_stale_drops_;
+        } else {
+          retained_pending.push_back(pending);
+        }
+        continue;
+      }
+
+      gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor factor;
+      factor.from_stamp_ns = from_stamp_ns.value();
+      factor.to_stamp_ns = to_stamp_ns.value();
+      factor.source_id = pending.source_id;
+      factor.delta_p_w = pending.delta_p_w;
+      factor.delta_q_from_to = pending.delta_q_from_to.normalized();
+      factor.translation_in_from_frame = rendered_feedback_source_motion_in_from_frame_;
+      factor.weight = rendered_feedback_source_motion_translation_weight_;
+      factor.huber_delta_m = rendered_feedback_source_motion_huber_delta_m_;
+      factor.rotation_weight = rendered_feedback_source_motion_rotation_weight_;
+      factor.rotation_huber_delta_rad =
+        rendered_feedback_source_motion_rotation_huber_delta_rad_;
+      factors.push_back(factor);
+      ++rendered_feedback_source_motion_factors_;
+    }
+    pending_rendered_feedback_source_motion_factors_ = std::move(retained_pending);
+  }
+
   void handle_gaussian_snapshot(const gaussian_lic_msgs::msg::GaussianArray & msg)
   {
     const bool accepted = gaussian_snapshot_.ingest(msg);
@@ -3772,6 +3986,7 @@ private:
     }
     append_multihop_relative_translation_factors(tracking_pose, relative_translation_factors);
     append_multihop_relative_distance_factors(tracking_pose, relative_distance_factors);
+    append_rendered_feedback_source_motion_factors(tracking_pose, relative_translation_factors);
 
     const auto pre_ba_tracking_pose = tracking_pose;
     if (enable_sliding_window_optimizer_) {
@@ -7155,6 +7370,22 @@ private:
       rendered_feedback_source_pose_reference_factors_;
     status.rendered_feedback_source_pose_invalid =
       rendered_feedback_source_pose_invalid_;
+    status.rendered_feedback_source_motion_factor_enabled =
+      enable_rendered_feedback_source_motion_factor_;
+    status.rendered_feedback_source_motion_queued_factors =
+      rendered_feedback_source_motion_queued_factors_;
+    status.rendered_feedback_source_motion_factors =
+      rendered_feedback_source_motion_factors_;
+    status.rendered_feedback_source_motion_pending_factors =
+      static_cast<uint64_t>(pending_rendered_feedback_source_motion_factors_.size());
+    status.rendered_feedback_source_motion_invalid =
+      rendered_feedback_source_motion_invalid_;
+    status.rendered_feedback_source_motion_dt_skip_count =
+      rendered_feedback_source_motion_dt_skip_count_;
+    status.rendered_feedback_source_motion_stale_drops =
+      rendered_feedback_source_motion_stale_drops_;
+    status.rendered_feedback_source_motion_future_deferrals =
+      rendered_feedback_source_motion_future_deferrals_;
     status.last_rendered_feedback_frame_index = last_rendered_feedback_frame_index_;
     status.last_rendered_feedback_preview_index = last_rendered_feedback_preview_index_;
     status.rendered_feedback_frame_index_regressions =
@@ -7821,6 +8052,14 @@ private:
   std::string visual_factor_reference_stamp_mode_name_{"observed"};
   VisualFactorReferenceStampMode visual_factor_reference_stamp_mode_{
     VisualFactorReferenceStampMode::kObserved};
+  bool enable_rendered_feedback_source_motion_factor_{false};
+  double rendered_feedback_source_motion_translation_weight_{0.0};
+  double rendered_feedback_source_motion_rotation_weight_{0.0};
+  double rendered_feedback_source_motion_huber_delta_m_{0.1};
+  double rendered_feedback_source_motion_rotation_huber_delta_rad_{0.05};
+  double rendered_feedback_source_motion_min_dt_s_{0.0};
+  double rendered_feedback_source_motion_max_dt_s_{1.0};
+  bool rendered_feedback_source_motion_in_from_frame_{false};
   bool enable_visual_alignment_window_factor_{true};
   double visual_alignment_meters_per_pixel_{0.01};
   double visual_alignment_window_weight_{1.0};
@@ -8148,6 +8387,9 @@ private:
   std::deque<QueuedRenderedFeedbackPair> rendered_feedback_watermark_queue_;
   std::deque<PendingVisualAlignmentFactor> pending_visual_alignment_factors_;
   std::deque<PendingSe3PhotometricFactor> pending_visual_se3_photometric_factors_;
+  std::deque<PendingRenderedFeedbackSourceMotionFactor>
+  pending_rendered_feedback_source_motion_factors_;
+  std::optional<RenderedFeedbackSourceMotionPose> last_rendered_feedback_source_motion_pose_;
   size_t last_visual_se3_photometric_candidate_pixels_{0};
   size_t last_visual_se3_photometric_sampled_depth_pixels_{0};
   size_t last_visual_se3_photometric_accepted_pixels_{0};
@@ -8185,6 +8427,12 @@ private:
   uint64_t rendered_feedback_watermark_reordered_pairs_{0};
   uint64_t rendered_feedback_source_pose_reference_factors_{0};
   uint64_t rendered_feedback_source_pose_invalid_{0};
+  uint64_t rendered_feedback_source_motion_queued_factors_{0};
+  uint64_t rendered_feedback_source_motion_factors_{0};
+  uint64_t rendered_feedback_source_motion_invalid_{0};
+  uint64_t rendered_feedback_source_motion_dt_skip_count_{0};
+  uint64_t rendered_feedback_source_motion_stale_drops_{0};
+  uint64_t rendered_feedback_source_motion_future_deferrals_{0};
   size_t last_visual_depth_cache_size_{0};
   int64_t last_visual_depth_match_delta_ns_{0};
   uint64_t visual_depth_miss_count_{0};

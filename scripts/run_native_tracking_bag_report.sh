@@ -172,6 +172,14 @@ ENABLE_VISUAL_MARGINALIZATION_PRIOR=false
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS=false
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT=false
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
+ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR=false
+RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT=0.0
+RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT=0.0
+RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M=0.1
+RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_HUBER_DELTA_RAD=0.05
+RENDERED_FEEDBACK_SOURCE_MOTION_MIN_DT_S=0.0
+RENDERED_FEEDBACK_SOURCE_MOTION_MAX_DT_S=1.0
+RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME=false
 VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S=5.0
 ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD=false
 ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD=false
@@ -747,6 +755,16 @@ Options:
                                Use the mapper-provided rendered source pose as the visual/SE3 factor reference for typed RenderedFeedback. Default: disabled.
   --disable-rendered-feedback-source-pose-reference
                                Ignore RenderedFeedback.source_pose and use the active/marginalized support pose.
+  --enable-rendered-feedback-source-motion-factor
+                               Queue cross-frame relative motion factors from consecutive typed RenderedFeedback.source_pose samples. Default: disabled.
+  --disable-rendered-feedback-source-motion-factor
+                               Disable RenderedFeedback.source_pose relative motion factors.
+  --rendered-feedback-source-motion-translation-weight W
+                               Translation weight for source-pose relative motion factors. Default: 0.0.
+  --rendered-feedback-source-motion-rotation-weight W
+                               Rotation weight for source-pose relative motion factors. Default: 0.0.
+  --rendered-feedback-source-motion-max-dt-s SEC
+                               Maximum source-pose pair interval accepted for relative motion factors. Default: 1.0.
   --visual-expired-factor-projection-max-age-s SEC
                                Maximum age for projected expired visual/SE3 factors. Use <=0 for unlimited. Default: 5.0.
   --enable-mapper-feedback     Launch mapping_node so native tracking can consume mapper rendered-image feedback.
@@ -1721,6 +1739,48 @@ while [[ $# -gt 0 ]]; do
       ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE=false
       shift
       ;;
+    --enable-rendered-feedback-source-motion-factor)
+      ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR=true
+      ENABLE_RENDERED_FEEDBACK_CONTRACT=true
+      ENABLE_VISUAL_FACTORS=true
+      shift
+      ;;
+    --disable-rendered-feedback-source-motion-factor)
+      ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR=false
+      shift
+      ;;
+    --rendered-feedback-source-motion-translation-weight)
+      RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT="$2"
+      shift 2
+      ;;
+    --rendered-feedback-source-motion-rotation-weight)
+      RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT="$2"
+      shift 2
+      ;;
+    --rendered-feedback-source-motion-huber-delta-m)
+      RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M="$2"
+      shift 2
+      ;;
+    --rendered-feedback-source-motion-rotation-huber-delta-rad)
+      RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_HUBER_DELTA_RAD="$2"
+      shift 2
+      ;;
+    --rendered-feedback-source-motion-min-dt-s)
+      RENDERED_FEEDBACK_SOURCE_MOTION_MIN_DT_S="$2"
+      shift 2
+      ;;
+    --rendered-feedback-source-motion-max-dt-s)
+      RENDERED_FEEDBACK_SOURCE_MOTION_MAX_DT_S="$2"
+      shift 2
+      ;;
+    --rendered-feedback-source-motion-in-from-frame)
+      RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME=true
+      shift
+      ;;
+    --no-rendered-feedback-source-motion-in-from-frame)
+      RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME=false
+      shift
+      ;;
     --visual-expired-factor-projection-max-age-s)
       VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S="$2"
       shift 2
@@ -2497,6 +2557,14 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   visual_marginalization_prior_zero_bias_columns:="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
   enable_visual_factor_reference_snapshot:="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
   enable_rendered_feedback_source_pose_reference:="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
+  enable_rendered_feedback_source_motion_factor:="${ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR}" \
+  rendered_feedback_source_motion_translation_weight:="${RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT}" \
+  rendered_feedback_source_motion_rotation_weight:="${RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT}" \
+  rendered_feedback_source_motion_huber_delta_m:="${RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M}" \
+  rendered_feedback_source_motion_rotation_huber_delta_rad:="${RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_HUBER_DELTA_RAD}" \
+  rendered_feedback_source_motion_min_dt_s:="${RENDERED_FEEDBACK_SOURCE_MOTION_MIN_DT_S}" \
+  rendered_feedback_source_motion_max_dt_s:="${RENDERED_FEEDBACK_SOURCE_MOTION_MAX_DT_S}" \
+  rendered_feedback_source_motion_in_from_frame:="${RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME}" \
   visual_expired_factor_projection_max_age_s:="${VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S}" \
   visual_cache_reconciliation_defer_to_pointcloud:="${ENABLE_VISUAL_CACHE_RECONCILIATION_DEFER_TO_POINTCLOUD}" \
   visual_pair_processing_defer_to_pointcloud:="${ENABLE_VISUAL_PAIR_PROCESSING_DEFER_TO_POINTCLOUD}" \
@@ -2877,6 +2945,14 @@ SLIDING_WINDOW_MARGINALIZATION_PRIOR_WEIGHT_REPORT="${SLIDING_WINDOW_MARGINALIZA
 VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS_REPORT="${VISUAL_MARGINALIZATION_PRIOR_ZERO_BIAS_COLUMNS}" \
 ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT_REPORT="${ENABLE_VISUAL_FACTOR_REFERENCE_SNAPSHOT}" \
 ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE}" \
+ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR_REPORT="${ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_HUBER_DELTA_RAD_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_HUBER_DELTA_RAD}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_MIN_DT_S_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_MIN_DT_S}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_MAX_DT_S_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_MAX_DT_S}" \
+RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME_REPORT="${RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME}" \
 ENABLE_PRE_LIO_TRACKING_STEP_GUARD_REPORT="${ENABLE_PRE_LIO_TRACKING_STEP_GUARD}" \
 ENABLE_POST_BA_TRACKING_STEP_GUARD_REPORT="${ENABLE_POST_BA_TRACKING_STEP_GUARD}" \
 PRE_LIO_TRACKING_MAX_POSE_STEP_M_REPORT="${PRE_LIO_TRACKING_MAX_POSE_STEP_M}" \
@@ -3169,6 +3245,30 @@ enable_visual_factor_reference_snapshot = (
 )
 enable_rendered_feedback_source_pose_reference = (
     os.environ["ENABLE_RENDERED_FEEDBACK_SOURCE_POSE_REFERENCE_REPORT"].lower() == "true"
+)
+enable_rendered_feedback_source_motion_factor = (
+    os.environ["ENABLE_RENDERED_FEEDBACK_SOURCE_MOTION_FACTOR_REPORT"].lower() == "true"
+)
+rendered_feedback_source_motion_translation_weight = float(
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_TRANSLATION_WEIGHT_REPORT"]
+)
+rendered_feedback_source_motion_rotation_weight = float(
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_WEIGHT_REPORT"]
+)
+rendered_feedback_source_motion_huber_delta_m = float(
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_HUBER_DELTA_M_REPORT"]
+)
+rendered_feedback_source_motion_rotation_huber_delta_rad = float(
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_ROTATION_HUBER_DELTA_RAD_REPORT"]
+)
+rendered_feedback_source_motion_min_dt_s = float(
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_MIN_DT_S_REPORT"]
+)
+rendered_feedback_source_motion_max_dt_s = float(
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_MAX_DT_S_REPORT"]
+)
+rendered_feedback_source_motion_in_from_frame = (
+    os.environ["RENDERED_FEEDBACK_SOURCE_MOTION_IN_FROM_FRAME_REPORT"].lower() == "true"
 )
 visual_expired_factor_projection_max_age_s = float(
     os.environ["VISUAL_EXPIRED_FACTOR_PROJECTION_MAX_AGE_S_REPORT"]
@@ -4579,6 +4679,14 @@ if enable_visual_factors:
         "rendered_feedback_source_pose_reference_enabled",
         "rendered_feedback_source_pose_reference_factors",
         "rendered_feedback_source_pose_invalid",
+        "rendered_feedback_source_motion_factor_enabled",
+        "rendered_feedback_source_motion_queued_factors",
+        "rendered_feedback_source_motion_factors",
+        "rendered_feedback_source_motion_pending_factors",
+        "rendered_feedback_source_motion_invalid",
+        "rendered_feedback_source_motion_dt_skip_count",
+        "rendered_feedback_source_motion_stale_drops",
+        "rendered_feedback_source_motion_future_deferrals",
         "last_rendered_feedback_frame_index",
         "last_rendered_feedback_preview_index",
         "rendered_feedback_frame_index_regressions",
@@ -4637,6 +4745,15 @@ if enable_visual_factors:
             errors.append(
                 "rendered_feedback_source_pose_invalid is "
                 f"{last.get('rendered_feedback_source_pose_invalid')}")
+    if enable_rendered_feedback_source_motion_factor:
+        if int(last.get("rendered_feedback_source_motion_queued_factors", 0)) <= 0:
+            errors.append("rendered_feedback_source_motion_queued_factors is zero")
+        if int(last.get("rendered_feedback_source_motion_factors", 0)) <= 0:
+            errors.append("rendered_feedback_source_motion_factors is zero")
+        if int(last.get("rendered_feedback_source_motion_invalid", 0)) != 0:
+            errors.append(
+                "rendered_feedback_source_motion_invalid is "
+                f"{last.get('rendered_feedback_source_motion_invalid')}")
     for key in ("visual_alignment_pending_queue_size", "visual_se3_photometric_pending_queue_size"):
         if int(last.get(key, 0)) > visual_pending_factor_queue_size:
             errors.append(f"{key} exceeds report queue budget: {last.get(key)}")
@@ -4822,6 +4939,30 @@ report = {
         ),
         "enable_rendered_feedback_source_pose_reference": (
             enable_rendered_feedback_source_pose_reference
+        ),
+        "enable_rendered_feedback_source_motion_factor": (
+            enable_rendered_feedback_source_motion_factor
+        ),
+        "rendered_feedback_source_motion_translation_weight": (
+            rendered_feedback_source_motion_translation_weight
+        ),
+        "rendered_feedback_source_motion_rotation_weight": (
+            rendered_feedback_source_motion_rotation_weight
+        ),
+        "rendered_feedback_source_motion_huber_delta_m": (
+            rendered_feedback_source_motion_huber_delta_m
+        ),
+        "rendered_feedback_source_motion_rotation_huber_delta_rad": (
+            rendered_feedback_source_motion_rotation_huber_delta_rad
+        ),
+        "rendered_feedback_source_motion_min_dt_s": (
+            rendered_feedback_source_motion_min_dt_s
+        ),
+        "rendered_feedback_source_motion_max_dt_s": (
+            rendered_feedback_source_motion_max_dt_s
+        ),
+        "rendered_feedback_source_motion_in_from_frame": (
+            rendered_feedback_source_motion_in_from_frame
         ),
         "visual_expired_factor_projection_max_age_s": (
             visual_expired_factor_projection_max_age_s

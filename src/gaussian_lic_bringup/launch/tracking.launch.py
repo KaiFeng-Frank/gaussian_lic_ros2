@@ -135,6 +135,30 @@ def generate_launch_description():
     enable_rendered_feedback_source_pose_reference = LaunchConfiguration(
         "enable_rendered_feedback_source_pose_reference"
     )
+    enable_rendered_feedback_source_motion_factor = LaunchConfiguration(
+        "enable_rendered_feedback_source_motion_factor"
+    )
+    rendered_feedback_source_motion_translation_weight = LaunchConfiguration(
+        "rendered_feedback_source_motion_translation_weight"
+    )
+    rendered_feedback_source_motion_rotation_weight = LaunchConfiguration(
+        "rendered_feedback_source_motion_rotation_weight"
+    )
+    rendered_feedback_source_motion_huber_delta_m = LaunchConfiguration(
+        "rendered_feedback_source_motion_huber_delta_m"
+    )
+    rendered_feedback_source_motion_rotation_huber_delta_rad = LaunchConfiguration(
+        "rendered_feedback_source_motion_rotation_huber_delta_rad"
+    )
+    rendered_feedback_source_motion_min_dt_s = LaunchConfiguration(
+        "rendered_feedback_source_motion_min_dt_s"
+    )
+    rendered_feedback_source_motion_max_dt_s = LaunchConfiguration(
+        "rendered_feedback_source_motion_max_dt_s"
+    )
+    rendered_feedback_source_motion_in_from_frame = LaunchConfiguration(
+        "rendered_feedback_source_motion_in_from_frame"
+    )
     visual_expired_factor_projection_max_age_s = LaunchConfiguration(
         "visual_expired_factor_projection_max_age_s"
     )
@@ -632,6 +656,29 @@ def generate_launch_description():
             DeclareLaunchArgument("visual_marginalization_prior_zero_bias_columns", default_value="false"),
             DeclareLaunchArgument("enable_visual_factor_reference_snapshot", default_value="false"),
             DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false"),
+            DeclareLaunchArgument("enable_rendered_feedback_source_motion_factor", default_value="false"),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_translation_weight", default_value="0.0"
+            ),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_rotation_weight", default_value="0.0"
+            ),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_huber_delta_m", default_value="0.1"
+            ),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_rotation_huber_delta_rad",
+                default_value="0.05",
+            ),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_min_dt_s", default_value="0.0"
+            ),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_max_dt_s", default_value="1.0"
+            ),
+            DeclareLaunchArgument(
+                "rendered_feedback_source_motion_in_from_frame", default_value="false"
+            ),
             DeclareLaunchArgument("visual_expired_factor_projection_max_age_s", default_value="5.0"),
             DeclareLaunchArgument("visual_cache_reconciliation_defer_to_pointcloud", default_value="false"),
             DeclareLaunchArgument("visual_pair_processing_defer_to_pointcloud", default_value="false"),
@@ -991,6 +1038,30 @@ def generate_launch_description():
                             enable_visual_factor_reference_snapshot
                         ),
                         "enable_rendered_feedback_source_pose_reference": enable_rendered_feedback_source_pose_reference,
+                        "enable_rendered_feedback_source_motion_factor": (
+                            enable_rendered_feedback_source_motion_factor
+                        ),
+                        "rendered_feedback_source_motion_translation_weight": (
+                            rendered_feedback_source_motion_translation_weight
+                        ),
+                        "rendered_feedback_source_motion_rotation_weight": (
+                            rendered_feedback_source_motion_rotation_weight
+                        ),
+                        "rendered_feedback_source_motion_huber_delta_m": (
+                            rendered_feedback_source_motion_huber_delta_m
+                        ),
+                        "rendered_feedback_source_motion_rotation_huber_delta_rad": (
+                            rendered_feedback_source_motion_rotation_huber_delta_rad
+                        ),
+                        "rendered_feedback_source_motion_min_dt_s": (
+                            rendered_feedback_source_motion_min_dt_s
+                        ),
+                        "rendered_feedback_source_motion_max_dt_s": (
+                            rendered_feedback_source_motion_max_dt_s
+                        ),
+                        "rendered_feedback_source_motion_in_from_frame": (
+                            rendered_feedback_source_motion_in_from_frame
+                        ),
                         "visual_expired_factor_projection_max_age_s": (
                             visual_expired_factor_projection_max_age_s
                         ),
