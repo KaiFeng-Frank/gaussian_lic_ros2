@@ -2093,7 +2093,16 @@ private:
           ++rendered_feedback_stamp_mismatches_;
           observed_image.header.stamp = msg.observed_stamp;
         }
-        handle_rendered_feedback_pair(image, observed_image, metadata);
+        auto observed_depth_image = msg.observed_depth_image;
+        if (
+          !observed_depth_image.data.empty() &&
+          gaussian_lic_tracking::stamp_to_nanoseconds(observed_depth_image.header.stamp) !=
+          metadata.observed_stamp_ns)
+        {
+          ++rendered_feedback_stamp_mismatches_;
+          observed_depth_image.header.stamp = msg.observed_stamp;
+        }
+        handle_rendered_feedback_pair(image, observed_image, observed_depth_image, metadata);
       } else {
         handle_rendered_image_with_metadata(image, metadata);
       }
@@ -2108,6 +2117,7 @@ private:
   void handle_rendered_feedback_pair(
     const sensor_msgs::msg::Image & rendered_msg,
     const sensor_msgs::msg::Image & observed_msg,
+    const sensor_msgs::msg::Image & observed_depth_msg,
     const RenderedFeedbackMetadata & metadata)
   {
     if (!enable_visual_factor_) {
@@ -2131,6 +2141,23 @@ private:
         get_logger(), *get_clock(), 2000,
         "dropping rendered feedback observed image with unsupported encoding, layout, or dimensions");
       return;
+    }
+    if (!observed_depth_msg.data.empty() && observed_depth_msg.width > 0U &&
+      observed_depth_msg.height > 0U)
+    {
+      DepthFrame embedded_depth;
+      if (decode_depth_image(observed_depth_msg, embedded_depth) &&
+        embedded_depth.width == observed.width &&
+        embedded_depth.height == observed.height &&
+        embedded_depth.depth_m.size() == observed.width * observed.height)
+      {
+        observed.has_embedded_depth = true;
+        observed.embedded_depth_m = std::move(embedded_depth.depth_m);
+        ++rendered_feedback_embedded_depth_pairs_;
+      } else {
+        ++rendered_feedback_embedded_depth_invalid_;
+        ++depth_invalid_frames_;
+      }
     }
 
     ++num_rendered_images_;
@@ -6244,12 +6271,23 @@ private:
     Se3PhotometricSampleBatch batch;
     int64_t depth_match_delta_ns = 0;
     bool depth_cache_had_size_match = false;
-    const DepthFrame * depth_frame =
-      select_depth_frame_for_visual_pair(
-      rendered,
-      observed,
-      &depth_match_delta_ns,
-      &depth_cache_had_size_match);
+    DepthFrame embedded_depth;
+    const DepthFrame * depth_frame = nullptr;
+    const size_t pixel_count = observed.width * observed.height;
+    if (observed.has_embedded_depth && observed.embedded_depth_m.size() == pixel_count) {
+      embedded_depth.stamp_ns = observed.stamp_ns;
+      embedded_depth.width = observed.width;
+      embedded_depth.height = observed.height;
+      embedded_depth.depth_m = observed.embedded_depth_m;
+      depth_frame = &embedded_depth;
+      ++visual_depth_embedded_observed_matches_;
+    } else {
+      depth_frame = select_depth_frame_for_visual_pair(
+        rendered,
+        observed,
+        &depth_match_delta_ns,
+        &depth_cache_had_size_match);
+    }
     last_visual_depth_cache_size_ = depth_frame_cache_.size();
     last_visual_depth_match_delta_ns_ = depth_frame == nullptr ? 0 : depth_match_delta_ns;
     if (depth_frame == nullptr) {
@@ -6267,7 +6305,6 @@ private:
     {
       return batch;
     }
-    const size_t pixel_count = observed.width * observed.height;
     if (rendered.gray.size() != pixel_count || observed.gray.size() != pixel_count ||
       depth_frame->depth_m.size() != pixel_count)
     {
@@ -7108,6 +7145,10 @@ private:
     status.num_rendered_feedbacks = num_rendered_feedbacks_;
     status.rendered_feedback_embedded_observed_pairs =
       rendered_feedback_embedded_observed_pairs_;
+    status.rendered_feedback_embedded_depth_pairs =
+      rendered_feedback_embedded_depth_pairs_;
+    status.rendered_feedback_embedded_depth_invalid =
+      rendered_feedback_embedded_depth_invalid_;
     status.rendered_feedback_source_pose_reference_enabled =
       enable_rendered_feedback_source_pose_reference_;
     status.rendered_feedback_source_pose_reference_factors =
@@ -7533,6 +7574,8 @@ private:
     status.visual_depth_miss_count = visual_depth_miss_count_;
     status.visual_depth_stale_count = visual_depth_stale_count_;
     status.visual_depth_size_mismatch_count = visual_depth_size_mismatch_count_;
+    status.visual_depth_embedded_observed_matches =
+      visual_depth_embedded_observed_matches_;
     status.visual_depth_observed_stamp_matches =
       visual_depth_observed_stamp_matches_;
     status.visual_depth_source_pointcloud_fallback_queries =
@@ -8147,6 +8190,7 @@ private:
   uint64_t visual_depth_miss_count_{0};
   uint64_t visual_depth_stale_count_{0};
   uint64_t visual_depth_size_mismatch_count_{0};
+  uint64_t visual_depth_embedded_observed_matches_{0};
   uint64_t visual_depth_observed_stamp_matches_{0};
   uint64_t visual_depth_source_pointcloud_fallback_queries_{0};
   uint64_t visual_depth_source_pointcloud_fallback_matches_{0};
@@ -8197,6 +8241,8 @@ private:
   uint64_t num_rendered_images_{0};
   uint64_t num_rendered_feedbacks_{0};
   uint64_t rendered_feedback_embedded_observed_pairs_{0};
+  uint64_t rendered_feedback_embedded_depth_pairs_{0};
+  uint64_t rendered_feedback_embedded_depth_invalid_{0};
   uint64_t rendered_feedback_stamp_mismatches_{0};
   uint64_t last_rendered_feedback_frame_index_{0};
   uint64_t last_rendered_feedback_preview_index_{0};

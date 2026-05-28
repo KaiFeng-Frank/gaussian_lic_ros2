@@ -2400,6 +2400,39 @@ private:
     return image;
   }
 
+  sensor_msgs::msg::Image make_observed_feedback_depth_message(
+    const gaussian_lic_mapping::CameraFrameRecord & frame) const
+  {
+    sensor_msgs::msg::Image image;
+    image.header.stamp = frame.image_stamp;
+    image.header.frame_id = camera_frame_;
+    image.height = static_cast<uint32_t>(std::max(frame.height, 0));
+    image.width = static_cast<uint32_t>(std::max(frame.width, 0));
+    image.encoding = "32FC1";
+    image.is_bigendian = false;
+    image.step = image.width * static_cast<uint32_t>(sizeof(float));
+
+    if (frame.depth_m_float.empty()) {
+      return image;
+    }
+    if (
+      frame.depth_m_float.type() != CV_32FC1 ||
+      frame.depth_m_float.rows != static_cast<int>(image.height) ||
+      frame.depth_m_float.cols != static_cast<int>(image.width))
+    {
+      throw std::runtime_error("observed feedback depth expects 32FC1 metric depth data");
+    }
+
+    image.data.resize(static_cast<size_t>(image.height) * image.step);
+    for (uint32_t row = 0; row < image.height; ++row) {
+      const auto * src = frame.depth_m_float.ptr<float>(static_cast<int>(row));
+      uint8_t * dst = image.data.data() + static_cast<size_t>(row) * image.step;
+      std::memcpy(dst, src, static_cast<size_t>(image.width) * sizeof(float));
+    }
+
+    return image;
+  }
+
   sensor_msgs::msg::Image make_projected_map_preview_message(
     const builtin_interfaces::msg::Time & stamp,
     const bool fallback_to_input = true) const
@@ -2720,6 +2753,7 @@ private:
     feedback.header = image.header;
     feedback.image = image;
     feedback.observed_image = make_observed_feedback_image_message(frame);
+    feedback.observed_depth_image = make_observed_feedback_depth_message(frame);
     const Eigen::Quaterniond source_q_wc(frame.r_wc);
     const Eigen::Quaterniond normalized_source_q_wc = source_q_wc.normalized();
     feedback.source_pose.position.x = frame.t_wc.x();

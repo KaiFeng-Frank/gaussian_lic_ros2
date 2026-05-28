@@ -3669,6 +3669,7 @@ VISUAL_FACTOR_CONTINUITY_FIELDS = (
     "visual_depth_miss_count",
     "visual_depth_stale_count",
     "visual_depth_size_mismatch_count",
+    "visual_depth_embedded_observed_matches",
     "visual_depth_observed_stamp_matches",
     "visual_depth_source_pointcloud_fallback_queries",
     "visual_depth_source_pointcloud_fallback_matches",
@@ -3756,6 +3757,8 @@ def build_visual_factor_continuity(status):
         "max_rendered_stale_delta": max_delta("visual_rendered_stale_count"),
         "max_observed_stale_delta": max_delta("visual_observed_stale_count"),
         "max_depth_stale_delta": max_delta("visual_depth_stale_count"),
+        "max_depth_embedded_observed_match_delta": max_delta(
+            "visual_depth_embedded_observed_matches"),
         "max_depth_observed_stamp_match_delta": max_delta(
             "visual_depth_observed_stamp_matches"),
         "max_depth_source_pointcloud_fallback_query_delta": max_delta(
@@ -4418,12 +4421,15 @@ if enable_visual_factors:
         "visual_se3_photometric_pending_queue_trim_drops",
         "visual_alignment_pending_expired_drops",
         "visual_se3_photometric_pending_expired_drops",
+        "visual_depth_embedded_observed_matches",
         "visual_depth_observed_stamp_matches",
         "visual_depth_source_pointcloud_fallback_queries",
         "visual_depth_source_pointcloud_fallback_matches",
         "visual_depth_source_pointcloud_fallback_misses",
         "rendered_feedback_contract_enabled",
         "num_rendered_feedbacks",
+        "rendered_feedback_embedded_depth_pairs",
+        "rendered_feedback_embedded_depth_invalid",
         "rendered_feedback_source_pose_reference_enabled",
         "rendered_feedback_source_pose_reference_factors",
         "rendered_feedback_source_pose_invalid",

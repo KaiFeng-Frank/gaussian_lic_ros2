@@ -24,9 +24,11 @@ struct VisualFrame
   bool has_rendered_feedback_source_pose{false};
   Eigen::Vector3d rendered_feedback_source_p_w_i{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond rendered_feedback_source_q_w_i{Eigen::Quaterniond::Identity()};
+  bool has_embedded_depth{false};
   size_t width{0};
   size_t height{0};
   std::vector<float> gray;
+  std::vector<float> embedded_depth_m;
 };
 
 struct VisualResidual

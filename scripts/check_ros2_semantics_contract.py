@@ -371,8 +371,15 @@ def main() -> int:
     if "msg/RenderedFeedback.msg" not in (ROOT / "src" / "gaussian_lic_msgs" / "CMakeLists.txt").read_text():
         errors.append("gaussian_lic_msgs must generate the typed RenderedFeedback contract")
     rendered_feedback_msg = (ROOT / "src" / "gaussian_lic_msgs" / "msg" / "RenderedFeedback.msg").read_text()
+    if "sensor_msgs/Image observed_depth_image" not in rendered_feedback_msg:
+        errors.append("RenderedFeedback must carry the mapper-owned observed depth image")
     if "geometry_msgs/Pose source_pose" not in rendered_feedback_msg:
         errors.append("RenderedFeedback must carry the mapper source pose used for rendering")
+    if "feedback.observed_depth_image = make_observed_feedback_depth_message(frame)" not in mapping_text:
+        errors.append("mapping_node must embed observed depth in typed RenderedFeedback")
+    if "observed.has_embedded_depth = true" not in tracking_node_text or \
+            "visual_depth_embedded_observed_matches_" not in tracking_node_text:
+        errors.append("tracking_node must use embedded RenderedFeedback depth before consulting the depth cache")
     if 'declare_parameter<bool>("enable_rendered_feedback_source_pose_reference", false)' not in tracking_node_text:
         errors.append("tracking_node must keep rendered-feedback source-pose references default-off")
     if 'DeclareLaunchArgument("enable_rendered_feedback_source_pose_reference", default_value="false")' not in tracking_launch_text:
@@ -444,6 +451,7 @@ def main() -> int:
             "status.visual_depth_dilation_px" not in tracking_node_text:
         errors.append("TrackingStatus must publish the sparse LiDAR depth dilation radius")
     for field_name in (
+        "visual_depth_embedded_observed_matches",
         "visual_depth_observed_stamp_matches",
         "visual_depth_source_pointcloud_fallback_queries",
         "visual_depth_source_pointcloud_fallback_matches",
@@ -1010,6 +1018,9 @@ def main() -> int:
         "rendered_feedback_source_pose_reference_enabled",
         "rendered_feedback_source_pose_reference_factors",
         "rendered_feedback_source_pose_invalid",
+        "rendered_feedback_embedded_depth_pairs",
+        "rendered_feedback_embedded_depth_invalid",
+        "visual_depth_embedded_observed_matches",
         "sliding_window_bias_feedback_ownership",
         "sliding_window_bias_feedback_ownership_holds",
         "sliding_window_schur_marginalizations",

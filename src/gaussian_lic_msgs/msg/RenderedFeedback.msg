@@ -3,6 +3,7 @@
 std_msgs/Header header
 sensor_msgs/Image image
 sensor_msgs/Image observed_image
+sensor_msgs/Image observed_depth_image
 geometry_msgs/Pose source_pose
 
 builtin_interfaces/Time observed_stamp
