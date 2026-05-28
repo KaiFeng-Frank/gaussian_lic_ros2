@@ -55,6 +55,10 @@ The current mapping slice fills rates, counters, mapping latency, and mean itera
 `mapper_feedback_continuity` with rendered-preview, per-stream drop, pending
 queue, render-error, and Gaussian backend deltas for the same time bins used by
 the tracking-status visual/SE3 continuity block.
+Typed `/gaussian_lic/rendered_feedback` delivery is counted separately through
+`rendered_feedback_published` and `rendered_feedback_publish_errors`, so native
+reports can compare mapper production against tracker receipt without treating
+the preview-image count as a proxy for large typed feedback messages.
 
 ## Native Tracking Status
 

@@ -87,6 +87,8 @@ uint64 pending_pose_messages
 uint64 pending_image_messages
 uint64 pending_depth_messages
 uint64 rendered_preview_count
+uint64 rendered_feedback_published
+uint64 rendered_feedback_publish_errors
 uint64 render_error_count
 
 # Image+pose rendered-feedback diagnostics. These are nonzero only when the

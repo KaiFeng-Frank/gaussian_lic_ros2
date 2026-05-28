@@ -103,6 +103,9 @@ def generate_launch_description():
     sync_anchor_stream = LaunchConfiguration("sync_anchor_stream")
     render_mode = LaunchConfiguration("render_mode")
     rendered_feedback_topic = LaunchConfiguration("rendered_feedback_topic")
+    rendered_feedback_qos_reliability = LaunchConfiguration("rendered_feedback_qos_reliability")
+    rendered_feedback_qos_durability = LaunchConfiguration("rendered_feedback_qos_durability")
+    rendered_feedback_qos_depth = LaunchConfiguration("rendered_feedback_qos_depth")
     rendered_feedback_source_stream = LaunchConfiguration("rendered_feedback_source_stream")
     rendered_feedback_image_topic = LaunchConfiguration("rendered_feedback_image_topic")
     rendered_feedback_pose_topic = LaunchConfiguration("rendered_feedback_pose_topic")
@@ -179,6 +182,9 @@ def generate_launch_description():
             "sync_anchor_stream": sync_anchor_stream,
             "render_mode": render_mode,
             "rendered_feedback_topic": rendered_feedback_topic,
+            "rendered_feedback_qos_reliability": rendered_feedback_qos_reliability,
+            "rendered_feedback_qos_durability": rendered_feedback_qos_durability,
+            "rendered_feedback_qos_depth": rendered_feedback_qos_depth,
             "rendered_feedback_source_stream": rendered_feedback_source_stream,
             "rendered_feedback_image_topic": rendered_feedback_image_topic,
             "rendered_feedback_pose_topic": rendered_feedback_pose_topic,
@@ -531,6 +537,21 @@ def generate_launch_description():
             "rendered_feedback_topic",
             default_value="/gaussian_lic/rendered_feedback",
             description="Typed rendered-feedback topic carrying image plus mapper/source stamps",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_qos_reliability",
+            default_value="reliable",
+            description="Typed rendered-feedback QoS reliability",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_qos_durability",
+            default_value="volatile",
+            description="Typed rendered-feedback QoS durability",
+        ),
+        DeclareLaunchArgument(
+            "rendered_feedback_qos_depth",
+            default_value="128",
+            description="Typed rendered-feedback QoS depth",
         ),
         DeclareLaunchArgument(
             "rendered_feedback_source_stream",

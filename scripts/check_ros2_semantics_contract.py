@@ -658,6 +658,8 @@ def main() -> int:
         "pending_image_messages",
         "pending_depth_messages",
         "rendered_preview_count",
+        "rendered_feedback_published",
+        "rendered_feedback_publish_errors",
         "render_error_count",
         "sync_anchor_stream",
         "rendered_feedback_source_stream",
@@ -702,8 +704,28 @@ def main() -> int:
         errors.append("run_bag.launch.py must expose mapper sync_anchor_stream with pointcloud default")
     if "++rendered_preview_count_" not in mapping_text:
         errors.append("mapping_node must count successful rendered preview publications")
+    if "++rendered_feedback_published_" not in mapping_text:
+        errors.append("mapping_node must count successful typed rendered-feedback publications separately")
     if '"rendered_preview_count"' not in native_tracking_report_text:
         errors.append("native tracking real-bag report must gate mapper rendered-preview liveness")
+    if (
+        "make_rendered_feedback_qos" not in mapping_text
+        or "make_rendered_feedback_qos" not in tracking_node_text
+    ):
+        errors.append("typed rendered feedback must use its own QoS, separate from preview image QoS")
+    for qos_name in (
+        "rendered_feedback_qos_reliability",
+        "rendered_feedback_qos_durability",
+        "rendered_feedback_qos_depth",
+    ):
+        if qos_name not in mapping_text or qos_name not in tracking_node_text:
+            errors.append(f"typed rendered feedback QoS must be declared by mapper and tracker: {qos_name}")
+        if (
+            f'"{qos_name}"' not in launch_text
+            or f'"{qos_name}"' not in tracking_launch_text
+            or f"--{qos_name.replace('_', '-')}" not in native_tracking_report_text
+        ):
+            errors.append(f"launch/report tools must expose typed rendered feedback QoS: {qos_name}")
     if (
         "import signal" not in native_tracking_recorder_text
         or "signal.SIGTERM" not in native_tracking_recorder_text

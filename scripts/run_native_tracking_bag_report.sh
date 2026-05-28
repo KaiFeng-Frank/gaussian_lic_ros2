@@ -250,6 +250,9 @@ RENDERED_IMAGE_QOS_DURABILITY=transient_local
 RENDERED_IMAGE_QOS_DEPTH=1
 ENABLE_RENDERED_FEEDBACK_CONTRACT=false
 RENDERED_FEEDBACK_TOPIC=/gaussian_lic/rendered_feedback
+RENDERED_FEEDBACK_QOS_RELIABILITY=reliable
+RENDERED_FEEDBACK_QOS_DURABILITY=volatile
+RENDERED_FEEDBACK_QOS_DEPTH=128
 VISUAL_FACTOR_MAX_DT_NS=300000000
 VISUAL_DEPTH_MAX_DT_NS=0
 VISUAL_DEPTH_FRAME_CACHE_SIZE=64
@@ -827,6 +830,12 @@ Options:
                                Subscribe tracking to typed /gaussian_lic/rendered_feedback with mapper/source stamps instead of the legacy rendered Image topic.
   --rendered-feedback-topic TOPIC
                                Typed rendered-feedback topic. Default: /gaussian_lic/rendered_feedback.
+  --rendered-feedback-qos-reliability MODE
+                               QoS reliability for typed /gaussian_lic/rendered_feedback: reliable or best_effort. Default: reliable.
+  --rendered-feedback-qos-durability MODE
+                               QoS durability for typed /gaussian_lic/rendered_feedback: transient_local or volatile. Default: volatile.
+  --rendered-feedback-qos-depth N
+                               QoS keep-last depth for typed /gaussian_lic/rendered_feedback. Default: 128.
   --visual-factor-max-dt-ns NS Max nearest-stamp delta for rendered/observed visual BA pairing. Default: 300000000.
   --visual-depth-max-dt-ns NS  Max nearest-stamp delta for sparse LiDAR depth selected by SE3 visual BA. Default: 0, follow --visual-factor-max-dt-ns.
   --visual-depth-dilation-px N Sparse LiDAR depth projection dilation radius for SE3 visual BA. Default: 5.
@@ -2000,6 +2009,18 @@ while [[ $# -gt 0 ]]; do
       RENDERED_FEEDBACK_TOPIC="$2"
       shift 2
       ;;
+    --rendered-feedback-qos-reliability)
+      RENDERED_FEEDBACK_QOS_RELIABILITY="$2"
+      shift 2
+      ;;
+    --rendered-feedback-qos-durability)
+      RENDERED_FEEDBACK_QOS_DURABILITY="$2"
+      shift 2
+      ;;
+    --rendered-feedback-qos-depth)
+      RENDERED_FEEDBACK_QOS_DEPTH="$2"
+      shift 2
+      ;;
     --visual-factor-max-dt-ns)
       VISUAL_FACTOR_MAX_DT_NS="$2"
       shift 2
@@ -2412,6 +2433,9 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_rendered_feedback_contract:="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" \
   rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
+  rendered_feedback_qos_reliability:="${RENDERED_FEEDBACK_QOS_RELIABILITY}" \
+  rendered_feedback_qos_durability:="${RENDERED_FEEDBACK_QOS_DURABILITY}" \
+  rendered_feedback_qos_depth:="${RENDERED_FEEDBACK_QOS_DEPTH}" \
   rendered_feedback_source_stream:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
   rendered_feedback_image_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
   rendered_feedback_pose_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC}" \
@@ -2645,6 +2669,9 @@ if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
     -p zbuffer_projected_points:="${MAPPER_FEEDBACK_ZBUFFER_PROJECTED_POINTS}" \
     -p render_mode:="${MAPPER_FEEDBACK_RENDER_MODE}" \
     -p rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC}" \
+    -p rendered_feedback_qos_reliability:="${RENDERED_FEEDBACK_QOS_RELIABILITY}" \
+    -p rendered_feedback_qos_durability:="${RENDERED_FEEDBACK_QOS_DURABILITY}" \
+    -p rendered_feedback_qos_depth:="${RENDERED_FEEDBACK_QOS_DEPTH}" \
     -p rendered_feedback_source_stream:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
     -p rendered_feedback_image_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
     -p rendered_feedback_pose_topic:="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_POSE_TOPIC}" \
@@ -2913,6 +2940,9 @@ RENDERED_IMAGE_QOS_DURABILITY_REPORT="${RENDERED_IMAGE_QOS_DURABILITY}" \
 RENDERED_IMAGE_QOS_DEPTH_REPORT="${RENDERED_IMAGE_QOS_DEPTH}" \
 ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT="${ENABLE_RENDERED_FEEDBACK_CONTRACT}" \
 RENDERED_FEEDBACK_TOPIC_REPORT="${RENDERED_FEEDBACK_TOPIC}" \
+RENDERED_FEEDBACK_QOS_RELIABILITY_REPORT="${RENDERED_FEEDBACK_QOS_RELIABILITY}" \
+RENDERED_FEEDBACK_QOS_DURABILITY_REPORT="${RENDERED_FEEDBACK_QOS_DURABILITY}" \
+RENDERED_FEEDBACK_QOS_DEPTH_REPORT="${RENDERED_FEEDBACK_QOS_DEPTH}" \
 MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT="${MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE}" \
 MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_SOURCE_STREAM}" \
 MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC_REPORT="${MAPPER_FEEDBACK_RENDERED_FEEDBACK_IMAGE_TOPIC}" \
@@ -3022,6 +3052,9 @@ enable_rendered_feedback_contract = (
     os.environ["ENABLE_RENDERED_FEEDBACK_CONTRACT_REPORT"].lower() == "true"
 )
 rendered_feedback_topic = os.environ["RENDERED_FEEDBACK_TOPIC_REPORT"]
+rendered_feedback_qos_reliability = os.environ["RENDERED_FEEDBACK_QOS_RELIABILITY_REPORT"]
+rendered_feedback_qos_durability = os.environ["RENDERED_FEEDBACK_QOS_DURABILITY_REPORT"]
+rendered_feedback_qos_depth = int(os.environ["RENDERED_FEEDBACK_QOS_DEPTH_REPORT"])
 mapper_feedback_publish_rendered_before_update = (
     os.environ["MAPPER_FEEDBACK_PUBLISH_RENDERED_BEFORE_UPDATE_REPORT"].lower() == "true"
 )
@@ -3859,6 +3892,8 @@ MAPPER_FEEDBACK_CONTINUITY_FIELDS = (
     "pending_image_messages",
     "pending_depth_messages",
     "rendered_preview_count",
+    "rendered_feedback_published",
+    "rendered_feedback_publish_errors",
     "render_error_count",
     "last_aligned_pointcloud_pose_delta_ns",
     "last_aligned_pointcloud_image_delta_ns",
@@ -3945,14 +3980,18 @@ def build_rendered_delivery_continuity(status, mapping_status):
     for index, (status_bin, mapping_bin) in enumerate(zip(status_bins, mapping_bins)):
         if not isinstance(status_bin, dict) or not isinstance(mapping_bin, dict):
             continue
-        produced_delta = summary_delta(mapping_bin, "rendered_preview_count")
+        preview_delta = summary_delta(mapping_bin, "rendered_preview_count")
+        feedback_delta = summary_delta(mapping_bin, "rendered_feedback_published")
+        produced_delta = feedback_delta if feedback_delta > 0 else preview_delta
         received_delta = summary_delta(status_bin, "num_rendered_images")
         consumed_delta = summary_delta(status_bin, "visual_pair_processed_count")
         bins.append({
             "index": int(status_bin.get("index", index)),
             "tracking_sample_count": int(status_bin.get("sample_count", 0) or 0),
             "mapping_sample_count": int(mapping_bin.get("sample_count", 0) or 0),
-            "rendered_preview_count_delta": produced_delta,
+            "rendered_preview_count_delta": preview_delta,
+            "rendered_feedback_published_delta": feedback_delta,
+            "produced_count_delta": produced_delta,
             "num_rendered_images_delta": received_delta,
             "visual_pair_processed_count_delta": consumed_delta,
             "produced_minus_received_delta": produced_delta - received_delta,
@@ -3961,7 +4000,10 @@ def build_rendered_delivery_continuity(status, mapping_status):
 
     tracking_last = status.get("last") or {}
     mapping_last = mapping_status.get("last") or {}
-    produced_total = int(mapping_last.get("rendered_preview_count", 0) or 0)
+    produced_total = int(
+        mapping_last.get(
+            "rendered_feedback_published",
+            mapping_last.get("rendered_preview_count", 0)) or 0)
     received_total = int(tracking_last.get("num_rendered_images", 0) or 0)
     consumed_total = int(tracking_last.get("visual_pair_processed_count", 0) or 0)
     result = {
@@ -4224,12 +4266,23 @@ if enable_gaussian_map_feedback:
         "pending_image_messages",
         "pending_depth_messages",
         "rendered_preview_count",
+        "rendered_feedback_published",
+        "rendered_feedback_publish_errors",
         "render_error_count",
     ):
         if key not in mapping_last:
             errors.append(f"mapping_status.{key} is missing")
     if int(mapping_last.get("rendered_preview_count", 0)) <= 0:
         errors.append("mapping_status.rendered_preview_count is zero")
+    if (
+        enable_rendered_feedback_contract
+        and int(mapping_last.get("rendered_feedback_published", 0)) <= 0
+    ):
+        errors.append("mapping_status.rendered_feedback_published is zero")
+    if int(mapping_last.get("rendered_feedback_publish_errors", 0)) != 0:
+        errors.append(
+            "mapping_status.rendered_feedback_publish_errors is "
+            f"{mapping_last.get('rendered_feedback_publish_errors')}")
     if int(mapping_last.get("render_error_count", 0)) != 0:
         errors.append(f"mapping_status.render_error_count is {mapping_last.get('render_error_count')}")
 if (
@@ -4488,6 +4541,9 @@ report = {
         "rendered_image_qos_depth": int(os.environ["RENDERED_IMAGE_QOS_DEPTH_REPORT"]),
         "enable_rendered_feedback_contract": enable_rendered_feedback_contract,
         "rendered_feedback_topic": rendered_feedback_topic,
+        "rendered_feedback_qos_reliability": rendered_feedback_qos_reliability,
+        "rendered_feedback_qos_durability": rendered_feedback_qos_durability,
+        "rendered_feedback_qos_depth": rendered_feedback_qos_depth,
         "mapper_feedback_publish_rendered_before_update": (
             mapper_feedback_publish_rendered_before_update
         ),

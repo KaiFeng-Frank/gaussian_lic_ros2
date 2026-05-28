@@ -61,6 +61,8 @@ BINNED_MAPPING_STATUS_FIELDS = {
     "pending_image_messages",
     "pending_depth_messages",
     "rendered_preview_count",
+    "rendered_feedback_published",
+    "rendered_feedback_publish_errors",
     "render_error_count",
     "rendered_feedback_source_stream",
     "image_pose_feedback_candidates",

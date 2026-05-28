@@ -268,6 +268,14 @@ public:
       "rendered_image_qos_depth",
       declare_parameter<int>("rendered_image_qos_depth", 1),
       1);
+    rendered_feedback_qos_reliability_ =
+      declare_parameter<std::string>("rendered_feedback_qos_reliability", "reliable");
+    rendered_feedback_qos_durability_ =
+      declare_parameter<std::string>("rendered_feedback_qos_durability", "volatile");
+    rendered_feedback_qos_depth_ = integer_parameter_at_least(
+      "rendered_feedback_qos_depth",
+      declare_parameter<int>("rendered_feedback_qos_depth", 128),
+      1);
     gaussian_map_topic_ = declare_parameter<std::string>("gaussian_map_topic", "/gaussian_lic/gaussian_map");
     gaussian_snapshot_qos_depth_ = integer_parameter_at_least(
       "gaussian_snapshot_qos_depth",
@@ -1114,7 +1122,7 @@ public:
     if (enable_rendered_feedback_contract_) {
       rendered_feedback_sub_ =
         create_subscription<gaussian_lic_msgs::msg::RenderedFeedback>(
-        rendered_feedback_topic_, make_rendered_image_qos(),
+        rendered_feedback_topic_, make_rendered_feedback_qos(),
         [this](gaussian_lic_msgs::msg::RenderedFeedback::ConstSharedPtr msg) {
           run_serialized_callback([this, msg]() {
             handle_rendered_feedback(*msg);
@@ -1360,6 +1368,35 @@ private:
       throw std::runtime_error(
               "rendered_image_qos_reliability must be reliable or best_effort, got " +
               rendered_image_qos_reliability_);
+    }
+
+    return qos;
+  }
+
+  rclcpp::QoS make_rendered_feedback_qos() const
+  {
+    rclcpp::QoS qos{rclcpp::KeepLast(static_cast<size_t>(rendered_feedback_qos_depth_))};
+
+    const std::string durability = normalized_qos_token(rendered_feedback_qos_durability_);
+    if (durability == "transientlocal") {
+      qos.transient_local();
+    } else if (durability == "volatile") {
+      qos.durability_volatile();
+    } else {
+      throw std::runtime_error(
+              "rendered_feedback_qos_durability must be transient_local or volatile, got " +
+              rendered_feedback_qos_durability_);
+    }
+
+    const std::string reliability = normalized_qos_token(rendered_feedback_qos_reliability_);
+    if (reliability == "reliable") {
+      qos.reliable();
+    } else if (reliability == "besteffort") {
+      qos.best_effort();
+    } else {
+      throw std::runtime_error(
+              "rendered_feedback_qos_reliability must be reliable or best_effort, got " +
+              rendered_feedback_qos_reliability_);
     }
 
     return qos;
@@ -7548,6 +7585,9 @@ private:
   std::string rendered_image_qos_reliability_{"reliable"};
   std::string rendered_image_qos_durability_{"transient_local"};
   int rendered_image_qos_depth_{1};
+  std::string rendered_feedback_qos_reliability_{"reliable"};
+  std::string rendered_feedback_qos_durability_{"volatile"};
+  int rendered_feedback_qos_depth_{128};
   bool enable_rendered_feedback_contract_{false};
   bool serialize_callbacks_{true};
   bool enable_visual_factor_{true};

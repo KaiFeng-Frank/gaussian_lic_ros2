@@ -102,6 +102,11 @@ public:
     rendered_image_qos_durability_ =
       declare_parameter<std::string>("rendered_image_qos_durability", "transient_local");
     rendered_image_qos_depth_ = declare_parameter<int>("rendered_image_qos_depth", 1);
+    rendered_feedback_qos_reliability_ =
+      declare_parameter<std::string>("rendered_feedback_qos_reliability", "reliable");
+    rendered_feedback_qos_durability_ =
+      declare_parameter<std::string>("rendered_feedback_qos_durability", "volatile");
+    rendered_feedback_qos_depth_ = declare_parameter<int>("rendered_feedback_qos_depth", 128);
     rendered_feedback_source_stream_name_ =
       declare_parameter<std::string>("rendered_feedback_source_stream", "aligned_frame");
     rendered_feedback_source_stream_ =
@@ -404,7 +409,7 @@ public:
     rendered_image_pub_ = create_publisher<sensor_msgs::msg::Image>(
       rendered_image_topic_, make_rendered_image_qos());
     rendered_feedback_pub_ = create_publisher<gaussian_lic_msgs::msg::RenderedFeedback>(
-      rendered_feedback_topic_, make_rendered_image_qos());
+      rendered_feedback_topic_, make_rendered_feedback_qos());
     gaussian_map_pub_ = create_publisher<gaussian_lic_msgs::msg::GaussianArray>(
       gaussian_map_topic_,
       rclcpp::QoS(static_cast<size_t>(std::max(gaussian_map_qos_depth_, 1)))
@@ -732,6 +737,36 @@ private:
       throw std::runtime_error(
               "rendered_image_qos_reliability must be reliable or best_effort, got " +
               rendered_image_qos_reliability_);
+    }
+
+    return qos;
+  }
+
+  rclcpp::QoS make_rendered_feedback_qos() const
+  {
+    const auto depth = static_cast<size_t>(std::max(rendered_feedback_qos_depth_, 1));
+    rclcpp::QoS qos{rclcpp::KeepLast(depth)};
+
+    const std::string durability = normalized_qos_token(rendered_feedback_qos_durability_);
+    if (durability == "transientlocal") {
+      qos.transient_local();
+    } else if (durability == "volatile") {
+      qos.durability_volatile();
+    } else {
+      throw std::runtime_error(
+              "rendered_feedback_qos_durability must be transient_local or volatile, got " +
+              rendered_feedback_qos_durability_);
+    }
+
+    const std::string reliability = normalized_qos_token(rendered_feedback_qos_reliability_);
+    if (reliability == "reliable") {
+      qos.reliable();
+    } else if (reliability == "besteffort") {
+      qos.best_effort();
+    } else {
+      throw std::runtime_error(
+              "rendered_feedback_qos_reliability must be reliable or best_effort, got " +
+              rendered_feedback_qos_reliability_);
     }
 
     return qos;
@@ -1211,11 +1246,13 @@ private:
         auto rendered_image = make_rendered_preview_message_for_record(record.image_stamp, record);
         auto rendered_feedback = make_rendered_feedback_message(rendered_image, record);
         ++rendered_preview_count_;
-        ++image_pose_feedback_published_;
         rendered_image_pub_->publish(std::move(rendered_image));
         rendered_feedback_pub_->publish(std::move(rendered_feedback));
+        ++rendered_feedback_published_;
+        ++image_pose_feedback_published_;
       } catch (const std::exception & ex) {
         ++render_error_count_;
+        ++rendered_feedback_publish_errors_;
         ++image_pose_feedback_errors_;
         RCLCPP_WARN_THROTTLE(
           get_logger(), *get_clock(), 2000,
@@ -1336,8 +1373,10 @@ private:
       ++rendered_preview_count_;
       rendered_image_pub_->publish(std::move(rendered_image));
       rendered_feedback_pub_->publish(std::move(rendered_feedback));
+      ++rendered_feedback_published_;
     } catch (const std::exception & ex) {
       ++render_error_count_;
+      ++rendered_feedback_publish_errors_;
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000,
         "failed to publish rendered preview: %s", ex.what());
@@ -2849,6 +2888,8 @@ private:
     msg.pending_image_messages = static_cast<uint64_t>(q_image);
     msg.pending_depth_messages = static_cast<uint64_t>(q_depth);
     msg.rendered_preview_count = rendered_preview_count_;
+    msg.rendered_feedback_published = rendered_feedback_published_;
+    msg.rendered_feedback_publish_errors = rendered_feedback_publish_errors_;
     msg.render_error_count = render_error_count_;
     msg.image_pose_feedback_candidates = image_pose_feedback_candidates_;
     msg.image_pose_feedback_published = image_pose_feedback_published_;
@@ -2975,6 +3016,9 @@ private:
   std::string rendered_image_qos_reliability_{"reliable"};
   std::string rendered_image_qos_durability_{"transient_local"};
   int rendered_image_qos_depth_{1};
+  std::string rendered_feedback_qos_reliability_{"reliable"};
+  std::string rendered_feedback_qos_durability_{"volatile"};
+  int rendered_feedback_qos_depth_{128};
   int process_period_ms_{5};
   int select_every_k_frame_{8};
   int test_frame_stride_{1};
@@ -3103,6 +3147,8 @@ private:
   uint64_t conversion_error_count_{0};
   uint64_t render_error_count_{0};
   uint64_t rendered_preview_count_{0};
+  uint64_t rendered_feedback_published_{0};
+  uint64_t rendered_feedback_publish_errors_{0};
   uint64_t image_pose_feedback_candidates_{0};
   uint64_t image_pose_feedback_published_{0};
   uint64_t image_pose_feedback_image_messages_{0};
