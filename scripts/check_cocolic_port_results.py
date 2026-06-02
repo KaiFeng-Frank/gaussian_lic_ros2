@@ -9,8 +9,11 @@ leaving it as prose in PORT_RESULTS.md.
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 import math
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +32,8 @@ class ReportGate:
     name: str
     report_path: Path
     trajectory_suffix: str
+    expected_report_sha256: str
+    expected_trajectory_sha256: str
     max_rmse_m: float
     max_mean_m: float
     max_error_m: float
@@ -44,6 +49,8 @@ REPORT_GATES = (
         name="lio",
         report_path=Path("run_lio/lio_vs_reference_report.json"),
         trajectory_suffix="run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_LIO.txt",
+        expected_report_sha256="f246165a1c194a315c9ef837d88069600e1a649434898ff4096af9337225fbeb",
+        expected_trajectory_sha256="2a87594b01035ecff7c63d7f57f007f2eb19ae08744e4d8dd668fc2c2f890a10",
         max_rmse_m=0.03,
         max_mean_m=0.03,
         max_error_m=0.15,
@@ -53,6 +60,8 @@ REPORT_GATES = (
         name="lico",
         report_path=Path("run_lio/lico_vs_reference_report.json"),
         trajectory_suffix="run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_LICO.txt",
+        expected_report_sha256="ac3774cd9a3a178c795f38e8adce6951dfdbe5f5962174f0fe28c1d819776a20",
+        expected_trajectory_sha256="e3f8f719e9313bb9fc3cd2fbbe45205b28171c949865321a8a40172f56876492",
         max_rmse_m=0.03,
         max_mean_m=0.03,
         max_error_m=0.15,
@@ -62,6 +71,8 @@ REPORT_GATES = (
         name="lico_camerafixed",
         report_path=Path("run_lio/lico_camerafixed_vs_reference_report.json"),
         trajectory_suffix="run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_LICO.txt",
+        expected_report_sha256="05d638e7e516cdbb96b2db26bd196dcd1acb3bfd5e61f60ab2a0241ad2afa8d0",
+        expected_trajectory_sha256="e3f8f719e9313bb9fc3cd2fbbe45205b28171c949865321a8a40172f56876492",
         max_rmse_m=0.04,
         max_mean_m=0.03,
         max_error_m=0.15,
@@ -92,6 +103,14 @@ def load_json(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def value_at_path(data: dict[str, Any], dotted_path: str) -> Any:
@@ -159,7 +178,7 @@ def check_thresholds_are_not_looser(
             errors.append(f"{gate.name}: thresholds.{key}={value} is weaker than {ceiling}")
 
 
-def check_report(gate: ReportGate, errors: list[str]) -> None:
+def check_report(gate: ReportGate, errors: list[str], *, require_hashes: bool) -> None:
     report_file = ROOT / gate.report_path
     if not report_file.exists():
         errors.append(f"{gate.name}: missing report {gate.report_path}")
@@ -170,6 +189,17 @@ def check_report(gate: ReportGate, errors: list[str]) -> None:
         errors,
         f"{gate.name}: missing output trajectory {gate.trajectory_suffix}",
     )
+    if require_hashes:
+        require(
+            sha256_file(report_file) == gate.expected_report_sha256,
+            errors,
+            f"{gate.name}: report sha256 drifted from committed evidence",
+        )
+        require(
+            sha256_file(trajectory_file) == gate.expected_trajectory_sha256,
+            errors,
+            f"{gate.name}: trajectory sha256 drifted from committed evidence",
+        )
     report = load_json(report_file)
     require(report.get("ok") is True, errors, f"{gate.name}: report ok must be true")
     require_path_suffix(report, "baseline", REFERENCE_SUFFIX, errors, gate.name)
@@ -256,9 +286,19 @@ def check_ctests(errors: list[str]) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--require-evidence-hashes",
+        action="store_true",
+        help="also require report and trajectory files to match the archived sha256 values",
+    )
+    args = parser.parse_args()
+    require_hashes = args.require_evidence_hashes or (
+        os.environ.get("GAUSSIAN_LIC_REQUIRE_COCOLIC_HASHES", "").strip() == "1"
+    )
     errors: list[str] = []
     for gate in REPORT_GATES:
-        check_report(gate, errors)
+        check_report(gate, errors, require_hashes=require_hashes)
     check_docs(errors)
     check_ctests(errors)
     if errors:
@@ -267,7 +307,8 @@ def main() -> int:
             print(f"  - {error}", file=sys.stderr)
         return 1
     names = ", ".join(gate.name for gate in REPORT_GATES)
-    print(f"Coco-LIC2 port evidence check passed: {names}")
+    mode = "strict hashes" if require_hashes else "metrics"
+    print(f"Coco-LIC2 port evidence check passed ({mode}): {names}")
     return 0
 
 
