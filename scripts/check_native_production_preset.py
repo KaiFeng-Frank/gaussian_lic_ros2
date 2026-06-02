@@ -356,6 +356,20 @@ def verify_report_metrics(
         return False
 
     report = load_json(report_path)
+    if not require_local_evidence and label == "accepted evidence":
+        # Ignored local results/ directories are often reused for short probes.
+        # Do not let a stale clipped artifact at the accepted-evidence path make
+        # ordinary static checks fail; --require-local-evidence remains strict.
+        expected_history = expected.get("history_samples_retained")
+        if expected_history is not None:
+            try:
+                actual_history = number_at_path(
+                    report, "metrics.tracking_status.history_samples_retained"
+                )
+            except (KeyError, TypeError, ValueError):
+                return False
+            if actual_history < float(expected_history):
+                return False
     check_report_gate_config(report, production_preset, errors, label=label)
     checks = {
         "matched_poses": "trajectory_compare.matched_poses",
