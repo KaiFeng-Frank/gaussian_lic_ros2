@@ -101,3 +101,7 @@ Ran on **Retail_Street** (different FAST-LIVO2 scene; built its offset_time mcap
 start-to-end deviation 3.6 cm (~0.05% drift)** — sane, low-drift odometry. No ATE
 reference exists for Retail (only CBD), so this is a loop-closure sanity metric, not ATE.
 Confirms the port is not CBD-overfit.
+
+## ATE under standard alignment (robustness)
+
+LIO vs reference (1231/1231 matched poses), Umeyama-aligned ATE: **SE3 2.23cm**, **Sim3 2.16cm** (scale 0.998), yaw 2.18cm — all consistent. The cm-scale result holds under the standard evo-style SE3 metric; the residual is genuine trajectory-shape divergence (not an alignment artifact).

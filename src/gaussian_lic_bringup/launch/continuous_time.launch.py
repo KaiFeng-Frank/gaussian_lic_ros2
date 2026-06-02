@@ -56,6 +56,9 @@ def generate_launch_description() -> LaunchDescription:
     )
     lidar_huber_delta_m = LaunchConfiguration("lidar_huber_delta_m")
     step_period_seconds = LaunchConfiguration("step_period_seconds")
+    output_max_pose_step_m = LaunchConfiguration("output_max_pose_step_m")
+    output_max_velocity_mps = LaunchConfiguration("output_max_velocity_mps")
+    output_max_position_abs_m = LaunchConfiguration("output_max_position_abs_m")
     diagnostic_log_period_steps = LaunchConfiguration("diagnostic_log_period_steps")
     seed_min_imu_count = LaunchConfiguration("seed_min_imu_count")
     hold_gravity_constant = LaunchConfiguration("hold_gravity_constant")
@@ -141,6 +144,9 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("rotation_smoothness_huber_delta_rad", default_value="0.0"),
         DeclareLaunchArgument("lidar_huber_delta_m", default_value="0.10"),
         DeclareLaunchArgument("step_period_seconds", default_value="0.10"),
+        DeclareLaunchArgument("output_max_pose_step_m", default_value="5.0"),
+        DeclareLaunchArgument("output_max_velocity_mps", default_value="0.0"),
+        DeclareLaunchArgument("output_max_position_abs_m", default_value="1000000.0"),
         DeclareLaunchArgument("diagnostic_log_period_steps", default_value="50"),
         DeclareLaunchArgument("seed_min_imu_count", default_value="25"),
         DeclareLaunchArgument("hold_gravity_constant", default_value="true"),
@@ -240,6 +246,9 @@ def generate_launch_description() -> LaunchDescription:
                 "rotation_smoothness_huber_delta_rad": rotation_smoothness_huber_delta_rad,
                 "lidar_huber_delta_m": lidar_huber_delta_m,
                 "step_period_seconds": step_period_seconds,
+                "output_max_pose_step_m": output_max_pose_step_m,
+                "output_max_velocity_mps": output_max_velocity_mps,
+                "output_max_position_abs_m": output_max_position_abs_m,
                 "diagnostic_log_period_steps": diagnostic_log_period_steps,
                 "seed_min_imu_count": seed_min_imu_count,
                 "hold_gravity_constant": hold_gravity_constant,

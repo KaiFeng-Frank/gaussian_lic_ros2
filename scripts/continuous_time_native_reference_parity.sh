@@ -246,6 +246,10 @@ UPDATE_GATE_EDGE_KNOT_MARGIN="${UPDATE_GATE_EDGE_KNOT_MARGIN:-0}"
 POSITION_EXTRAPOLATION_DAMPING="${POSITION_EXTRAPOLATION_DAMPING:-0.0}"
 STEP_PERIOD_SECONDS="${STEP_PERIOD_SECONDS:-0.20}"
 POSE_OUTPUT_PERIOD_SECONDS="${POSE_OUTPUT_PERIOD_SECONDS:-0.1}"
+OUTPUT_MAX_POSE_STEP_M="${OUTPUT_MAX_POSE_STEP_M:-5.0}"
+OUTPUT_MAX_VELOCITY_MPS="${OUTPUT_MAX_VELOCITY_MPS:-0.0}"
+OUTPUT_MAX_POSITION_ABS_M="${OUTPUT_MAX_POSITION_ABS_M:-1000000.0}"
+OUTPUT_GUARD_REJECTIONS_FAIL_REPORT="${OUTPUT_GUARD_REJECTIONS_FAIL_REPORT:-true}"
 TIME_OFFSET_SWEEP_MIN="${TIME_OFFSET_SWEEP_MIN:--12.0}"
 TIME_OFFSET_SWEEP_MAX="${TIME_OFFSET_SWEEP_MAX:-12.0}"
 TIME_OFFSET_SWEEP_STEP="${TIME_OFFSET_SWEEP_STEP:-0.1}"
@@ -525,6 +529,9 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p max_rotation_update_rad:="${MAX_ROTATION_UPDATE_RAD}" \
   -p update_gate_edge_knot_margin:="${UPDATE_GATE_EDGE_KNOT_MARGIN}" \
   -p position_extrapolation_damping:="${POSITION_EXTRAPOLATION_DAMPING}" \
+  -p output_max_pose_step_m:="${OUTPUT_MAX_POSE_STEP_M}" \
+  -p output_max_velocity_mps:="${OUTPUT_MAX_VELOCITY_MPS}" \
+  -p output_max_position_abs_m:="${OUTPUT_MAX_POSITION_ABS_M}" \
   -p apply_position_update_on_rotation_reject:="${APPLY_POSITION_UPDATE_ON_ROTATION_REJECT}" \
   -p apply_limited_rotation_update:="${APPLY_LIMITED_ROTATION_UPDATE}" \
   -p apply_limited_position_update:="${APPLY_LIMITED_POSITION_UPDATE}" \
@@ -716,8 +723,11 @@ if os.path.isfile(logger_log):
 runtime_diagnostics = {}
 runtime_diagnostic_series = []
 runtime_diagnostic_summary = {}
+output_guard_log_rejections = 0
 if os.path.isfile(node_log):
     txt = open(node_log, "r", encoding="utf-8", errors="replace").read()
+    output_guard_log_rejections = len(
+        re.findall(r"continuous-time output guard rejected", txt))
     matches = re.findall(r"continuous-time diagnostics:\s*(.*)", txt)
     if matches:
         value_pattern = r"-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
@@ -815,6 +825,18 @@ if os.path.isfile(node_log):
             "rotation_rejections_final": final_value("rotation_rejections"),
             "position_limited_steps_final": final_value("position_limited_steps"),
             "rotation_limited_steps_final": final_value("rotation_limited_steps"),
+            "output_pose_rejections_final": final_value("output_pose_rejections"),
+            "output_pose_nonfinite_rejections_final": final_value(
+                "output_pose_nonfinite_rejections"),
+            "output_pose_bound_rejections_final": final_value("output_pose_bound_rejections"),
+            "output_pose_time_rejections_final": final_value("output_pose_time_rejections"),
+            "output_pose_step_rejections_final": final_value("output_pose_step_rejections"),
+            "output_pose_velocity_rejections_final": final_value(
+                "output_pose_velocity_rejections"),
+            "output_pose_last_step_m_max": max(
+                numeric_values("output_pose_last_step_m"), default=None),
+            "output_pose_last_speed_mps_max": max(
+                numeric_values("output_pose_last_speed_mps"), default=None),
             "acceleration_prior_factors_final": final_value("acceleration_prior_factors"),
             "lidar_pose_acceleration_clamped_final": final_value("lidar_pose_acceleration_clamped"),
             "lidar_scan_to_scan_acceleration_clamped_final": final_value(
@@ -823,6 +845,9 @@ if os.path.isfile(node_log):
             "visual_se_last_condition_max": max(
                 numeric_values("visual_se_last_condition"), default=None),
         }
+if output_guard_log_rejections:
+    runtime_diagnostic_summary[
+        "output_pose_guard_log_rejections"] = output_guard_log_rejections
 
 compare_payload = {}
 compare_ok = False
@@ -852,6 +877,15 @@ if float("${LIDAR_POSE_PRIOR_ACCELERATION_WEIGHT}") > 0.0 or \
     acceleration_factors = runtime_diagnostic_summary.get("acceleration_prior_factors_final")
     if acceleration_factors is None or int(acceleration_factors) <= 0:
         report_errors.append("acceleration prior requested but no optimizer factors were logged")
+if "${OUTPUT_GUARD_REJECTIONS_FAIL_REPORT}" == "true":
+    output_rejections = runtime_diagnostic_summary.get("output_pose_rejections_final")
+    output_log_rejections = runtime_diagnostic_summary.get(
+        "output_pose_guard_log_rejections", 0)
+    max_output_rejections = max(
+        int(output_rejections or 0), int(output_log_rejections or 0))
+    if max_output_rejections > 0:
+        report_errors.append(
+            f"continuous-time output guard rejected {max_output_rejections} poses")
 
 native = {
     "ok": (tum_lines > 0 and finite_positions > 0 and not report_errors),
@@ -1007,6 +1041,10 @@ native = {
     "use_stamp_driven_steps": "${USE_STAMP_DRIVEN_STEPS}" == "true",
     "max_stamp_driven_steps_per_callback": int("${MAX_STAMP_DRIVEN_STEPS_PER_CALLBACK}"),
     "pose_output_period_seconds": float("${POSE_OUTPUT_PERIOD_SECONDS}"),
+    "output_max_pose_step_m": float("${OUTPUT_MAX_POSE_STEP_M}"),
+    "output_max_velocity_mps": float("${OUTPUT_MAX_VELOCITY_MPS}"),
+    "output_max_position_abs_m": float("${OUTPUT_MAX_POSITION_ABS_M}"),
+    "output_guard_rejections_fail_report": "${OUTPUT_GUARD_REJECTIONS_FAIL_REPORT}" == "true",
     "time_offset_sweep_min": float("${TIME_OFFSET_SWEEP_MIN}"),
     "time_offset_sweep_max": float("${TIME_OFFSET_SWEEP_MAX}"),
     "time_offset_sweep_step": float("${TIME_OFFSET_SWEEP_STEP}"),

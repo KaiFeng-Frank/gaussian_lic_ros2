@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <algorithm>
+#include <cinttypes>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -605,6 +606,18 @@ public:
       pose_output_period_seconds_ < 0.0)
     {
       throw std::runtime_error("pose_output_period_seconds must be finite and non-negative");
+    }
+    output_max_pose_step_m_ =
+      declare_parameter<double>("output_max_pose_step_m", 5.0);
+    output_max_velocity_mps_ =
+      declare_parameter<double>("output_max_velocity_mps", 0.0);
+    output_max_position_abs_m_ =
+      declare_parameter<double>("output_max_position_abs_m", 1000000.0);
+    if (!std::isfinite(output_max_pose_step_m_) || output_max_pose_step_m_ < 0.0 ||
+      !std::isfinite(output_max_velocity_mps_) || output_max_velocity_mps_ < 0.0 ||
+      !std::isfinite(output_max_position_abs_m_) || output_max_position_abs_m_ < 0.0)
+    {
+      throw std::runtime_error("output pose guard parameters must be finite and non-negative");
     }
     diagnostic_log_period_steps_ =
       static_cast<int>(declare_parameter<int>("diagnostic_log_period_steps", 50));
@@ -3377,7 +3390,12 @@ private:
       "prior_rejected=%zu delayed_pc_deferred=%zu delayed_pc_released=%zu "
       "delayed_pc_dropped=%zu delayed_pc_pending=%zu "
       "deferred_plane_updates=%zu deferred_plane_applied=%zu "
-      "deferred_plane_dropped=%zu deferred_plane_pending=%zu tum_lines=%zu "
+      "deferred_plane_dropped=%zu deferred_plane_pending=%zu "
+      "output_pose_rejections=%zu output_pose_nonfinite_rejections=%zu "
+      "output_pose_bound_rejections=%zu output_pose_time_rejections=%zu "
+      "output_pose_step_rejections=%zu output_pose_velocity_rejections=%zu "
+      "output_pose_last_step_m=%.9g output_pose_last_dt_s=%.9g "
+      "output_pose_last_speed_mps=%.9g tum_lines=%zu "
       "rejected_steps=%zu invalid_rejections=%zu position_rejections=%zu "
       "rotation_rejections=%zu rotation_limited_steps=%zu position_limited_steps=%zu",
       diagnostics.steps_run,
@@ -3573,6 +3591,15 @@ private:
       deferred_plane_map_update_applied_,
       deferred_plane_map_update_dropped_,
       deferred_plane_map_updates_.size(),
+      output_pose_rejections_,
+      output_pose_nonfinite_rejections_,
+      output_pose_bound_rejections_,
+      output_pose_time_rejections_,
+      output_pose_step_rejections_,
+      output_pose_velocity_rejections_,
+      last_output_pose_guard_step_m_,
+      last_output_pose_guard_dt_s_,
+      last_output_pose_guard_speed_mps_,
       tum_lines_written_,
       diagnostics.rejected_solver_steps,
       diagnostics.invalid_update_rejections,
@@ -4575,6 +4602,12 @@ private:
       return false;
     }
     last_published_query_ns_ = query_ns;
+    if (q.coeffs().allFinite() && q.norm() > 1.0e-9) {
+      q.normalize();
+    }
+    if (!output_pose_is_valid(query_ns, q, p)) {
+      return true;
+    }
     nav_msgs::msg::Odometry odom;
     odom.header.stamp = nanoseconds_to_stamp(query_ns);
     odom.header.frame_id = world_frame_id_;
@@ -4601,25 +4634,101 @@ private:
     published_path_.poses.push_back(pose_stamped);
     path_publisher_->publish(published_path_);
 
+    last_output_pose_stamp_ns_ = query_ns;
+    last_output_pose_position_ = p;
+    have_last_output_pose_ = true;
+
     if (output_tum_stream_.is_open()) {
       const double stamp_s = static_cast<double>(query_ns) * 1.0e-9;
-      const double position_bound = 1.0e6;
-      if (p.allFinite() && q.coeffs().allFinite() &&
-        std::abs(p.x()) < position_bound &&
-        std::abs(p.y()) < position_bound &&
-        std::abs(p.z()) < position_bound)
-      {
-        std::ostringstream line;
-        line.setf(std::ios::fixed);
-        line.precision(9);
-        line << stamp_s;
-        line.precision(6);
-        line << ' ' << p.x() << ' ' << p.y() << ' ' << p.z();
-        line << ' ' << q.x() << ' ' << q.y() << ' ' << q.z() << ' ' << q.w();
-        output_tum_stream_ << line.str() << '\n';
-        output_tum_stream_.flush();
-        ++tum_lines_written_;
-      }
+      std::ostringstream line;
+      line.setf(std::ios::fixed);
+      line.precision(9);
+      line << stamp_s;
+      line.precision(6);
+      line << ' ' << p.x() << ' ' << p.y() << ' ' << p.z();
+      line << ' ' << q.x() << ' ' << q.y() << ' ' << q.z() << ' ' << q.w();
+      output_tum_stream_ << line.str() << '\n';
+      output_tum_stream_.flush();
+      ++tum_lines_written_;
+    }
+    return true;
+  }
+
+  bool output_pose_is_valid(
+    const int64_t query_ns,
+    const Eigen::Quaterniond & q,
+    const Eigen::Vector3d & p)
+  {
+    last_output_pose_guard_step_m_ = 0.0;
+    last_output_pose_guard_dt_s_ = 0.0;
+    last_output_pose_guard_speed_mps_ = 0.0;
+    if (!p.allFinite() || !q.coeffs().allFinite() || q.norm() <= 1.0e-9) {
+      ++output_pose_rejections_;
+      ++output_pose_nonfinite_rejections_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "continuous-time output guard rejected non-finite pose at %" PRId64,
+        query_ns);
+      return false;
+    }
+    if (output_max_position_abs_m_ > 0.0 &&
+      (std::abs(p.x()) > output_max_position_abs_m_ ||
+      std::abs(p.y()) > output_max_position_abs_m_ ||
+      std::abs(p.z()) > output_max_position_abs_m_))
+    {
+      ++output_pose_rejections_;
+      ++output_pose_bound_rejections_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "continuous-time output guard rejected pose outside %.3fm bound at %" PRId64
+        " (%.3f, %.3f, %.3f)",
+        output_max_position_abs_m_, query_ns, p.x(), p.y(), p.z());
+      return false;
+    }
+    if (!have_last_output_pose_) {
+      return true;
+    }
+    const double dt_s =
+      static_cast<double>(query_ns - last_output_pose_stamp_ns_) * 1.0e-9;
+    if (!std::isfinite(dt_s) || dt_s <= 0.0) {
+      ++output_pose_rejections_;
+      ++output_pose_time_rejections_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "continuous-time output guard rejected non-monotonic output stamp at %" PRId64
+        " after %" PRId64,
+        query_ns, last_output_pose_stamp_ns_);
+      return false;
+    }
+    const double step_m = (p - last_output_pose_position_).norm();
+    const double speed_mps = step_m / dt_s;
+    last_output_pose_guard_step_m_ = step_m;
+    last_output_pose_guard_dt_s_ = dt_s;
+    last_output_pose_guard_speed_mps_ = speed_mps;
+    if (!std::isfinite(step_m) || !std::isfinite(speed_mps)) {
+      ++output_pose_rejections_;
+      ++output_pose_nonfinite_rejections_;
+      return false;
+    }
+    if (output_max_pose_step_m_ > 0.0 && step_m > output_max_pose_step_m_) {
+      ++output_pose_rejections_;
+      ++output_pose_step_rejections_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "continuous-time output guard rejected %.3fm step over %.3fs at %" PRId64
+        " (limit %.3fm)",
+        step_m, dt_s, query_ns, output_max_pose_step_m_);
+      return false;
+    }
+    if (output_max_velocity_mps_ > 0.0 && speed_mps > output_max_velocity_mps_) {
+      ++output_pose_rejections_;
+      ++output_pose_velocity_rejections_;
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "continuous-time output guard rejected %.3fm/s speed over %.3fs at %" PRId64
+        " (limit %.3fm/s)",
+        speed_mps, dt_s, query_ns, output_max_velocity_mps_);
+      return false;
     }
     return true;
   }
@@ -4670,6 +4779,21 @@ private:
   std::string replay_image_topic_;
   std::string replay_camera_info_topic_;
   std::size_t tum_lines_written_{0};
+  double output_max_pose_step_m_{5.0};
+  double output_max_velocity_mps_{0.0};
+  double output_max_position_abs_m_{1000000.0};
+  bool have_last_output_pose_{false};
+  int64_t last_output_pose_stamp_ns_{0};
+  Eigen::Vector3d last_output_pose_position_{Eigen::Vector3d::Zero()};
+  std::size_t output_pose_rejections_{0};
+  std::size_t output_pose_nonfinite_rejections_{0};
+  std::size_t output_pose_bound_rejections_{0};
+  std::size_t output_pose_time_rejections_{0};
+  std::size_t output_pose_step_rejections_{0};
+  std::size_t output_pose_velocity_rejections_{0};
+  double last_output_pose_guard_step_m_{0.0};
+  double last_output_pose_guard_dt_s_{0.0};
+  double last_output_pose_guard_speed_mps_{0.0};
 
   bool pointcloud_enable_{true};
   int pointcloud_subsample_stride_{50};
