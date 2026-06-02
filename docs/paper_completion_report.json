@@ -11,7 +11,7 @@
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "fastlivo2",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.95e+05 m > 5 m",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.95e+05 m > 5 m; first_bad=(idx=8, stamp=946685438.360942006->946685438.460942030, dt=0.1s, step=15.8m, speed=158m/s); max_bad=(idx=21, stamp=946685439.660941958->946685439.760941982, dt=0.1s, step=1.95e+05m, speed=1.95e+06m/s)",
       "sequence": "Retail_Street"
     },
     {
@@ -25,7 +25,7 @@
       "id": "m2dgr/room_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "m2dgr",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 6.44e+05 m > 5 m",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 6.44e+05 m > 5 m; first_bad=(idx=8, stamp=1627643483.772107124->1627643483.872107029, dt=0.1s, step=8.56m, speed=85.6m/s); max_bad=(idx=20, stamp=1627643484.972106934->1627643485.072107077, dt=0.1s, step=6.44e+05m, speed=6.44e+06m/s)",
       "sequence": "room_01"
     },
     {
@@ -39,7 +39,7 @@
       "id": "mcd/ntu_day_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "mcd",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 2.65e+05 m > 5 m",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 2.65e+05 m > 5 m; first_bad=(idx=3, stamp=1644823131.858094215->1644823131.958094358, dt=0.1s, step=5.93m, speed=59.3m/s); max_bad=(idx=17, stamp=1644823133.258094311->1644823133.358094215, dt=0.1s, step=2.65e+05m, speed=2.65e+06m/s)",
       "sequence": "ntu_day_01"
     },
     {
@@ -60,7 +60,7 @@
       "id": "r3live/hku_park_00/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "r3live",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.02e+06 m > 5 m",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.02e+06 m > 5 m; first_bad=(idx=8, stamp=1627720596.439718246->1627720596.539718390, dt=0.1s, step=10.5m, speed=105m/s); max_bad=(idx=20, stamp=1627720597.639718294->1627720597.739718437, dt=0.1s, step=1.02e+06m, speed=1.02e+07m/s)",
       "sequence": "hku_park_00"
     },
     {

@@ -129,16 +129,59 @@ def resolve_path(root: Path, value: Any) -> Path | None:
 def summarize_tum_path(path: Path) -> dict[str, Any]:
     poses = load_tum(path)
     positions = [translation_tuple(pose) for pose in poses]
-    steps = [
-        ((curr[0] - prev[0]) ** 2 + (curr[1] - prev[1]) ** 2 + (curr[2] - prev[2]) ** 2)
-        ** 0.5
-        for prev, curr in zip(positions, positions[1:])
-    ]
+    steps: list[dict[str, Any]] = []
+    for index, (prev_pose, curr_pose, prev_position, curr_position) in enumerate(
+        zip(poses, poses[1:], positions, positions[1:]),
+        start=1,
+    ):
+        distance_m = (
+            (curr_position[0] - prev_position[0]) ** 2
+            + (curr_position[1] - prev_position[1]) ** 2
+            + (curr_position[2] - prev_position[2]) ** 2
+        ) ** 0.5
+        dt_s = curr_pose.stamp - prev_pose.stamp
+        speed_mps = distance_m / dt_s if dt_s > 0.0 else None
+        steps.append(
+            {
+                "index": index,
+                "from_stamp": prev_pose.stamp,
+                "to_stamp": curr_pose.stamp,
+                "dt_s": dt_s,
+                "distance_m": distance_m,
+                "speed_mps": speed_mps,
+                "from_xyz": prev_position,
+                "to_xyz": curr_position,
+            }
+        )
+    max_step = max(steps, key=lambda step: step["distance_m"], default=None)
     return {
         "poses": len(poses),
         "path_m": path_length(positions),
-        "max_step_m": max(steps) if steps else 0.0,
+        "max_step_m": float(max_step["distance_m"]) if max_step else 0.0,
+        "max_step": max_step,
+        "steps": steps,
     }
+
+
+def first_step_exceeding(summary: dict[str, Any], limit_m: float) -> dict[str, Any] | None:
+    for step in summary.get("steps", ()):
+        if float(step.get("distance_m", 0.0)) > limit_m:
+            return step
+    return None
+
+
+def format_step_event(step: dict[str, Any] | None) -> str:
+    if not step:
+        return "no step detail"
+    speed = step.get("speed_mps")
+    speed_text = "inf" if speed is None else f"{float(speed):.3g}"
+    return (
+        f"idx={int(step.get('index', 0))}, "
+        f"stamp={float(step.get('from_stamp', 0.0)):.9f}->{float(step.get('to_stamp', 0.0)):.9f}, "
+        f"dt={float(step.get('dt_s', 0.0)):.3g}s, "
+        f"step={float(step.get('distance_m', 0.0)):.3g}m, "
+        f"speed={speed_text}m/s"
+    )
 
 
 def candidate_tracking_diagnostics(entry: dict[str, Any], root: Path) -> list[str]:
@@ -179,9 +222,13 @@ def candidate_tracking_diagnostics(entry: dict[str, Any], root: Path) -> list[st
 
     max_current_step_m = float(candidate.get("max_current_step_m", 0.0))
     if max_current_step_m > 0.0 and current_summary["max_step_m"] > max_current_step_m:
+        first_bad_step = first_step_exceeding(current_summary, max_current_step_m)
+        max_step = current_summary.get("max_step")
         reasons.append(
             "paper tracking candidate current trajectory diverges before parity compare: "
-            f"max step {current_summary['max_step_m']:.3g} m > {max_current_step_m:.3g} m"
+            f"max step {current_summary['max_step_m']:.3g} m > {max_current_step_m:.3g} m; "
+            f"first_bad=({format_step_event(first_bad_step)}); "
+            f"max_bad=({format_step_event(max_step)})"
         )
 
     args = SimpleNamespace(
