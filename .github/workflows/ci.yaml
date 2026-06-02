@@ -33,6 +33,7 @@ jobs:
           ./scripts/check_ros2_semantics_contract.py
           ./scripts/check_native_production_preset.py
           ./scripts/check_cocolic_port_results.py --require-evidence-hashes
+          ./scripts/check_strict_parity_matrix.py
 
       - name: Artifact comparison gates
         shell: bash
@@ -106,6 +107,7 @@ jobs:
           ./scripts/check_ros2_semantics_contract.py
           ./scripts/check_native_production_preset.py
           ./scripts/check_cocolic_port_results.py --require-evidence-hashes
+          ./scripts/check_strict_parity_matrix.py
 
       - name: Build
         shell: bash

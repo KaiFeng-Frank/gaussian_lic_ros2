@@ -8,7 +8,7 @@ This repository is **not a ROS1 bridge wrapper**. It is a clean ROS2 workspace t
 
 ## Current Release State
 
-This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper, CUDA/Torch Gaussian backend plumbing, native tracking factors, artifact extraction, strict replay/readiness tooling, an official FAST-LIVO2 Bright substitute proof chain, local strict FAST-LIVO2 `CBD_Building_01`, MCD `ntu_day_01`, and R3LIVE `hku_park_00` reproduction chains against archived ROS1 upstream baselines, plus trusted upstream/native reference trajectory gates for the FAST-LIVO2 `CBD_Building_01` frontend and the new continuous-time tracker producer chain. The archived strict mapper-contract/CUDA reports are green for trajectory, PSNR/SSIM/LPIPS, GT-associated render-pair, and point-cloud gates; the full local strict evidence matrix now reports `required=17/17`.
+This repository is now an executable ROS2 porting checkpoint for the public Gaussian-LIC/Gaussian-LIC2 code path. It has native ROS2 message, launch, adapter, mapper, CUDA/Torch Gaussian backend plumbing, native tracking factors, artifact extraction, strict replay/readiness tooling, an official FAST-LIVO2 Bright substitute proof chain, local strict FAST-LIVO2 `CBD_Building_01`, MCD `ntu_day_01`, and R3LIVE `hku_park_00` reproduction chains against archived ROS1 upstream baselines, plus trusted upstream/native reference trajectory gates for the FAST-LIVO2 `CBD_Building_01` frontend and the new continuous-time tracker producer chain. The archived strict mapper-contract/CUDA reports are green for trajectory, PSNR/SSIM/LPIPS, GT-associated render-pair, and point-cloud gates; the full local strict evidence matrix now reports `required=18/18`.
 
 It is **not a claim of universal super-paper performance on every possible sequence**: the five continuous-time matrix entries are currently real-bag liveness/producer-chain gates, not RMSE-gated paper parity. The current release claim is narrower and executable: the required local strict parity matrix passes, including mapper-contract/CUDA parity, the FAST-LIVO2 `CBD_Building_01` native frontend comparison against an upstream Coco-LIC-generated reference, and continuous-time tracker evidence on FAST-LIVO2, M2DGR, MCD, and R3LIVE bags.
 
@@ -28,8 +28,8 @@ Available now:
 - Current executable Bright substitute report with `metrics`, `trajectory`, `point_cloud`, and dedicated Torch Gaussian `gaussian_color` gates passing.
 - Strict FAST-LIVO2 `CBD_Building_01` artifact/readiness pipeline with trajectory, PSNR/SSIM/LPIPS, render-pair, and point-cloud gates passing for the mapper-contract/CUDA path.
 - `scripts/run_strict_parity_queue.sh` turns the remaining data/evidence backlog into a resumable full-profile queue: it reuses or creates frontend-raw bags, emits ROS1 mapper-contract bags, runs the upstream baseline with the matching profile config, collects ROS2 CUDA current artifacts, and writes strict readiness/reproduction reports for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE targets.
-- `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It now reports `required=17/17`: FAST-LIVO2 mapper strict parity, FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper strict parity, M2DGR room_01/room_02/room_03 mapper strict parity, MCD `ntu_day_01` mapper strict parity, R3LIVE `hku_park_00` mapper strict parity, CBD native BA runtime health, CBD native reference trajectory parity, and five continuous-time native tracker producer-chain gates are all archived and passing.
-- `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it now separates raw/frontend data, ROS1 baseline artifacts, ROS2 current artifacts, and native reference trajectories. As of 2026-05-12 all required profiles pass those input checks and the strict evidence matrix is `17/17`.
+- `scripts/check_strict_parity_matrix.py` for the final full-dataset release gate. It now reports `required=18/18`: FAST-LIVO2 mapper strict parity, FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate mapper strict parity, M2DGR room_01/room_02/room_03 mapper strict parity, MCD `ntu_day_01` mapper strict parity, R3LIVE `hku_park_00` mapper strict parity, CBD native BA runtime health, CBD native reference trajectory parity, Coco-LIC2 port cm-scale reference parity with strict artifact hashes, and five continuous-time native tracker producer-chain gates are all archived and passing.
+- `scripts/audit_strict_data_inputs.py` for the data-side gate. The current local audit is archived at `docs/strict_data_status.md` / `docs/strict_data_status.json`; it now separates raw/frontend data, ROS1 baseline artifacts, ROS2 current artifacts, and native reference trajectories. As of 2026-06-02 all required profiles pass those input checks and the strict evidence matrix is `18/18`.
 - R3LIVE `hku_park_00` can be converted to ROS2 frontend-raw, passes the native sensor-only tracking health gate, and now has a passing full-sequence mapper-contract/CUDA strict parity report.
 - FAST-LIVO2 `Retail_Street` is now fetched from the official Google Drive index, converted to ROS2 frontend-raw, has an archived ROS1 upstream mapper baseline with 1,354 poses, 704,826 PLY vertices, and 1,354 renders, and passes a 60s native scan-order deskew tracking health gate; this remains additional runtime/data coverage, not an RMSE-gated native tracker parity claim.
 - Generic Google Drive file fetching is available through `scripts/fetch_google_drive_file.py`; MCD `ntu_day_01` now has local `d435i`, `mid70`, `vn100`, ground-truth TUM, frontend-raw conversion, archived ROS1 baseline artifacts, ROS2 current artifacts, and a passing strict mapper-contract/CUDA report.
@@ -132,7 +132,7 @@ Still pending:
 | FAST-LIVO2 Bright substitute evidence chain | Complete and executable with `metrics`, `trajectory`, `point_cloud`, and `gaussian_color` passing |
 | Strict `CBD_Building_01` paper-data gate | Official bag is local; ROS1 baseline is archived; latest ROS2 mapper-contract/CUDA strict report passes `reproduction_report.py --strict` |
 | Paper-level Gaussian-LIC/Gaussian-LIC2 algorithm migration | Mapper CUDA/Torch backend, executable strict mapper-contract chain, local SPNet TensorRT engine generation, continuous-time spline factors, persistent world-frame LiDAR plane map constraints, and solve-step rejection are in place; full RMSE-gated native Coco-LIC2 tracking BA remains |
-| Full-dataset strict parity matrix | PASS: `scripts/check_strict_parity_matrix.py` reports `required=17/17` with FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE covered by required mapper/native/continuous-time evidence |
+| Full-dataset strict parity matrix | PASS: `scripts/check_strict_parity_matrix.py` reports `required=18/18` with FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE covered by required mapper/native/continuous-time evidence |
 | Full raw/frontend/baseline/reference data inputs | PASS: `scripts/audit_strict_data_inputs.py` reports raw, frontend, ROS1 baseline, ROS2 current, native-reference, and disk-headroom checks passing for FAST-LIVO, FAST-LIVO2, M2DGR, MCD, and R3LIVE |
 | R3LIVE coverage | `hku_park_00` frontend-raw conversion, 60s sensor-only native tracking health gate, and full-sequence mapper-contract/CUDA strict parity report pass |
 
@@ -1170,7 +1170,7 @@ To write the same report while allowing future optional items to remain incomple
   --markdown results/strict_parity_matrix.md
 ```
 
-Current local matrix status: `PASS`, `required=17/17`, `covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live`.
+Current local matrix status: `PASS`, `required=18/18`, `covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live`.
 Passing required items are FAST-LIVO2 `CBD_Building_01` mapper-contract/CUDA
 strict parity, FAST-LIVO hku1/hku2/Visual_Challenge/LiDAR_Degenerate
 mapper-contract/CUDA strict parity, M2DGR room_01/room_02/room_03 mapper-contract/CUDA strict
@@ -1178,7 +1178,10 @@ parity, MCD `ntu_day_01` mapper-contract/CUDA strict parity, R3LIVE
 `hku_park_00` mapper-contract/CUDA strict parity, and the 120s CBD native
 visual/SE3 BA health report. The final required item, CBD native reference
 trajectory parity, now passes against an upstream Coco-LIC-generated trusted TUM
-reference decimated to the ROS2 native output cadence. The five added
+reference decimated to the ROS2 native output cadence. The Coco-LIC2 port
+cm-scale reference parity item additionally locks the committed LIO, LICO,
+camera-fixed, upstream-reference, and emitted-trajectory artifacts by SHA256.
+The five added
 continuous-time native tracker entries cover FAST-LIVO2 CBD, FAST-LIVO2 Retail,
 M2DGR room_01, MCD ntu_day_01, and R3LIVE hku_park_00 as liveness/producer-chain
 gates.

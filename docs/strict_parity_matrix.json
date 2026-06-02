@@ -962,6 +962,20 @@
       ]
     },
     {
+      "id": "fastlivo2/CBD_Building_01/cocolic2_port_cm_reference_parity",
+      "kind": "script_check",
+      "profile": "fastlivo2",
+      "dataset": "FAST-LIVO2",
+      "sequence": "CBD_Building_01",
+      "required": true,
+      "command": [
+        "./scripts/check_cocolic_port_results.py",
+        "--require-evidence-hashes"
+      ],
+      "timeout_sec": 30,
+      "notes": "Faithful Coco-LIC/Gaussian-LIC2 ROS2 frontend port gate. Requires committed LIO, LICO, and camera-fixed reports, the upstream Coco-LIC 10 Hz reference trajectory, and the emitted ROS2 trajectories to match their archived SHA256 hashes while preserving cm-scale ATE thresholds."
+    },
+    {
       "id": "fastlivo/full_sequence_strict",
       "kind": "pending",
       "profile": "fastlivo",

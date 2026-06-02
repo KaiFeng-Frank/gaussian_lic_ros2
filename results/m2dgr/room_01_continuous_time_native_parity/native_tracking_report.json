@@ -1,0 +1,23 @@
+{
+  "bag": "room_01_frontend_raw",
+  "metrics": {
+    "captured_tum_lines": 21,
+    "finite_tum_positions": 21,
+    "odom_messages_received": 122,
+    "odom_messages_written": 21,
+    "reference_coverage": 0.0,
+    "reference_matched_poses": 0,
+    "reference_translation_mean_m": null,
+    "reference_translation_rmse_m": null
+  },
+  "ok": true,
+  "playback_duration_s": 12.0,
+  "playback_rate": 0.5,
+  "schema": "gaussian_lic_continuous_time_native_tracking_report/v1",
+  "trajectory_compare": {
+    "coverage": 0.0,
+    "matched_poses": 0,
+    "ok": false,
+    "report": ""
+  }
+}

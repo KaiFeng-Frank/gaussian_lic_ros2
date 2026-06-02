@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -175,12 +176,59 @@ def check_pending(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def check_script(entry: dict[str, Any], root: Path) -> dict[str, Any]:
+    command = entry.get("command")
+    result: dict[str, Any] = {
+        "id": entry["id"],
+        "kind": entry["kind"],
+        "profile": entry.get("profile", ""),
+        "sequence": entry.get("sequence", ""),
+        "required": bool(entry.get("required", True)),
+        "report": "",
+        "ok": False,
+        "errors": [],
+    }
+    if not isinstance(command, list) or not command or not all(
+        isinstance(part, str) and part for part in command
+    ):
+        result["errors"].append("script_check evidence requires a non-empty string command list")
+        return result
+    timeout_sec = int(entry.get("timeout_sec", 60))
+    result["report"] = " ".join(command)
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+        )
+    except subprocess.TimeoutExpired:
+        result["errors"].append(f"script_check timed out after {timeout_sec}s")
+        return result
+    except OSError as exc:
+        result["errors"].append(f"could not run script_check: {exc}")
+        return result
+    result["stdout"] = completed.stdout.strip()
+    result["stderr"] = completed.stderr.strip()
+    if completed.returncode != 0:
+        result["errors"].append(
+            f"script_check exited {completed.returncode}: "
+            f"{completed.stderr.strip() or completed.stdout.strip()}"
+        )
+    result["ok"] = not result["errors"]
+    return result
+
+
 def check_entry(entry: dict[str, Any], root: Path) -> dict[str, Any]:
     kind = entry.get("kind")
     if kind == "reproduction_report":
         return check_reproduction(entry, root)
     if kind == "native_tracking_report":
         return check_native_tracking(entry, root)
+    if kind == "script_check":
+        return check_script(entry, root)
     if kind == "pending":
         return check_pending(entry)
     return {

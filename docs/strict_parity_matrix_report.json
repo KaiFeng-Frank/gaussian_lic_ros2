@@ -237,6 +237,18 @@
     },
     {
       "errors": [],
+      "id": "fastlivo2/CBD_Building_01/cocolic2_port_cm_reference_parity",
+      "kind": "script_check",
+      "ok": true,
+      "profile": "fastlivo2",
+      "report": "./scripts/check_cocolic_port_results.py --require-evidence-hashes",
+      "required": true,
+      "sequence": "CBD_Building_01",
+      "stderr": "",
+      "stdout": "Coco-LIC2 port evidence check passed (strict hashes): lio, lico, lico_camerafixed"
+    },
+    {
+      "errors": [],
       "id": "fastlivo/full_sequence_strict",
       "kind": "pending",
       "ok": true,
@@ -351,8 +363,8 @@
   "manifest": "gaussian_lic_strict_parity_matrix/v1",
   "missing_profiles": [],
   "ok": true,
-  "required_count": 17,
-  "required_ok_count": 17,
+  "required_count": 18,
+  "required_ok_count": 18,
   "schema": "gaussian_lic_strict_parity_matrix_report/v1",
   "target_profiles": [
     "fastlivo",
