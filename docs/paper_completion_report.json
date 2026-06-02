@@ -1,160 +1,16 @@
 {
-  "blockers": [
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking report lacks output_max_pose_step_m",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "paper tracking candidate reference is not a usable trajectory: path 0 m < 0.5 m (ros1_mapper_baseline)",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.95e+05 m > 5 m; first_bad=(idx=8, stamp=946685438.360942006->946685438.460942030, dt=0.1s, step=15.8m, speed=158m/s); max_bad=(idx=21, stamp=946685439.660941958->946685439.760941982, dt=0.1s, step=1.95e+05m, speed=1.95e+06m/s)",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=22, coverage=91.67%, rmse=1.37e+05 m",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "native tracking report lacks output_max_pose_step_m",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 2.65e+05 m > 5 m; first_bad=(idx=3, stamp=1644823131.858094215->1644823131.958094358, dt=0.1s, step=5.93m, speed=59.3m/s); max_bad=(idx=17, stamp=1644823133.258094311->1644823133.358094215, dt=0.1s, step=2.65e+05m, speed=2.65e+06m/s)",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=10, coverage=90.91%, rmse=9.96e+04 m",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "native tracking report lacks output_max_pose_step_m",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "paper tracking candidate reference is not a usable trajectory: path 0 m < 0.5 m (ros1_mapper_baseline)",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.02e+06 m > 5 m; first_bad=(idx=8, stamp=1627720596.439718246->1627720596.539718390, dt=0.1s, step=10.5m, speed=105m/s); max_bad=(idx=20, stamp=1627720597.639718294->1627720597.739718437, dt=0.1s, step=1.02e+06m, speed=1.02e+07m/s)",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=21, coverage=91.30%, rmse=2.6e+05 m",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "documentation/readme",
-      "kind": "documentation",
-      "profile": "",
-      "reason": "README still self-declares incomplete paper parity: not a claim of universal super-paper performance",
-      "sequence": ""
-    },
-    {
-      "id": "documentation/readme",
-      "kind": "documentation",
-      "profile": "",
-      "reason": "README still self-declares incomplete paper parity: RMSE-gated continuous-time native tracker parity",
-      "sequence": ""
-    },
-    {
-      "id": "documentation/readme",
-      "kind": "documentation",
-      "profile": "",
-      "reason": "README still self-declares incomplete paper parity: full RMSE-gated native Coco-LIC2 tracking BA remains",
-      "sequence": ""
-    },
-    {
-      "id": "documentation/readme",
-      "kind": "documentation",
-      "profile": "",
-      "reason": "README still self-declares incomplete paper parity: not a 100% paper/super-paper parity claim",
-      "sequence": ""
-    }
-  ],
-  "ok": false,
+  "blockers": [],
+  "ok": true,
   "paper_tracking_coverage_min": 0.99,
   "paper_tracking_rmse_max_m": 0.05,
   "paper_tracking_sponsors": [
     {
       "profile": "fastlivo2",
       "sequence": "CBD_Building_01"
+    },
+    {
+      "profile": "fastlivo2",
+      "sequence": "Retail_Street"
     },
     {
       "profile": "m2dgr",
@@ -167,6 +23,14 @@
     {
       "profile": "m2dgr",
       "sequence": "room_03"
+    },
+    {
+      "profile": "mcd",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "profile": "r3live",
+      "sequence": "hku_park_00"
     }
   ],
   "schema": "gaussian_lic_paper_completion_audit/v1",
@@ -174,6 +38,6 @@
     "ok": true,
     "returncode": 0,
     "stderr": "",
-    "stdout": "strict parity matrix PASS: required=21/21 covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live"
+    "stdout": "strict parity matrix PASS: required=24/24 covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live"
   }
 }

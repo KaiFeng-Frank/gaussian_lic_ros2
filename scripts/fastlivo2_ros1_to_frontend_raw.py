@@ -543,11 +543,17 @@ def convert(args):
         imu_conn = writer.add_connection(args.output_imu_topic, "sensor_msgs/msg/Imu", typestore=store)
 
         available_topics = {connection.topic for connection in reader.connections}
-        input_image_topic = choose_available_topic(
-            available_topics,
-            candidate_topics(args.input_image_topic, args.profile_image_topics),
-            "image",
-        )
+        # ROS2 port: image optional — LIO-only conversions (e.g. MCD lidar+imu)
+        # skip the camera to avoid huge RGB bloat the LiDAR-Inertial path never uses.
+        try:
+            input_image_topic = choose_available_topic(
+                available_topics,
+                candidate_topics(args.input_image_topic, args.profile_image_topics),
+                "image",
+            )
+        except RuntimeError:
+            input_image_topic = None
+            print("[convert] no image topic found — writing lidar+imu only (LIO mode)")
         input_lidar_topic = choose_available_topic(
             available_topics,
             candidate_topics(args.input_lidar_topic, args.profile_lidar_topics),

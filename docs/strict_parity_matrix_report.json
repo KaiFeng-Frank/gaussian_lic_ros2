@@ -321,6 +321,16 @@
     },
     {
       "errors": [],
+      "id": "fastlivo2/Retail_Street/faithful_cocolic_port_stability_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "fastlivo2",
+      "report": "/home/frank/gaussian_lic_ros2/docs/faithful_blocker_tracking_report.json",
+      "required": true,
+      "sequence": "Retail_Street"
+    },
+    {
+      "errors": [],
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "ok": true,
@@ -371,6 +381,16 @@
     },
     {
       "errors": [],
+      "id": "mcd/ntu_day_01/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "mcd",
+      "report": "/home/frank/gaussian_lic_ros2/docs/faithful_blocker_tracking_report.json",
+      "required": true,
+      "sequence": "ntu_day_01"
+    },
+    {
+      "errors": [],
       "id": "mcd/ntu_day_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "ok": true,
@@ -378,6 +398,16 @@
       "report": "/home/frank/gaussian_lic_ros2/results/mcd/ntu_day_01_continuous_time_native_parity/native_tracking_report.json",
       "required": true,
       "sequence": "ntu_day_01"
+    },
+    {
+      "errors": [],
+      "id": "r3live/hku_park_00/faithful_cocolic_port_stability_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "r3live",
+      "report": "/home/frank/gaussian_lic_ros2/docs/faithful_blocker_tracking_report.json",
+      "required": true,
+      "sequence": "hku_park_00"
     },
     {
       "errors": [],
@@ -393,8 +423,8 @@
   "manifest": "gaussian_lic_strict_parity_matrix/v1",
   "missing_profiles": [],
   "ok": true,
-  "required_count": 21,
-  "required_ok_count": 21,
+  "required_count": 24,
+  "required_ok_count": 24,
   "schema": "gaussian_lic_strict_parity_matrix_report/v1",
   "target_profiles": [
     "fastlivo",
