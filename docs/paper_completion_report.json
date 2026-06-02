@@ -1,0 +1,209 @@
+{
+  "blockers": [
+    {
+      "id": "fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks reference trajectory parity",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks trajectory RMSE gate",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/native_tracking_reference_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking RMSE threshold 2 m is looser than 0.05 m paper-grade cm parity",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "required evidence is only a liveness/producer-chain gate",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks reference trajectory parity",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks trajectory RMSE gate",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "sequence": "CBD_Building_01"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "required evidence is only a liveness/producer-chain gate",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks reference trajectory parity",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks trajectory RMSE gate",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "reason": "required evidence is only a liveness/producer-chain gate",
+      "sequence": "room_01"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "reason": "native tracking evidence lacks reference trajectory parity",
+      "sequence": "room_01"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "reason": "native tracking evidence lacks trajectory RMSE gate",
+      "sequence": "room_01"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "sequence": "room_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "reason": "required evidence is only a liveness/producer-chain gate",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "reason": "native tracking evidence lacks reference trajectory parity",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "reason": "native tracking evidence lacks trajectory RMSE gate",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "required evidence is only a liveness/producer-chain gate",
+      "sequence": "hku_park_00"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "native tracking evidence lacks reference trajectory parity",
+      "sequence": "hku_park_00"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "native tracking evidence lacks trajectory RMSE gate",
+      "sequence": "hku_park_00"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "sequence": "hku_park_00"
+    },
+    {
+      "id": "documentation/readme",
+      "kind": "documentation",
+      "profile": "",
+      "reason": "README still self-declares incomplete paper parity: not a claim of universal super-paper performance",
+      "sequence": ""
+    },
+    {
+      "id": "documentation/readme",
+      "kind": "documentation",
+      "profile": "",
+      "reason": "README still self-declares incomplete paper parity: RMSE-gated continuous-time native tracker parity",
+      "sequence": ""
+    },
+    {
+      "id": "documentation/readme",
+      "kind": "documentation",
+      "profile": "",
+      "reason": "README still self-declares incomplete paper parity: full RMSE-gated native Coco-LIC2 tracking BA remains",
+      "sequence": ""
+    },
+    {
+      "id": "documentation/readme",
+      "kind": "documentation",
+      "profile": "",
+      "reason": "README still self-declares incomplete paper parity: not a 100% paper/super-paper parity claim",
+      "sequence": ""
+    }
+  ],
+  "ok": false,
+  "paper_tracking_rmse_max_m": 0.05,
+  "schema": "gaussian_lic_paper_completion_audit/v1",
+  "strict_matrix": {
+    "ok": true,
+    "returncode": 0,
+    "stderr": "",
+    "stdout": "strict parity matrix PASS: required=18/18 covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live"
+  }
+}

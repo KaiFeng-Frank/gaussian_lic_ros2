@@ -34,6 +34,7 @@ jobs:
           ./scripts/check_native_production_preset.py
           ./scripts/check_cocolic_port_results.py --require-evidence-hashes
           ./scripts/check_strict_parity_matrix.py
+          ./scripts/check_paper_completion.py --allow-incomplete
 
       - name: Artifact comparison gates
         shell: bash
@@ -108,6 +109,7 @@ jobs:
           ./scripts/check_native_production_preset.py
           ./scripts/check_cocolic_port_results.py --require-evidence-hashes
           ./scripts/check_strict_parity_matrix.py
+          ./scripts/check_paper_completion.py --allow-incomplete
 
       - name: Build
         shell: bash
