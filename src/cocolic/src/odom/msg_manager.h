@@ -34,7 +34,7 @@
 #include <vector>
 
 #include <lidar/livox_feature_extraction.h>
-// ROS2 port: velodyne_feature_extraction deferred (CBD_Building_01 is Livox-only).
+#include <lidar/velodyne_feature_extraction.h>  // ROS2 port: enabled for M2DGR (Velodyne)
 
 #include <utils/log_utils.h>
 #include <utils/parameter_struct.h>
@@ -264,8 +264,10 @@ namespace cocolic
 
     void IMUMsgHandle(const sensor_msgs::msg::Imu::ConstSharedPtr &imu_msg);
 
-    // ROS2 port: velodyne handlers deferred (CBD is Livox-only).
     void LivoxMsgHandle(const CustomMsgLite::ConstPtr &livox_msg, int lidar_id);
+
+    void VelodyneMsgHandle(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &vlp16_msg,
+                           int lidar_id);
 
     void ImageMsgHandle(const sensor_msgs::msg::Image::ConstSharedPtr &msg);
 
@@ -338,6 +340,7 @@ namespace cocolic
     int64_t bag_first_ns_ = -1;  // recv_timestamp of first read message
 
     LivoxFeatureExtraction::Ptr livox_feature_extraction_;
+    VelodyneFeatureExtraction::Ptr velodyne_feature_extraction_;
   };
 
 } // namespace cocolic

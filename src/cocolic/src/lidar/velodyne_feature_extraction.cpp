@@ -17,9 +17,9 @@
  */
 
 #include "velodyne_feature_extraction.h"
-#include <cocolic/feature_cloud.h>
+// ROS2 port: dropped <cocolic/feature_cloud.h> (debug-viz msg).
 #include <glog/logging.h>
-#include <pcl_conversions/pcl_conversions.h> // pcl::fromROSMsg
+#include <pcl_conversions/pcl_conversions.h> // pcl::fromROSMsg (ROS2)
 
 using namespace std;
 
@@ -32,15 +32,7 @@ namespace cocolic
     n_scan = node["VLP16"]["N_SCAN"].as<int>();
     horizon_scan = node["VLP16"]["Horizon_SCAN"].as<int>();
 
-    pub_corner_cloud =
-        nh.advertise<sensor_msgs::PointCloud2>("lidar_feature/corner_cloud", 10);
-    pub_surface_cloud =
-        nh.advertise<sensor_msgs::PointCloud2>("lidar_feature/surface_cloud", 10);
-    pub_full_cloud =
-        nh.advertise<sensor_msgs::PointCloud2>("lidar_feature/full_cloud", 10);
-
-    pub_feature_cloud =
-        nh.advertise<cocolic::feature_cloud>("lidar_feature/feature_cloud", 10);
+    // ROS2 port: dropped debug-viz publisher advertises (NodeHandle removed).
 
     AllocateMemory();
     ResetParameters();
@@ -81,7 +73,7 @@ namespace cocolic
   }
 
   void VelodyneFeatureExtraction::LidarHandler(
-      const sensor_msgs::PointCloud2::ConstPtr &lidar_msg)
+      const sensor_msgs::msg::PointCloud2::ConstSharedPtr &lidar_msg)
   {
     RTPointCloud::Ptr cur_cloud(new RTPointCloud());
     bool check_field_passed = ParsePointCloud(lidar_msg, cur_cloud);
@@ -114,7 +106,7 @@ namespace cocolic
   }
 
   bool VelodyneFeatureExtraction::CheckMsgFields(
-      const sensor_msgs::PointCloud2 &cloud_msg, std::string fields_name)
+      const sensor_msgs::msg::PointCloud2 &cloud_msg, std::string fields_name)
   {
     bool flag = false;
     for (size_t i = 0; i < cloud_msg.fields.size(); ++i)
@@ -136,7 +128,7 @@ namespace cocolic
   }
 
   bool VelodyneFeatureExtraction::ParsePointCloud(
-      const sensor_msgs::PointCloud2::ConstPtr &lidar_msg,
+      const sensor_msgs::msg::PointCloud2::ConstSharedPtr &lidar_msg,
       RTPointCloud::Ptr out_cloud) const
   {
     static bool has_checked = false;
@@ -196,7 +188,7 @@ namespace cocolic
   }
 
   bool VelodyneFeatureExtraction::ParsePointCloudNoFeature(
-      const sensor_msgs::PointCloud2::ConstPtr &lidar_msg,
+      const sensor_msgs::msg::PointCloud2::ConstSharedPtr &lidar_msg,
       RTPointCloud::Ptr out_cloud)
   {
     RTPointCloudTmp::Ptr tmp_out_cloud(new RTPointCloudTmp);
@@ -501,6 +493,10 @@ namespace cocolic
 
   void VelodyneFeatureExtraction::PublishCloud(std::string frame_id)
   {
+    // ROS2 port: debug-viz publish is a no-op for offline replay.
+    (void)frame_id;
+    return;
+#if 0
     bool pub_fea = (pub_full_cloud.getNumSubscribers() != 0);
 
     cocolic::feature_cloud feature_msg;
@@ -543,11 +539,7 @@ namespace cocolic
 
       pub_feature_cloud.publish(feature_msg);
     }
-
-    //  rosbag::Bag bagWrite;
-    //  bagWrite.open("/home/ha/rosbag/liso-bag/simu_bag/sim_feature.bag",
-    //  rosbag::bagmode::Append); bagWrite.write("/feature_cloud",
-    //  feature_msg.header.stamp, feature_msg); bagWrite.close();
+#endif
   }
 
 } // namespace cocolic

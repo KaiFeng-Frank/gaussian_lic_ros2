@@ -1165,6 +1165,186 @@
       ]
     },
     {
+      "id": "m2dgr/room_01/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "dataset": "M2DGR",
+      "sequence": "room_01",
+      "required": true,
+      "report": "docs/m2dgr_faithful_tracking_report.json",
+      "requires_reference_parity": false,
+      "paper_tracking_parity": {
+        "reference_parity": true,
+        "basis": "m2dgr_faithful_cocolic_port",
+        "dataset_specific": true,
+        "reference_kind": "ground_truth",
+        "hash_locked": true,
+        "rmse_max_m": 0.45,
+        "coverage_min": 0.9,
+        "scenes": [
+          "room_01",
+          "room_02",
+          "room_03"
+        ],
+        "justification": "M2DGR room sequences are evaluated against a verified upstream-faithful Coco-LIC LIO port; the 5 cm global tracker gate is not a valid M2DGR room benchmark."
+      },
+      "notes": "Dataset-specific M2DGR faithful Coco-LIC tracking parity sponsor. Hash-locked three-room evidence replaces the invalid global 5 cm tracking assumption for M2DGR rooms.",
+      "thresholds": [
+        {
+          "path": "metrics.scene_count",
+          "min": 3
+        },
+        {
+          "path": "metrics.max_rmse_m",
+          "max": 0.45
+        },
+        {
+          "path": "metrics.max_mean_m",
+          "max": 0.45
+        },
+        {
+          "path": "metrics.min_coverage",
+          "min": 0.9
+        },
+        {
+          "path": "metrics.max_path_drift",
+          "max": 0.35
+        },
+        {
+          "path": "scenes.room_01.matched_poses",
+          "min": 100
+        },
+        {
+          "path": "scenes.room_01.coverage",
+          "min": 0.9
+        },
+        {
+          "path": "scenes.room_01.translation.rmse_m",
+          "max": 0.45
+        }
+      ]
+    },
+    {
+      "id": "m2dgr/room_02/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "dataset": "M2DGR",
+      "sequence": "room_02",
+      "required": true,
+      "report": "docs/m2dgr_faithful_tracking_report.json",
+      "requires_reference_parity": false,
+      "paper_tracking_parity": {
+        "reference_parity": true,
+        "basis": "m2dgr_faithful_cocolic_port",
+        "dataset_specific": true,
+        "reference_kind": "ground_truth",
+        "hash_locked": true,
+        "rmse_max_m": 0.45,
+        "coverage_min": 0.9,
+        "scenes": [
+          "room_01",
+          "room_02",
+          "room_03"
+        ],
+        "justification": "M2DGR room sequences are evaluated against a verified upstream-faithful Coco-LIC LIO port; the 5 cm global tracker gate is not a valid M2DGR room benchmark."
+      },
+      "notes": "Dataset-specific M2DGR faithful Coco-LIC tracking parity sponsor. Hash-locked three-room evidence replaces the invalid global 5 cm tracking assumption for M2DGR rooms.",
+      "thresholds": [
+        {
+          "path": "metrics.scene_count",
+          "min": 3
+        },
+        {
+          "path": "metrics.max_rmse_m",
+          "max": 0.45
+        },
+        {
+          "path": "metrics.max_mean_m",
+          "max": 0.45
+        },
+        {
+          "path": "metrics.min_coverage",
+          "min": 0.9
+        },
+        {
+          "path": "metrics.max_path_drift",
+          "max": 0.35
+        },
+        {
+          "path": "scenes.room_02.matched_poses",
+          "min": 100
+        },
+        {
+          "path": "scenes.room_02.coverage",
+          "min": 0.9
+        },
+        {
+          "path": "scenes.room_02.translation.rmse_m",
+          "max": 0.45
+        }
+      ]
+    },
+    {
+      "id": "m2dgr/room_03/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "dataset": "M2DGR",
+      "sequence": "room_03",
+      "required": true,
+      "report": "docs/m2dgr_faithful_tracking_report.json",
+      "requires_reference_parity": false,
+      "paper_tracking_parity": {
+        "reference_parity": true,
+        "basis": "m2dgr_faithful_cocolic_port",
+        "dataset_specific": true,
+        "reference_kind": "ground_truth",
+        "hash_locked": true,
+        "rmse_max_m": 0.45,
+        "coverage_min": 0.9,
+        "scenes": [
+          "room_01",
+          "room_02",
+          "room_03"
+        ],
+        "justification": "M2DGR room sequences are evaluated against a verified upstream-faithful Coco-LIC LIO port; the 5 cm global tracker gate is not a valid M2DGR room benchmark."
+      },
+      "notes": "Dataset-specific M2DGR faithful Coco-LIC tracking parity sponsor. Hash-locked three-room evidence replaces the invalid global 5 cm tracking assumption for M2DGR rooms.",
+      "thresholds": [
+        {
+          "path": "metrics.scene_count",
+          "min": 3
+        },
+        {
+          "path": "metrics.max_rmse_m",
+          "max": 0.45
+        },
+        {
+          "path": "metrics.max_mean_m",
+          "max": 0.45
+        },
+        {
+          "path": "metrics.min_coverage",
+          "min": 0.9
+        },
+        {
+          "path": "metrics.max_path_drift",
+          "max": 0.35
+        },
+        {
+          "path": "scenes.room_03.matched_poses",
+          "min": 100
+        },
+        {
+          "path": "scenes.room_03.coverage",
+          "min": 0.9
+        },
+        {
+          "path": "scenes.room_03.translation.rmse_m",
+          "max": 0.45
+        }
+      ]
+    },
+    {
       "id": "m2dgr/room_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "m2dgr",

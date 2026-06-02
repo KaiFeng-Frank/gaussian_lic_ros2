@@ -331,6 +331,36 @@
     },
     {
       "errors": [],
+      "id": "m2dgr/room_01/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "m2dgr",
+      "report": "/home/frank/gaussian_lic_ros2/docs/m2dgr_faithful_tracking_report.json",
+      "required": true,
+      "sequence": "room_01"
+    },
+    {
+      "errors": [],
+      "id": "m2dgr/room_02/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "m2dgr",
+      "report": "/home/frank/gaussian_lic_ros2/docs/m2dgr_faithful_tracking_report.json",
+      "required": true,
+      "sequence": "room_02"
+    },
+    {
+      "errors": [],
+      "id": "m2dgr/room_03/faithful_cocolic_port_tracking_parity",
+      "kind": "native_tracking_report",
+      "ok": true,
+      "profile": "m2dgr",
+      "report": "/home/frank/gaussian_lic_ros2/docs/m2dgr_faithful_tracking_report.json",
+      "required": true,
+      "sequence": "room_03"
+    },
+    {
+      "errors": [],
       "id": "m2dgr/room_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "ok": true,
@@ -363,8 +393,8 @@
   "manifest": "gaussian_lic_strict_parity_matrix/v1",
   "missing_profiles": [],
   "ok": true,
-  "required_count": 18,
-  "required_ok_count": 18,
+  "required_count": 21,
+  "required_ok_count": 21,
   "schema": "gaussian_lic_strict_parity_matrix_report/v1",
   "target_profiles": [
     "fastlivo",

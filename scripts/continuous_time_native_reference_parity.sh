@@ -544,8 +544,8 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p external_odometry_orientation_factor_weight:="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_WEIGHT}" \
   -p external_odometry_orientation_factor_huber_delta_rad:="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_HUBER_DELTA_RAD}" \
   -p external_odometry_prior_topic:=/external_odometry_prior \
-  -p deterministic_bag_path:="${DETERMINISTIC_BAG_PATH:-}" \
-  -p output_tum_path:="$([ -n "${DETERMINISTIC_BAG_PATH:-}" ] && echo "${TUM_PATH}" || echo "")" \
+  -p deterministic_bag_path:="$([ -n "${DETERMINISTIC_BAG_PATH:-}" ] && echo "${DETERMINISTIC_BAG_PATH}" || echo "''")" \
+  -p output_tum_path:="$([ -n "${DETERMINISTIC_BAG_PATH:-}" ] && echo "${TUM_PATH}" || echo "''")" \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
 NODE_PGID=$(ps -o pgid= -p "${NODE_PID}" 2>/dev/null | tr -d ' ')

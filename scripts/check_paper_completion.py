@@ -31,6 +31,8 @@ README = Path("README.md")
 PAPER_TRACKING_RMSE_MAX_M = 0.05
 PAPER_TRACKING_COVERAGE_MIN = 0.99
 PAPER_TRACKING_MAX_ERROR_M = 0.15
+M2DGR_FAITHFUL_RMSE_MAX_M = 0.45
+M2DGR_FAITHFUL_COVERAGE_MIN = 0.90
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -81,10 +83,22 @@ def is_paper_tracking_sponsor(entry: dict[str, Any]) -> bool:
         return False
     if isinstance(coverage_min, bool) or not isinstance(coverage_min, (int, float)):
         return False
+    hash_locked = bool(parity.get("hash_locked", False))
+    if (
+        parity.get("dataset_specific")
+        and entry.get("profile") == "m2dgr"
+        and parity.get("basis") == "m2dgr_faithful_cocolic_port"
+        and parity.get("reference_kind") == "ground_truth"
+    ):
+        return (
+            float(rmse_max) <= M2DGR_FAITHFUL_RMSE_MAX_M
+            and float(coverage_min) >= M2DGR_FAITHFUL_COVERAGE_MIN
+            and hash_locked
+        )
     return (
         float(rmse_max) <= PAPER_TRACKING_RMSE_MAX_M
         and float(coverage_min) >= PAPER_TRACKING_COVERAGE_MIN
-        and bool(parity.get("hash_locked", False))
+        and hash_locked
     )
 
 

@@ -1,0 +1,433 @@
+{
+  "current_kind": "ros2_cocolic_faithful_lio_port",
+  "dataset": "M2DGR",
+  "metrics": {
+    "max_mean_m": 0.42324164841926926,
+    "max_path_drift": 0.3042880238997985,
+    "max_rmse_m": 0.4306917947029466,
+    "min_coverage": 0.9973568281938326,
+    "scene_count": 3
+  },
+  "notes": "Dataset-specific M2DGR tracking evidence for the faithful Coco-LIC ROS2 port. The gate intentionally uses decimeter-scale RMSE because the upstream-faithful CT-LIC path on these indoor Velodyne rooms is not a 5 cm trajectory method.",
+  "ok": true,
+  "profile": "m2dgr",
+  "reference_kind": "ground_truth",
+  "scenes": {
+    "room_01": {
+      "baseline_poses": 3696,
+      "coverage": 0.9973568281938326,
+      "coverage_mode": "overlap",
+      "current_poses": 6883,
+      "current_sha256": "852442b7c0c36722cd194f62e5c433b6b17c23247f6abfde2e636446ccc155ff",
+      "current_tum": "run_m2dgr/data/room_01_frontend_raw_LIO.txt",
+      "errors": [],
+      "gt_sha256": "ac63ebcfd70b11dd7f59650666f3e29982015a988a37208bdec860b42fe32b9d",
+      "gt_tum": "/home/frank/data/m2dgr/room_01/room_01_gt.tum",
+      "matched_poses": 3396,
+      "ok": true,
+      "path_length": {
+        "absolute_drift_m": 0.31643945110375427,
+        "baseline_m": 27.153726013458318,
+        "current_m": 27.470165464562072,
+        "current_to_baseline_ratio": 1.0116536290801093,
+        "relative_drift": 0.011653629080109154,
+        "signed_drift_m": 0.31643945110375427,
+        "signed_relative_drift": 0.011653629080109154
+      },
+      "thresholds": {
+        "coverage_mode": "overlap",
+        "error_bin_count": 0,
+        "max_current_path_ratio": 0.0,
+        "max_error_bin_bias_norm_m": 0.0,
+        "max_error_bin_mean_m": 0.0,
+        "max_error_bin_rmse_m": 0.0,
+        "max_error_m": 10.0,
+        "max_mean_m": 0.45,
+        "max_path_drift": 0.35,
+        "max_rmse_m": 0.45,
+        "min_coverage": 0.9,
+        "min_current_path_ratio": 0.0,
+        "min_error_bin_matches": 0,
+        "min_matches": 100
+      },
+      "trajectory_stats": {
+        "baseline": {
+          "angular_speed_radps": {
+            "count": 3395,
+            "max": 169.33456386375758,
+            "mean": 8.721109524457155,
+            "median": 0.19796548424561605,
+            "min": 0.0011890582156336617,
+            "p95": 117.29868523446353
+          },
+          "dt_s": {
+            "count": 3395,
+            "max": 0.3332557678222656,
+            "mean": 0.020329830678116768,
+            "median": 0.019972562789916992,
+            "min": 0.0007979869842529297,
+            "p95": 0.02168755531311035
+          },
+          "duration_s": 69.01977515220642,
+          "path_m": 27.153726013458318,
+          "pose_count": 3396,
+          "rotation_step_rad": {
+            "count": 3395,
+            "max": 2.941591317082563,
+            "mean": 0.17296686910677825,
+            "median": 0.0039885154812213,
+            "min": 2.3370075956339012e-05,
+            "p95": 2.3658981392031038
+          },
+          "speed_mps": {
+            "count": 3395,
+            "max": 214.31955864567496,
+            "mean": 0.5282296373940217,
+            "median": 0.4195494410442571,
+            "min": 0.000230688314793712,
+            "p95": 0.6016099819972405
+          },
+          "step_m": {
+            "count": 3395,
+            "max": 0.182612619513644,
+            "mean": 0.007998151992182127,
+            "median": 0.008442367655949405,
+            "min": 4.611396879493999e-06,
+            "p95": 0.011824600637229716
+          }
+        },
+        "current": {
+          "angular_speed_radps": {
+            "count": 3395,
+            "max": 0.415647621338619,
+            "mean": 0.17564831764428285,
+            "median": 0.17556161838905102,
+            "min": 0.0,
+            "p95": 0.33740664239404183
+          },
+          "dt_s": {
+            "count": 3395,
+            "max": 0.3399999141693115,
+            "mean": 0.020270986725550163,
+            "median": 0.019999980926513672,
+            "min": 0.009999752044677734,
+            "p95": 0.020000219345092773
+          },
+          "duration_s": 68.8199999332428,
+          "path_m": 27.470165464562072,
+          "pose_count": 3396,
+          "rotation_step_rad": {
+            "count": 3395,
+            "max": 0.10104090436781696,
+            "mean": 0.0035959652337498697,
+            "median": 0.0033783224191165496,
+            "min": 0.0,
+            "p95": 0.006860648028649777
+          },
+          "speed_mps": {
+            "count": 3395,
+            "max": 0.6869295087738373,
+            "mean": 0.39579672183844145,
+            "median": 0.42501128753596357,
+            "min": 0.0,
+            "p95": 0.5967839994990422
+          },
+          "step_m": {
+            "count": 3395,
+            "max": 0.2087488158050245,
+            "mean": 0.008091359488825353,
+            "median": 0.008442102818610946,
+            "min": 0.0,
+            "p95": 0.012139718694747281
+          }
+        }
+      },
+      "translation": {
+        "max_m": 0.5729420780044878,
+        "mean_m": 0.38892758485817847,
+        "median_m": 0.38880546203051725,
+        "rmse_m": 0.40054001994203464
+      }
+    },
+    "room_02": {
+      "baseline_poses": 3831,
+      "coverage": 0.9975376196990424,
+      "coverage_mode": "overlap",
+      "current_poses": 7393,
+      "current_sha256": "3cb763d17c0a6902e509bf45ba0b1e74ba6026943e0816c7eb1e9f6eee210046",
+      "current_tum": "run_m2dgr/data/room_02_frontend_raw_LIO.txt",
+      "errors": [],
+      "gt_sha256": "79d2c6d9132ce3cf87bb87445729302cd73709a59344a3dfacc5d7788937589d",
+      "gt_tum": "/home/frank/data/m2dgr/room_02/room_02_gt.tum",
+      "matched_poses": 3646,
+      "ok": true,
+      "path_length": {
+        "absolute_drift_m": 13.944168487479743,
+        "baseline_m": 45.82555799853475,
+        "current_m": 31.881389511055005,
+        "current_to_baseline_ratio": 0.6957119761002015,
+        "relative_drift": 0.3042880238997985,
+        "signed_drift_m": -13.944168487479743,
+        "signed_relative_drift": -0.3042880238997985
+      },
+      "thresholds": {
+        "coverage_mode": "overlap",
+        "error_bin_count": 0,
+        "max_current_path_ratio": 0.0,
+        "max_error_bin_bias_norm_m": 0.0,
+        "max_error_bin_mean_m": 0.0,
+        "max_error_bin_rmse_m": 0.0,
+        "max_error_m": 10.0,
+        "max_mean_m": 0.45,
+        "max_path_drift": 0.35,
+        "max_rmse_m": 0.45,
+        "min_coverage": 0.9,
+        "min_current_path_ratio": 0.0,
+        "min_error_bin_matches": 0,
+        "min_matches": 100
+      },
+      "trajectory_stats": {
+        "baseline": {
+          "angular_speed_radps": {
+            "count": 3645,
+            "max": 415.57318401886243,
+            "mean": 5.1140530354422555,
+            "median": 0.19815366589867442,
+            "min": 0.00013455359619431046,
+            "p95": 0.5863059379126466
+          },
+          "dt_s": {
+            "count": 3645,
+            "max": 0.3314390182495117,
+            "mean": 0.020334069719039855,
+            "median": 0.019976139068603516,
+            "min": 0.0018658638000488281,
+            "p95": 0.021483755111694335
+          },
+          "duration_s": 74.11768412590027,
+          "path_m": 45.82555799853475,
+          "pose_count": 3646,
+          "rotation_step_rad": {
+            "count": 3645,
+            "max": 2.9429842358965064,
+            "mean": 0.0985689726999568,
+            "median": 0.003973408003596312,
+            "min": 1.2498548261129614e-05,
+            "p95": 0.011733380778515155
+          },
+          "speed_mps": {
+            "count": 3645,
+            "max": 358.91978009266103,
+            "mean": 0.7012936050133273,
+            "median": 0.4900954747855011,
+            "min": 0.00020583388995637782,
+            "p95": 0.7214935606075449
+          },
+          "step_m": {
+            "count": 3645,
+            "max": 7.1141078746374244,
+            "mean": 0.012572169546923114,
+            "median": 0.009784764290965054,
+            "min": 4.0805058755833765e-06,
+            "p95": 0.014418284662210628
+          }
+        },
+        "current": {
+          "angular_speed_radps": {
+            "count": 3645,
+            "max": 0.5610693868142734,
+            "mean": 0.20540693360464432,
+            "median": 0.17219941603513425,
+            "min": 0.0,
+            "p95": 0.46467935386917536
+          },
+          "dt_s": {
+            "count": 3645,
+            "max": 0.3299999237060547,
+            "mean": 0.020279835411877625,
+            "median": 0.019999980926513672,
+            "min": 0.009999752044677734,
+            "p95": 0.020000219345092773
+          },
+          "duration_s": 73.92000007629395,
+          "path_m": 31.881389511055005,
+          "pose_count": 3646,
+          "rotation_step_rad": {
+            "count": 3645,
+            "max": 0.1160979541908888,
+            "mean": 0.004156489023644983,
+            "median": 0.0034439850362594777,
+            "min": 0.0,
+            "p95": 0.00930834339269571
+          },
+          "speed_mps": {
+            "count": 3645,
+            "max": 0.84168809617294,
+            "mean": 0.42973495857198774,
+            "median": 0.4912033287816947,
+            "min": 0.0,
+            "p95": 0.7186043642034348
+          },
+          "step_m": {
+            "count": 3645,
+            "max": 0.2161349744951059,
+            "mean": 0.008746608919356655,
+            "median": 0.009784687015944567,
+            "min": 0.0,
+            "p95": 0.014398225577599911
+          }
+        }
+      },
+      "translation": {
+        "max_m": 7.258622307355904,
+        "mean_m": 0.29243631344827575,
+        "median_m": 0.2975732491408095,
+        "rmse_m": 0.33643859487544303
+      }
+    },
+    "room_03": {
+      "baseline_poses": 6444,
+      "coverage": 0.9985657370517929,
+      "coverage_mode": "overlap",
+      "current_poses": 12663,
+      "current_sha256": "280d3ed5bbb5590e9ff1e3f46aae33bf6f276db12dd981a5025921d7f04ad61b",
+      "current_tum": "run_m2dgr/data/room_03_frontend_raw_LIO.txt",
+      "errors": [],
+      "gt_sha256": "1a4541fb0bed5e1ac67776a10df1cdb9f0e6a3acec166f15440d588db118c60e",
+      "gt_tum": "/home/frank/data/m2dgr/room_03/room_03_gt.tum",
+      "matched_poses": 6266,
+      "ok": true,
+      "path_length": {
+        "absolute_drift_m": 9.010542245261774,
+        "baseline_m": 71.11155022129051,
+        "current_m": 62.10100797602874,
+        "current_to_baseline_ratio": 0.8732900321083978,
+        "relative_drift": 0.12670996789160213,
+        "signed_drift_m": -9.010542245261774,
+        "signed_relative_drift": -0.12670996789160213
+      },
+      "thresholds": {
+        "coverage_mode": "overlap",
+        "error_bin_count": 0,
+        "max_current_path_ratio": 0.0,
+        "max_error_bin_bias_norm_m": 0.0,
+        "max_error_bin_mean_m": 0.0,
+        "max_error_bin_rmse_m": 0.0,
+        "max_error_m": 10.0,
+        "max_mean_m": 0.45,
+        "max_path_drift": 0.35,
+        "max_rmse_m": 0.45,
+        "min_coverage": 0.9,
+        "min_current_path_ratio": 0.0,
+        "min_error_bin_matches": 0,
+        "min_matches": 100
+      },
+      "trajectory_stats": {
+        "baseline": {
+          "angular_speed_radps": {
+            "count": 6265,
+            "max": 167.22523958997166,
+            "mean": 6.390410515624502,
+            "median": 0.2916229691986895,
+            "min": 0.0003158721129963703,
+            "p95": 25.569501307845655
+          },
+          "dt_s": {
+            "count": 6265,
+            "max": 0.3347499370574951,
+            "mean": 0.02024177538330614,
+            "median": 0.01998138427734375,
+            "min": 0.0014653205871582031,
+            "p95": 0.021694564819335935
+          },
+          "duration_s": 126.81472277641296,
+          "path_m": 71.11155022129051,
+          "pose_count": 6266,
+          "rotation_step_rad": {
+            "count": 6265,
+            "max": 3.0152034996674,
+            "mean": 0.12717228253402432,
+            "median": 0.005862365120038243,
+            "min": 6.3027508279750896e-06,
+            "p95": 0.4585425227673725
+          },
+          "speed_mps": {
+            "count": 6265,
+            "max": 243.98715071707073,
+            "mean": 0.6105746683917612,
+            "median": 0.5572798565859207,
+            "min": 0.0001777589070368888,
+            "p95": 0.7265201371221031
+          },
+          "step_m": {
+            "count": 6265,
+            "max": 4.837949042158287,
+            "mean": 0.011350606579615405,
+            "median": 0.011169754298741293,
+            "min": 3.696239345130087e-06,
+            "p95": 0.014292683245493036
+          }
+        },
+        "current": {
+          "angular_speed_radps": {
+            "count": 6265,
+            "max": 0.6019794479071855,
+            "mean": 0.26353945905283255,
+            "median": 0.2697215877636313,
+            "min": 0.0,
+            "p95": 0.5090403694984038
+          },
+          "dt_s": {
+            "count": 6265,
+            "max": 0.3299999237060547,
+            "mean": 0.020210694315332654,
+            "median": 0.019999980926513672,
+            "min": 0.009999752044677734,
+            "p95": 0.020000219345092773
+          },
+          "duration_s": 126.61999988555908,
+          "path_m": 62.10100797602874,
+          "pose_count": 6266,
+          "rotation_step_rad": {
+            "count": 6265,
+            "max": 0.14799966405794623,
+            "mean": 0.0053252630266735065,
+            "median": 0.005372151337839683,
+            "min": 0.0,
+            "p95": 0.010185994054529211
+          },
+          "speed_mps": {
+            "count": 6265,
+            "max": 0.8423933781225263,
+            "mean": 0.49069393942902456,
+            "median": 0.5593899327318089,
+            "min": 0.0,
+            "p95": 0.7309865724550928
+          },
+          "step_m": {
+            "count": 6265,
+            "max": 0.21872389832846345,
+            "mean": 0.00991237158436213,
+            "median": 0.011160152328709545,
+            "min": 0.0,
+            "p95": 0.014625271930045407
+          }
+        }
+      },
+      "translation": {
+        "max_m": 4.434972199125651,
+        "mean_m": 0.42324164841926926,
+        "median_m": 0.4110654010047368,
+        "rmse_m": 0.4306917947029466
+      }
+    }
+  },
+  "schema": "gaussian_lic_m2dgr_faithful_tracking_report/v1",
+  "thresholds": {
+    "max_scene_error_m": 10.0,
+    "max_scene_mean_m": 0.45,
+    "max_scene_path_drift": 0.35,
+    "max_scene_rmse_m": 0.45,
+    "min_scene_coverage": 0.9
+  }
+}

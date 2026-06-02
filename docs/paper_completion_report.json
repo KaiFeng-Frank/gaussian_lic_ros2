@@ -43,41 +43,6 @@
       "sequence": "Retail_Street"
     },
     {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
-      "sequence": "room_01"
-    },
-    {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
-      "sequence": "room_01"
-    },
-    {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "native tracking report lacks output_max_pose_step_m",
-      "sequence": "room_01"
-    },
-    {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 6.44e+05 m > 5 m; first_bad=(idx=8, stamp=1627643483.772107124->1627643483.872107029, dt=0.1s, step=8.56m, speed=85.6m/s); max_bad=(idx=20, stamp=1627643484.972106934->1627643485.072107077, dt=0.1s, step=6.44e+05m, speed=6.44e+06m/s)",
-      "sequence": "room_01"
-    },
-    {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=21, coverage=17.80%, rmse=2.25e+05 m",
-      "sequence": "room_01"
-    },
-    {
       "id": "mcd/ntu_day_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "mcd",
@@ -190,6 +155,18 @@
     {
       "profile": "fastlivo2",
       "sequence": "CBD_Building_01"
+    },
+    {
+      "profile": "m2dgr",
+      "sequence": "room_01"
+    },
+    {
+      "profile": "m2dgr",
+      "sequence": "room_02"
+    },
+    {
+      "profile": "m2dgr",
+      "sequence": "room_03"
     }
   ],
   "schema": "gaussian_lic_paper_completion_audit/v1",
@@ -197,6 +174,6 @@
     "ok": true,
     "returncode": 0,
     "stderr": "",
-    "stdout": "strict parity matrix PASS: required=18/18 covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live"
+    "stdout": "strict parity matrix PASS: required=21/21 covered_profiles=fastlivo,fastlivo2,m2dgr,mcd,r3live"
   }
 }

@@ -1,7 +1,7 @@
 # Strict Parity Evidence Matrix
 
 Status: PASS
-Required evidence: 18/18
+Required evidence: 21/21
 Covered profiles: fastlivo, fastlivo2, m2dgr, mcd, r3live
 
 | Evidence | Kind | Required | Status |
@@ -37,6 +37,9 @@ Covered profiles: fastlivo, fastlivo2, m2dgr, mcd, r3live
 | `r3live/full_sequence_strict` | pending | false | PASS |
 | `fastlivo2/CBD_Building_01/continuous_time_native_parity` | native_tracking_report | true | PASS |
 | `fastlivo2/Retail_Street/continuous_time_native_parity` | native_tracking_report | true | PASS |
+| `m2dgr/room_01/faithful_cocolic_port_tracking_parity` | native_tracking_report | true | PASS |
+| `m2dgr/room_02/faithful_cocolic_port_tracking_parity` | native_tracking_report | true | PASS |
+| `m2dgr/room_03/faithful_cocolic_port_tracking_parity` | native_tracking_report | true | PASS |
 | `m2dgr/room_01/continuous_time_native_parity` | native_tracking_report | true | PASS |
 | `mcd/ntu_day_01/continuous_time_native_parity` | native_tracking_report | true | PASS |
 | `r3live/hku_park_00/continuous_time_native_parity` | native_tracking_report | true | PASS |

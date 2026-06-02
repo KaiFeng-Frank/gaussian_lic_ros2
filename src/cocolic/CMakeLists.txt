@@ -22,6 +22,7 @@ find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(pcl_conversions REQUIRED)  # ROS2 port: pcl::fromROSMsg for Velodyne (M2DGR)
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
 # ROS2 port: only common + kdtree are used (transformPointCloud, KdTreeFLANN).
@@ -69,6 +70,7 @@ add_library(cocolic_core STATIC
   src/odom/factor/analytic_diff/marginalization_factor.cpp
   src/odom/trajectory_manager.cpp
   src/lidar/livox_feature_extraction.cpp
+  src/lidar/velodyne_feature_extraction.cpp
   src/lidar/lidar_handler.cpp
   src/imu/imu_initializer.cpp
   src/imu/imu_state_estimator.cpp
@@ -84,7 +86,7 @@ target_link_libraries(cocolic_core
 )
 # msg_manager.cpp uses rosbag2 + rclcpp serialization + cv_bridge + sensor_msgs.
 ament_target_dependencies(cocolic_core
-  rclcpp rosbag2_cpp rosbag2_storage cv_bridge sensor_msgs std_msgs geometry_msgs)
+  rclcpp rosbag2_cpp rosbag2_storage cv_bridge pcl_conversions sensor_msgs std_msgs geometry_msgs)
 if(OpenMP_CXX_FOUND)
   target_link_libraries(cocolic_core OpenMP::OpenMP_CXX)
 endif()

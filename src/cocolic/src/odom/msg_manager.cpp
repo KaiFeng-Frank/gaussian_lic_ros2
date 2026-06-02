@@ -124,11 +124,8 @@ namespace cocolic
       livox_feature_extraction_ =
           std::make_shared<LivoxFeatureExtraction>(lidar_node);
     if (use_vlp)
-    {
-      // ROS2 port: velodyne path deferred (CBD_Building_01 is Livox-only).
-      std::cerr << "[MsgManager] VLP lidar requested but velodyne feature "
-                   "extraction is not ported yet (Livox-only build).\n";
-    }
+      velodyne_feature_extraction_ =
+          std::make_shared<VelodyneFeatureExtraction>(lidar_node);
 
     LoadBag(node);
   }
@@ -223,9 +220,13 @@ namespace cocolic
           CheckLidarMsgTimestamp(t_ns * NS_TO_S, lidar_msg->timebase * NS_TO_S);
           LivoxMsgHandle(lidar_msg, idx);
         }
-        else  // VLP deferred (Livox-only build)
+        else  // rotating lidar: Velodyne/Ouster/Hesai; ROS2 port for M2DGR
         {
-          std::cout << "[SpinBagOnce] VLP lidar not ported — skipping.\n";
+          auto pc = std::make_shared<sensor_msgs::msg::PointCloud2>();
+          pc_ser.deserialize_message(&ser, pc.get());
+          double pc_t = pc->header.stamp.sec + pc->header.stamp.nanosec * 1e-9;
+          CheckLidarMsgTimestamp(t_ns * NS_TO_S, pc_t);
+          VelodyneMsgHandle(pc, idx);
         }
         return;
       }
@@ -616,7 +617,7 @@ namespace cocolic
   void MsgManager::IMUMsgHandle(const sensor_msgs::msg::Imu::ConstSharedPtr &imu_msg)
   {
     int64_t t_last = cur_imu_timestamp_;
-    // ROS2 port: header.stamp.toSec()*S_TO_NS → ns from sec/nanosec.
+    // ROS2 port: header.stamp.toSec()*S_TO_NS -> ns from sec/nanosec.
     cur_imu_timestamp_ = int64_t(imu_msg->header.stamp.sec) * 1000000000LL +
                          int64_t(imu_msg->header.stamp.nanosec);
 
@@ -630,8 +631,33 @@ namespace cocolic
     imu_buf_.emplace_back(data);
   }
 
-  // ROS2 port: VelodyneMsgHandle / VelodyneMsgHandleNoFeature deferred
-  // (CBD_Building_01 is Livox-only; velodyne_feature_extraction not yet ported).
+  // ROS2 port: Velodyne (M2DGR) path ported from upstream VelodyneMsgHandle.
+  void MsgManager::VelodyneMsgHandle(
+      const sensor_msgs::msg::PointCloud2::ConstSharedPtr &vlp16_msg, int lidar_id)
+  {
+    RTPointCloud::Ptr vlp_raw_cloud(new RTPointCloud);
+    velodyne_feature_extraction_->ParsePointCloud(vlp16_msg, vlp_raw_cloud);
+
+    // transform the input cloud to Lidar0 frame
+    if (lidar_id != 0)
+      pcl::transformPointCloud(*vlp_raw_cloud, *vlp_raw_cloud,
+                               T_LktoL0_vec_[lidar_id]);
+
+    velodyne_feature_extraction_->LidarHandler(vlp_raw_cloud);
+
+    // ROS2 port: header.stamp.toSec()*S_TO_NS -> ns from sec/nanosec.
+    int64_t stamp_ns = int64_t(vlp16_msg->header.stamp.sec) * 1000000000LL +
+                       int64_t(vlp16_msg->header.stamp.nanosec);
+    lidar_buf_.emplace_back();
+    lidar_buf_.back().lidar_id = lidar_id;
+    if (lidar_timestamp_end_)
+      lidar_buf_.back().timestamp = stamp_ns - int64_t(0.1003 * S_TO_NS); // kaist/viral
+    else
+      lidar_buf_.back().timestamp = stamp_ns; // lvi/lio
+    lidar_buf_.back().raw_cloud = vlp_raw_cloud;
+    lidar_buf_.back().surf_cloud = velodyne_feature_extraction_->GetSurfaceFeature();
+    lidar_buf_.back().corner_cloud = velodyne_feature_extraction_->GetCornerFeature();
+  }
 
   void MsgManager::LivoxMsgHandle(
       const CustomMsgLite::ConstPtr &livox_msg, int lidar_id)

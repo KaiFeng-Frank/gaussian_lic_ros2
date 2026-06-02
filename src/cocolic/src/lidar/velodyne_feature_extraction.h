@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+// ROS2 Jazzy port: dropped <ros/ros.h>; ROS1 sensor_msgs → ROS2 message.
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <yaml-cpp/yaml.h>
 #include <opencv2/opencv.hpp>
 #include "lidar_feature.h"
@@ -56,18 +56,18 @@ namespace cocolic
 
     VelodyneFeatureExtraction(const YAML::Node &node);
 
-    void LidarHandler(const sensor_msgs::PointCloud2::ConstPtr &lidar_msg);
+    void LidarHandler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &lidar_msg);
 
     void LidarHandler(const RTPointCloud::Ptr raw_cloud);
 
     //
-    bool ParsePointCloud(const sensor_msgs::PointCloud2::ConstPtr &lidar_msg,
+    bool ParsePointCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &lidar_msg,
                          RTPointCloud::Ptr out_cloud) const;
     bool ParsePointCloudNoFeature(
-        const sensor_msgs::PointCloud2::ConstPtr &lidar_msg,
+        const sensor_msgs::msg::PointCloud2::ConstSharedPtr &lidar_msg,
         RTPointCloud::Ptr out_cloud);
 
-    static bool CheckMsgFields(const sensor_msgs::PointCloud2 &cloud_msg,
+    static bool CheckMsgFields(const sensor_msgs::msg::PointCloud2 &cloud_msg,
                                std::string fields_name = "time");
 
     inline RTPointCloud::Ptr GetCornerFeature() const { return p_corner_cloud; }
@@ -104,13 +104,7 @@ namespace cocolic
     void PublishCloud(std::string frame_id);
 
   private:
-    ros::NodeHandle nh;
-
-    ros::Subscriber sub_lidar;
-    ros::Publisher pub_corner_cloud;
-    ros::Publisher pub_surface_cloud;
-    ros::Publisher pub_full_cloud;
-    ros::Publisher pub_feature_cloud;
+    // ROS2 port: dropped ros::NodeHandle + debug-viz publishers/subscriber.
 
     LiDARFeatureParam fea_param_;
 
