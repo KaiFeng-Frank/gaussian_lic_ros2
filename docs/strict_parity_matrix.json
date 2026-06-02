@@ -1137,6 +1137,17 @@
       "required": true,
       "report": "results/fastlivo2/Retail_Street_continuous_time_native_parity/native_tracking_report.json",
       "requires_reference_parity": false,
+      "paper_tracking_candidate": {
+        "reference_tum": "baseline/fastlivo2/Retail_Street/native_reference/ros1_mapper_baseline_full.tum",
+        "reference_kind": "ros1_mapper_baseline",
+        "current_tum": "results/fastlivo2/Retail_Street_continuous_time_native_parity/continuous_time_trajectory.tum",
+        "align": "yaw",
+        "coverage_mode": "overlap",
+        "max_association_dt": 0.2,
+        "min_matches": 10,
+        "min_reference_path_m": 0.5,
+        "max_current_step_m": 5.0
+      },
       "notes": "Liveness gate for the continuous-time tracker on the second FAST-LIVO2 sequence. Validates the ported stack on Retail_Street (no archived Coco-LIC native reference; liveness-only mode via REFERENCE_TUM=__skip__). Broadens the continuous-time evidence base beyond a single bag.",
       "thresholds": [
         {
@@ -1162,6 +1173,17 @@
       "required": true,
       "report": "results/m2dgr/room_01_continuous_time_native_parity/native_tracking_report.json",
       "requires_reference_parity": false,
+      "paper_tracking_candidate": {
+        "reference_tum": "/home/frank/data/m2dgr/room_01/room_01_gt.tum",
+        "reference_kind": "ground_truth",
+        "current_tum": "results/m2dgr/room_01_continuous_time_native_parity/continuous_time_trajectory.tum",
+        "align": "yaw",
+        "coverage_mode": "overlap",
+        "max_association_dt": 0.2,
+        "min_matches": 10,
+        "min_reference_path_m": 0.5,
+        "max_current_step_m": 5.0
+      },
       "notes": "Liveness gate for the continuous-time tracker on M2DGR room_01. Validates portability across the M2DGR profile.",
       "thresholds": [
         {
@@ -1187,6 +1209,17 @@
       "required": true,
       "report": "results/mcd/ntu_day_01_continuous_time_native_parity/native_tracking_report.json",
       "requires_reference_parity": false,
+      "paper_tracking_candidate": {
+        "reference_tum": "/home/frank/data/mcd/ntu_day_01/groundtruth/pose_inW.tum",
+        "reference_kind": "ground_truth",
+        "current_tum": "results/mcd/ntu_day_01_continuous_time_native_parity/continuous_time_trajectory.tum",
+        "align": "yaw",
+        "coverage_mode": "overlap",
+        "max_association_dt": 0.2,
+        "min_matches": 10,
+        "min_reference_path_m": 0.5,
+        "max_current_step_m": 5.0
+      },
       "notes": "Liveness gate for the continuous-time tracker on MCD ntu_day_01. Validates portability across the MCD profile.",
       "thresholds": [
         {
@@ -1212,6 +1245,17 @@
       "required": true,
       "report": "results/r3live/hku_park_00_continuous_time_native_parity/native_tracking_report.json",
       "requires_reference_parity": false,
+      "paper_tracking_candidate": {
+        "reference_tum": "baseline/r3live/hku_park_00/native_reference/ros1_mapper_baseline_full.tum",
+        "reference_kind": "ros1_mapper_baseline",
+        "current_tum": "results/r3live/hku_park_00_continuous_time_native_parity/continuous_time_trajectory.tum",
+        "align": "yaw",
+        "coverage_mode": "overlap",
+        "max_association_dt": 0.2,
+        "min_matches": 10,
+        "min_reference_path_m": 0.5,
+        "max_current_step_m": 5.0
+      },
       "notes": "Liveness gate for the continuous-time tracker on R3LIVE hku_park_00. Validates portability across the R3LIVE profile.",
       "thresholds": [
         {

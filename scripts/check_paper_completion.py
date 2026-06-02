@@ -15,13 +15,22 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+
+from trajectory_compare import (
+    compute_report as compute_trajectory_report,
+    load_tum,
+    path_length,
+    translation_tuple,
+)
 
 
 DEFAULT_MANIFEST = Path("docs/strict_parity_matrix.json")
 README = Path("README.md")
 PAPER_TRACKING_RMSE_MAX_M = 0.05
 PAPER_TRACKING_COVERAGE_MIN = 0.99
+PAPER_TRACKING_MAX_ERROR_M = 0.15
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -108,6 +117,114 @@ def run_strict_matrix(root: Path) -> dict[str, Any]:
     }
 
 
+def resolve_path(root: Path, value: Any) -> Path | None:
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = root / path
+    return path
+
+
+def summarize_tum_path(path: Path) -> dict[str, Any]:
+    poses = load_tum(path)
+    positions = [translation_tuple(pose) for pose in poses]
+    steps = [
+        ((curr[0] - prev[0]) ** 2 + (curr[1] - prev[1]) ** 2 + (curr[2] - prev[2]) ** 2)
+        ** 0.5
+        for prev, curr in zip(positions, positions[1:])
+    ]
+    return {
+        "poses": len(poses),
+        "path_m": path_length(positions),
+        "max_step_m": max(steps) if steps else 0.0,
+    }
+
+
+def candidate_tracking_diagnostics(entry: dict[str, Any], root: Path) -> list[str]:
+    candidate = entry.get("paper_tracking_candidate")
+    if not isinstance(candidate, dict):
+        return []
+
+    reasons: list[str] = []
+    reference_path = resolve_path(root, candidate.get("reference_tum"))
+    current_path = resolve_path(root, candidate.get("current_tum"))
+    if reference_path is None:
+        reasons.append("paper tracking candidate lacks reference_tum")
+        return reasons
+    if current_path is None:
+        reasons.append("paper tracking candidate lacks current_tum")
+        return reasons
+    if not reference_path.is_file():
+        reasons.append(f"paper tracking candidate reference is missing: {reference_path}")
+        return reasons
+    if not current_path.is_file():
+        reasons.append(f"paper tracking candidate current trajectory is missing: {current_path}")
+        return reasons
+
+    try:
+        reference_summary = summarize_tum_path(reference_path)
+        current_summary = summarize_tum_path(current_path)
+    except Exception as exc:  # noqa: BLE001
+        reasons.append(f"paper tracking candidate TUM load failed: {exc}")
+        return reasons
+
+    min_reference_path_m = float(candidate.get("min_reference_path_m", 0.0))
+    if reference_summary["path_m"] < min_reference_path_m:
+        reasons.append(
+            "paper tracking candidate reference is not a usable trajectory: "
+            f"path {reference_summary['path_m']:.3g} m < {min_reference_path_m:.3g} m "
+            f"({candidate.get('reference_kind', 'unknown')})"
+        )
+
+    max_current_step_m = float(candidate.get("max_current_step_m", 0.0))
+    if max_current_step_m > 0.0 and current_summary["max_step_m"] > max_current_step_m:
+        reasons.append(
+            "paper tracking candidate current trajectory diverges before parity compare: "
+            f"max step {current_summary['max_step_m']:.3g} m > {max_current_step_m:.3g} m"
+        )
+
+    args = SimpleNamespace(
+        baseline=str(reference_path),
+        current=str(current_path),
+        align=str(candidate.get("align", "yaw")),
+        max_association_dt=float(candidate.get("max_association_dt", 0.2)),
+        min_matches=int(candidate.get("min_matches", 10)),
+        min_coverage=PAPER_TRACKING_COVERAGE_MIN,
+        coverage_mode=str(candidate.get("coverage_mode", "overlap")),
+        max_rmse_m=PAPER_TRACKING_RMSE_MAX_M,
+        max_mean_m=0.03,
+        max_error_m=PAPER_TRACKING_MAX_ERROR_M,
+        max_path_drift=0.05,
+        min_current_path_ratio=0.0,
+        max_current_path_ratio=0.0,
+        error_bin_count=0,
+        min_error_bin_matches=0,
+        max_error_bin_rmse_m=0.0,
+        max_error_bin_mean_m=0.0,
+        max_error_bin_bias_norm_m=0.0,
+        time_offset_sweep_min=0.0,
+        time_offset_sweep_max=0.0,
+        time_offset_sweep_step=0.1,
+        time_offset_sweep_min_matches=0,
+    )
+    try:
+        report = compute_trajectory_report(args)
+    except Exception as exc:  # noqa: BLE001
+        reasons.append(f"paper tracking candidate comparison failed to run: {exc}")
+        return reasons
+
+    if not report.get("ok"):
+        translation = report.get("translation", {})
+        reasons.append(
+            "paper tracking candidate comparison fails 5 cm parity: "
+            f"matched={report.get('matched_poses', 0)}, "
+            f"coverage={float(report.get('coverage', 0.0)):.2%}, "
+            f"rmse={float(translation.get('rmse_m', 0.0)):.3g} m"
+        )
+    return reasons
+
+
 def add_blocker(blockers: list[dict[str, Any]], entry: dict[str, Any], reason: str) -> None:
     blockers.append(
         {
@@ -124,6 +241,7 @@ def audit_entry(
     entry: dict[str, Any],
     blockers: list[dict[str, Any]],
     sponsors: set[tuple[str, str]],
+    root: Path,
 ) -> None:
     if not entry.get("required", True):
         return
@@ -131,6 +249,11 @@ def audit_entry(
     notes = str(entry.get("notes", "")).lower()
     entry_id = str(entry.get("id", "")).lower()
     sponsored = (str(entry.get("profile", "")), str(entry.get("sequence", ""))) in sponsors
+    candidate_reasons = candidate_tracking_diagnostics(entry, root)
+    if candidate_reasons and not sponsored:
+        for reason in candidate_reasons:
+            add_blocker(blockers, entry, reason)
+        return
 
     if (
         "liveness" in notes
@@ -249,7 +372,7 @@ def main() -> int:
     entries = [entry for entry in manifest.get("evidence", ()) if isinstance(entry, dict)]
     sponsors = tracking_sponsor_keys(entries)
     for entry in entries:
-        audit_entry(entry, blockers, sponsors)
+        audit_entry(entry, blockers, sponsors, root)
     audit_readme(root, blockers)
 
     report = {

@@ -4,112 +4,70 @@
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "fastlivo2",
-      "reason": "required evidence is only a liveness/producer-chain gate",
+      "reason": "paper tracking candidate reference is not a usable trajectory: path 0 m < 0.5 m (ros1_mapper_baseline)",
       "sequence": "Retail_Street"
     },
     {
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks reference trajectory parity",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.95e+05 m > 5 m",
       "sequence": "Retail_Street"
     },
     {
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks trajectory RMSE gate",
-      "sequence": "Retail_Street"
-    },
-    {
-      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=22, coverage=91.67%, rmse=1.37e+05 m",
       "sequence": "Retail_Street"
     },
     {
       "id": "m2dgr/room_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "m2dgr",
-      "reason": "required evidence is only a liveness/producer-chain gate",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 6.44e+05 m > 5 m",
       "sequence": "room_01"
     },
     {
       "id": "m2dgr/room_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "m2dgr",
-      "reason": "native tracking evidence lacks reference trajectory parity",
-      "sequence": "room_01"
-    },
-    {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "native tracking evidence lacks trajectory RMSE gate",
-      "sequence": "room_01"
-    },
-    {
-      "id": "m2dgr/room_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "m2dgr",
-      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=21, coverage=17.80%, rmse=2.25e+05 m",
       "sequence": "room_01"
     },
     {
       "id": "mcd/ntu_day_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "mcd",
-      "reason": "required evidence is only a liveness/producer-chain gate",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 2.65e+05 m > 5 m",
       "sequence": "ntu_day_01"
     },
     {
       "id": "mcd/ntu_day_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "mcd",
-      "reason": "native tracking evidence lacks reference trajectory parity",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "native tracking evidence lacks trajectory RMSE gate",
-      "sequence": "ntu_day_01"
-    },
-    {
-      "id": "mcd/ntu_day_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "mcd",
-      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=10, coverage=90.91%, rmse=9.96e+04 m",
       "sequence": "ntu_day_01"
     },
     {
       "id": "r3live/hku_park_00/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "r3live",
-      "reason": "required evidence is only a liveness/producer-chain gate",
+      "reason": "paper tracking candidate reference is not a usable trajectory: path 0 m < 0.5 m (ros1_mapper_baseline)",
       "sequence": "hku_park_00"
     },
     {
       "id": "r3live/hku_park_00/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "r3live",
-      "reason": "native tracking evidence lacks reference trajectory parity",
+      "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 1.02e+06 m > 5 m",
       "sequence": "hku_park_00"
     },
     {
       "id": "r3live/hku_park_00/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "r3live",
-      "reason": "native tracking evidence lacks trajectory RMSE gate",
-      "sequence": "hku_park_00"
-    },
-    {
-      "id": "r3live/hku_park_00/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "r3live",
-      "reason": "native tracking evidence lacks trajectory coverage gate",
+      "reason": "paper tracking candidate comparison fails 5 cm parity: matched=21, coverage=91.30%, rmse=2.6e+05 m",
       "sequence": "hku_park_00"
     },
     {
