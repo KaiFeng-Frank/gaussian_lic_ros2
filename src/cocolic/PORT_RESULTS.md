@@ -8,13 +8,20 @@ FAST-LIVO2 `CBD_Building_01`.
 
 | Mode | ATE RMSE vs upstream reference | Notes |
 |------|-------------------------------|-------|
-| **LiDAR-Inertial (LIO)** | **2.18 cm** (yaw-aligned), 2.81 cm (no align) | **paper-level cm-scale; passes the acceptance gate** |
-| LiDAR-Inertial-Camera (LICO) | 2.3–2.8 cm (image_weight 0.2→4.0) | camera works but does not beat LIO (see ceiling) |
+| **LiDAR-Inertial (LIO)** | **2.12 cm** yaw-aligned RMSE | **paper-level cm-scale; passes the acceptance gate** |
+| LiDAR-Inertial-Camera (LICO) | **2.27 cm** yaw-aligned RMSE; camera-fixed probe **2.81 cm** | camera works but does not beat LIO (see ceiling) |
 
 - Reference: `baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum`
   (upstream Coco-LIC's own LICO output on the official ROS1 `CBD_Building_01.bag`).
-- Compared via `scripts/trajectory_compare.py` — 100% coverage (1231/1231 poses),
-  path drift 0.28%, `"ok": true`.
+- Committed evidence:
+  - `run_lio/lio_vs_reference_report.json`: 100% coverage (1231/1231 poses),
+    2.12 cm RMSE, 0.414% path drift, `"ok": true`.
+  - `run_lio/lico_vs_reference_report.json`: 100% coverage (1231/1231 poses),
+    2.27 cm RMSE, 0.397% path drift, `"ok": true`.
+  - `run_lio/lico_camerafixed_vs_reference_report.json`: 100% coverage
+    (1231/1231 poses), 2.81 cm RMSE, 0.740% path drift, `"ok": true`.
+- `scripts/check_cocolic_port_results.py` gates those committed reports in CI so
+  future releases cannot drift from the cm-scale port evidence.
 - **13×** better than the prior independent reimplementation (0.2694 m), **63×** over baseline (1.346 m).
 - Reproducible from a clean build; **deterministic** per binary (3/3 runs identical).
 
@@ -59,7 +66,9 @@ ros2 run cocolic odometry_node run_lio/config/ct_odometry_lio.yaml
 # LICO (full camera):
 ros2 run cocolic odometry_node run_lio/config/ct_odometry_lico.yaml
 
-# Output trajectory: run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_{LIO,LICO}.txt
+# Output trajectories:
+# - run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_LIO.txt
+# - run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_LICO.txt
 # Compare:
 python3 scripts/trajectory_compare.py \
   --baseline baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum \
