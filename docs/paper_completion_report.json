@@ -4,6 +4,27 @@
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "fastlivo2",
+      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
+      "reason": "native tracking report lacks output_max_pose_step_m",
+      "sequence": "Retail_Street"
+    },
+    {
+      "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "fastlivo2",
       "reason": "paper tracking candidate reference is not a usable trajectory: path 0 m < 0.5 m (ros1_mapper_baseline)",
       "sequence": "Retail_Street"
     },
@@ -25,6 +46,27 @@
       "id": "m2dgr/room_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "m2dgr",
+      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
+      "sequence": "room_01"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
+      "sequence": "room_01"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
+      "reason": "native tracking report lacks output_max_pose_step_m",
+      "sequence": "room_01"
+    },
+    {
+      "id": "m2dgr/room_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "m2dgr",
       "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 6.44e+05 m > 5 m; first_bad=(idx=8, stamp=1627643483.772107124->1627643483.872107029, dt=0.1s, step=8.56m, speed=85.6m/s); max_bad=(idx=20, stamp=1627643484.972106934->1627643485.072107077, dt=0.1s, step=6.44e+05m, speed=6.44e+06m/s)",
       "sequence": "room_01"
     },
@@ -39,6 +81,27 @@
       "id": "mcd/ntu_day_01/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "mcd",
+      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
+      "reason": "native tracking report lacks output_max_pose_step_m",
+      "sequence": "ntu_day_01"
+    },
+    {
+      "id": "mcd/ntu_day_01/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "mcd",
       "reason": "paper tracking candidate current trajectory diverges before parity compare: max step 2.65e+05 m > 5 m; first_bad=(idx=3, stamp=1644823131.858094215->1644823131.958094358, dt=0.1s, step=5.93m, speed=59.3m/s); max_bad=(idx=17, stamp=1644823133.258094311->1644823133.358094215, dt=0.1s, step=2.65e+05m, speed=2.65e+06m/s)",
       "sequence": "ntu_day_01"
     },
@@ -48,6 +111,27 @@
       "profile": "mcd",
       "reason": "paper tracking candidate comparison fails 5 cm parity: matched=10, coverage=90.91%, rmse=9.96e+04 m",
       "sequence": "ntu_day_01"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "native tracking report lacks self-described evidence paths: bag_dir, tum_path, native_report_path",
+      "sequence": "hku_park_00"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "native tracking report predates required output-pose guard or does not fail on guard rejections",
+      "sequence": "hku_park_00"
+    },
+    {
+      "id": "r3live/hku_park_00/continuous_time_native_parity",
+      "kind": "native_tracking_report",
+      "profile": "r3live",
+      "reason": "native tracking report lacks output_max_pose_step_m",
+      "sequence": "hku_park_00"
     },
     {
       "id": "r3live/hku_park_00/continuous_time_native_parity",

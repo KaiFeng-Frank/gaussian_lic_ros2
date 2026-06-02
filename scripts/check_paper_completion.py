@@ -200,6 +200,44 @@ def native_report_diagnostics(entry: dict[str, Any], root: Path) -> list[str]:
         return [f"native tracking report failed to load: {exc}"]
 
     reasons: list[str] = []
+    candidate = entry.get("paper_tracking_candidate")
+    if isinstance(candidate, dict):
+        missing_self_description = [
+            key
+            for key in ("bag_dir", "tum_path", "native_report_path")
+            if not isinstance(report.get(key), str) or not report.get(key)
+        ]
+        if missing_self_description:
+            reasons.append(
+                "native tracking report lacks self-described evidence paths: "
+                + ", ".join(missing_self_description)
+            )
+        max_current_step_m = candidate.get("max_current_step_m")
+        if isinstance(max_current_step_m, bool) or not isinstance(
+            max_current_step_m, (int, float)
+        ):
+            max_current_step_m = 0.0
+        max_current_step_m = float(max_current_step_m)
+        if max_current_step_m > 0.0:
+            output_guard_enabled = bool(report.get("output_guard_rejections_fail_report", False))
+            output_max_pose_step_m = report.get("output_max_pose_step_m")
+            if not output_guard_enabled:
+                reasons.append(
+                    "native tracking report predates required output-pose guard "
+                    "or does not fail on guard rejections"
+                )
+            if isinstance(output_max_pose_step_m, bool) or not isinstance(
+                output_max_pose_step_m, (int, float)
+            ):
+                reasons.append("native tracking report lacks output_max_pose_step_m")
+            elif float(output_max_pose_step_m) <= 0.0:
+                reasons.append("native tracking report disables output pose step guard")
+            elif float(output_max_pose_step_m) > max_current_step_m:
+                reasons.append(
+                    "native tracking output pose step guard is looser than paper candidate: "
+                    f"{float(output_max_pose_step_m):.3g} m > {max_current_step_m:.3g} m"
+                )
+
     if not bool(report.get("ok", True)):
         errors = report.get("errors")
         if isinstance(errors, list) and errors:
