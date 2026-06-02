@@ -25,6 +25,10 @@ REFERENCE_SUFFIX = (
     "baseline/fastlivo2/CBD_Building_01/native_reference/"
     "cocolic_livo_reference_10hz.tum"
 )
+REFERENCE_PATH = Path(REFERENCE_SUFFIX)
+EXPECTED_REFERENCE_SHA256 = (
+    "b84647c3174d749dcf19d26577ab6fc55712e3778ec8811a0ee0c57ced90fc67"
+)
 
 
 @dataclass(frozen=True)
@@ -149,6 +153,21 @@ def require_path_suffix(
         errors.append(f"{label}: {key} must be a string")
         return
     require(value.endswith(suffix), errors, f"{label}: {key} must end with {suffix}")
+
+
+def check_reference(errors: list[str], *, require_hashes: bool) -> None:
+    reference_file = ROOT / REFERENCE_PATH
+    if not reference_file.exists():
+        errors.append(f"missing reference trajectory {REFERENCE_PATH}")
+        return
+    line_count = sum(1 for _ in reference_file.open("r", encoding="utf-8"))
+    require(line_count == 1231, errors, "reference trajectory must contain 1231 poses")
+    if require_hashes:
+        require(
+            sha256_file(reference_file) == EXPECTED_REFERENCE_SHA256,
+            errors,
+            "reference trajectory sha256 drifted from committed evidence",
+        )
 
 
 def check_thresholds_are_not_looser(
@@ -297,6 +316,7 @@ def main() -> int:
         os.environ.get("GAUSSIAN_LIC_REQUIRE_COCOLIC_HASHES", "").strip() == "1"
     )
     errors: list[str] = []
+    check_reference(errors, require_hashes=require_hashes)
     for gate in REPORT_GATES:
         check_report(gate, errors, require_hashes=require_hashes)
     check_docs(errors)
