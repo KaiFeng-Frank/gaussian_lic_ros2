@@ -62,6 +62,14 @@ struct LidarPlaneExtractorOptions
   double max_range_m{60.0};
   // Hard cap on the number of correspondences emitted per call.
   int max_correspondences{256};
+  // Edge/line features: a voxel is linear (an edge) when the MIDDLE eigenvalue
+  // is small relative to the LARGEST one, i.e. the points spread along a single
+  // dominant direction. extract_edges() accepts a voxel when
+  // lambda_mid / lambda_max <= linear_eigenvalue_ratio. Edge features observe
+  // the yaw / along-corridor directions that plane (point-to-plane) features
+  // leave degenerate.
+  double linear_eigenvalue_ratio{0.1};
+  int max_edge_correspondences{128};
 };
 
 // Plain-vanilla collection of accepted plane correspondences. Each item is
@@ -73,6 +81,20 @@ struct ExtractedPlane
   double offset{0.0};
   Eigen::Vector3d sample_point{Eigen::Vector3d::Zero()};
   int support_points{0};
+  double eigenvalue_ratio{0.0};
+};
+
+// A linear ("edge") voxel: points spread along a single dominant direction.
+// `direction` is the unit line tangent (largest-eigenvalue eigenvector);
+// `centroid` is a point on the line. Fed to the continuous-time LiDAR factor
+// as a point-to-line (kEdge) residual: r = |(p_map - edge_point) x edge_dir|.
+struct ExtractedEdge
+{
+  Eigen::Vector3d centroid{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d direction{Eigen::Vector3d::UnitX()};
+  Eigen::Vector3d sample_point{Eigen::Vector3d::Zero()};
+  int support_points{0};
+  // lambda_mid / lambda_max: smaller is "more linear".
   double eigenvalue_ratio{0.0};
 };
 
@@ -355,6 +377,113 @@ public:
     pc.plane.head<3>() = plane.normal;
     pc.plane[3] = plane.offset;
     pc.point_lidar = plane.sample_point;
+    return pc;
+  }
+
+  // Extract linear ("edge") features: voxels whose points spread along a single
+  // dominant direction. Mirrors extract() but classifies linear voxels via the
+  // middle/largest eigenvalue ratio. Kept independent of extract() so the
+  // existing plane path is byte-for-byte unchanged.
+  std::vector<ExtractedEdge> extract_edges(
+    const std::vector<Eigen::Vector3d> & points_in_lidar_frame) const
+  {
+    std::vector<ExtractedEdge> output;
+    if (points_in_lidar_frame.empty() || options_.voxel_size_m <= 0.0) {
+      return output;
+    }
+
+    const double inv_voxel = 1.0 / options_.voxel_size_m;
+    std::unordered_map<VoxelKey, std::vector<Eigen::Vector3d>, VoxelKeyHash> voxels;
+    voxels.reserve(points_in_lidar_frame.size() / 4 + 4);
+    for (const auto & p : points_in_lidar_frame) {
+      if (!p.allFinite()) {
+        continue;
+      }
+      const double range = p.norm();
+      if (range < options_.min_range_m || range > options_.max_range_m) {
+        continue;
+      }
+      VoxelKey key{
+        static_cast<std::int64_t>(std::floor(p.x() * inv_voxel)),
+        static_cast<std::int64_t>(std::floor(p.y() * inv_voxel)),
+        static_cast<std::int64_t>(std::floor(p.z() * inv_voxel))};
+      voxels[key].push_back(p);
+    }
+
+    output.reserve(voxels.size());
+    for (auto & entry : voxels) {
+      const auto & samples = entry.second;
+      if (static_cast<int>(samples.size()) < options_.min_points_per_voxel) {
+        continue;
+      }
+
+      Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
+      for (const auto & p : samples) {
+        centroid += p;
+      }
+      centroid /= static_cast<double>(samples.size());
+
+      Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
+      for (const auto & p : samples) {
+        const Eigen::Vector3d d = p - centroid;
+        covariance += d * d.transpose();
+      }
+      covariance /= static_cast<double>(samples.size());
+
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(covariance);
+      if (eig.info() != Eigen::Success) {
+        continue;
+      }
+      // Eigenvalues are ascending: [0]=min, [1]=mid, [2]=max.
+      const Eigen::Vector3d eigenvalues = eig.eigenvalues();
+      const double lambda_mid = eigenvalues[1];
+      const double lambda_max = eigenvalues[2];
+      if (lambda_max <= 0.0) {
+        continue;
+      }
+      const double ratio = lambda_mid / lambda_max;
+      if (ratio > options_.linear_eigenvalue_ratio) {
+        continue;  // not linear enough (plane-like or volumetric voxel)
+      }
+
+      const Eigen::Vector3d direction = eig.eigenvectors().col(2).normalized();
+      // Inlier filter: every point must lie close to the recovered line.
+      double max_abs_dist = 0.0;
+      for (const auto & p : samples) {
+        max_abs_dist = std::max(
+          max_abs_dist, ((p - centroid).cross(direction)).norm());
+      }
+      if (max_abs_dist > options_.max_inlier_distance_m) {
+        continue;
+      }
+
+      ExtractedEdge edge;
+      edge.centroid = centroid;
+      edge.direction = direction;
+      edge.sample_point = samples.front();
+      edge.support_points = static_cast<int>(samples.size());
+      edge.eigenvalue_ratio = ratio;
+      output.push_back(edge);
+      if (options_.max_edge_correspondences > 0 &&
+        static_cast<int>(output.size()) >= options_.max_edge_correspondences)
+      {
+        break;
+      }
+    }
+
+    return output;
+  }
+
+  // Convert an `ExtractedEdge` (LiDAR frame) to a kEdge correspondence. The
+  // edge point + tangent are in the LiDAR frame here; callers compose with the
+  // world/map transform before feeding the estimator, exactly like planes.
+  static LidarPointCorrespondence to_edge_correspondence(const ExtractedEdge & edge)
+  {
+    LidarPointCorrespondence pc;
+    pc.geometry = LidarFeatureGeometry::kEdge;
+    pc.edge_point = edge.centroid;
+    pc.edge_normal = edge.direction;
+    pc.point_lidar = edge.sample_point;
     return pc;
   }
 

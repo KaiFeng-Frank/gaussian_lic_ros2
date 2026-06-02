@@ -24,6 +24,7 @@
 using gaussian_lic_tracking::spline::CubicSplineHelper;
 using gaussian_lic_tracking::spline::SplitSplineView;
 using gaussian_lic_tracking::spline::compute_blending_matrix;
+using gaussian_lic_tracking::spline::compute_blending_matrix_nonuniform_cubic;
 
 namespace
 {
@@ -57,6 +58,44 @@ void check_uniform_cubic_blending_matrix()
           r, c, expected(r, c), actual(r, c));
         std::exit(1);
       }
+    }
+  }
+}
+
+void check_nonuniform_blending_matrix_reduces_to_uniform()
+{
+  // Increment-1 correctness anchor: the non-uniform cubic blending matrix
+  // (ported from Coco-LIC se3_spline.h InitBlendMat), when fed UNIFORM knot
+  // spacing, must reproduce the uniform compute_blending_matrix<4>() to ~1e-9.
+  // This proves the non-uniform machinery is correct, so the gated on-flag path
+  // (with uniform knots) is exactly equivalent to the off-flag uniform path.
+  const Eigen::Matrix4d uniform_noncumu = compute_blending_matrix<4, double, false>();
+  const Eigen::Matrix4d uniform_cumu = compute_blending_matrix<4, double, true>();
+  const double dts[] = {0.05, 0.1, 0.025, 1.0};
+  for (double dt : dts) {
+    const std::array<double, 6> knot_times_s = {
+      0.0, dt, 2.0 * dt, 3.0 * dt, 4.0 * dt, 5.0 * dt};
+    const double err_noncumu =
+      (compute_blending_matrix_nonuniform_cubic(knot_times_s, false) - uniform_noncumu)
+        .cwiseAbs()
+        .maxCoeff();
+    const double err_cumu =
+      (compute_blending_matrix_nonuniform_cubic(knot_times_s, true) - uniform_cumu)
+        .cwiseAbs()
+        .maxCoeff();
+    if (err_noncumu > 1.0e-9) {
+      std::fprintf(stderr,
+        "non-uniform blending matrix (non-cumulative) does not reduce to uniform "
+        "at dt=%.4f: max abs diff %.3e > 1e-9\n",
+        dt, err_noncumu);
+      std::exit(1);
+    }
+    if (err_cumu > 1.0e-9) {
+      std::fprintf(stderr,
+        "non-uniform blending matrix (cumulative) does not reduce to uniform "
+        "at dt=%.4f: max abs diff %.3e > 1e-9\n",
+        dt, err_cumu);
+      std::exit(1);
     }
   }
 }
@@ -229,6 +268,7 @@ int main()
 {
   try {
     check_uniform_cubic_blending_matrix();
+    check_nonuniform_blending_matrix_reduces_to_uniform();
     check_position_spline_constant_velocity();
     check_position_spline_finite_difference();
     check_so3_spline_constant_omega();

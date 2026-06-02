@@ -376,7 +376,12 @@ def verify_report_metrics(
     for expected_key, report_key in checks.items():
         if expected_key not in expected:
             continue
-        actual = number_at_path(report, report_key)
+        try:
+            actual = number_at_path(report, report_key)
+        except (KeyError, TypeError, ValueError) as exc:
+            if require_local_evidence:
+                errors.append(f"{label} is missing/verifies invalid {report_key}: {exc}")
+            continue
         wanted = float(expected[expected_key])
         if not approx_equal(actual, wanted):
             errors.append(

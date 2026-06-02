@@ -14,6 +14,9 @@ def generate_launch_description():
     raw_depth_topic = LaunchConfiguration("raw_depth_topic")
     raw_pointcloud_topic = LaunchConfiguration("raw_pointcloud_topic")
     raw_imu_topic = LaunchConfiguration("raw_imu_topic")
+    deterministic_bag_path = LaunchConfiguration("deterministic_bag_path")
+    deterministic_feedback_bag_path = LaunchConfiguration("deterministic_feedback_bag_path")
+    output_tum_path = LaunchConfiguration("output_tum_path")
     external_odometry_prior_topic = LaunchConfiguration("external_odometry_prior_topic")
     enable_pointcloud_imu_wait = LaunchConfiguration("enable_pointcloud_imu_wait")
     pointcloud_imu_wait_tolerance_ns = LaunchConfiguration("pointcloud_imu_wait_tolerance_ns")
@@ -100,6 +103,9 @@ def generate_launch_description():
     lidar_window_confidence_power = LaunchConfiguration("lidar_window_confidence_power")
     lidar_plane_min_neighbors = LaunchConfiguration("lidar_plane_min_neighbors")
     lidar_plane_max_condition = LaunchConfiguration("lidar_plane_max_condition")
+    enable_lidar_line_factor = LaunchConfiguration("enable_lidar_line_factor")
+    lidar_line_max_condition = LaunchConfiguration("lidar_line_max_condition")
+    lidar_window_line_factor_weight = LaunchConfiguration("lidar_window_line_factor_weight")
     lidar_keyframe_translation_m = LaunchConfiguration("lidar_keyframe_translation_m")
     lidar_to_imu_translation_m = LaunchConfiguration("lidar_to_imu_translation_m")
     lidar_to_imu_rpy_rad = LaunchConfiguration("lidar_to_imu_rpy_rad")
@@ -346,6 +352,12 @@ def generate_launch_description():
     sliding_window_max_state_gap_s = LaunchConfiguration("sliding_window_max_state_gap_s")
     sliding_window_marginalization_prior_weight = LaunchConfiguration(
         "sliding_window_marginalization_prior_weight"
+    )
+    enable_sliding_window_gravity_estimation = LaunchConfiguration(
+        "enable_sliding_window_gravity_estimation"
+    )
+    sliding_window_gravity_estimation_prior_weight = LaunchConfiguration(
+        "sliding_window_gravity_estimation_prior_weight"
     )
     sliding_window_imu_weight = LaunchConfiguration("sliding_window_imu_weight")
     sliding_window_imu_rotation_weight = LaunchConfiguration("sliding_window_imu_rotation_weight")
@@ -616,6 +628,9 @@ def generate_launch_description():
             DeclareLaunchArgument("raw_depth_topic", default_value="/camera/depth"),
             DeclareLaunchArgument("raw_pointcloud_topic", default_value="/livox/lidar"),
             DeclareLaunchArgument("raw_imu_topic", default_value="/imu"),
+            DeclareLaunchArgument("deterministic_bag_path", default_value=""),
+            DeclareLaunchArgument("deterministic_feedback_bag_path", default_value=""),
+            DeclareLaunchArgument("output_tum_path", default_value=""),
             DeclareLaunchArgument(
                 "external_odometry_prior_topic",
                 default_value="/gaussian_lic/frontend/input_odometry",
@@ -664,6 +679,9 @@ def generate_launch_description():
             DeclareLaunchArgument("lidar_window_confidence_power", default_value="1.0"),
             DeclareLaunchArgument("lidar_plane_min_neighbors", default_value="5"),
             DeclareLaunchArgument("lidar_plane_max_condition", default_value="0.2"),
+            DeclareLaunchArgument("enable_lidar_line_factor", default_value="false"),
+            DeclareLaunchArgument("lidar_line_max_condition", default_value="0.2"),
+            DeclareLaunchArgument("lidar_window_line_factor_weight", default_value="1.0"),
             DeclareLaunchArgument("lidar_keyframe_translation_m", default_value="0.25"),
             DeclareLaunchArgument("lidar_to_imu_translation_m", default_value="[0.0, 0.0, 0.0]"),
             DeclareLaunchArgument("lidar_to_imu_rpy_rad", default_value="[0.0, 0.0, 0.0]"),
@@ -848,6 +866,8 @@ def generate_launch_description():
             DeclareLaunchArgument("sliding_window_min_normal_equation_rank_ratio", default_value="0.8"),
             DeclareLaunchArgument("sliding_window_max_state_gap_s", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_marginalization_prior_weight", default_value="1.0"),
+            DeclareLaunchArgument("enable_sliding_window_gravity_estimation", default_value="false"),
+            DeclareLaunchArgument("sliding_window_gravity_estimation_prior_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_imu_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_imu_rotation_weight", default_value="1.0"),
             DeclareLaunchArgument("sliding_window_imu_velocity_weight", default_value="1.0"),
@@ -996,6 +1016,9 @@ def generate_launch_description():
                         "raw_depth_topic": raw_depth_topic,
                         "raw_pointcloud_topic": raw_pointcloud_topic,
                         "raw_imu_topic": raw_imu_topic,
+                        "deterministic_bag_path": deterministic_bag_path,
+                        "deterministic_feedback_bag_path": deterministic_feedback_bag_path,
+                        "output_tum_path": output_tum_path,
                         "external_odometry_prior_topic": external_odometry_prior_topic,
                         "enable_pointcloud_imu_wait": enable_pointcloud_imu_wait,
                         "pointcloud_imu_wait_tolerance_ns": pointcloud_imu_wait_tolerance_ns,
@@ -1045,6 +1068,9 @@ def generate_launch_description():
                         "lidar_window_confidence_power": lidar_window_confidence_power,
                         "lidar_plane_min_neighbors": lidar_plane_min_neighbors,
                         "lidar_plane_max_condition": lidar_plane_max_condition,
+                        "enable_lidar_line_factor": enable_lidar_line_factor,
+                        "lidar_line_max_condition": lidar_line_max_condition,
+                        "lidar_window_line_factor_weight": lidar_window_line_factor_weight,
                         "lidar_keyframe_translation_m": lidar_keyframe_translation_m,
                         "lidar_to_imu_translation_m": lidar_to_imu_translation_m,
                         "lidar_to_imu_rpy_rad": lidar_to_imu_rpy_rad,
@@ -1302,6 +1328,10 @@ def generate_launch_description():
                         "sliding_window_max_state_gap_s": sliding_window_max_state_gap_s,
                         "sliding_window_marginalization_prior_weight": (
                             sliding_window_marginalization_prior_weight
+                        ),
+                        "enable_sliding_window_gravity_estimation": enable_sliding_window_gravity_estimation,
+                        "sliding_window_gravity_estimation_prior_weight": (
+                            sliding_window_gravity_estimation_prior_weight
                         ),
                         "sliding_window_imu_weight": sliding_window_imu_weight,
                         "sliding_window_imu_rotation_weight": sliding_window_imu_rotation_weight,

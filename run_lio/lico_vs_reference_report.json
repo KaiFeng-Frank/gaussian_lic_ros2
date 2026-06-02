@@ -1,0 +1,145 @@
+{
+  "alignment": "yaw",
+  "alignment_details": {
+    "translation": [
+      -0.004408735106796291,
+      -0.003987334214144322,
+      0.014019740048740847
+    ],
+    "yaw_rad": -0.001975689650941522
+  },
+  "baseline": "/home/frank/gaussian_lic_ros2/baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum",
+  "baseline_poses": 1231,
+  "coverage": 1.0,
+  "coverage_denominator_poses": 1231,
+  "coverage_mode": "all",
+  "current": "/home/frank/gaussian_lic_ros2/run_lio/data/CBD_Building_01_frontend_raw_offset_time_full_LICO.txt",
+  "current_poses": 11733,
+  "errors": [],
+  "matched_poses": 1231,
+  "max_association_dt_sec": 0.02,
+  "ok": true,
+  "path_length": {
+    "absolute_drift_m": 0.1325192653033369,
+    "baseline_m": 33.36099573704957,
+    "current_m": 33.228476471746234,
+    "current_to_baseline_ratio": 0.9960277185265137,
+    "relative_drift": 0.003972281473486284,
+    "signed_drift_m": -0.1325192653033369,
+    "signed_relative_drift": -0.003972281473486284
+  },
+  "thresholds": {
+    "coverage_mode": "all",
+    "error_bin_count": 0,
+    "max_current_path_ratio": 0.0,
+    "max_error_bin_bias_norm_m": 0.0,
+    "max_error_bin_mean_m": 0.0,
+    "max_error_bin_rmse_m": 0.0,
+    "max_error_m": 0.15,
+    "max_mean_m": 0.03,
+    "max_path_drift": 0.05,
+    "max_rmse_m": 0.05,
+    "min_coverage": 0.8,
+    "min_current_path_ratio": 0.0,
+    "min_error_bin_matches": 0,
+    "min_matches": 2
+  },
+  "trajectory_stats": {
+    "baseline": {
+      "angular_speed_radps": {
+        "count": 1230,
+        "max": 0.7710617911446889,
+        "mean": 0.1602611563968743,
+        "median": 0.1476952362249757,
+        "min": 0.0002828170861825835,
+        "p95": 0.35482734340625177
+      },
+      "dt_s": {
+        "count": 1230,
+        "max": 0.10000014305114746,
+        "mean": 0.09524390251655888,
+        "median": 0.09999966621398926,
+        "min": 0.09000015258789062,
+        "p95": 0.10000014305114746
+      },
+      "duration_s": 117.15000009536743,
+      "path_m": 33.36099573704957,
+      "pose_count": 1231,
+      "rotation_step_rad": {
+        "count": 1230,
+        "max": 0.0717020113158531,
+        "mean": 0.015261694362275067,
+        "median": 0.014119254521123434,
+        "min": 2.828168164671922e-05,
+        "p95": 0.03387564834764974
+      },
+      "speed_mps": {
+        "count": 1230,
+        "max": 0.8046759425657866,
+        "mean": 0.28476621935125823,
+        "median": 0.2930061927528531,
+        "min": 0.0012000011444102713,
+        "p95": 0.6153759644501073
+      },
+      "step_m": {
+        "count": 1230,
+        "max": 0.08046732566700585,
+        "mean": 0.02712276076182892,
+        "median": 0.027629294426160307,
+        "min": 0.00012000000000000002,
+        "p95": 0.059610583346991604
+      }
+    },
+    "current": {
+      "angular_speed_radps": {
+        "count": 1230,
+        "max": 0.7668967272699514,
+        "mean": 0.16008779891555955,
+        "median": 0.14728039540943713,
+        "min": 0.0002828169291587678,
+        "p95": 0.3555056399700915
+      },
+      "dt_s": {
+        "count": 1230,
+        "max": 0.10000014305114746,
+        "mean": 0.09524390232272265,
+        "median": 0.09999990463256836,
+        "min": 0.08999991416931152,
+        "p95": 0.10000014305114746
+      },
+      "duration_s": 117.14999985694885,
+      "path_m": 33.228476471746234,
+      "pose_count": 1231,
+      "rotation_step_rad": {
+        "count": 1230,
+        "max": 0.07369618728977223,
+        "mean": 0.015245446684002332,
+        "median": 0.014065210961599774,
+        "min": 2.8281665944352623e-05,
+        "p95": 0.03401310545717104
+      },
+      "speed_mps": {
+        "count": 1230,
+        "max": 0.8235035042178103,
+        "mean": 0.2836382337148104,
+        "median": 0.29224309827991274,
+        "min": 0.0022561049861250767,
+        "p95": 0.6122160482623338
+      },
+      "step_m": {
+        "count": 1230,
+        "max": 0.07799783394428234,
+        "mean": 0.027015021521744904,
+        "median": 0.027342799740177663,
+        "min": 0.00022561028345356962,
+        "p95": 0.05934897751212799
+      }
+    }
+  },
+  "translation": {
+    "max_m": 0.05626516162463605,
+    "mean_m": 0.02027161490213808,
+    "median_m": 0.017531427265091357,
+    "rmse_m": 0.022650707736296235
+  }
+}

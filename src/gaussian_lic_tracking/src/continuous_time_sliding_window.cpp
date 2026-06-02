@@ -25,6 +25,19 @@ struct BufferedImu
   ImuSample sample;
 };
 
+// Increment 2 Part B3: Coco-LIC adaptive control-point density.
+// Ported VERBATIM from external/Coco-LIC/src/odom/odometry_manager.h:60-107
+// (GetKnotDensity): gears 1/2/3/4 keyed on IMU motion, taking the max of the
+// gyro-based and (gravity-removed) accel-based gear. Returns the number of
+// control points to add over a window-extend segment (1 == single push ==
+// uniform / byte-identical).
+inline int get_knot_density(double gyro_norm, double acce_norm, double gravity_norm)
+{
+  acce_norm = std::abs(acce_norm - gravity_norm);
+  auto gear = [](double v) { return v < 0.5 ? 1 : (v < 1.0 ? 2 : (v < 5.0 ? 3 : 4)); };
+  return std::max(gear(gyro_norm), gear(acce_norm));
+}
+
 struct BufferedLidar
 {
   int64_t stamp_ns{0};
@@ -61,6 +74,13 @@ struct BufferedPositionPrior
   Eigen::Vector3d position_world{Eigen::Vector3d::Zero()};
   double weight{1.0};
   double huber_delta_m{0.0};
+};
+
+struct BufferedPhotometricObservation
+{
+  int64_t stamp_ns{0};
+  PhotometricObservation observation;
+  double huber_delta{0.0};
 };
 
 struct BufferedVelocityPrior
@@ -145,9 +165,32 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<Eigen::Quaterniond> rotation_knots;
   std::deque<Eigen::Vector3d> position_knots;
 
+  // DIAGNOSTIC seed reference (ascending by stamp). Empty => disabled.
+  std::vector<int64_t> reference_stamps_ns;
+  std::vector<Eigen::Quaterniond> reference_rot;
+  std::vector<Eigen::Vector3d> reference_pos;
+  bool interpolate_reference(int64_t stamp_ns, Eigen::Quaterniond & q, Eigen::Vector3d & p) const
+  {
+    if (reference_stamps_ns.empty()) {return false;}
+    if (stamp_ns <= reference_stamps_ns.front()) {q = reference_rot.front(); p = reference_pos.front(); return true;}
+    if (stamp_ns >= reference_stamps_ns.back()) {q = reference_rot.back(); p = reference_pos.back(); return true;}
+    const auto it = std::upper_bound(reference_stamps_ns.begin(), reference_stamps_ns.end(), stamp_ns);
+    const std::size_t hi = static_cast<std::size_t>(it - reference_stamps_ns.begin());
+    const std::size_t lo = hi - 1;
+    const int64_t s0 = reference_stamps_ns[lo], s1 = reference_stamps_ns[hi];
+    const double alpha = (s1 > s0) ? static_cast<double>(stamp_ns - s0) / static_cast<double>(s1 - s0) : 0.0;
+    p = reference_pos[lo] + alpha * (reference_pos[hi] - reference_pos[lo]);
+    q = reference_rot[lo].slerp(alpha, reference_rot[hi]).normalized();
+    return true;
+  }
+
   Eigen::Vector3d gyro_bias{Eigen::Vector3d::Zero()};
   Eigen::Vector3d accel_bias{Eigen::Vector3d::Zero()};
   Eigen::Vector3d gravity_world{Eigen::Vector3d::Zero()};
+  // Increment 3B: open-loop IMU-integrated velocity used to seed newly-appended
+  // position knots, decoupling the metric seed from the (cold-start
+  // under-scaled) optimized position history. Reset to zero at initialize().
+  Eigen::Vector3d seed_velocity{Eigen::Vector3d::Zero()};
 
   // Active factors persist across steps — they are removed only when the
   // window has marginalized past their stamp.
@@ -155,6 +198,7 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedLidar> active_lidar;
   std::deque<BufferedLidarPointToPoint> active_lidar_points;
   std::deque<BufferedLidarNormal> active_lidar_normals;
+  std::deque<BufferedPhotometricObservation> active_photometric;
   std::deque<BufferedPositionPrior> active_position_priors;
   std::deque<BufferedVelocityPrior> active_velocity_priors;
   std::deque<BufferedAccelerationPrior> active_acceleration_priors;
@@ -170,6 +214,7 @@ struct ContinuousTimeSlidingWindowEstimator::Impl
   std::deque<BufferedLidar> pending_lidar;
   std::deque<BufferedLidarPointToPoint> pending_lidar_points;
   std::deque<BufferedLidarNormal> pending_lidar_normals;
+  std::deque<BufferedPhotometricObservation> pending_photometric;
   std::deque<BufferedPositionPrior> pending_position_priors;
   std::deque<BufferedVelocityPrior> pending_velocity_priors;
   std::deque<BufferedAccelerationPrior> pending_acceleration_priors;
@@ -264,10 +309,34 @@ void ContinuousTimeSlidingWindowEstimator::initialize(
   impl_->knot_stamps.clear();
   impl_->rotation_knots.clear();
   impl_->position_knots.clear();
+  impl_->seed_velocity.setZero();  // Increment 3B: reset open-loop seed velocity
   for (std::size_t i = 0; i < rotation_knots.size(); ++i) {
-    impl_->knot_stamps.push_back(start_stamp_ns + static_cast<int64_t>(i) * impl_->dt_ns);
-    impl_->rotation_knots.push_back(rotation_knots[i].normalized());
-    impl_->position_knots.push_back(position_knots[i]);
+    const int64_t knot_stamp = start_stamp_ns + static_cast<int64_t>(i) * impl_->dt_ns;
+    impl_->knot_stamps.push_back(knot_stamp);
+    Eigen::Quaterniond q_seed; Eigen::Vector3d p_seed;
+    if (impl_->interpolate_reference(knot_stamp, q_seed, p_seed)) {
+      impl_->rotation_knots.push_back(q_seed.normalized());
+      impl_->position_knots.push_back(p_seed);
+    } else {
+      impl_->rotation_knots.push_back(rotation_knots[i].normalized());
+      impl_->position_knots.push_back(position_knots[i]);
+    }
+  }
+}
+
+void ContinuousTimeSlidingWindowEstimator::set_reference_trajectory(
+  const std::vector<int64_t> & stamps_ns,
+  const std::vector<Eigen::Quaterniond> & q_world_body,
+  const std::vector<Eigen::Vector3d> & p_world)
+{
+  impl_->reference_stamps_ns.clear();
+  impl_->reference_rot.clear();
+  impl_->reference_pos.clear();
+  const std::size_t n = std::min({stamps_ns.size(), q_world_body.size(), p_world.size()});
+  for (std::size_t i = 0; i < n; ++i) {
+    impl_->reference_stamps_ns.push_back(stamps_ns[i]);
+    impl_->reference_rot.push_back(q_world_body[i].normalized());
+    impl_->reference_pos.push_back(p_world[i]);
   }
 }
 
@@ -330,6 +399,16 @@ void ContinuousTimeSlidingWindowEstimator::add_position_prior(
     huber_delta_m >= 0.0 ? huber_delta_m : impl_->options.lidar_huber_delta_m;
   impl_->pending_position_priors.push_back(
     {stamp_ns, position_world, weight, effective_huber});
+}
+
+void ContinuousTimeSlidingWindowEstimator::add_photometric_factor(
+  int64_t stamp_ns,
+  const PhotometricObservation & observation,
+  double huber_delta)
+{
+  const double effective_huber =
+    huber_delta >= 0.0 ? huber_delta : impl_->options.lidar_huber_delta_m;
+  impl_->pending_photometric.push_back({stamp_ns, observation, effective_huber});
 }
 
 void ContinuousTimeSlidingWindowEstimator::add_velocity_prior(
@@ -470,6 +549,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
 
   // Extend window forward while there are pending samples past the current
   // interior end.
+  std::size_t num_new_knots = 0;  // Increment 3C: knots appended this step
   while (!impl_->pending_imu.empty() &&
     impl_->pending_imu.back().stamp_ns >= interior_end_ns())
   {
@@ -485,9 +565,100 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       impl_->position_knots[n - 1] +
       extrapolation_damping *
       (impl_->position_knots[n - 1] - impl_->position_knots[n - 2]);
-    impl_->knot_stamps.push_back(next_stamp);
-    impl_->rotation_knots.push_back(q_new);
-    impl_->position_knots.push_back(p_new);
+    // Increment 3: IMU-propagation metric seed (faithful to upstream
+    // InitTrajWithPropagation, trajectory_manager.cpp:274-316). Augment the
+    // constant-velocity extrapolation (which supplies v*dt from the optimized
+    // history) with the IMU double-integration term 0.5 * a_world * dt^2 so the
+    // appended knot gets the full kinematic update p + v*dt + 0.5*a*dt^2 and a
+    // METRIC initial guess instead of zero displacement at cold start. World
+    // acceleration a_world = R * (accel_meas - accel_bias) + gravity_world
+    // matches the IMU residual convention (trajectory_estimator.cpp:128-130);
+    // accel_bias / gravity_world are the live post-solve estimates
+    // (updated at :2004-2005). Gated + cold-start-only (the warm-start
+    // interpolate_reference override at the knot push below wins when active),
+    // so the flag-off path is byte-identical and the validated paths cannot
+    // regress.
+    Eigen::Vector3d p_seed = p_new;
+    if (impl_->options.enable_imu_propagation_seed ||
+      impl_->options.enable_imu_velocity_seed)
+    {
+      Eigen::Vector3d accel_sum = Eigen::Vector3d::Zero();
+      int accel_cnt = 0;
+      const int64_t seg_start_ns = impl_->knot_stamps.back();
+      for (const auto & bi : impl_->pending_imu) {
+        if (bi.stamp_ns >= seg_start_ns && bi.stamp_ns < next_stamp) {
+          accel_sum += bi.sample.accel;
+          ++accel_cnt;
+        }
+      }
+      if (accel_cnt > 0) {
+        const Eigen::Vector3d accel_mean =
+          accel_sum / static_cast<double>(accel_cnt);
+        const Eigen::Vector3d a_world =
+          impl_->rotation_knots[n - 1] * (accel_mean - impl_->accel_bias) +
+          impl_->gravity_world;
+        const double dt_s = static_cast<double>(impl_->dt_ns) * 1.0e-9;
+        if (a_world.allFinite() && std::isfinite(dt_s)) {
+          if (impl_->options.enable_imu_velocity_seed) {
+            // 3B: full IMU kinematics off the open-loop integrated velocity,
+            // decoupled from the under-scaled history. p[n-1] is the latest
+            // optimized (corrected) position; v carries metric velocity.
+            p_seed = impl_->position_knots[n - 1] +
+              impl_->seed_velocity * dt_s + 0.5 * a_world * dt_s * dt_s;
+            impl_->seed_velocity += a_world * dt_s;
+          } else {
+            // 3: augment the constant-velocity extrapolation with 0.5*a*dt^2.
+            p_seed = p_new + 0.5 * a_world * dt_s * dt_s;
+          }
+        }
+      }
+    }
+    // Increment 2 Part B3: adaptive Coco-LIC knot density. When the flag is on
+    // AND adaptive density is enabled, compute the number of control points to
+    // add over this window-extend segment from the IMU motion in the segment
+    // [base_stamp, next_stamp) (mean |gyro|, mean |accel|), then subdivide the
+    // segment into cp_add_num equal steps (intermediate knots at
+    // base_stamp+step*k for k<cp_add_num, final knot EXACTLY at next_stamp).
+    // Mirrors odometry_manager.cpp:540-554. When the flag is off OR cp_add_num
+    // resolves to 1, this is a single push at next_stamp == byte-identical to
+    // the original code. DETERMINISTIC (no RNG) -> CT_seed warm-start
+    // reproducible.
+    int cp_add_num = 1;
+    if (impl_->options.enable_non_uniform_knots &&
+      impl_->options.enable_adaptive_knot_density)
+    {
+      Eigen::Vector3d ar = Eigen::Vector3d::Zero();
+      Eigen::Vector3d aa = Eigen::Vector3d::Zero();
+      int cnt = 0;
+      const int64_t s0 = impl_->knot_stamps.back();
+      for (const auto & bi : impl_->pending_imu) {
+        if (bi.stamp_ns >= s0 && bi.stamp_ns < next_stamp) {
+          ar += bi.sample.gyro;
+          aa += bi.sample.accel;
+          ++cnt;
+        }
+      }
+      if (cnt > 0) {
+        ar /= static_cast<double>(cnt);
+        aa /= static_cast<double>(cnt);
+        cp_add_num = std::max(
+          1, get_knot_density(ar.norm(), aa.norm(), impl_->gravity_world.norm()));
+      }
+    }
+    const int64_t base_stamp = impl_->knot_stamps.back();
+    const int64_t step = (next_stamp - base_stamp) / cp_add_num;
+    for (int k = 1; k <= cp_add_num; ++k) {
+      const int64_t t = (k < cp_add_num) ? (base_stamp + step * k) : next_stamp;
+      Eigen::Quaterniond qk = q_new;
+      Eigen::Vector3d pk = p_seed;
+      if (impl_->interpolate_reference(t, qk, pk)) {
+        qk = qk.normalized();
+      }
+      impl_->knot_stamps.push_back(t);
+      impl_->rotation_knots.push_back(qk);
+      impl_->position_knots.push_back(pk);
+      ++num_new_knots;  // Increment 3C
+    }
     if (next_stamp > impl_->pending_imu.back().stamp_ns + impl_->dt_ns) {
       break;
     }
@@ -534,6 +705,16 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     }
   }
   impl_->pending_lidar_normals = lidar_normal_still_pending;
+
+  std::deque<BufferedPhotometricObservation> photometric_still_pending;
+  for (const auto & p : impl_->pending_photometric) {
+    if (p.stamp_ns < interior_end_ns()) {
+      impl_->active_photometric.push_back(p);
+    } else {
+      photometric_still_pending.push_back(p);
+    }
+  }
+  impl_->pending_photometric = photometric_still_pending;
 
   std::deque<BufferedPositionPrior> position_prior_still_pending;
   for (const auto & p : impl_->pending_position_priors) {
@@ -658,14 +839,42 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       if (!std::isfinite(t_s) || t_s < 0.0) {
         return false;
       }
-      const double scaled = t_s / impl_->options.dt_s;
-      const int segment_index = static_cast<int>(std::floor(scaled));
-      if (segment_index < 1 ||
-        segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
-      {
-        return false;
+      // Increment 2 Part B2(a): non-uniform segment lookup. When the flag is on,
+      // upper_bound on the (possibly non-uniform) knot-time vector + local u from
+      // the actual knot spacing; on uniform knots this is exactly floor(t_s/dt_s)
+      // and u==scaled-segment_index, so the off-flag path is byte-identical.
+      int segment_index;
+      double u;
+      if (impl_->options.enable_non_uniform_knots) {
+        const auto it = std::upper_bound(
+          impl_->knot_stamps.begin(), impl_->knot_stamps.end(), stamp_ns);
+        segment_index =
+          static_cast<int>(std::distance(impl_->knot_stamps.begin(), it)) - 1;
+        if (segment_index < 1 ||
+          segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
+        {
+          return false;
+        }
+        const double tlo = static_cast<double>(
+          impl_->knot_stamps[static_cast<std::size_t>(segment_index)] -
+          impl_->knot_stamps.front()) * 1.0e-9;
+        const double thi = static_cast<double>(
+          impl_->knot_stamps[static_cast<std::size_t>(segment_index + 1)] -
+          impl_->knot_stamps.front()) * 1.0e-9;
+        if (!(thi > tlo)) {
+          return false;
+        }
+        u = (t_s - tlo) / (thi - tlo);
+      } else {
+        const double scaled = t_s / impl_->options.dt_s;
+        segment_index = static_cast<int>(std::floor(scaled));
+        if (segment_index < 1 ||
+          segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
+        {
+          return false;
+        }
+        u = scaled - static_cast<double>(segment_index);
       }
-      double u = scaled - static_cast<double>(segment_index);
       if (u < 0.0) {
         u = 0.0;
       }
@@ -683,9 +892,50 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       } else {
         return false;
       }
-      coefficients =
-        std::pow(1.0 / impl_->options.dt_s, derivative) *
-        CeresSplineHelper<N>::blending_matrix() * raw;
+      // Increment 1: per-segment non-uniform blending matrix built from the
+      // ACTUAL knot times of the 6-knot window [segment_index-2 ..
+      // segment_index+3] (matches Coco-LIC InitBlendMat knts[1..6]). With
+      // uniform knots delta_t == dt_s and Mnu == blending_matrix(), so this
+      // reproduces the uniform branch exactly.
+      // The non-uniform 6-knot window needs segment_index>=2 AND
+      // segment_index+3<size, which is STRICTER than the uniform 4-knot window
+      // (segment_index>=1, segment_index+2<size) already passed at the guard
+      // above. For boundary segments where the full 6-knot window is NOT
+      // available we MUST NOT drop the segment (that would silently discard the
+      // first valid segment's IMU/lidar/photometric constraints); instead fall
+      // back to the uniform 4-knot blending matrix — correct here because at the
+      // boundary, and for increment 1's still-uniform knot placement, the
+      // uniform matrix is exactly the right operator.
+      const bool nonuniform_window_ok =
+        impl_->options.enable_non_uniform_knots &&
+        segment_index >= 2 &&
+        static_cast<std::size_t>(segment_index + 3) < impl_->knot_stamps.size();
+      if (nonuniform_window_ok) {
+        std::array<double, 6> knot_times_s;
+        for (int k = 0; k < 6; ++k) {
+          knot_times_s[static_cast<std::size_t>(k)] =
+            static_cast<double>(
+              impl_->knot_stamps[static_cast<std::size_t>(segment_index - 2 + k)] -
+              impl_->knot_stamps.front()) *
+            1.0e-9;
+        }
+        const Eigen::Matrix4d mnu =
+          compute_blending_matrix_nonuniform_cubic(knot_times_s, false);
+        // Local segment width (seconds): se3_spline.h:478 uses
+        // (knts[su.first+1] - knts[su.first]) * NS_TO_S, NOT dt_s.
+        const double delta_t =
+          static_cast<double>(
+            impl_->knot_stamps[static_cast<std::size_t>(segment_index + 1)] -
+            impl_->knot_stamps[static_cast<std::size_t>(segment_index)]) *
+          1.0e-9;
+        coefficients = std::pow(1.0 / delta_t, derivative) * mnu * raw;
+      } else {
+        // Uniform path: flag off, OR flag on at a boundary segment where the
+        // full 6-knot non-uniform window is unavailable (fall back, do NOT drop).
+        coefficients =
+          std::pow(1.0 / impl_->options.dt_s, derivative) *
+          CeresSplineHelper<N>::blending_matrix() * raw;
+      }
 
       const std::size_t base = static_cast<std::size_t>(segment_index - 1);
       for (int i = 0; i < N; ++i) {
@@ -694,6 +944,13 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       }
       return coefficients.allFinite();
     };
+  // TODO(increment-2): thread the cumulative non-uniform blending matrix into
+  // the rotation path once GetKnotDensity makes the rotation knots non-uniform.
+  // In increment 1 rotation is value-only (inv_dt == 1.0 in
+  // evaluate_rotation_support) and the rotation knots are still uniformly
+  // spaced, so the cumulative non-uniform matrix equals
+  // cumulative_blending_matrix() to ~2.22e-16; leaving this path UNCHANGED is
+  // provably equivalent and keeps the diff minimal.
   auto spline_rotation_support =
     [this](
       int64_t stamp_ns,
@@ -709,14 +966,43 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       if (!std::isfinite(t_s) || t_s < 0.0) {
         return false;
       }
-      const double scaled = t_s / impl_->options.dt_s;
-      const int segment_index = static_cast<int>(std::floor(scaled));
-      if (segment_index < 1 ||
-        segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
-      {
-        return false;
+      // Increment 2 Part B2(b): non-uniform segment lookup (same gated
+      // upper_bound index/u as the position support). The rotation value path
+      // below stays value-only (evaluate_rotation_support, inv_dt==1.0); this
+      // support feeds ONLY the orientation marginalization prior, not the solve
+      // or the published .tum. On uniform knots upper_bound==floor so the
+      // off-flag path is byte-identical.
+      int segment_index;
+      if (impl_->options.enable_non_uniform_knots) {
+        const auto it = std::upper_bound(
+          impl_->knot_stamps.begin(), impl_->knot_stamps.end(), stamp_ns);
+        segment_index =
+          static_cast<int>(std::distance(impl_->knot_stamps.begin(), it)) - 1;
+        if (segment_index < 1 ||
+          segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
+        {
+          return false;
+        }
+        const double tlo = static_cast<double>(
+          impl_->knot_stamps[static_cast<std::size_t>(segment_index)] -
+          impl_->knot_stamps.front()) * 1.0e-9;
+        const double thi = static_cast<double>(
+          impl_->knot_stamps[static_cast<std::size_t>(segment_index + 1)] -
+          impl_->knot_stamps.front()) * 1.0e-9;
+        if (!(thi > tlo)) {
+          return false;
+        }
+        u = (t_s - tlo) / (thi - tlo);
+      } else {
+        const double scaled = t_s / impl_->options.dt_s;
+        segment_index = static_cast<int>(std::floor(scaled));
+        if (segment_index < 1 ||
+          segment_index + 2 >= static_cast<int>(impl_->knot_stamps.size()))
+        {
+          return false;
+        }
+        u = scaled - static_cast<double>(segment_index);
       }
-      u = scaled - static_cast<double>(segment_index);
       if (u < 0.0) {
         u = 0.0;
       }
@@ -1253,6 +1539,12 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     impl_->active_lidar_normals.pop_front();
   }
   while (
+    !impl_->active_photometric.empty() &&
+    impl_->active_photometric.front().stamp_ns < interior_start_ns)
+  {
+    impl_->active_photometric.pop_front();
+  }
+  while (
     !impl_->active_position_priors.empty() &&
     impl_->active_position_priors.front().stamp_ns < interior_start_ns)
   {
@@ -1298,6 +1590,7 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   if (impl_->active_imu.empty() && impl_->active_lidar.empty() &&
     impl_->active_lidar_points.empty() &&
     impl_->active_lidar_normals.empty() &&
+    impl_->active_photometric.empty() &&
     impl_->active_position_priors.empty() && impl_->active_velocity_priors.empty() &&
     impl_->active_acceleration_priors.empty() &&
     impl_->active_angular_velocity_priors.empty() &&
@@ -1311,10 +1604,104 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   }
 
   const double estimator_dt_s = impl_->options.dt_s;
+
+  // Increment 3C (Option B): faithful upstream InitTrajWithPropagation
+  // (trajectory_manager.cpp:274-316). Before the full LIC solve, run an
+  // IMU-ONLY Ceres pre-solve that fixes the history knots and locks
+  // bias+gravity, letting the IMU factors pull the newly-appended knots to a
+  // METRIC position. Bounded by the fixed history (unlike open-loop 3B which
+  // diverged). Cold-start-only (reference_stamps_ns empty) + gated; the new
+  // knots' refined positions become the initial guess for the main solve below.
+  if (impl_->options.enable_imu_presolve_seed &&
+    num_new_knots > 0 &&
+    impl_->reference_stamps_ns.empty() &&
+    !impl_->active_imu.empty())
+  {
+    const std::size_t kc = impl_->rotation_knots.size();
+    if (kc > static_cast<std::size_t>(N)) {
+      // Upstream-faithful: fix only the first N (=4) knots (SetFixedIndex(3))
+      // and free the whole active window, so the IMU factors distribute over
+      // many DOF anchored at the fixed head — avoids the single-free-knot
+      // 2nd-derivative ill-conditioning that flings a lone knot to infinity.
+      const int fixed_idx = N - 1;
+      TrajectoryEstimator presolve(estimator_dt_s);
+      presolve.set_knots(
+        std::vector<Eigen::Quaterniond>(
+          impl_->rotation_knots.begin(), impl_->rotation_knots.end()),
+        std::vector<Eigen::Vector3d>(
+          impl_->position_knots.begin(), impl_->position_knots.end()));
+      if (impl_->options.enable_non_uniform_knots) {
+        std::vector<double> ks;
+        ks.reserve(impl_->knot_stamps.size());
+        for (const auto s : impl_->knot_stamps) {
+          ks.push_back(static_cast<double>(s - window_start) * 1.0e-9);
+        }
+        presolve.set_knot_stamps_s(ks);
+        presolve.set_non_uniform(true);
+      }
+      presolve.set_gyro_bias(impl_->gyro_bias);
+      presolve.set_accel_bias(impl_->accel_bias);
+      presolve.set_gravity_world(impl_->gravity_world);
+      Eigen::Matrix<double, 6, 1> pre_info;
+      pre_info <<
+        impl_->options.imu_info_gyro, impl_->options.imu_info_gyro,
+        impl_->options.imu_info_gyro,
+        impl_->options.imu_info_accel, impl_->options.imu_info_accel,
+        impl_->options.imu_info_accel;
+      std::size_t pre_imu = 0;
+      for (const auto & active : impl_->active_imu) {
+        const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
+        if (presolve.add_imu_factor(t_s, active.sample, pre_info)) {++pre_imu;}
+      }
+      if (pre_imu > 0) {
+        TrajectoryEstimatorOptions popt;
+        popt.max_num_iterations = 50;  // upstream InitTrajWithPropagation: 50
+        popt.hold_gyro_bias_constant = true;
+        popt.hold_accel_bias_constant = true;
+        popt.hold_gravity_constant = true;
+        popt.fixed_control_point_index = fixed_idx;
+        presolve.solve(popt);
+        const auto pre_pos = presolve.position_knots();
+        const auto pre_rot = presolve.rotation_knots();
+        if (pre_pos.size() == impl_->position_knots.size() &&
+          pre_rot.size() == impl_->rotation_knots.size())
+        {
+          bool all_finite = true;
+          for (std::size_t i = 0; i < pre_pos.size(); ++i) {
+            if (!pre_pos[i].allFinite() || !pre_rot[i].coeffs().allFinite()) {
+              all_finite = false;
+              break;
+            }
+          }
+          if (all_finite) {
+            for (std::size_t i = 0; i < pre_pos.size(); ++i) {
+              impl_->position_knots[i] = pre_pos[i];
+              impl_->rotation_knots[i] = pre_rot[i].normalized();
+            }
+          }
+        }
+      }
+    }
+  }
+
   TrajectoryEstimator estimator(estimator_dt_s);
   estimator.set_knots(
     std::vector<Eigen::Quaterniond>(impl_->rotation_knots.begin(), impl_->rotation_knots.end()),
     std::vector<Eigen::Vector3d>(impl_->position_knots.begin(), impl_->position_knots.end()));
+  if (impl_->options.enable_non_uniform_knots) {
+    // Window-relative knot times in seconds, SAME origin as the factor stamps
+    // (t_s = (stamp_ns - window_start) * 1e-9, window_start = knot_stamps.front()
+    // at this function's :1356). The estimator's find_segment / per-segment
+    // blending-matrix builder consume these. On uniform knot spacing this is
+    // exactly {0, dt_s, 2*dt_s, ...} so the on-flag path stays uniform-equivalent.
+    std::vector<double> ks;
+    ks.reserve(impl_->knot_stamps.size());
+    for (const auto s : impl_->knot_stamps) {
+      ks.push_back(static_cast<double>(s - window_start) * 1.0e-9);
+    }
+    estimator.set_knot_stamps_s(ks);
+    estimator.set_non_uniform(true);
+  }
   estimator.set_gyro_bias(impl_->gyro_bias);
   estimator.set_accel_bias(impl_->accel_bias);
   estimator.set_gravity_world(impl_->gravity_world);
@@ -1465,6 +1852,12 @@ bool ContinuousTimeSlidingWindowEstimator::step()
       ++impl_->diagnostics.total_lidar_normal_factors;
     }
   }
+  for (const auto & active : impl_->active_photometric) {
+    const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
+    if (estimator.add_photometric_factor(t_s, active.observation, active.huber_delta)) {
+      ++impl_->diagnostics.total_photometric_factors;
+    }
+  }
   for (const auto & active : impl_->active_position_priors) {
     const double t_s = (active.stamp_ns - window_start) * 1.0e-9;
     if (estimator.add_position_prior_factor(
@@ -1580,9 +1973,15 @@ bool ContinuousTimeSlidingWindowEstimator::step()
     ++impl_->diagnostics.total_accel_bias_prior_factors;
   }
 
+  // Time-varying bias: couple consecutive per-knot bias states with a
+  // random-walk factor (same effective weight as the per-step bias prior).
+  estimator.add_bias_random_walk_factors(
+    effective_gyro_bias_prior_weight, effective_accel_bias_prior_weight);
+
   if (estimator.imu_factor_count() == 0 && estimator.lidar_factor_count() == 0 &&
     estimator.lidar_point_factor_count() == 0 &&
     estimator.lidar_normal_factor_count() == 0 &&
+    estimator.photometric_factor_count() == 0 &&
     estimator.position_prior_factor_count() == 0 &&
     estimator.velocity_prior_factor_count() == 0 &&
     estimator.acceleration_prior_factor_count() == 0 &&
@@ -1602,6 +2001,8 @@ bool ContinuousTimeSlidingWindowEstimator::step()
   impl_->diagnostics.last_step_lidar_point_factors = estimator.lidar_point_factor_count();
   impl_->diagnostics.last_step_lidar_normal_factors =
     estimator.lidar_normal_factor_count();
+  impl_->diagnostics.last_step_photometric_factors =
+    estimator.photometric_factor_count();
   impl_->diagnostics.last_step_position_prior_factors =
     estimator.position_prior_factor_count();
   impl_->diagnostics.last_step_velocity_prior_factors =
@@ -1869,6 +2270,60 @@ bool ContinuousTimeSlidingWindowEstimator::query_pose(
   {
     return false;
   }
+  // Increment 2 Part B2(c): non-uniform pose query for the PUBLISHED .tum
+  // output (the accuracy gate). When the flag is on, locate the segment by
+  // upper_bound on the (non-uniform) knot times, build the per-segment
+  // non-cumulative (position) + cumulative (rotation) blending matrices from the
+  // 6-knot window, and evaluate via the Part A nu_t overloads. Falls through to
+  // the verbatim uniform SplitSplineView path for the flag-off case and for
+  // boundary segments where the full 6-knot window is unavailable (do NOT drop
+  // the sample). On uniform knots this is exactly equivalent to the uniform
+  // path (compute_blending_matrix_nonuniform_cubic == static matrices).
+  if (impl_->options.enable_non_uniform_knots) {
+    const auto it = std::upper_bound(
+      impl_->knot_stamps.begin(), impl_->knot_stamps.end(), stamp_ns);
+    const int nidx =
+      static_cast<int>(std::distance(impl_->knot_stamps.begin(), it)) - 1;
+    if (nidx >= 2 && nidx + 3 < static_cast<int>(impl_->knot_stamps.size())) {
+      const double tlo = static_cast<double>(
+        impl_->knot_stamps[static_cast<std::size_t>(nidx)] - window_start) * 1.0e-9;
+      const double thi = static_cast<double>(
+        impl_->knot_stamps[static_cast<std::size_t>(nidx + 1)] - window_start) * 1.0e-9;
+      const double un = (thi > tlo) ?
+        std::clamp(
+          static_cast<double>(
+            stamp_ns - impl_->knot_stamps[static_cast<std::size_t>(nidx)]) * 1.0e-9 /
+          (thi - tlo),
+          0.0, 1.0 - 1.0e-12) :
+        0.0;
+      std::array<double, 6> kt;
+      for (int k = 0; k < 6; ++k) {
+        kt[static_cast<std::size_t>(k)] = static_cast<double>(
+          impl_->knot_stamps[static_cast<std::size_t>(nidx - 2 + k)] - window_start) *
+          1.0e-9;
+      }
+      const Eigen::Matrix4d mc = compute_blending_matrix_nonuniform_cubic(kt, true);
+      const Eigen::Matrix4d mn = compute_blending_matrix_nonuniform_cubic(kt, false);
+      const double dtn = static_cast<double>(
+        impl_->knot_stamps[static_cast<std::size_t>(nidx + 1)] -
+        impl_->knot_stamps[static_cast<std::size_t>(nidx)]) * 1.0e-9;
+      std::array<Eigen::Quaterniond, N> rk;
+      std::array<Eigen::Vector3d, N> pk;
+      for (int i = 0; i < N; ++i) {
+        rk[static_cast<std::size_t>(i)] =
+          impl_->rotation_knots[static_cast<std::size_t>(nidx - 1 + i)];
+        pk[static_cast<std::size_t>(i)] =
+          impl_->position_knots[static_cast<std::size_t>(nidx - 1 + i)];
+      }
+      CeresSplineHelper<N>::template evaluate_lie_so3_nu_t<double>(
+        rk, un, mc, dtn, &q_w_b, nullptr, nullptr);
+      p_w_b = CeresSplineHelper<N>::template evaluate_rd_nu_t<3, 0, double>(
+        pk, un, mn, dtn);
+      return q_w_b.coeffs().allFinite() && p_w_b.allFinite();
+    }
+    // else: boundary segment, fall through to the uniform SplitSplineView path.
+  }
+
   const int idx =
     static_cast<int>((stamp_ns - window_start) / impl_->dt_ns);
   if (idx < 1 || idx + 2 >= static_cast<int>(impl_->knot_stamps.size())) {

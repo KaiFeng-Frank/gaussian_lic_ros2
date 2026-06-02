@@ -133,6 +133,38 @@ struct CeresSplineHelper
     return out;
   }
 
+  // NON-UNIFORM Euclidean evaluator (cubic, N_ == 4). Identical to
+  // `evaluate_rd_t` except the static uniform `blending_matrix()` and the
+  // scalar `inv_dt` are replaced by the per-segment NON-CUMULATIVE non-uniform
+  // blending matrix (built from the segment's actual knot times via
+  // compute_blending_matrix_nonuniform_cubic(.., false)) and the local segment
+  // delta_t. Grounded VERBATIM in Coco-LIC rd_spline.h:246-258 evaluateNURBS:
+  //   coeff = blend_mat * p
+  //   if (Derivative == 1) coeff = 1/delta_t       * coeff
+  //   if (Derivative == 2) coeff = 1/(delta_t^2)   * coeff
+  // i.e. coeff = pow(1/delta_t, DERIV) * Mnu_noncumu * p. DERIV==0 leaves the
+  // value unscaled (pow == 1), matching rd_spline.h:256-258.
+  template <int DIM, int DERIV, typename T>
+  static Eigen::Matrix<T, DIM, 1> evaluate_rd_nu_t(
+    const std::array<Eigen::Matrix<T, DIM, 1>, N_> & knots,
+    T u,
+    const Eigen::Matrix<double, N_, N_> & Mnu_noncumu,
+    T delta_t)
+  {
+    using std::pow;
+    Eigen::Matrix<T, N_, 1> raw;
+    base_coefficients_with_time_t<DERIV, T>(raw, u);
+    const Eigen::Matrix<T, N_, 1> coeff =
+      pow(T(1) / delta_t, T(static_cast<double>(DERIV))) *
+      Mnu_noncumu.template cast<T>() * raw;
+
+    Eigen::Matrix<T, DIM, 1> out = Eigen::Matrix<T, DIM, 1>::Zero();
+    for (int i = 0; i < N_; ++i) {
+      out += coeff[i] * knots[i];
+    }
+    return out;
+  }
+
   // Evaluate the cumulative SO(3) B-spline at normalized time u in [0, 1).
   // Outputs:
   //   * rotation_out  – SO(3) orientation R(u) (optional)
@@ -228,6 +260,85 @@ struct CeresSplineHelper
     if (need_acc) {
       base_coefficients_with_time_t<2, T>(raw, u);
       ddcoeff = inv_dt * inv_dt * cumulative_blending_matrix().template cast<T>() * raw;
+    }
+
+    Eigen::Quaternion<T> rotation = knots[0];
+    Eigen::Matrix<T, 3, 1> rot_vel = Eigen::Matrix<T, 3, 1>::Zero();
+    Eigen::Matrix<T, 3, 1> rot_accel = Eigen::Matrix<T, 3, 1>::Zero();
+
+    for (int i = 0; i < DEG; ++i) {
+      const Eigen::Quaternion<T> r01 =
+        (knots[i].normalized().inverse() * knots[i + 1].normalized()).normalized();
+      const Eigen::Matrix<T, 3, 1> delta = quaternion_log_t<T>(r01);
+
+      const Eigen::Quaternion<T> exp_kdelta = quaternion_exp_t<T>(delta * coeff[i + 1]);
+      rotation = (rotation * exp_kdelta).normalized();
+
+      if (need_vel) {
+        const Eigen::Matrix<T, 3, 3> A = adjoint_t<T>(exp_kdelta.inverse());
+        rot_vel = A * rot_vel;
+        const Eigen::Matrix<T, 3, 1> rot_vel_current = delta * dcoeff[i + 1];
+        rot_vel += rot_vel_current;
+
+        if (need_acc) {
+          rot_accel = A * rot_accel;
+          rot_accel +=
+            ddcoeff[i + 1] * delta + lie_bracket_t(rot_vel, rot_vel_current);
+        }
+      }
+    }
+
+    if (rotation_out) {
+      *rotation_out = rotation;
+    }
+    if (angular_vel_out) {
+      *angular_vel_out = rot_vel;
+    }
+    if (angular_acc_out) {
+      *angular_acc_out = rot_accel;
+    }
+  }
+
+  // NON-UNIFORM cumulative SO(3) evaluator (cubic, N_ == 4). Identical to
+  // `evaluate_lie_so3_t` except the static `cumulative_blending_matrix()` and
+  // the scalar `inv_dt` are replaced by the per-segment CUMULATIVE non-uniform
+  // blending matrix (compute_blending_matrix_nonuniform_cubic(.., true)) and
+  // the local segment delta_t.
+  // Conventions grounded VERBATIM in Coco-LIC so3_spline.h velocityBodyNURBS
+  // (:340-364): value coeff = blend_mat * p (NO scale); 1st-deriv
+  // dcoeff = 1/delta_t * blend_mat * p. The 2nd-deriv ddcoeff = 1/(delta_t^2) *
+  // blend_mat * p extrapolates the uniform accelerationBody (:377-407, where
+  // ddcoeff = pow_inv_dt_[2] * blending_matrix_ * p) with pow_inv_dt_[2] ->
+  // 1/delta_t^2, consistent with the Rd deriv-2 scaling above.
+  template <typename T>
+  static void evaluate_lie_so3_nu_t(
+    const std::array<Eigen::Quaternion<T>, N_> & knots,
+    T u,
+    const Eigen::Matrix<double, N_, N_> & Mcumu_nu,
+    T delta_t,
+    Eigen::Quaternion<T> * rotation_out = nullptr,
+    Eigen::Matrix<T, 3, 1> * angular_vel_out = nullptr,
+    Eigen::Matrix<T, 3, 1> * angular_acc_out = nullptr)
+  {
+    Eigen::Matrix<T, N_, 1> raw;
+    base_coefficients_with_time_t<0, T>(raw, u);
+    Eigen::Matrix<T, N_, 1> coeff =
+      Mcumu_nu.template cast<T>() * raw;
+
+    Eigen::Matrix<T, N_, 1> dcoeff = Eigen::Matrix<T, N_, 1>::Zero();
+    Eigen::Matrix<T, N_, 1> ddcoeff = Eigen::Matrix<T, N_, 1>::Zero();
+
+    const bool need_vel = angular_vel_out != nullptr || angular_acc_out != nullptr;
+    const bool need_acc = angular_acc_out != nullptr;
+
+    if (need_vel) {
+      base_coefficients_with_time_t<1, T>(raw, u);
+      dcoeff = (T(1) / delta_t) * Mcumu_nu.template cast<T>() * raw;
+    }
+    if (need_acc) {
+      base_coefficients_with_time_t<2, T>(raw, u);
+      ddcoeff =
+        (T(1) / delta_t) * (T(1) / delta_t) * Mcumu_nu.template cast<T>() * raw;
     }
 
     Eigen::Quaternion<T> rotation = knots[0];

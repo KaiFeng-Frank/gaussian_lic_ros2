@@ -1,0 +1,81 @@
+{
+  "schema": "gaussian_lic_deterministic_preset/v1",
+  "updated": "2026-05-30",
+  "profile": "fastlivo2",
+  "sequence": "CBD_Building_01",
+  "title": "Deterministic motion-cap + orientation-pin preset (4.7x better than accepted)",
+  "summary": "On the bit-reproducible deterministic replay baseline (Stage A), the dominant ~0.67x metric-scale compression was traced to PER-STEP MOTION CAPS clipping fast segments (not an LIO scale-observability blocker as earlier weight-sweeps wrongly concluded). Loosening the caps recovered scale; strengthening the lidar point-to-plane factor + multihop relative pose factors then suppressed the residual rotation/terminal drift. Result: deterministic translation RMSE 0.284 m vs the cocolic_livo reference, down from the accepted production preset's 1.346 m.",
+  "reference_trajectory": "baseline/fastlivo2/CBD_Building_01/native_reference/cocolic_livo_reference_10hz.tum",
+  "eval_metric": "scripts/trajectory_compare.py --align yaw --max-association-dt 0.2 (SE3, no scale)",
+  "run_command": "DETERMINISTIC_FEEDBACK_BAG=/tmp/cbd_feedback_full122 CUDA_VISIBLE_DEVICES=\"\" bash scripts/run_native_tracking_bag_report.sh --bag /home/frank/data/fast_livo/CBD_Building_01_frontend_raw --enable-gaussian-map-feedback --enable-sliding-window-relative-distance-factor --sliding-window-relative-distance-weight 0.05 --sliding-window-marginalization-prior-weight 0.5 --lidar-correction-gain 1.0 --tracking-max-pose-step-m 0.055 --sliding-window-max-feedback-translation-m 0.110 --post-ba-step-guard-pre-ba-agreement-max-delta-m 0.044 --lidar-window-plane-factor-weight 64.0 --sliding-window-relative-rotation-weight 0.05 --sliding-window-multihop-relative-translation-weight 0.40 --sliding-window-multihop-relative-rotation-weight 0.02 --output results/fastlivo2/CBD_BEST_verify",
+  "preset_overrides_vs_accepted": {
+    "_note": "All other params inherit the --enable-gaussian-map-feedback preset (contract=false legacy rendered_image mode). Pass weight flags as DOUBLE literals (64.0 not 64) or the node throws InvalidParameterTypeException.",
+    "tracking_max_pose_step_m": 0.055,
+    "sliding_window_max_feedback_translation_m": 0.110,
+    "post_ba_step_guard_pre_ba_agreement_max_delta_m": 0.044,
+    "lidar_correction_gain": 1.0,
+    "lidar_window_plane_factor_weight": 64.0,
+    "enable_sliding_window_relative_distance_factor": true,
+    "sliding_window_relative_distance_weight": 0.05,
+    "sliding_window_marginalization_prior_weight": 0.5,
+    "sliding_window_relative_rotation_weight": 0.05,
+    "sliding_window_multihop_relative_translation_weight": 0.40,
+    "sliding_window_multihop_relative_rotation_weight": 0.02
+  },
+  "accepted_baseline": {
+    "translation_rmse_m": 1.346,
+    "tracking_max_pose_step_m": 0.0265,
+    "sliding_window_max_feedback_translation_m": 0.05,
+    "post_ba_step_guard_pre_ba_agreement_max_delta_m": 0.02,
+    "lidar_window_plane_factor_weight": 4.0
+  },
+  "result": {
+    "translation_rmse_m": 0.284,
+    "translation_rmse_m_smoothed": 0.2816,
+    "path_drift_raw": "33.5%",
+    "path_drift_smoothed": "0.9%",
+    "smoothing_note": "Optional continuous-time B-spline-style Gaussian position smoothing (sigma~4 samples) removes the small-amplitude high-freq wiggle: path 44.6m->33.1m (ref 33.35m), RMSE 0.2835->0.2816. Faithful to Coco-LIC's cumulative-B-spline trajectory form; legitimate output representation. Apply via scripts/loop_closure_refine.py-adjacent smoothing or post-process.",
+    "improvement_vs_accepted": "4.7x",
+    "coverage": 0.954,
+    "matched_poses": 1174,
+    "duration_s": 117.3,
+    "span_m": 12.68,
+    "reference_span_m": 12.75,
+    "loop_closure_end_minus_start_m": 0.844,
+    "reference_loop_closure_m": 0.035,
+    "residual_scale_after_yaw_align": 1.008,
+    "poses": 1186,
+    "determinism": "bit-identical across two runs, md5 f47896a0299bd4562f9fee39b161ead2 (raw, full 122s, coverage 0.954)",
+    "report_dir": "results/fastlivo2/CBD_BEST_verify"
+  },
+  "in_session_levers_exhausted_by_implementation": [
+    "full config census (caps/gain/lidar-plane+point/reldist/relrot/marg/multihop/window-size/iters/visual-photo/snapshot-lidar/init)",
+    "loop closure (sensor-ICP + sparse SE3 PGO) -> worsens vs ref (trades end-fix for middle-degrade)",
+    "time-offset estimation -> no systematic offset",
+    "gravity-direction estimation -> worse (fixed gravity already correct)",
+    "bias random-walk -> worse (bias wanders)",
+    "continuous-time trajectory smoothing -> fixes path-drift, RMSE unchanged (wiggle is small-amplitude)"
+  ],
+  "cm_path_multi_session_structural": [
+    "time-varying bias spline + jointly-observable gravity to break accel/gravity ambiguity (trajectory_estimator.cpp:765-767,901-903)",
+    "true frame-to-MAP photometric vs in-loop GPU Gaussian render (not frozen-linearization CPU voxel-mean, continuous_time_node.cpp:2179-2185)",
+    "LiDAR promoted to tightly-coupled multi-knot continuous-time point-to-plane (CT interp currently visual-only, sliding_window_optimizer.cpp:2629-2648)"
+  ],
+  "ablation_chain": [
+    {"step": "accepted production preset", "rmse_m": 1.346},
+    {"step": "deterministic replay reproduction (contract=false)", "rmse_m": 1.336},
+    {"step": "+ reldist 0.05 + marg 0.5", "rmse_m": 1.274},
+    {"step": "+ lidar_correction_gain 1.0", "rmse_m": 1.181},
+    {"step": "+ motion caps loosened (step 0.055/ft 0.110/pd 0.044)", "rmse_m": 0.797, "note": "scale recovered: span 9.88->11.98, residual scale 1.486->1.055"},
+    {"step": "+ lidar plane factor weight 8 -> 64", "rmse_m": 0.403, "note": "rotation drift: loop-closure 2.02->1.02"},
+    {"step": "+ relative-rotation 0.05 + multihop-trans 0.40 + multihop-rot 0.02", "rmse_m": 0.284, "note": "terminal drift: loop-closure 1.02->0.844"}
+  ],
+  "residual_analysis": {
+    "scale": "solved (residual Umeyama scale 1.008)",
+    "error_vs_time_8bins_m": [0.39, 0.17, 0.15, 0.20, 0.20, 0.21, 0.23, 0.59],
+    "structure": "U-shaped: start (init/gravity-bias autocal transient) + terminal accumulated yaw drift; middle ~0.15-0.23 m",
+    "per_axis_rmse_m": {"x": 0.108, "y": 0.275, "z": 0.148},
+    "config_floor": "~0.28-0.30 m; further scalar weight tuning is in the noisy/non-monotonic regime (sub-0.02 m differences are local-minimum noise, not signal)",
+    "path_to_cm": "structural: (1) better initialization to remove the start transient; (2) loop closure / global consistency for the terminal ~0.8 m drift (Coco-LIC/Gaussian-LIC2 is odometry; the reference closes the loop to 3.5 cm from odometry alone, so this is an odometry-faithfulness gap); (3) deeper tight-LIC coupling faithfulness."
+  }
+}

@@ -135,6 +135,7 @@ CAMERA_TO_IMU_TRANSLATION_M="${CAMERA_TO_IMU_TRANSLATION_M:-[0.0673699, 0.041241
 LIDAR_TO_IMU_ROTATION_XYZW="${LIDAR_TO_IMU_ROTATION_XYZW:-[0.0, 0.0, 0.0, 1.0]}"
 LIDAR_TO_IMU_TRANSLATION_M="${LIDAR_TO_IMU_TRANSLATION_M:-[0.04165, 0.02326, -0.0284]}"
 ENABLE_VISUAL_SE3_PRIOR="${ENABLE_VISUAL_SE3_PRIOR:-false}"
+ENABLE_VISUAL_PHOTOMETRIC_FACTOR="${ENABLE_VISUAL_PHOTOMETRIC_FACTOR:-false}"
 VISUAL_SE3_POSITION_WEIGHT="${VISUAL_SE3_POSITION_WEIGHT:-0.0}"
 VISUAL_SE3_ORIENTATION_WEIGHT="${VISUAL_SE3_ORIENTATION_WEIGHT:-0.0}"
 VISUAL_SE3_VELOCITY_WEIGHT="${VISUAL_SE3_VELOCITY_WEIGHT:-0.0}"
@@ -167,6 +168,15 @@ IMU_INFO_ACCEL="${IMU_INFO_ACCEL:-0.03}"
 HOLD_GYRO_BIAS_CONSTANT="${HOLD_GYRO_BIAS_CONSTANT:-false}"
 HOLD_ACCEL_BIAS_CONSTANT="${HOLD_ACCEL_BIAS_CONSTANT:-false}"
 HOLD_GRAVITY_CONSTANT="${HOLD_GRAVITY_CONSTANT:-true}"
+# Increment 2 Part B: non-uniform B-spline + adaptive knot density. Default
+# false keeps every existing invocation byte-identical.
+ENABLE_NON_UNIFORM_KNOTS="${ENABLE_NON_UNIFORM_KNOTS:-false}"
+ENABLE_ADAPTIVE_KNOT_DENSITY="${ENABLE_ADAPTIVE_KNOT_DENSITY:-false}"
+# Increment 3: IMU-propagation metric seed (cold-start scale recovery). Default
+# false keeps every existing invocation byte-identical.
+ENABLE_IMU_PROPAGATION_SEED="${ENABLE_IMU_PROPAGATION_SEED:-false}"
+ENABLE_IMU_VELOCITY_SEED="${ENABLE_IMU_VELOCITY_SEED:-false}"
+ENABLE_IMU_PRESOLVE_SEED="${ENABLE_IMU_PRESOLVE_SEED:-false}"
 FIXED_CONTROL_POINT_INDEX="${FIXED_CONTROL_POINT_INDEX:--1}"
 CERES_INITIAL_TRUST_REGION_RADIUS="${CERES_INITIAL_TRUST_REGION_RADIUS:-0.0}"
 CERES_MAX_TRUST_REGION_RADIUS="${CERES_MAX_TRUST_REGION_RADIUS:-0.0}"
@@ -220,6 +230,15 @@ VOXEL_PLANE_MIN_POINTS="${VOXEL_PLANE_MIN_POINTS:-6}"
 VOXEL_PLANE_EIGEN_RATIO="${VOXEL_PLANE_EIGEN_RATIO:-0.10}"
 VOXEL_PLANE_MAX_INLIER_M="${VOXEL_PLANE_MAX_INLIER_M:-0.20}"
 VOXEL_PLANE_MAX_CORRESPONDENCES="${VOXEL_PLANE_MAX_CORRESPONDENCES:-48}"
+ENABLE_VOXEL_EDGE_EXTRACTION="${ENABLE_VOXEL_EDGE_EXTRACTION:-false}"
+VOXEL_EDGE_FACTOR_WEIGHT="${VOXEL_EDGE_FACTOR_WEIGHT:-1.0}"
+VOXEL_EDGE_EIGEN_RATIO="${VOXEL_EDGE_EIGEN_RATIO:-0.10}"
+VOXEL_EDGE_MAX_CORRESPONDENCES="${VOXEL_EDGE_MAX_CORRESPONDENCES:-128}"
+ENABLE_LOAM_SUBMAP_ASSOCIATION="${ENABLE_LOAM_SUBMAP_ASSOCIATION:-false}"
+LOAM_SUBMAP_FACTOR_WEIGHT="${LOAM_SUBMAP_FACTOR_WEIGHT:-1.0}"
+LOAM_SUBMAP_VOXEL_SIZE_M="${LOAM_SUBMAP_VOXEL_SIZE_M:-0.5}"
+LOAM_SUBMAP_MAX_NEIGHBOR_M="${LOAM_SUBMAP_MAX_NEIGHBOR_M:-1.0}"
+LOAM_SUBMAP_MAX_POINTS="${LOAM_SUBMAP_MAX_POINTS:-40000}"
 PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS:-3}"
 MAX_POSITION_UPDATE_M="${MAX_POSITION_UPDATE_M:-2.0}"
 MAX_ROTATION_UPDATE_RAD="${MAX_ROTATION_UPDATE_RAD:-0.50}"
@@ -303,9 +322,9 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   --remap /points_for_gs:=/livox/lidar \
   -p odometry_topic:=/continuous_time/odometry \
   -p path_topic:=/continuous_time/path \
-  -p knot_interval_seconds:=0.05 \
-  -p window_knot_count:=10 \
-  -p marginalize_oldest_count:=1 \
+  -p knot_interval_seconds:="${KNOT_INTERVAL_SECONDS:-0.05}" \
+  -p window_knot_count:="${WINDOW_KNOT_COUNT:-10}" \
+  -p marginalize_oldest_count:="${MARGINALIZE_OLDEST_COUNT:-1}" \
   -p max_iterations_per_step:="${MAX_ITERATIONS_PER_STEP}" \
   -p imu_info_gyro:="${IMU_INFO_GYRO}" \
   -p imu_info_accel:="${IMU_INFO_ACCEL}" \
@@ -325,6 +344,11 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p retained_knot_orientation_prior_weight:="${RETAINED_KNOT_ORIENTATION_PRIOR_WEIGHT}" \
   -p retained_knot_orientation_prior_huber_delta_rad:="${RETAINED_KNOT_ORIENTATION_PRIOR_HUBER_DELTA_RAD}" \
   -p enable_spline_orientation_marginalization_prior:="${ENABLE_SPLINE_ORIENTATION_MARGINALIZATION_PRIOR}" \
+  -p enable_non_uniform_knots:="${ENABLE_NON_UNIFORM_KNOTS}" \
+  -p enable_adaptive_knot_density:="${ENABLE_ADAPTIVE_KNOT_DENSITY}" \
+  -p enable_imu_propagation_seed:="${ENABLE_IMU_PROPAGATION_SEED}" \
+  -p enable_imu_velocity_seed:="${ENABLE_IMU_VELOCITY_SEED}" \
+  -p enable_imu_presolve_seed:="${ENABLE_IMU_PRESOLVE_SEED}" \
   -p gyro_bias_prior_weight:="${GYRO_BIAS_PRIOR_WEIGHT}" \
   -p gyro_bias_prior_huber_delta_radps:="${GYRO_BIAS_PRIOR_HUBER_DELTA_RADPS}" \
   -p accel_bias_prior_weight:="${ACCEL_BIAS_PRIOR_WEIGHT}" \
@@ -423,6 +447,15 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p lidar_to_imu_rotation_xyzw:="${LIDAR_TO_IMU_ROTATION_XYZW}" \
   -p lidar_to_imu_translation:="${LIDAR_TO_IMU_TRANSLATION_M}" \
   -p enable_visual_se3_prior:="${ENABLE_VISUAL_SE3_PRIOR}" \
+  -p enable_visual_photometric_factor:="${ENABLE_VISUAL_PHOTOMETRIC_FACTOR}" \
+  -p visual_photometric_weight:="${VISUAL_PHOTOMETRIC_WEIGHT:-1.0}" \
+  -p visual_photometric_keyframe_translation_m:="${VISUAL_PHOTOMETRIC_KEYFRAME_TRANSLATION_M:-0.3}" \
+  -p enable_visual_map_photometric:="${ENABLE_VISUAL_MAP_PHOTOMETRIC:-false}" \
+  -p map_photometric_voxel_m:="${MAP_PHOTOMETRIC_VOXEL_M:-0.2}" \
+  -p map_photometric_min_obs:="${MAP_PHOTOMETRIC_MIN_OBS:-3}" \
+  -p enable_render_photometric:="${ENABLE_RENDER_PHOTOMETRIC:-false}" \
+  -p deterministic_feedback_bag_path:="$([ -n "${DETERMINISTIC_FEEDBACK_BAG_PATH:-}" ] && echo "${DETERMINISTIC_FEEDBACK_BAG_PATH}" || echo "''")" \
+  -p rendered_feedback_topic:="${RENDERED_FEEDBACK_TOPIC:-/gaussian_lic/rendered_feedback}" \
   -p visual_se3_position_weight:="${VISUAL_SE3_POSITION_WEIGHT}" \
   -p visual_se3_orientation_weight:="${VISUAL_SE3_ORIENTATION_WEIGHT}" \
   -p visual_se3_velocity_weight:="${VISUAL_SE3_VELOCITY_WEIGHT}" \
@@ -478,6 +511,15 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p voxel_plane_eigen_ratio:="${VOXEL_PLANE_EIGEN_RATIO}" \
   -p voxel_plane_max_inlier_m:="${VOXEL_PLANE_MAX_INLIER_M}" \
   -p voxel_plane_max_correspondences:="${VOXEL_PLANE_MAX_CORRESPONDENCES}" \
+  -p enable_voxel_edge_extraction:="${ENABLE_VOXEL_EDGE_EXTRACTION}" \
+  -p voxel_edge_factor_weight:="${VOXEL_EDGE_FACTOR_WEIGHT}" \
+  -p voxel_edge_eigen_ratio:="${VOXEL_EDGE_EIGEN_RATIO}" \
+  -p voxel_edge_max_correspondences:="${VOXEL_EDGE_MAX_CORRESPONDENCES}" \
+  -p enable_loam_submap_association:="${ENABLE_LOAM_SUBMAP_ASSOCIATION}" \
+  -p loam_submap_factor_weight:="${LOAM_SUBMAP_FACTOR_WEIGHT}" \
+  -p loam_submap_voxel_size_m:="${LOAM_SUBMAP_VOXEL_SIZE_M}" \
+  -p loam_submap_max_neighbor_m:="${LOAM_SUBMAP_MAX_NEIGHBOR_M}" \
+  -p loam_submap_max_points:="${LOAM_SUBMAP_MAX_POINTS}" \
   -p persistent_plane_map_min_observations_for_match:="${PERSISTENT_PLANE_MAP_MIN_OBSERVATIONS}" \
   -p max_position_update_m:="${MAX_POSITION_UPDATE_M}" \
   -p max_rotation_update_rad:="${MAX_ROTATION_UPDATE_RAD}" \
@@ -495,9 +537,25 @@ setsid ros2 run gaussian_lic_tracking continuous_time_node \
   -p external_odometry_orientation_factor_weight:="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_WEIGHT}" \
   -p external_odometry_orientation_factor_huber_delta_rad:="${EXTERNAL_ODOMETRY_ORIENTATION_FACTOR_HUBER_DELTA_RAD}" \
   -p external_odometry_prior_topic:=/external_odometry_prior \
+  -p deterministic_bag_path:="${DETERMINISTIC_BAG_PATH:-}" \
+  -p output_tum_path:="$([ -n "${DETERMINISTIC_BAG_PATH:-}" ] && echo "${TUM_PATH}" || echo "")" \
   > "${NODE_LOG}" 2>&1 &
 NODE_PID=$!
 NODE_PGID=$(ps -o pgid= -p "${NODE_PID}" 2>/dev/null | tr -d ' ')
+
+# Deterministic in-process replay: the node reads the bag directly (fixed
+# storage order, synchronous dispatch) and writes TUM via output_tum_path, then
+# exits. Skip the async ros2 bag play + odom_to_tum capture entirely.
+if [ -n "${DETERMINISTIC_BAG_PATH:-}" ]; then
+  cleanup_det() {
+    if [ -n "${NODE_PGID:-}" ]; then kill -9 -- "-${NODE_PGID}" 2>/dev/null || true; fi
+    kill -9 "${NODE_PID}" 2>/dev/null || true
+    pkill -9 -f "continuous_time_node --ros-args" 2>/dev/null || true
+  }
+  trap cleanup_det EXIT
+  echo "deterministic in-process replay: waiting for node to finish reading ${DETERMINISTIC_BAG_PATH} ..."
+  wait "${NODE_PID}" 2>/dev/null || true
+else
 
 PRIOR_PID=""
 PRIOR_PGID=""
@@ -564,6 +622,7 @@ wait "${LOGGER_PID}" 2>/dev/null || true
 # Stop node + bag play.
 kill -INT "${NODE_PID}" 2>/dev/null || true
 sleep 1
+fi
 
 if [ ! -s "${TUM_PATH}" ]; then
   echo "continuous_time_native_reference_parity FAIL: TUM artifact missing"
@@ -913,6 +972,7 @@ native = {
     "lidar_to_imu_rotation_xyzw": "${LIDAR_TO_IMU_ROTATION_XYZW}",
     "lidar_to_imu_translation_m": "${LIDAR_TO_IMU_TRANSLATION_M}",
     "enable_visual_se3_prior": "${ENABLE_VISUAL_SE3_PRIOR}" == "true",
+    "enable_visual_photometric_factor": "${ENABLE_VISUAL_PHOTOMETRIC_FACTOR}" == "true",
     "visual_se3_position_weight": float("${VISUAL_SE3_POSITION_WEIGHT}"),
     "visual_se3_orientation_weight": float("${VISUAL_SE3_ORIENTATION_WEIGHT}"),
     "visual_se3_velocity_weight": float("${VISUAL_SE3_VELOCITY_WEIGHT}"),

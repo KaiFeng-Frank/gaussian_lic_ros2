@@ -30,6 +30,13 @@ struct LidarFactorConfig
   size_t pose_iterations{1};
   size_t plane_min_neighbors{5};
   double plane_max_condition{0.2};
+  // LOAM-style point-to-line (edge/corner) association via the SAME neighbor
+  // PCA as the plane factor: a neighborhood is LINEAR when the two smaller
+  // eigenvalues are both << the largest (lambda1/lambda2 <= line_max_condition),
+  // i.e. points spread along ONE direction = the col-2 eigenvector. Gated off by
+  // default so the validated path is byte-identical.
+  bool enable_line_factor{false};
+  double line_max_condition{0.2};
 };
 
 struct LidarCorrection
@@ -78,6 +85,10 @@ public:
     const TrajectoryPose & predicted_pose) const;
 
   SlidingWindowPointToPlaneFactor build_point_to_plane_factor(
+    const std::vector<Eigen::Vector3d> & frame_points_i,
+    const TrajectoryPose & predicted_pose) const;
+
+  SlidingWindowPointToLineFactor build_point_to_line_factor(
     const std::vector<Eigen::Vector3d> & frame_points_i,
     const TrajectoryPose & predicted_pose) const;
 

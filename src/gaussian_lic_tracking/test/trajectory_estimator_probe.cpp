@@ -841,12 +841,208 @@ void check_dense_orientation_prior_anchors_control_points()
   }
 }
 
+// G3 uniform-equivalence: feed the non-uniform factor path UNIFORM knot stamps
+// and assert the solve is identical (within ~1e-3) to the static uniform path.
+// This proves the gated on-flag machinery (per-segment
+// compute_blending_matrix_nonuniform_cubic + seg_delta_t + upper_bound segment
+// lookup) reduces exactly to the uniform solve when knots stay at fixed dt, so
+// the only accuracy difference can come from genuinely non-uniform placement
+// (Part B), not from the threading itself.
+void check_nonuniform_flag_uniform_equivalence()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+
+  // Reuse the IMU + LiDAR + priors convergence setup from the position-
+  // perturbation case: a single interior knot perturbed in z, pulled back by
+  // IMU acceleration residuals. Run it both ways and compare solved knots.
+  auto run = [&](bool non_uniform) {
+      TrajectoryEstimator estimator(dt);
+      auto perturbed_positions = truth.position_knots;
+      perturbed_positions[3].z() += 0.05;
+      estimator.set_knots(truth.rotation_knots, perturbed_positions);
+      estimator.set_gravity_world(Eigen::Vector3d(0.0, 0.0, -9.81));
+      if (non_uniform) {
+        // UNIFORM knot stamps: {0, dt, 2dt, ...}. upper_bound == floor and
+        // compute_blending_matrix_nonuniform_cubic == static matrices here.
+        std::vector<double> ks;
+        ks.reserve(truth.position_knots.size());
+        for (std::size_t i = 0; i < truth.position_knots.size(); ++i) {
+          ks.push_back(static_cast<double>(i) * dt);
+        }
+        estimator.set_knot_stamps_s(ks);
+        estimator.set_non_uniform(true);
+      }
+
+      Eigen::Matrix<double, 6, 1> info_diag;
+      info_diag << 1.0, 1.0, 1.0, 100.0, 100.0, 100.0;
+      for (double t = 0.06; t < 0.34; t += 0.005) {
+        const auto sample = synthesize_imu(truth, t, estimator.gravity_world());
+        estimator.add_imu_factor(t, sample, info_diag);
+      }
+      // Also add position priors so a genuinely solved (not invariant) state is
+      // exercised through the non-uniform Rd value path.
+      for (double t = 0.06; t < 0.34; t += 0.01) {
+        estimator.add_position_prior_factor(t, truth_position_at(truth, t), 5.0, 0.0);
+      }
+
+      TrajectoryEstimatorOptions options;
+      options.max_num_iterations = 80;
+      options.function_tolerance = 1.0e-12;
+      options.parameter_tolerance = 1.0e-12;
+      options.gradient_tolerance = 1.0e-14;
+      options.hold_gyro_bias_constant = true;
+      options.hold_accel_bias_constant = true;
+      options.hold_gravity_constant = true;
+      const auto summary = estimator.solve(options);
+      struct Result
+      {
+        std::vector<Eigen::Vector3d> positions;
+        std::vector<Eigen::Quaterniond> rotations;
+        double final_cost;
+      };
+      return Result{estimator.position_knots(), estimator.rotation_knots(),
+        summary.final_cost};
+    };
+
+  const auto off = run(false);
+  const auto on = run(true);
+
+  double max_pos_diff = 0.0;
+  for (std::size_t i = 0; i < off.positions.size(); ++i) {
+    max_pos_diff = std::max(
+      max_pos_diff, (off.positions[i] - on.positions[i]).cwiseAbs().maxCoeff());
+  }
+  double max_rot_diff = 0.0;
+  for (std::size_t i = 0; i < off.rotations.size(); ++i) {
+    max_rot_diff = std::max(
+      max_rot_diff, off.rotations[i].angularDistance(on.rotations[i]));
+  }
+  if (max_pos_diff > 1.0e-3 || max_rot_diff > 1.0e-3) {
+    std::fprintf(stderr,
+      "non-uniform flag-on+uniform knots NOT equivalent to flag-off: "
+      "max_pos_diff=%.3e max_rot_diff=%.3e cost_off=%.6g cost_on=%.6g\n",
+      max_pos_diff, max_rot_diff, off.final_cost, on.final_cost);
+    std::exit(1);
+  }
+}
+
+// Increment 2 Part B lever-responds proof (deferred-B3 fallback). Clones the
+// equivalence run() lambda but adds a HAND-PLACED non-uniform knot vector
+// (finer cluster around the perturbed interior knot). Asserts the non-uniform
+// solve (B1 per-segment matrices + B2 non-uniform find_segment lookup) is
+// finite/bounded AND genuinely DIFFERENT from the uniform (flag-off) solve.
+// This proves B1+B2 respond to non-uniform knots independent of the B3 adaptive
+// placement that runs only inside the live sliding-window node.
+void check_nonuniform_manual_knots_solve_responds()
+{
+  const double dt = 0.05;
+  const auto truth = build_truth(dt, 8);
+
+  // run(custom_ks): when custom_ks is non-empty, enable the non-uniform path
+  // with the supplied knot-time vector; otherwise solve the uniform (flag-off)
+  // path. SAME factor t-range (0.06..0.34) as the equivalence test so the
+  // non-uniform upper_bound maps into valid interior segments with full 6-knot
+  // windows.
+  auto run = [&](const std::vector<double> & custom_ks) {
+      TrajectoryEstimator estimator(dt);
+      auto perturbed_positions = truth.position_knots;
+      perturbed_positions[3].z() += 0.05;
+      estimator.set_knots(truth.rotation_knots, perturbed_positions);
+      estimator.set_gravity_world(Eigen::Vector3d(0.0, 0.0, -9.81));
+      if (!custom_ks.empty()) {
+        estimator.set_knot_stamps_s(custom_ks);
+        estimator.set_non_uniform(true);
+      }
+
+      Eigen::Matrix<double, 6, 1> info_diag;
+      info_diag << 1.0, 1.0, 1.0, 100.0, 100.0, 100.0;
+      for (double t = 0.06; t < 0.34; t += 0.005) {
+        const auto sample = synthesize_imu(truth, t, estimator.gravity_world());
+        estimator.add_imu_factor(t, sample, info_diag);
+      }
+      for (double t = 0.06; t < 0.34; t += 0.01) {
+        estimator.add_position_prior_factor(t, truth_position_at(truth, t), 5.0, 0.0);
+      }
+
+      TrajectoryEstimatorOptions options;
+      options.max_num_iterations = 80;
+      options.function_tolerance = 1.0e-12;
+      options.parameter_tolerance = 1.0e-12;
+      options.gradient_tolerance = 1.0e-14;
+      options.hold_gyro_bias_constant = true;
+      options.hold_accel_bias_constant = true;
+      options.hold_gravity_constant = true;
+      const auto summary = estimator.solve(options);
+      struct Result
+      {
+        std::vector<Eigen::Vector3d> positions;
+        std::vector<Eigen::Quaterniond> rotations;
+        double final_cost;
+      };
+      return Result{estimator.position_knots(), estimator.rotation_knots(),
+        summary.final_cost};
+    };
+
+  // Uniform (flag-off) solve.
+  const auto uniform = run({});
+
+  // HAND-PLACED non-uniform knot times for 8 knots: finer cluster around knot 3
+  // (where the z-perturbation lives), coarser at the ends. NOT {0, dt, 2dt, ...}.
+  const std::vector<double> manual_ks =
+    {0.0, 0.05, 0.10, 0.125, 0.15, 0.175, 0.20, 0.25};
+  const auto manual = run(manual_ks);
+
+  // (1) all solved knots finite + bounded; quaternions normalized.
+  for (std::size_t i = 0; i < manual.positions.size(); ++i) {
+    if (!manual.positions[i].allFinite() ||
+      manual.positions[i].cwiseAbs().maxCoeff() >= 10.0)
+    {
+      std::fprintf(stderr,
+        "non-uniform manual-knots solve produced non-finite/unbounded position "
+        "knot %zu\n", i);
+      std::exit(1);
+    }
+  }
+  for (std::size_t i = 0; i < manual.rotations.size(); ++i) {
+    const double qn = manual.rotations[i].norm();
+    if (!std::isfinite(qn) || std::abs(qn - 1.0) > 1.0e-6) {
+      std::fprintf(stderr,
+        "non-uniform manual-knots solve produced non-normalized quaternion "
+        "knot %zu (norm=%.6g)\n", i, qn);
+      std::exit(1);
+    }
+  }
+
+  // (2) the manual non-uniform solve must genuinely DIFFER from the uniform
+  // solve (proves the non-uniform lever changes the SOLVE, not just the eval).
+  double max_pos_diff = 0.0;
+  for (std::size_t i = 0; i < uniform.positions.size(); ++i) {
+    max_pos_diff = std::max(
+      max_pos_diff,
+      (uniform.positions[i] - manual.positions[i]).cwiseAbs().maxCoeff());
+  }
+  if (max_pos_diff <= 1.0e-4) {
+    std::fprintf(stderr,
+      "non-uniform manual-knots solve did NOT respond to non-uniform knots: "
+      "max_pos_diff=%.3e (<=1e-4) cost_uniform=%.6g cost_manual=%.6g\n",
+      max_pos_diff, uniform.final_cost, manual.final_cost);
+    std::exit(1);
+  }
+  std::printf(
+    "non-uniform manual-knots lever responds: max_pos_diff=%.3e "
+    "cost_uniform=%.6g cost_manual=%.6g\n",
+    max_pos_diff, uniform.final_cost, manual.final_cost);
+}
+
 }  // namespace
 
 int main()
 {
   try {
     check_zero_residual_when_seeded_with_truth();
+    check_nonuniform_flag_uniform_equivalence();
+    check_nonuniform_manual_knots_solve_responds();
     check_converges_from_position_perturbation();
     check_position_prior_factor_pulls_position_without_synthetic_lidar();
     check_velocity_prior_factor_pulls_motion_scale_without_position_anchor();

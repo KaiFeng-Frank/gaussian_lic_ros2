@@ -16,6 +16,7 @@ find_package(gaussian_lic_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
@@ -162,6 +163,16 @@ target_link_libraries(sliding_window_bias_observability_probe
   Eigen3::Eigen
 )
 ament_target_dependencies(sliding_window_bias_observability_probe builtin_interfaces)
+
+add_executable(sliding_window_gravity_estimation_probe
+  test/sliding_window_gravity_estimation_probe.cpp
+)
+target_include_directories(sliding_window_gravity_estimation_probe PRIVATE include)
+target_link_libraries(sliding_window_gravity_estimation_probe
+  trajectory_manager
+  Eigen3::Eigen
+)
+ament_target_dependencies(sliding_window_gravity_estimation_probe builtin_interfaces)
 
 add_executable(sliding_window_imu_bias_jacobian_probe
   test/sliding_window_imu_bias_jacobian_probe.cpp
@@ -392,6 +403,30 @@ add_executable(lidar_plane_extractor_probe
 target_include_directories(lidar_plane_extractor_probe PRIVATE include)
 target_link_libraries(lidar_plane_extractor_probe Eigen3::Eigen)
 
+add_executable(lidar_loam_submap_probe
+  test/lidar_loam_submap_probe.cpp
+)
+target_include_directories(lidar_loam_submap_probe PRIVATE include)
+target_link_libraries(lidar_loam_submap_probe Eigen3::Eigen)
+
+add_executable(so3_right_jacobian_probe
+  test/so3_right_jacobian_probe.cpp
+)
+target_include_directories(so3_right_jacobian_probe PRIVATE include)
+target_link_libraries(so3_right_jacobian_probe Eigen3::Eigen)
+
+add_executable(so3_knot_jacobian_probe
+  test/so3_knot_jacobian_probe.cpp
+)
+target_include_directories(so3_knot_jacobian_probe PRIVATE include)
+target_link_libraries(so3_knot_jacobian_probe Eigen3::Eigen)
+
+add_executable(continuous_time_photometric_jacobian_probe
+  test/continuous_time_photometric_jacobian_probe.cpp
+)
+target_include_directories(continuous_time_photometric_jacobian_probe PRIVATE include)
+target_link_libraries(continuous_time_photometric_jacobian_probe Eigen3::Eigen)
+
 add_executable(tracking_node
   src/tracking_node.cpp
 )
@@ -405,6 +440,7 @@ ament_target_dependencies(tracking_node
   geometry_msgs
   nav_msgs
   rclcpp
+  rosbag2_cpp
   sensor_msgs
   tf2_ros
 )
@@ -423,10 +459,11 @@ ament_target_dependencies(continuous_time_node
   geometry_msgs
   nav_msgs
   rclcpp
+  rosbag2_cpp
   sensor_msgs
 )
 
-install(TARGETS trajectory_manager continuous_time_trajectory_estimator spline_marginalization continuous_time_sliding_window trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_bias_observability_probe sliding_window_imu_bias_jacobian_probe sliding_window_imu_kinematic_jacobian_probe sliding_window_marginalization_probe sliding_window_dense_prior_probe schur_complement_probe sliding_window_normal_equation_probe sliding_window_schur_marginalization_probe sliding_window_point_factor_probe sliding_window_plane_factor_probe sliding_window_geometric_jacobian_probe sliding_window_prior_jacobian_probe sliding_window_visual_factor_probe sliding_window_se3_photometric_factor_probe sliding_window_smoothness_factor_probe visual_factor_probe visual_se3_jacobian_probe ceres_spline_helper_probe continuous_time_imu_factor_probe continuous_time_lidar_factor_probe continuous_time_photometric_factor_probe continuous_time_integration_probe trajectory_estimator_probe spline_marginalization_probe continuous_time_sliding_window_probe analytic_jacobians_probe lidar_plane_extractor_probe tracking_node continuous_time_node
+install(TARGETS trajectory_manager continuous_time_trajectory_estimator spline_marginalization continuous_time_sliding_window trajectory_manager_probe gaussian_snapshot_probe imu_propagator_probe imu_preintegrator_probe lidar_factor_probe lidar_deskew_probe sliding_window_optimizer_probe sliding_window_bias_probe sliding_window_bias_observability_probe sliding_window_gravity_estimation_probe sliding_window_imu_bias_jacobian_probe sliding_window_imu_kinematic_jacobian_probe sliding_window_marginalization_probe sliding_window_dense_prior_probe schur_complement_probe sliding_window_normal_equation_probe sliding_window_schur_marginalization_probe sliding_window_point_factor_probe sliding_window_plane_factor_probe sliding_window_geometric_jacobian_probe sliding_window_prior_jacobian_probe sliding_window_visual_factor_probe sliding_window_se3_photometric_factor_probe sliding_window_smoothness_factor_probe visual_factor_probe visual_se3_jacobian_probe ceres_spline_helper_probe continuous_time_imu_factor_probe continuous_time_lidar_factor_probe continuous_time_photometric_factor_probe continuous_time_integration_probe trajectory_estimator_probe spline_marginalization_probe continuous_time_sliding_window_probe analytic_jacobians_probe lidar_plane_extractor_probe lidar_loam_submap_probe so3_right_jacobian_probe so3_knot_jacobian_probe continuous_time_photometric_jacobian_probe tracking_node continuous_time_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -443,6 +480,7 @@ if(BUILD_TESTING)
   add_test(NAME sliding_window_optimizer_probe COMMAND $<TARGET_FILE:sliding_window_optimizer_probe>)
   add_test(NAME sliding_window_bias_probe COMMAND $<TARGET_FILE:sliding_window_bias_probe>)
   add_test(NAME sliding_window_bias_observability_probe COMMAND $<TARGET_FILE:sliding_window_bias_observability_probe>)
+  add_test(NAME sliding_window_gravity_estimation_probe COMMAND $<TARGET_FILE:sliding_window_gravity_estimation_probe>)
   add_test(NAME sliding_window_imu_bias_jacobian_probe COMMAND $<TARGET_FILE:sliding_window_imu_bias_jacobian_probe>)
   add_test(NAME sliding_window_imu_kinematic_jacobian_probe COMMAND $<TARGET_FILE:sliding_window_imu_kinematic_jacobian_probe>)
   add_test(NAME sliding_window_marginalization_probe COMMAND $<TARGET_FILE:sliding_window_marginalization_probe>)
@@ -469,6 +507,10 @@ if(BUILD_TESTING)
   add_test(NAME continuous_time_sliding_window_probe COMMAND $<TARGET_FILE:continuous_time_sliding_window_probe>)
   add_test(NAME analytic_jacobians_probe COMMAND $<TARGET_FILE:analytic_jacobians_probe>)
   add_test(NAME lidar_plane_extractor_probe COMMAND $<TARGET_FILE:lidar_plane_extractor_probe>)
+  add_test(NAME lidar_loam_submap_probe COMMAND $<TARGET_FILE:lidar_loam_submap_probe>)
+  add_test(NAME so3_right_jacobian_probe COMMAND $<TARGET_FILE:so3_right_jacobian_probe>)
+  add_test(NAME so3_knot_jacobian_probe COMMAND $<TARGET_FILE:so3_knot_jacobian_probe>)
+  add_test(NAME continuous_time_photometric_jacobian_probe COMMAND $<TARGET_FILE:continuous_time_photometric_jacobian_probe>)
 endif()
 
 install(DIRECTORY include/

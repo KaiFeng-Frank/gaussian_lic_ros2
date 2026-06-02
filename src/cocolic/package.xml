@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>cocolic</name>
+  <version>0.0.1</version>
+  <description>Faithful mechanical ROS2 Jazzy port of upstream Coco-LIC (Gaussian-LIC2) — continuous-time LiDAR-Inertial-Camera odometry. Ported verbatim from external/Coco-LIC to reproduce upstream's exact trajectory (cm-scale vs the cocolic reference). Distinct from the independent gaussian_lic_tracking reimplementation.</description>
+  <maintainer email="tZYalsopphilarySWxCdP@reggaefan.com">frank</maintainer>
+  <license>GPLv3</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>cv_bridge</depend>
+  <depend>pcl_conversions</depend>
+  <depend>rosbag2_cpp</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

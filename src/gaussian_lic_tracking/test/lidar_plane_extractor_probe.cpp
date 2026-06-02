@@ -196,6 +196,67 @@ void check_persistent_plane_map_matches_and_updates()
   }
 }
 
+void check_edge_recovery()
+{
+  // A vertical line (an edge): points share x=5, y=2 with z varying. The
+  // dominant eigenvector should be the z axis, and extract_edges() must
+  // recover it as a kEdge feature.
+  std::vector<Eigen::Vector3d> points;
+  for (double z = 0.1; z <= 3.0; z += 0.05) {
+    points.emplace_back(5.0, 2.0, z);
+  }
+  LidarPlaneExtractorOptions options;
+  options.voxel_size_m = 0.5;
+  options.min_points_per_voxel = 8;
+  options.linear_eigenvalue_ratio = 0.1;
+  options.max_inlier_distance_m = 0.02;
+  LidarPlaneExtractor extractor(options);
+  const auto edges = extractor.extract_edges(points);
+  if (edges.empty()) {
+    std::fprintf(stderr, "edge recovery returned no edges\n");
+    std::exit(1);
+  }
+  for (const auto & edge : edges) {
+    const double dot_match = std::abs(edge.direction.dot(Eigen::Vector3d(0.0, 0.0, 1.0)));
+    if (dot_match < 0.99) {
+      std::fprintf(stderr,
+        "edge direction mismatch: got (%.4f, %.4f, %.4f) |dot|=%.4f\n",
+        edge.direction.x(), edge.direction.y(), edge.direction.z(), dot_match);
+      std::exit(1);
+    }
+  }
+  // The kEdge correspondence must carry the tangent as edge_normal.
+  const auto pc = LidarPlaneExtractor::to_edge_correspondence(edges.front());
+  if (pc.geometry != gaussian_lic_tracking::spline::LidarFeatureGeometry::kEdge) {
+    std::fprintf(stderr, "to_edge_correspondence did not set kEdge geometry\n");
+    std::exit(1);
+  }
+}
+
+void check_plane_is_not_an_edge()
+{
+  // A dense ground plane has two comparable large eigenvalues, so its
+  // middle/largest ratio is ~1 — it must NOT be classified as a linear edge.
+  std::vector<Eigen::Vector3d> points;
+  for (double x = 1.0; x <= 3.0; x += 0.1) {
+    for (double y = -1.0; y <= 1.0; y += 0.1) {
+      points.emplace_back(x, y, 0.0);
+    }
+  }
+  LidarPlaneExtractorOptions options;
+  options.voxel_size_m = 0.5;
+  options.min_points_per_voxel = 8;
+  options.linear_eigenvalue_ratio = 0.1;
+  options.max_inlier_distance_m = 0.05;
+  LidarPlaneExtractor extractor(options);
+  const auto edges = extractor.extract_edges(points);
+  if (!edges.empty()) {
+    std::fprintf(stderr,
+      "planar scene wrongly produced %zu edge features\n", edges.size());
+    std::exit(1);
+  }
+}
+
 }  // namespace
 
 int main()
@@ -204,6 +265,8 @@ int main()
     check_ground_plane_recovery();
     check_two_orthogonal_planes();
     check_rejects_random_noise();
+    check_edge_recovery();
+    check_plane_is_not_an_edge();
     check_persistent_plane_map_matches_and_updates();
   } catch (const std::exception & exception) {
     std::fprintf(stderr,

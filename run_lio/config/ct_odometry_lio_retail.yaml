@@ -1,0 +1,42 @@
+odometry_mode: 0  # LIO = 0, LICO = 1  (ROS2 port milestone: LiDAR-Inertial first)
+
+# ROS2 port: project_path was a ROS launch param; the OdometryManager ctor reads
+# it from here. Sub-yamls resolve as project_path + "/config" + <x>_yaml.
+project_path: /home/frank/gaussian_lic_ros2/run_lio
+
+lidar_yaml: /fastlivo2/lidar.yaml
+imu_yaml: /fastlivo2/imu.yaml
+camera_yaml: /fastlivo2/camera.yaml
+
+# ROS2-native CBD bag with per-point offset_time (mcap directory).
+bag_path: /home/frank/data/fast_livo/Retail_Street_offset_time
+bag_start: 0.
+bag_durr: -1
+
+
+### SplineParams ###
+t_add: 0.1
+distance0: 0.03
+non_uniform: true
+division_coarse: 1
+
+
+### OptimizationParams ###
+t_begin_add_cam: 5.0
+lidar_iter: 2
+use_lidar_scale: true
+lidar_weight: 500.0
+image_weight: 4.0
+gyroscope_noise_density: 3.45557556e-03
+gyroscope_random_walk: 2.617993833e-07
+accelerometer_noise_density: 2.425376259e-02
+accelerometer_random_walk: 1.96e-06
+
+
+### EvalutaionParams ###
+is_evo_viral: false
+
+
+### Gaussian-LIC ###
+if_3dgs: false  # LIO milestone: no 3DGS back-end
+lidar_skip: 10

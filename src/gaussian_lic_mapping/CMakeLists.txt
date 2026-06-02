@@ -263,6 +263,20 @@ if(GAUSSIAN_LIC_ENABLE_TORCH)
       ${TORCH_LIBRARIES}
       CUDA::cudart
     )
+
+    add_executable(gaussian_map_renderer
+      src/mapper_dataset.cpp
+      src/gaussian_map_renderer.cpp
+    )
+    target_include_directories(gaussian_map_renderer PRIVATE include ${OpenCV_INCLUDE_DIRS})
+    target_compile_options(gaussian_map_renderer PRIVATE ${TORCH_CXX_FLAGS})
+    target_link_libraries(gaussian_map_renderer
+      torch_backend
+      ${TORCH_LIBRARIES}
+      ${OpenCV_LIBS}
+      Eigen3::Eigen
+      CUDA::cudart
+    )
   endif()
 
   target_compile_definitions(mapping_node PRIVATE GAUSSIAN_LIC_ENABLE_TORCH=1)

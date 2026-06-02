@@ -121,5 +121,38 @@ inline Eigen::Vector3d lie_bracket(const Eigen::Vector3d & a, const Eigen::Vecto
   return a.cross(b);
 }
 
+// Right Jacobian of SO(3): exp(phi + delta) ~= exp(phi) * exp(Jr(phi) * delta).
+// Closed form (matches Sophus::rightJacobianSO3): Jr = I - ((1-cos t)/t^2) [phi]_x
+//   + ((t - sin t)/t^3) [phi]_x^2, with the small-angle Taylor expansion near 0.
+// This is the load-bearing primitive for the analytic cumulative-B-spline SO(3)
+// knot Jacobians (So3SplineView::EvaluateRpNURBS).
+inline Eigen::Matrix3d right_jacobian_so3(const Eigen::Vector3d & phi)
+{
+  const Eigen::Matrix3d W = skew(phi);
+  const double theta2 = phi.squaredNorm();
+  if (theta2 < 1.0e-10) {
+    return Eigen::Matrix3d::Identity() - 0.5 * W + (1.0 / 6.0) * (W * W);
+  }
+  const double theta = std::sqrt(theta2);
+  const double a = (1.0 - std::cos(theta)) / theta2;
+  const double b = (theta - std::sin(theta)) / (theta2 * theta);
+  return Eigen::Matrix3d::Identity() - a * W + b * (W * W);
+}
+
+// Inverse right Jacobian (matches Sophus::rightJacobianInvSO3):
+//   Jr^{-1} = I + 0.5 [phi]_x + (1/t^2 - (1+cos t)/(2 t sin t)) [phi]_x^2.
+inline Eigen::Matrix3d right_jacobian_inv_so3(const Eigen::Vector3d & phi)
+{
+  const Eigen::Matrix3d W = skew(phi);
+  const double theta2 = phi.squaredNorm();
+  if (theta2 < 1.0e-10) {
+    return Eigen::Matrix3d::Identity() + 0.5 * W + (1.0 / 12.0) * (W * W);
+  }
+  const double theta = std::sqrt(theta2);
+  const double c =
+    1.0 / theta2 - (1.0 + std::cos(theta)) / (2.0 * theta * std::sin(theta));
+  return Eigen::Matrix3d::Identity() + 0.5 * W + c * (W * W);
+}
+
 }  // namespace spline
 }  // namespace gaussian_lic_tracking

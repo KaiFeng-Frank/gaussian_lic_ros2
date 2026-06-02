@@ -32,6 +32,9 @@ struct SlidingWindowConfig
   double min_normal_equation_rank_ratio{0.0};
   double max_state_gap_s{1.0};
   bool visual_marginalization_prior_zero_bias_columns{false};
+  bool estimate_gravity{false};
+  double gravity_estimation_prior_weight{1.0};
+  size_t gravity_estimation_min_factors{4};
 };
 
 struct SlidingWindowState
@@ -107,6 +110,25 @@ struct SlidingWindowPointToPlaneFactor
   std::vector<Eigen::Vector3d> frame_points_i;
   std::vector<Eigen::Vector3d> target_points_w;
   std::vector<Eigen::Vector3d> target_normals_w;
+  std::vector<double> point_weights;
+  double weight{1.0};
+  double huber_delta_m{0.0};
+};
+
+// LOAM-style point-to-LINE (edge/corner) factor — the geometry type my port
+// lacked vs upstream Coco-LIC LoamFeatureFactor (geo_type==Line). Targets
+// terminal yaw drift: planes in corridor-like geometry weakly constrain yaw,
+// edges/corners pin it. residual r = ||(p_w - line_point) x line_dir|| with
+// p_w = q_w_i*frame_point + p_w_i, line_dir a UNIT direction. Analytic Jac:
+// c = (p_w - line_point) x dir, r = ||c||; dr/dp = -(c^T/r)*skew(dir);
+// dr/dtheta = (c^T/r)*skew(dir)*skew(q*pt). Inert until a producer feeds it.
+struct SlidingWindowPointToLineFactor
+{
+  int64_t stamp_ns{0};
+  uint64_t source_id{0};
+  std::vector<Eigen::Vector3d> frame_points_i;
+  std::vector<Eigen::Vector3d> line_points_w;   // a point on the target line
+  std::vector<Eigen::Vector3d> line_dirs_w;     // unit direction of the line
   std::vector<double> point_weights;
   double weight{1.0};
   double huber_delta_m{0.0};
@@ -341,6 +363,8 @@ public:
   void add_or_update_state(const SlidingWindowState & state);
   bool get_state(int64_t stamp_ns, SlidingWindowState & state) const;
   const std::vector<SlidingWindowState> & states() const { return states_; }
+  Eigen::Vector3d gravity_estimate() const { return last_gravity_estimate_; }
+  size_t gravity_estimation_update_count() const { return gravity_estimation_update_count_; }
 
   void add_imu_factor(const SlidingWindowImuFactor & factor);
   void add_pose_prior(const SlidingWindowPosePrior & prior);
@@ -348,6 +372,7 @@ public:
   void add_dense_prior(const SlidingWindowDensePrior & prior);
   void add_point_to_point_factor(const SlidingWindowPointToPointFactor & factor);
   void add_point_to_plane_factor(const SlidingWindowPointToPlaneFactor & factor);
+  void add_point_to_line_factor(const SlidingWindowPointToLineFactor & factor);
   void add_visual_alignment_factor(const SlidingWindowVisualAlignmentFactor & factor);
   void add_se3_photometric_factor(const SlidingWindowSe3PhotometricFactor & factor);
   bool add_marginalized_visual_alignment_prior(const SlidingWindowVisualAlignmentFactor & factor);
@@ -462,6 +487,7 @@ private:
   size_t prune_marginalized_factor_references();
   size_t count_orphan_factors() const;
   size_t enforce_window_size();
+  void refine_gravity_estimate();
 
   SlidingWindowConfig config_;
   std::vector<SlidingWindowState> states_;
@@ -472,6 +498,7 @@ private:
   std::vector<MarginalizedStateBacksubstitution> marginalized_backsubstitutions_;
   std::vector<SlidingWindowPointToPointFactor> point_factors_;
   std::vector<SlidingWindowPointToPlaneFactor> plane_factors_;
+  std::vector<SlidingWindowPointToLineFactor> line_factors_;
   std::vector<SlidingWindowVisualAlignmentFactor> visual_factors_;
   std::vector<SlidingWindowSe3PhotometricFactor> se3_photometric_factors_;
   std::vector<SlidingWindowRelativeTranslationFactor> relative_translation_factors_;
@@ -492,6 +519,10 @@ private:
   size_t marginalized_backsubstitution_interpolation_count_{0};
   size_t visual_marginalization_prior_count_{0};
   size_t se3_photometric_marginalization_prior_count_{0};
+  Eigen::Vector3d initial_gravity_estimate_{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d last_gravity_estimate_{Eigen::Vector3d::Zero()};
+  bool gravity_estimate_initialized_{false};
+  size_t gravity_estimation_update_count_{0};
 };
 
 }  // namespace gaussian_lic_tracking

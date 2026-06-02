@@ -813,6 +813,86 @@ SlidingWindowPointToPlaneFactor LidarFactor::build_point_to_plane_factor(
   return factor;
 }
 
+SlidingWindowPointToLineFactor LidarFactor::build_point_to_line_factor(
+  const std::vector<Eigen::Vector3d> & frame_points_i,
+  const TrajectoryPose & predicted_pose) const
+{
+  SlidingWindowPointToLineFactor factor;
+  factor.stamp_ns = predicted_pose.stamp_ns;
+  factor.source_id = 2U;  // distinct from the plane factor (source_id 1U)
+  if (!config_.enable_line_factor || !pose_is_finite(predicted_pose)) {
+    return factor;
+  }
+  const auto sampled = sample_points(frame_points_i, config_.max_frame_points);
+  if (sampled.size() < config_.min_points || map_points_w_.size() < config_.plane_min_neighbors) {
+    return factor;
+  }
+  const double max_distance_sq = config_.nearest_distance_m * config_.nearest_distance_m;
+  factor.frame_points_i.reserve(sampled.size());
+  factor.line_points_w.reserve(sampled.size());
+  factor.line_dirs_w.reserve(sampled.size());
+  factor.point_weights.reserve(sampled.size());
+  factor.weight = 1.0 / std::max(config_.nearest_distance_m * config_.nearest_distance_m, 1.0e-12);
+  factor.huber_delta_m = config_.robust_kernel_m;
+
+  for (const auto & point_i : sampled) {
+    const Eigen::Vector3d point_w = predicted_pose.q_w_i * point_i + predicted_pose.p_w_i;
+    const auto neighbors =
+      find_nearest_map_neighbors(point_w, max_distance_sq, config_.plane_min_neighbors);
+    if (neighbors.size() < config_.plane_min_neighbors) {
+      continue;
+    }
+    Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
+    for (const auto & neighbor : neighbors) {
+      centroid += neighbor.second;
+    }
+    centroid /= static_cast<double>(neighbors.size());
+    Eigen::Matrix3d covariance = Eigen::Matrix3d::Zero();
+    for (const auto & neighbor : neighbors) {
+      const Eigen::Vector3d centered = neighbor.second - centroid;
+      covariance += centered * centered.transpose();
+    }
+    covariance /= static_cast<double>(neighbors.size());
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(covariance);
+    if (solver.info() != Eigen::Success) {
+      continue;
+    }
+    const auto eigenvalues = solver.eigenvalues();  // ascending: l0 <= l1 <= l2
+    // LINE/EDGE: the two smaller eigenvalues are both << the largest (points
+    // elongated along ONE direction). Discriminate by lambda1/lambda2.
+    const double linearity = eigenvalues[2] > 1.0e-12
+      ? eigenvalues[1] / eigenvalues[2]
+      : std::numeric_limits<double>::infinity();
+    if (linearity > config_.line_max_condition) {
+      continue;
+    }
+    const Eigen::Vector3d dir = solver.eigenvectors().col(2).normalized();
+    const Eigen::Vector3d offset = point_w - centroid;
+    const Eigen::Vector3d perp = offset - offset.dot(dir) * dir;
+    const double perp_distance = perp.norm();
+    if (perp_distance > config_.nearest_distance_m) {
+      continue;
+    }
+    const double confidence =
+      correspondence_confidence(perp_distance, config_.robust_kernel_m) *
+      plane_condition_confidence(linearity, config_.line_max_condition);
+    if (confidence <= 0.0) {
+      continue;
+    }
+    factor.frame_points_i.push_back(point_i);
+    factor.line_points_w.push_back(centroid);
+    factor.line_dirs_w.push_back(dir);
+    factor.point_weights.push_back(confidence);
+  }
+  if (factor.frame_points_i.size() < config_.min_points) {
+    factor.frame_points_i.clear();
+    factor.line_points_w.clear();
+    factor.line_dirs_w.clear();
+    factor.point_weights.clear();
+  }
+  return factor;
+}
+
 void LidarFactor::insert_keyframe(
   const std::vector<Eigen::Vector3d> & frame_points_i,
   const TrajectoryPose & pose)

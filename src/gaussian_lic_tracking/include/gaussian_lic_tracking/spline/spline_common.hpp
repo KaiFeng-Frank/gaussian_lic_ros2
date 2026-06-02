@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <Eigen/Core>
 
@@ -63,6 +65,68 @@ Eigen::Matrix<Scalar, N, N> compute_blending_matrix()
   }
 
   return (matrix / static_cast<double>(factorial)).template cast<Scalar>();
+}
+
+// Non-uniform cubic (N == kPositionSplineOrder == 4) B-spline blending matrix.
+//
+// Ported VERBATIM from Coco-LIC's non-uniform path
+// (external/Coco-LIC/src/spline/se3_spline.h InitBlendMat, lines 620-662).
+// Upstream builds the per-segment matrix from the ACTUAL knot times of the
+// 6-knot window [ti_minus_2 .. ti_plus_3] surrounding the active cubic segment
+// [ti, ti_plus_1). Here `knot_times_s` carries those six knot times already
+// converted to seconds (the caller multiplies the int64 ns stamps by 1e-9),
+// with the index mapping matching upstream knts[1..6]:
+//   knot_times_s[0] = ti_minus_2   (upstream knts[1])
+//   knot_times_s[1] = ti_minus_1   (upstream knts[2])
+//   knot_times_s[2] = ti           (upstream knts[3])
+//   knot_times_s[3] = ti_plus_1    (upstream knts[4])
+//   knot_times_s[4] = ti_plus_2    (upstream knts[5])
+//   knot_times_s[5] = ti_plus_3    (upstream knts[6])
+//
+// On UNIFORM knot spacing this reproduces compute_blending_matrix<4,double,false>()
+// (non-cumulative) / <4,double,true>() (cumulative) to <= 4.44e-16, so the
+// gated non-uniform path is exactly equivalent to the uniform path when knots
+// stay at fixed dt (increment 1). Cubic-only by design (kPositionSplineOrder=4).
+inline Eigen::Matrix4d compute_blending_matrix_nonuniform_cubic(
+  const std::array<double, 6> & knot_times_s, bool cumulative = false)
+{
+  Eigen::Matrix4d blending_mat = Eigen::Matrix4d::Zero();
+
+  const double ti_minus_2 = knot_times_s[0];
+  const double ti_minus_1 = knot_times_s[1];
+  const double ti = knot_times_s[2];
+  const double ti_plus_1 = knot_times_s[3];
+  const double ti_plus_2 = knot_times_s[4];
+  const double ti_plus_3 = knot_times_s[5];
+
+  blending_mat(0, 0) = (ti_plus_1 - ti) * (ti_plus_1 - ti) / ((ti_plus_1 - ti_minus_1) * (ti_plus_1 - ti_minus_2));
+  blending_mat(0, 2) = (ti - ti_minus_1) * (ti - ti_minus_1) / ((ti_plus_2 - ti_minus_1) * (ti_plus_1 - ti_minus_1));
+  blending_mat(1, 2) = 3 * (ti_plus_1 - ti) * (ti - ti_minus_1) / ((ti_plus_2 - ti_minus_1) * (ti_plus_1 - ti_minus_1));
+  blending_mat(2, 2) = 3 * (ti_plus_1 - ti) * (ti_plus_1 - ti) / ((ti_plus_2 - ti_minus_1) * (ti_plus_1 - ti_minus_1));
+  blending_mat(3, 3) = (ti_plus_1 - ti) * (ti_plus_1 - ti) / ((ti_plus_3 - ti) * (ti_plus_2 - ti));
+  blending_mat(0, 1) = 1 - blending_mat(0, 0) - blending_mat(0, 2);
+  blending_mat(0, 3) = 0;
+  blending_mat(1, 0) = -3 * blending_mat(0, 0);
+  blending_mat(1, 1) = 3 * blending_mat(0, 0) - blending_mat(1, 2);
+  blending_mat(1, 3) = 0;
+  blending_mat(2, 0) = 3 * blending_mat(0, 0);
+  blending_mat(2, 1) = -3 * blending_mat(0, 0) - blending_mat(2, 2);
+  blending_mat(2, 3) = 0;
+  blending_mat(3, 0) = -blending_mat(0, 0);
+  blending_mat(3, 2) = -blending_mat(2, 2) / 3 - blending_mat(3, 3) - (ti_plus_1 - ti) * (ti_plus_1 - ti) / ((ti_plus_2 - ti) * (ti_plus_2 - ti_minus_1));
+  blending_mat(3, 1) = blending_mat(0, 0) - blending_mat(3, 2) - blending_mat(3, 3);
+  blending_mat = (blending_mat.transpose()).eval();
+
+  if (cumulative) {
+    Eigen::Matrix4d cumu_blending_mat = blending_mat;
+    for (int i = 0; i < 4; ++i) {
+      for (int j = i + 1; j < 4; ++j) {
+        cumu_blending_mat.row(i) += cumu_blending_mat.row(j);
+      }
+    }
+    return cumu_blending_mat;
+  }
+  return blending_mat;
 }
 
 template <int N, typename Scalar = double>

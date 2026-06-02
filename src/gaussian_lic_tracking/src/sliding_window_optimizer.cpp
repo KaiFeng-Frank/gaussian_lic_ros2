@@ -716,6 +716,7 @@ void SlidingWindowOptimizer::clear()
   marginalized_backsubstitutions_.clear();
   point_factors_.clear();
   plane_factors_.clear();
+  line_factors_.clear();
   visual_factors_.clear();
   se3_photometric_factors_.clear();
   relative_translation_factors_.clear();
@@ -1012,6 +1013,53 @@ void SlidingWindowOptimizer::add_point_to_plane_factor(const SlidingWindowPointT
   } else {
     *existing = factor;
     ++plane_factor_replacement_count_;
+  }
+}
+
+void SlidingWindowOptimizer::add_point_to_line_factor(const SlidingWindowPointToLineFactor & factor)
+{
+  if (!std::isfinite(factor.weight) || !std::isfinite(factor.huber_delta_m) ||
+    factor.weight <= 0.0 || factor.huber_delta_m < 0.0)
+  {
+    throw std::runtime_error(
+      "point-to-line factor weight must be positive and Huber delta must be non-negative");
+  }
+  if (factor.frame_points_i.size() != factor.line_points_w.size() ||
+    factor.frame_points_i.size() != factor.line_dirs_w.size())
+  {
+    throw std::runtime_error("point-to-line factor source/point/direction sizes must match");
+  }
+  if (!factor.point_weights.empty() && factor.point_weights.size() != factor.frame_points_i.size()) {
+    throw std::runtime_error("point-to-line factor weights must match correspondences");
+  }
+  for (size_t index = 0; index < factor.frame_points_i.size(); ++index) {
+    if (!factor.frame_points_i[index].allFinite() || !factor.line_points_w[index].allFinite() ||
+      !factor.line_dirs_w[index].allFinite())
+    {
+      throw std::runtime_error("point-to-line factor correspondences must be finite");
+    }
+    if (factor.line_dirs_w[index].squaredNorm() <= std::numeric_limits<double>::epsilon()) {
+      throw std::runtime_error("point-to-line factor directions must be non-zero");
+    }
+    if (!factor.point_weights.empty() &&
+      (!std::isfinite(factor.point_weights[index]) || factor.point_weights[index] <= 0.0 ||
+      factor.point_weights[index] > 1.0))
+    {
+      throw std::runtime_error("point-to-line factor weights must be finite and in (0, 1]");
+    }
+  }
+  if (factor.frame_points_i.empty()) {
+    return;
+  }
+  const auto existing = std::find_if(
+    line_factors_.begin(), line_factors_.end(),
+    [&factor](const SlidingWindowPointToLineFactor & candidate) {
+      return candidate.stamp_ns == factor.stamp_ns && candidate.source_id == factor.source_id;
+    });
+  if (existing == line_factors_.end()) {
+    line_factors_.push_back(factor);
+  } else {
+    *existing = factor;
   }
 }
 
@@ -2424,7 +2472,8 @@ size_t SlidingWindowOptimizer::prune_marginalized_factor_references()
   if (states_.empty()) {
     const size_t removed =
       imu_factors_.size() + pose_priors_.size() + state_priors_.size() + dense_priors_.size() +
-      point_factors_.size() + plane_factors_.size() + visual_factors_.size() +
+      point_factors_.size() + plane_factors_.size() + line_factors_.size() +
+      visual_factors_.size() +
       se3_photometric_factors_.size() + relative_translation_factors_.size() +
       relative_distance_factors_.size() +
       smoothness_factors_.size();
@@ -2434,6 +2483,7 @@ size_t SlidingWindowOptimizer::prune_marginalized_factor_references()
     dense_priors_.clear();
     point_factors_.clear();
     plane_factors_.clear();
+    line_factors_.clear();
     visual_factors_.clear();
     se3_photometric_factors_.clear();
     relative_translation_factors_.clear();
@@ -2571,6 +2621,7 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
   values.reserve(
     imu_factors_.size() * 15U + pose_priors_.size() * 6U + state_priors_.size() * 15U +
     dense_priors_.size() * 30U + point_factors_.size() * 300U + plane_factors_.size() * 100U +
+    line_factors_.size() * 100U +
     visual_factors_.size() * 2U + se3_photometric_factors_.size() * 6U +
     relative_translation_residual_dof +
     relative_distance_factors_.size() +
@@ -2771,6 +2822,33 @@ Eigen::VectorXd SlidingWindowOptimizer::build_residual(
         state.q_w_i * factor.frame_points_i[point_index] + state.p_w_i;
       const double point_residual = factor.target_normals_w[point_index].normalized().dot(
         point_w - factor.target_points_w[point_index]);
+      const double robust_weight = huber_weight(std::abs(point_residual), factor.huber_delta_m);
+      const double scale = std::sqrt(factor.weight * base_weight * robust_weight);
+      residual[static_cast<Eigen::Index>(point_index)] = scale * point_residual;
+    }
+    append(residual, &SlidingWindowCostBreakdown::plane_factor_cost);
+  }
+
+  // Point-to-line (edge/corner) residual: perpendicular distance to the target
+  // line, r = ||(p_w - line_point) x line_dir||. Inert while line_factors_ is
+  // empty (no producer yet) -> byte-identical to the validated path.
+  for (const auto & factor : line_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    Eigen::VectorXd residual(static_cast<Eigen::Index>(factor.frame_points_i.size()));
+    for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      const double base_weight = factor.point_weights.empty()
+        ? 1.0
+        : std::max(0.0, factor.point_weights[point_index]);
+      const Eigen::Vector3d point_w =
+        state.q_w_i * factor.frame_points_i[point_index] + state.p_w_i;
+      const Eigen::Vector3d dir = factor.line_dirs_w[point_index].normalized();
+      const Eigen::Vector3d cross =
+        (point_w - factor.line_points_w[point_index]).cross(dir);
+      const double point_residual = cross.norm();
       const double robust_weight = huber_weight(std::abs(point_residual), factor.huber_delta_m);
       const double scale = std::sqrt(factor.weight * base_weight * robust_weight);
       residual[static_cast<Eigen::Index>(point_index)] = scale * point_residual;
@@ -3169,6 +3247,47 @@ std::vector<SlidingWindowOptimizer::NumericJacobianBlock> SlidingWindowOptimizer
           scale * -normal.transpose() * skew_symmetric(rotated_point);
         jacobian.template block<1, 3>(row, offset + 6) =
           scale * normal.transpose();
+      }
+      ++row;
+    }
+  }
+
+  // Point-to-line analytic Jacobian. r = ||c||, c = (p_w - line_point) x dir;
+  // dr/dp = -(c^T/r)*skew(dir); dr/dtheta = -(dr/dp)*skew(q*pt) (same
+  // d(q*pt)/dtheta = -skew(q*pt) convention as the plane factor above). Inert
+  // while line_factors_ is empty -> byte-identical.
+  for (const auto & factor : line_factors_) {
+    const int index = find_local(factor.stamp_ns);
+    if (index < 0) {
+      continue;
+    }
+    const auto & state = states[static_cast<size_t>(index)];
+    const Eigen::Index offset = variable_offsets[static_cast<size_t>(index)];
+    for (size_t point_index = 0; point_index < factor.frame_points_i.size(); ++point_index) {
+      if (!rows_available(row, 1)) {
+        return fallback_to_numeric();
+      }
+      if (offset >= 0) {
+        const double base_weight = factor.point_weights.empty()
+          ? 1.0
+          : std::max(0.0, factor.point_weights[point_index]);
+        const Eigen::Vector3d rotated_point = state.q_w_i * factor.frame_points_i[point_index];
+        const Eigen::Vector3d point_w = rotated_point + state.p_w_i;
+        const Eigen::Vector3d dir = factor.line_dirs_w[point_index].normalized();
+        const Eigen::Vector3d cross_vec =
+          (point_w - factor.line_points_w[point_index]).cross(dir);
+        const double residual = cross_vec.norm();
+        const double robust_weight = huber_weight(std::abs(residual), factor.huber_delta_m);
+        const double scale = std::sqrt(factor.weight * base_weight * robust_weight);
+        if (residual > std::numeric_limits<double>::epsilon()) {
+          const Eigen::RowVector3d d_dp =
+            -(cross_vec.transpose() / residual) * skew_symmetric(dir);
+          jacobian.template block<1, 3>(row, offset) =
+            scale * -d_dp * skew_symmetric(rotated_point);
+          jacobian.template block<1, 3>(row, offset + 6) =
+            scale * d_dp;
+        }
+        // residual ~ 0 (point lies on the line): gradient ill-defined, leave 0.
       }
       ++row;
     }
@@ -4217,10 +4336,120 @@ void SlidingWindowOptimizer::apply_delta(
   }
 }
 
+void SlidingWindowOptimizer::refine_gravity_estimate()
+{
+  if (!config_.estimate_gravity) {
+    return;
+  }
+  if (imu_factors_.size() < config_.gravity_estimation_min_factors) {
+    return;
+  }
+  Eigen::Vector3d current_gravity = Eigen::Vector3d::Zero();
+  double gravity_magnitude = 0.0;
+  for (const auto & factor : imu_factors_) {
+    if (factor.gravity_w.allFinite() && factor.gravity_w.norm() > 1.0e-6) {
+      current_gravity = factor.gravity_w;
+      gravity_magnitude = factor.gravity_w.norm();
+      break;
+    }
+  }
+  if (gravity_magnitude <= 1.0e-6) {
+    return;
+  }
+  if (!gravity_estimate_initialized_) {
+    initial_gravity_estimate_ = current_gravity;
+    last_gravity_estimate_ = current_gravity;
+    gravity_estimate_initialized_ = true;
+  }
+
+  // The IMU preintegration residual is exactly linear in the world gravity
+  // vector (velocity term -g*dt, position term -0.5*g*dt^2), so a single
+  // Gauss-Newton step with forward differences recovers the exact minimum for
+  // the current (fixed) state estimates. Gravity is shared across all IMU
+  // factors, kept out of the sliding-window variable layout and Schur
+  // marginalization, and refined here as a decoupled alternating 3-DoF step.
+  Eigen::Matrix3d hessian = Eigen::Matrix3d::Zero();
+  Eigen::Vector3d rhs = Eigen::Vector3d::Zero();
+  constexpr double kGravityPerturbation = 1.0e-3;
+  size_t contributing_factors = 0U;
+  for (const auto & factor : imu_factors_) {
+    const int from = find_state_index(factor.from_stamp_ns);
+    const int to = find_state_index(factor.to_stamp_ns);
+    if (from < 0 || to < 0) {
+      continue;
+    }
+    const ImuBias start_bias{
+      states_[static_cast<size_t>(from)].gyro_bias,
+      states_[static_cast<size_t>(from)].accel_bias};
+    const auto corrected = factor.preintegration.reintegrated(start_bias);
+    const Eigen::Matrix<double, 9, 9> sqrt_information =
+      effective_imu_sqrt_information(factor);
+    const ImuState from_state = to_imu_state(states_[static_cast<size_t>(from)]);
+    const ImuState to_state = to_imu_state(states_[static_cast<size_t>(to)]);
+    const Eigen::Matrix<double, 9, 1> residual0 =
+      sqrt_information * corrected.residual(from_state, to_state, current_gravity).residual;
+    if (!residual0.allFinite()) {
+      continue;
+    }
+    Eigen::Matrix<double, 9, 3> jacobian;
+    bool jacobian_valid = true;
+    for (int axis = 0; axis < 3; ++axis) {
+      Eigen::Vector3d perturbed_gravity = current_gravity;
+      perturbed_gravity[axis] += kGravityPerturbation;
+      const Eigen::Matrix<double, 9, 1> residual_plus =
+        sqrt_information * corrected.residual(from_state, to_state, perturbed_gravity).residual;
+      if (!residual_plus.allFinite()) {
+        jacobian_valid = false;
+        break;
+      }
+      jacobian.col(axis) = (residual_plus - residual0) / kGravityPerturbation;
+    }
+    if (!jacobian_valid || !jacobian.allFinite()) {
+      continue;
+    }
+    hessian.noalias() += jacobian.transpose() * jacobian;
+    rhs.noalias() += -jacobian.transpose() * residual0;
+    ++contributing_factors;
+  }
+  if (contributing_factors < config_.gravity_estimation_min_factors) {
+    return;
+  }
+
+  // Anchor the direction softly to the initialization gravity so the solve
+  // stays well-posed under low rotational excitation.
+  const double prior_weight = std::max(0.0, config_.gravity_estimation_prior_weight);
+  hessian += prior_weight * Eigen::Matrix3d::Identity();
+  rhs += -prior_weight * (current_gravity - initial_gravity_estimate_);
+
+  const Eigen::LDLT<Eigen::Matrix3d> solver(hessian);
+  if (solver.info() != Eigen::Success) {
+    return;
+  }
+  const Eigen::Vector3d delta = solver.solve(rhs);
+  if (!delta.allFinite()) {
+    return;
+  }
+  Eigen::Vector3d updated_gravity = current_gravity + delta;
+  if (!updated_gravity.allFinite() || updated_gravity.norm() <= 1.0e-6) {
+    return;
+  }
+  // Gravity magnitude is known; constrain the update to it (2-DoF direction).
+  updated_gravity = gravity_magnitude * updated_gravity.normalized();
+
+  for (auto & factor : imu_factors_) {
+    if (factor.gravity_w.allFinite()) {
+      factor.gravity_w = updated_gravity;
+    }
+  }
+  last_gravity_estimate_ = updated_gravity;
+  ++gravity_estimation_update_count_;
+}
+
 SlidingWindowSummary SlidingWindowOptimizer::optimize()
 {
   SlidingWindowSummary summary;
   enforce_window_size();
+  refine_gravity_estimate();
   summary.marginalized_state_count = marginalized_state_count_;
   summary.schur_marginalization_count = schur_marginalization_count_;
   summary.fallback_marginalization_prior_count = fallback_marginalization_prior_count_;

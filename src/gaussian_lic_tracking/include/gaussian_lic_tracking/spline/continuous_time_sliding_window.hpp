@@ -89,6 +89,20 @@ struct ContinuousTimeSlidingWindowOptions
   // the real-bag parity gate. Deterministic probes and ablations enable it
   // explicitly.
   bool enable_spline_orientation_marginalization_prior{false};
+  // Increment 1: per-segment knot-time blending matrices (non-uniform B-spline
+  // machinery ported from Coco-LIC se3_spline.h InitBlendMat). Default false ==
+  // byte-identical uniform path (cached static blending_matrix() + fixed dt_s).
+  // Even when true, knots stay at fixed dt in increment 1 (adaptive
+  // GetKnotDensity insertion is increment 2), so the per-segment matrices MUST
+  // reproduce the uniform result.
+  bool enable_non_uniform_knots{false};
+  // Increment 2 (Part B3): adaptive GetKnotDensity knot insertion in the
+  // window-extend loop (Coco-LIC odometry_manager GetKnotDensity, gears 1..4 by
+  // IMU |gyro| / |accel - gravity| thresholds 0.5/1.0/5.0). Fires ONLY when
+  // BOTH enable_non_uniform_knots && enable_adaptive_knot_density are true; when
+  // off (or cp_add_num==1) the loop pushes a single knot at the fixed-dt stamp,
+  // byte-identical to the uniform path.
+  bool enable_adaptive_knot_density{false};
   double lidar_huber_delta_m{0.10};
   bool hold_gyro_bias_constant{false};
   bool hold_accel_bias_constant{false};
@@ -113,6 +127,39 @@ struct ContinuousTimeSlidingWindowOptions
   // synthetic tests; real-bag launch paths can lower this when rejected online
   // solves would otherwise dead-reckon a stale velocity for hundreds of steps.
   double position_extrapolation_damping{1.0};
+  // Increment 3 (cold-start scale): faithful port of upstream Coco-LIC
+  // InitTrajWithPropagation (trajectory_manager.cpp:274-316). When true, each
+  // newly-appended position knot's initial guess is augmented with the IMU
+  // double-integration term 0.5 * a_world * dt^2, where the world acceleration
+  // a_world = R * (accel_meas - accel_bias) + gravity_world matches the IMU
+  // residual convention (trajectory_estimator.cpp:128-130). Combined with the
+  // constant-velocity extrapolation (which carries v*dt from the optimized
+  // history), this is the exact kinematic update p + v*dt + 0.5*a*dt^2 and gives
+  // appended knots a METRIC seed instead of zero displacement at cold start.
+  // Cold-start-only: skipped whenever interpolate_reference drives the knot
+  // (warm-start). Default false => flag-off path is byte-identical, so the
+  // validated discrete (0.2816 m) and warm-started CT (0.2882 m) cannot regress.
+  bool enable_imu_propagation_seed{false};
+  // Increment 3B: stronger variant. Instead of augmenting the constant-velocity
+  // extrapolation (which carries the cold-start UNDER-scaled history velocity),
+  // replace it with full IMU kinematics off an open-loop integrated velocity:
+  // p_seed = p[n-1] + v*dt + 0.5*a*dt^2 ; v += a*dt (v reset to 0 at init). This
+  // decouples the metric seed from the under-scaled optimized history so the
+  // solve can bootstrap true scale at cold start. Open-loop v drifts over long
+  // spans, so it is a diagnostic/bootstrap lever (the robust form is a Ceres
+  // IMU-only pre-solve). Cold-start-only (warm-start reference override wins);
+  // default false => flag-off byte-identical. Takes precedence over
+  // enable_imu_propagation_seed when both set.
+  bool enable_imu_velocity_seed{false};
+  // Increment 3C (Option B): faithful upstream InitTrajWithPropagation. Before
+  // the full LIC solve each step, run an IMU-ONLY Ceres pre-solve that FIXES the
+  // history knots (0..knot_count-num_new-1) and locks bias+gravity, letting the
+  // IMU factors pull the newly-appended knots to a METRIC position. Unlike the
+  // open-loop 3B (which diverged to 988 km), this is BOUNDED by the fixed
+  // history + Ceres, so it cannot run away. Cold-start-only (skipped when a
+  // reference trajectory is loaded) + gated; default false => flag-off
+  // byte-identical, validated paths cannot regress.
+  bool enable_imu_presolve_seed{false};
   // Online real-bag solves can occasionally propose a poorly-observed SO(3)
   // update while the position spline update remains small and useful. Keep
   // the old rotations in that case but let the bounded position correction
@@ -141,6 +188,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t total_lidar_factors{0};
   std::size_t total_lidar_point_factors{0};
   std::size_t total_lidar_normal_factors{0};
+  std::size_t total_photometric_factors{0};
   std::size_t total_position_prior_factors{0};
   std::size_t total_velocity_prior_factors{0};
   std::size_t total_acceleration_prior_factors{0};
@@ -162,6 +210,7 @@ struct ContinuousTimeSlidingWindowDiagnostics
   std::size_t last_step_lidar_factors{0};
   std::size_t last_step_lidar_point_factors{0};
   std::size_t last_step_lidar_normal_factors{0};
+  std::size_t last_step_photometric_factors{0};
   std::size_t last_step_position_prior_factors{0};
   std::size_t last_step_velocity_prior_factors{0};
   std::size_t last_step_acceleration_prior_factors{0};
@@ -236,6 +285,15 @@ public:
     const std::vector<Eigen::Quaterniond> & rotation_knots,
     const std::vector<Eigen::Vector3d> & position_knots);
 
+  // DIAGNOSTIC seed: store a discrete reference trajectory (absolute ns stamps,
+  // ascending) used to OVERRIDE the initial value of each knot in initialize()
+  // and each newly-appended forward knot in step(). Knots stay FREE optimized
+  // parameters (no SetParameterBlockConstant); this is init-only, not a factor.
+  void set_reference_trajectory(
+    const std::vector<int64_t> & stamps_ns,
+    const std::vector<Eigen::Quaterniond> & q_world_body,
+    const std::vector<Eigen::Vector3d> & p_world);
+
   // Adds a streaming IMU sample. The sample is buffered when its stamp
   // exceeds the current window's coverage and consumed on the next `step()`.
   void add_imu_sample(int64_t stamp_ns, const ImuSample & sample);
@@ -273,6 +331,15 @@ public:
     const Eigen::Vector3d & position_world,
     double weight = 1.0,
     double huber_delta_m = -1.0);
+
+  // Adds a tightly-coupled direct-photometric observation (one map point + its
+  // linearized patch) at `stamp_ns`. Buffered/activated/pruned with the same
+  // signed-nanosecond window semantics as the priors and replayed into the
+  // per-step TrajectoryEstimator as an AutoDiff photometric factor.
+  void add_photometric_factor(
+    int64_t stamp_ns,
+    const PhotometricObservation & observation,
+    double huber_delta = -1.0);
 
   // Adds a timestamped velocity prior in world coordinates. This constrains
   // local motion scale without anchoring global position.

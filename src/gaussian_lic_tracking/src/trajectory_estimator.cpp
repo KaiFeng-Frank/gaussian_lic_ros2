@@ -64,6 +64,10 @@ struct ImuAutoDiffFunctor
 {
   double u_normalized{0.0};
   double inv_dt_s{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
   ImuSample measurement{};
   Eigen::Matrix<double, 6, 1> info_diag{Eigen::Matrix<double, 6, 1>::Ones()};
 
@@ -71,7 +75,7 @@ struct ImuAutoDiffFunctor
   bool operator()(
     const T * r0, const T * r1, const T * r2, const T * r3,
     const T * p0, const T * p1, const T * p2, const T * p3,
-    const T * bg, const T * ba, const T * g,
+    const T * bg_i, const T * bg_j, const T * ba_i, const T * ba_j, const T * g,
     T * residuals) const
   {
     std::array<Eigen::Quaternion<T>, 4> rot_knots = {
@@ -84,19 +88,37 @@ struct ImuAutoDiffFunctor
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p1),
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
-    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> gyro_bias(bg);
-    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> accel_bias(ba);
+    // Linear-in-u interpolation of the per-knot bias between the two knots that
+    // bracket the active segment (knot seg at u=0, knot seg+1 at u=1), using the
+    // same u that drives the cumulative B-spline pose evaluation below.
+    const T u_b = T(u_normalized);
+    const Eigen::Matrix<T, 3, 1> gyro_bias =
+      (T(1.0) - u_b) * Eigen::Map<const Eigen::Matrix<T, 3, 1>>(bg_i) +
+      u_b * Eigen::Map<const Eigen::Matrix<T, 3, 1>>(bg_j);
+    const Eigen::Matrix<T, 3, 1> accel_bias =
+      (T(1.0) - u_b) * Eigen::Map<const Eigen::Matrix<T, 3, 1>>(ba_i) +
+      u_b * Eigen::Map<const Eigen::Matrix<T, 3, 1>>(ba_j);
     const Eigen::Map<const Eigen::Matrix<T, 3, 1>> gravity_world(g);
 
     Eigen::Quaternion<T> q_w_b;
     Eigen::Matrix<T, 3, 1> omega_b;
     Eigen::Matrix<T, 3, 1> alpha_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot_knots, T(u_normalized), T(inv_dt_s),
-      &q_w_b, &omega_b, &alpha_b);
-    const Eigen::Matrix<T, 3, 1> a_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 2, T>(
-      pos_knots, T(u_normalized), T(inv_dt_s));
+    Eigen::Matrix<T, 3, 1> a_w_b;
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s),
+        &q_w_b, &omega_b, &alpha_b);
+      a_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_t<3, 2, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        &q_w_b, &omega_b, &alpha_b);
+      a_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 2, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t));
+    }
 
     const Eigen::Matrix<T, 3, 1> meas_gyro_t = measurement.gyro.cast<T>();
     const Eigen::Matrix<T, 3, 1> meas_accel_t = measurement.accel.cast<T>();
@@ -121,6 +143,10 @@ struct LidarAutoDiffFunctor
   LidarPointCorrespondence correspondence{};
   LidarExtrinsics extrinsics{};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -140,12 +166,22 @@ struct LidarAutoDiffFunctor
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
 
     Eigen::Quaternion<T> q_w_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot_knots, T(u_normalized), T(inv_dt_s),
-      &q_w_b, nullptr, nullptr);
-    const Eigen::Matrix<T, 3, 1> p_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
-      pos_knots, T(u_normalized), T(inv_dt_s));
+    Eigen::Matrix<T, 3, 1> p_w_b;
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s),
+        &q_w_b, nullptr, nullptr);
+      p_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        &q_w_b, nullptr, nullptr);
+      p_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 0, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t));
+    }
 
     const Eigen::Quaternion<T> q_lidar_to_imu_t =
       extrinsics.q_lidar_to_imu.cast<T>();
@@ -182,6 +218,90 @@ struct LidarAutoDiffFunctor
   }
 };
 
+// Tightly-coupled direct-photometric functor. AutoDiff differentiates the
+// templated spline projection of one map point; the image term is linearized
+// (bias + gradient) at the operating point by the node, so the only
+// pose-dependence Ceres sees is the reprojected pixel uv_center(knots). This
+// produces the true ambient-4D knot Jacobian, which the active
+// EigenQuaternionManifold reduces to tangent exactly like every other factor.
+struct PhotometricAutoDiffFunctor
+{
+  double u_normalized{0.0};
+  double inv_dt_s{1.0};
+  Eigen::Vector3d point_world{Eigen::Vector3d::Zero()};
+  Eigen::Quaterniond q_camera_to_imu{Eigen::Quaterniond::Identity()};
+  Eigen::Vector3d p_camera_in_imu{Eigen::Vector3d::Zero()};
+  double fx{0.0};
+  double fy{0.0};
+  double cx{0.0};
+  double cy{0.0};
+  Eigen::Vector2d uv_reference{Eigen::Vector2d::Zero()};
+  std::vector<double> bias;                 // weight * (I_obs - I_ref)
+  std::vector<Eigen::Vector2d> gradient;    // weight * dI/d(u,v)
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
+
+  template <typename T>
+  bool operator()(T const * const * parameters, T * residuals) const
+  {
+    std::array<Eigen::Quaternion<T>, 4> rot_knots = {
+      quaternion_from_coeffs_t<T>(parameters[0]),
+      quaternion_from_coeffs_t<T>(parameters[1]),
+      quaternion_from_coeffs_t<T>(parameters[2]),
+      quaternion_from_coeffs_t<T>(parameters[3])};
+    std::array<Eigen::Matrix<T, 3, 1>, 4> pos_knots = {
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(parameters[4]),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(parameters[5]),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(parameters[6]),
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(parameters[7])};
+
+    Eigen::Quaternion<T> q_w_b;
+    Eigen::Matrix<T, 3, 1> p_w_b;
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s), &q_w_b, nullptr, nullptr);
+      p_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        &q_w_b, nullptr, nullptr);
+      p_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 0, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t));
+    }
+
+    const Eigen::Quaternion<T> q_c_i = q_camera_to_imu.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_c_i = p_camera_in_imu.cast<T>();
+    const Eigen::Quaternion<T> q_w_c = (q_w_b * q_c_i).normalized();
+    const Eigen::Matrix<T, 3, 1> p_w_c = p_w_b + q_w_b * p_c_i;
+    const Eigen::Matrix<T, 3, 1> point_t = point_world.cast<T>();
+    const Eigen::Matrix<T, 3, 1> p_camera = q_w_c.conjugate() * (point_t - p_w_c);
+
+    const int n = static_cast<int>(bias.size());
+    const T z = p_camera.z();
+    if (!(z > T(1.0e-6))) {
+      // Point fell behind the camera: drop the pose gradient, keep the constant
+      // photometric offset so the residual stays finite and bounded.
+      for (int k = 0; k < n; ++k) {
+        residuals[k] = T(bias[k]);
+      }
+      return true;
+    }
+    const T u = T(fx) * p_camera.x() / z + T(cx);
+    const T v = T(fy) * p_camera.y() / z + T(cy);
+    const T du = u - T(uv_reference.x());
+    const T dv = v - T(uv_reference.y());
+    for (int k = 0; k < n; ++k) {
+      residuals[k] = T(bias[k]) + T(gradient[k].x()) * du + T(gradient[k].y()) * dv;
+    }
+    return true;
+  }
+};
+
 struct LidarPointToPointAutoDiffFunctor
 {
   double u_normalized{0.0};
@@ -191,6 +311,10 @@ struct LidarPointToPointAutoDiffFunctor
   LidarExtrinsics extrinsics{};
   double weight{1.0};
   double scale{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -210,12 +334,22 @@ struct LidarPointToPointAutoDiffFunctor
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
 
     Eigen::Quaternion<T> q_w_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot_knots, T(u_normalized), T(inv_dt_s),
-      &q_w_b, nullptr, nullptr);
-    const Eigen::Matrix<T, 3, 1> p_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
-      pos_knots, T(u_normalized), T(inv_dt_s));
+    Eigen::Matrix<T, 3, 1> p_w_b;
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s),
+        &q_w_b, nullptr, nullptr);
+      p_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        &q_w_b, nullptr, nullptr);
+      p_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 0, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t));
+    }
 
     const Eigen::Quaternion<T> q_lidar_to_imu_t =
       extrinsics.q_lidar_to_imu.cast<T>();
@@ -247,6 +381,10 @@ struct LidarPlaneNormalAutoDiffFunctor
   Eigen::Vector3d normal_world{Eigen::Vector3d::UnitZ()};
   LidarExtrinsics extrinsics{};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -260,9 +398,15 @@ struct LidarPlaneNormalAutoDiffFunctor
       quaternion_from_coeffs_t<T>(r3)};
 
     Eigen::Quaternion<T> q_w_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot_knots, T(u_normalized), T(inv_dt_s),
-      &q_w_b, nullptr, nullptr);
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s),
+        &q_w_b, nullptr, nullptr);
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        &q_w_b, nullptr, nullptr);
+    }
 
     const Eigen::Quaternion<T> q_lidar_to_imu_t =
       extrinsics.q_lidar_to_imu.cast<T>();
@@ -282,6 +426,10 @@ struct PositionPriorAutoDiffFunctor
   double inv_dt_s{1.0};
   Eigen::Vector3d position_world{Eigen::Vector3d::Zero()};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -294,9 +442,11 @@ struct PositionPriorAutoDiffFunctor
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
 
-    const Eigen::Matrix<T, 3, 1> p_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
-      pos_knots, T(u_normalized), T(inv_dt_s));
+    const Eigen::Matrix<T, 3, 1> p_w_b = non_uniform
+      ? CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 0, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t))
+      : CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
     const Eigen::Matrix<T, 3, 1> target = position_world.cast<T>();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
     r = T(weight) * (p_w_b - target);
@@ -310,6 +460,10 @@ struct VelocityPriorAutoDiffFunctor
   double inv_dt_s{1.0};
   Eigen::Vector3d velocity_world{Eigen::Vector3d::Zero()};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -322,9 +476,11 @@ struct VelocityPriorAutoDiffFunctor
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
 
-    const Eigen::Matrix<T, 3, 1> v_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 1, T>(
-      pos_knots, T(u_normalized), T(inv_dt_s));
+    const Eigen::Matrix<T, 3, 1> v_w_b = non_uniform
+      ? CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 1, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t))
+      : CeresSplineHelper<4>::template evaluate_rd_t<3, 1, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
     const Eigen::Matrix<T, 3, 1> target = velocity_world.cast<T>();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
     r = T(weight) * (v_w_b - target);
@@ -338,6 +494,10 @@ struct AccelerationPriorAutoDiffFunctor
   double inv_dt_s{1.0};
   Eigen::Vector3d acceleration_world{Eigen::Vector3d::Zero()};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -350,9 +510,11 @@ struct AccelerationPriorAutoDiffFunctor
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p2),
       Eigen::Map<const Eigen::Matrix<T, 3, 1>>(p3)};
 
-    const Eigen::Matrix<T, 3, 1> a_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 2, T>(
-      pos_knots, T(u_normalized), T(inv_dt_s));
+    const Eigen::Matrix<T, 3, 1> a_w_b = non_uniform
+      ? CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 2, T>(
+        pos_knots, T(u_normalized), blend_noncumu, T(seg_delta_t))
+      : CeresSplineHelper<4>::template evaluate_rd_t<3, 2, T>(
+        pos_knots, T(u_normalized), T(inv_dt_s));
     const Eigen::Matrix<T, 3, 1> target = acceleration_world.cast<T>();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
     r = T(weight) * (a_w_b - target);
@@ -366,6 +528,10 @@ struct OrientationPriorAutoDiffFunctor
   double inv_dt_s{1.0};
   Eigen::Quaterniond q_world_body{Eigen::Quaterniond::Identity()};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -379,9 +545,15 @@ struct OrientationPriorAutoDiffFunctor
       quaternion_from_coeffs_t<T>(r3)};
 
     Eigen::Quaternion<T> q_w_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot_knots, T(u_normalized), T(inv_dt_s),
-      &q_w_b, nullptr, nullptr);
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s),
+        &q_w_b, nullptr, nullptr);
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        &q_w_b, nullptr, nullptr);
+    }
     const Eigen::Quaternion<T> q_target = q_world_body.cast<T>().normalized();
     const Eigen::Quaternion<T> error = q_target.conjugate() * q_w_b.normalized();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
@@ -400,6 +572,15 @@ struct RelativePositionPriorAutoDiffFunctor
   std::array<int, N> p1_blocks{};
   Eigen::Vector3d target_p_body0{Eigen::Vector3d::Zero()};
   double weight{1.0};
+  // Dual-segment non-uniform: segment-0 matrices drive q0/p0 at u0, segment-1
+  // matrices drive p1 at u1.
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
+  Eigen::Matrix4d blend_noncumu_1{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu_1{Eigen::Matrix4d::Identity()};
+  double seg_delta_t_1{0.0};
 
   template <typename T>
   bool operator()(T const * const * parameters, T * residuals) const
@@ -414,15 +595,29 @@ struct RelativePositionPriorAutoDiffFunctor
     }
 
     Eigen::Quaternion<T> q0_w_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot0, T(u0_normalized), T(inv_dt_s),
-      &q0_w_b, nullptr, nullptr);
-    const Eigen::Matrix<T, 3, 1> p0_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
-      pos0, T(u0_normalized), T(inv_dt_s));
-    const Eigen::Matrix<T, 3, 1> p1_w_b =
-      CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
-      pos1, T(u1_normalized), T(inv_dt_s));
+    Eigen::Matrix<T, 3, 1> p0_w_b;
+    Eigen::Matrix<T, 3, 1> p1_w_b;
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot0, T(u0_normalized), T(inv_dt_s),
+        &q0_w_b, nullptr, nullptr);
+      p0_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+        pos0, T(u0_normalized), T(inv_dt_s));
+      p1_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_t<3, 0, T>(
+        pos1, T(u1_normalized), T(inv_dt_s));
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot0, T(u0_normalized), blend_cumu, T(seg_delta_t),
+        &q0_w_b, nullptr, nullptr);
+      p0_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 0, T>(
+        pos0, T(u0_normalized), blend_noncumu, T(seg_delta_t));
+      p1_w_b =
+        CeresSplineHelper<4>::template evaluate_rd_nu_t<3, 0, T>(
+        pos1, T(u1_normalized), blend_noncumu_1, T(seg_delta_t_1));
+    }
     const Eigen::Matrix<T, 3, 1> relative_body0 =
       q0_w_b.conjugate() * (p1_w_b - p0_w_b);
     const Eigen::Matrix<T, 3, 1> target = target_p_body0.cast<T>();
@@ -442,6 +637,15 @@ struct RelativeOrientationPriorAutoDiffFunctor
   std::array<int, N> r1_blocks{};
   Eigen::Quaterniond target_q_body0_body1{Eigen::Quaterniond::Identity()};
   double weight{1.0};
+  // Dual-segment non-uniform: segment-0 matrices drive q0 at u0, segment-1
+  // matrices drive q1 at u1.
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
+  Eigen::Matrix4d blend_noncumu_1{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu_1{Eigen::Matrix4d::Identity()};
+  double seg_delta_t_1{0.0};
 
   template <typename T>
   bool operator()(T const * const * parameters, T * residuals) const
@@ -455,12 +659,21 @@ struct RelativeOrientationPriorAutoDiffFunctor
 
     Eigen::Quaternion<T> q0_w_b;
     Eigen::Quaternion<T> q1_w_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot0, T(u0_normalized), T(inv_dt_s),
-      &q0_w_b, nullptr, nullptr);
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot1, T(u1_normalized), T(inv_dt_s),
-      &q1_w_b, nullptr, nullptr);
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot0, T(u0_normalized), T(inv_dt_s),
+        &q0_w_b, nullptr, nullptr);
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot1, T(u1_normalized), T(inv_dt_s),
+        &q1_w_b, nullptr, nullptr);
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot0, T(u0_normalized), blend_cumu, T(seg_delta_t),
+        &q0_w_b, nullptr, nullptr);
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot1, T(u1_normalized), blend_cumu_1, T(seg_delta_t_1),
+        &q1_w_b, nullptr, nullptr);
+    }
     const Eigen::Quaternion<T> relative =
       (q0_w_b.conjugate() * q1_w_b).normalized();
     const Eigen::Quaternion<T> target =
@@ -480,6 +693,10 @@ struct AngularVelocityPriorAutoDiffFunctor
   double inv_dt_s{1.0};
   Eigen::Vector3d angular_velocity_body{Eigen::Vector3d::Zero()};
   double weight{1.0};
+  bool non_uniform{false};
+  Eigen::Matrix4d blend_noncumu{Eigen::Matrix4d::Identity()};
+  Eigen::Matrix4d blend_cumu{Eigen::Matrix4d::Identity()};
+  double seg_delta_t{0.0};
 
   template <typename T>
   bool operator()(
@@ -493,9 +710,15 @@ struct AngularVelocityPriorAutoDiffFunctor
       quaternion_from_coeffs_t<T>(r3)};
 
     Eigen::Matrix<T, 3, 1> omega_b;
-    CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
-      rot_knots, T(u_normalized), T(inv_dt_s),
-      nullptr, &omega_b, nullptr);
+    if (!non_uniform) {
+      CeresSplineHelper<4>::template evaluate_lie_so3_t<T>(
+        rot_knots, T(u_normalized), T(inv_dt_s),
+        nullptr, &omega_b, nullptr);
+    } else {
+      CeresSplineHelper<4>::template evaluate_lie_so3_nu_t<T>(
+        rot_knots, T(u_normalized), blend_cumu, T(seg_delta_t),
+        nullptr, &omega_b, nullptr);
+    }
     const Eigen::Matrix<T, 3, 1> target = angular_velocity_body.cast<T>();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
     r = T(weight) * (omega_b - target);
@@ -515,6 +738,22 @@ struct BiasPriorAutoDiffFunctor
     const Eigen::Matrix<T, 3, 1> target_t = target.cast<T>();
     Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
     r = T(weight) * (b - target_t);
+    return true;
+  }
+};
+
+// Random-walk smoothness coupling two consecutive bias knots: r = w * (b1 - b0).
+struct BiasRandomWalkAutoDiffFunctor
+{
+  double weight{1.0};
+
+  template <typename T>
+  bool operator()(const T * b0, const T * b1, T * residuals) const
+  {
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> x0(b0);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> x1(b1);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(residuals);
+    r = T(weight) * (x1 - x0);
     return true;
   }
 };
@@ -692,14 +931,16 @@ struct TrajectoryEstimator::Impl
   // problem.
   std::vector<Eigen::Vector4d> rotation_storage;   // x, y, z, w per knot
   std::vector<Eigen::Vector3d> position_storage;
-  Eigen::Vector3d gyro_bias_storage{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d accel_bias_storage{Eigen::Vector3d::Zero()};
+  // Per-knot time-varying bias series, parallel to rotation_storage/position_storage.
+  std::vector<Eigen::Vector3d> gyro_bias_storage;
+  std::vector<Eigen::Vector3d> accel_bias_storage;
   Eigen::Vector3d gravity_storage{Eigen::Vector3d::Zero()};
 
   std::unique_ptr<ceres::Problem> problem;
   std::vector<ceres::ResidualBlockId> imu_residual_blocks;
   std::vector<ceres::ResidualBlockId> lidar_residual_blocks;
   std::vector<ceres::ResidualBlockId> lidar_point_residual_blocks;
+  std::vector<ceres::ResidualBlockId> photometric_residual_blocks;
   std::vector<ceres::ResidualBlockId> position_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> velocity_prior_residual_blocks;
   std::vector<ceres::ResidualBlockId> acceleration_prior_residual_blocks;
@@ -739,6 +980,48 @@ void TrajectoryEstimator::set_knots(
   position_knots_ = position_knots;
 }
 
+void TrajectoryEstimator::set_non_uniform(bool enable)
+{
+  non_uniform_knots_ = enable;
+}
+
+void TrajectoryEstimator::set_knot_stamps_s(const std::vector<double> & knot_stamps_s)
+{
+  knot_stamps_s_ = knot_stamps_s;
+}
+
+bool TrajectoryEstimator::segment_blend_matrices(
+  int seg, Eigen::Matrix4d & cumu, Eigen::Matrix4d & noncumu, double & dt_s) const
+{
+  // Require the full 6-knot window [seg-2 .. seg+3] for the cubic (N=4) spline.
+  // find_segment already guarantees seg>=1 and seg+2<count; the extra seg>=2 and
+  // seg+3<count requirement is the boundary on which we fall back to the uniform
+  // path (functor.non_uniform stays false), IDENTICAL to the marginalization
+  // gate in spline_position_support (segment_index-2 >= 0 && segment_index+3 <
+  // knot_stamps.size()).
+  if (!non_uniform_knots_ || knot_stamps_s_.empty()) {
+    return false;
+  }
+  const int count = static_cast<int>(knot_stamps_s_.size());
+  if (seg < 2 || seg + 3 >= count) {
+    return false;
+  }
+  // Upstream knts[1..6] mapping (spline_common.hpp doc): kt[0]=ti_minus_2 ..
+  // kt[5]=ti_plus_3.
+  const std::array<double, 6> kt = {
+    knot_stamps_s_[static_cast<std::size_t>(seg - 2)],
+    knot_stamps_s_[static_cast<std::size_t>(seg - 1)],
+    knot_stamps_s_[static_cast<std::size_t>(seg)],
+    knot_stamps_s_[static_cast<std::size_t>(seg + 1)],
+    knot_stamps_s_[static_cast<std::size_t>(seg + 2)],
+    knot_stamps_s_[static_cast<std::size_t>(seg + 3)]};
+  cumu = compute_blending_matrix_nonuniform_cubic(kt, true);
+  noncumu = compute_blending_matrix_nonuniform_cubic(kt, false);
+  dt_s = knot_stamps_s_[static_cast<std::size_t>(seg + 1)] -
+    knot_stamps_s_[static_cast<std::size_t>(seg)];
+  return std::isfinite(dt_s) && dt_s > 0.0;
+}
+
 void TrajectoryEstimator::set_gyro_bias(const Eigen::Vector3d & gyro_bias)
 {
   gyro_bias_ = gyro_bias;
@@ -771,6 +1054,34 @@ bool TrajectoryEstimator::find_segment(double t_s, int & segment_index, double &
   }
   if (t_s < 0.0) {
     return false;
+  }
+  if (non_uniform_knots_ && !knot_stamps_s_.empty()) {
+    // Binary search on the (possibly non-uniform) knot times. upper_bound finds
+    // the first knot strictly greater than t_s; idx is the segment-start knot
+    // such that knot_stamps_s_[idx] <= t_s < knot_stamps_s_[idx+1]. On uniform
+    // knot spacing this yields exactly floor(t_s/dt_s), so the path is
+    // byte-equivalent to the uniform branch below.
+    const auto it = std::upper_bound(
+      knot_stamps_s_.begin(), knot_stamps_s_.end(), t_s);
+    int idx = static_cast<int>(std::distance(knot_stamps_s_.begin(), it)) - 1;
+    if (idx < 1 || idx + 2 >= static_cast<int>(rotation_knots_.size())) {
+      return false;
+    }
+    const double t_lo = knot_stamps_s_[static_cast<std::size_t>(idx)];
+    const double t_hi = knot_stamps_s_[static_cast<std::size_t>(idx + 1)];
+    const double span = t_hi - t_lo;
+    if (!(span > 0.0)) {
+      return false;
+    }
+    segment_index = idx;
+    u = (t_s - t_lo) / span;
+    if (u < 0.0) {
+      u = 0.0;
+    }
+    if (u >= 1.0) {
+      u = 1.0 - 1.0e-12;
+    }
+    return true;
   }
   const double scaled = t_s / dt_s_;
   const int idx = static_cast<int>(std::floor(scaled));
@@ -806,34 +1117,125 @@ bool TrajectoryEstimator::add_imu_factor(
   ImuAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.measurement = sample;
   functor.info_diag = info_diag;
 
   // AutoDiffCostFunction template:
   //   <Functor, ResidualDim, ParamBlockSizes...>
+  // Param blocks: 4 rot + 4 pos + bg_i + bg_j + ba_i + ba_j + g = 13 blocks.
+  // Ceres 2.x AutoDiffCostFunction is variadic (no 10-block ceiling).
   auto * cost = new ceres::AutoDiffCostFunction<
     ImuAutoDiffFunctor, 6,
     4, 4, 4, 4,
     3, 3, 3, 3,
-    3, 3, 3>(new ImuAutoDiffFunctor(functor));
+    3, 3, 3, 3, 3>(new ImuAutoDiffFunctor(functor));
 
   const int base_rot = segment_index - 1;
   const int base_pos = segment_index - 1;
   std::vector<double *> parameter_blocks;
-  parameter_blocks.reserve(2 * N + 3);
+  parameter_blocks.reserve(2 * N + 5);
   for (int i = 0; i < N; ++i) {
     parameter_blocks.push_back(impl_->rotation_storage[base_rot + i].data());
   }
   for (int i = 0; i < N; ++i) {
     parameter_blocks.push_back(impl_->position_storage[base_pos + i].data());
   }
-  parameter_blocks.push_back(impl_->gyro_bias_storage.data());
-  parameter_blocks.push_back(impl_->accel_bias_storage.data());
+  // Active segment for this sample is [segment_index, segment_index+1].
+  // find_segment guarantees segment_index>=1 and segment_index+2 < knot_count,
+  // so both bias-knot indices are always valid in-range knots.
+  const int bias_knot_i = segment_index;
+  const int bias_knot_j = segment_index + 1;
+  parameter_blocks.push_back(impl_->gyro_bias_storage[bias_knot_i].data());
+  parameter_blocks.push_back(impl_->gyro_bias_storage[bias_knot_j].data());
+  parameter_blocks.push_back(impl_->accel_bias_storage[bias_knot_i].data());
+  parameter_blocks.push_back(impl_->accel_bias_storage[bias_knot_j].data());
   parameter_blocks.push_back(impl_->gravity_storage.data());
 
   const auto block = impl_->problem->AddResidualBlock(cost, nullptr, parameter_blocks);
   impl_->imu_residual_blocks.push_back(block);
   ++imu_factor_count_;
+  return true;
+}
+
+bool TrajectoryEstimator::add_photometric_factor(
+  double t_s,
+  const PhotometricObservation & observation,
+  double huber_delta)
+{
+  const std::size_t n = observation.bias.size();
+  if (n == 0 || observation.gradient.size() != n) {
+    return false;
+  }
+  int segment_index = 0;
+  double u = 0.0;
+  if (!find_segment(t_s, segment_index, u)) {
+    return false;
+  }
+
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+
+  auto * functor = new PhotometricAutoDiffFunctor();
+  functor->u_normalized = u;
+  functor->inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor->non_uniform = true;
+      functor->blend_cumu = c;
+      functor->blend_noncumu = n;
+      functor->seg_delta_t = dt;
+    }
+  }
+  functor->point_world = observation.point_world;
+  functor->q_camera_to_imu = observation.q_camera_to_imu.normalized();
+  functor->p_camera_in_imu = observation.p_camera_in_imu;
+  functor->fx = observation.fx;
+  functor->fy = observation.fy;
+  functor->cx = observation.cx;
+  functor->cy = observation.cy;
+  functor->uv_reference = observation.uv_reference;
+  functor->bias = observation.bias;
+  functor->gradient = observation.gradient;
+
+  // Dynamic residual count (= patch pixel count), 2N fixed-size knot blocks.
+  auto * cost =
+    new ceres::DynamicAutoDiffCostFunction<PhotometricAutoDiffFunctor>(functor);
+  for (int i = 0; i < N; ++i) {
+    cost->AddParameterBlock(4);  // rotation knot (quaternion x,y,z,w)
+  }
+  for (int i = 0; i < N; ++i) {
+    cost->AddParameterBlock(3);  // position knot
+  }
+  cost->SetNumResiduals(static_cast<int>(n));
+
+  const int base = segment_index - 1;
+  std::vector<double *> parameter_blocks;
+  parameter_blocks.reserve(2 * N);
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->rotation_storage[base + i].data());
+  }
+  for (int i = 0; i < N; ++i) {
+    parameter_blocks.push_back(impl_->position_storage[base + i].data());
+  }
+
+  ceres::LossFunction * loss =
+    (huber_delta > 0.0) ? new ceres::HuberLoss(huber_delta) : nullptr;
+  const auto block = impl_->problem->AddResidualBlock(cost, loss, parameter_blocks);
+  impl_->photometric_residual_blocks.push_back(block);
+  ++photometric_factor_count_;
   return true;
 }
 
@@ -862,6 +1264,16 @@ bool TrajectoryEstimator::add_lidar_factor(
   LidarAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.correspondence = correspondence;
   functor.extrinsics = extrinsics;
   functor.weight = weight;
@@ -917,6 +1329,16 @@ bool TrajectoryEstimator::add_lidar_plane_normal_factor(
   LidarPlaneNormalAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.normal_lidar = normal_lidar.normalized();
   functor.normal_world = normal_world.normalized();
   functor.extrinsics = extrinsics;
@@ -969,6 +1391,16 @@ bool TrajectoryEstimator::add_lidar_point_to_point_factor(
   LidarPointToPointAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.point_lidar = point_lidar;
   functor.target_point_map = target_point_map;
   functor.extrinsics = extrinsics;
@@ -1022,6 +1454,16 @@ bool TrajectoryEstimator::add_position_prior_factor(
   PositionPriorAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.position_world = position_world;
   functor.weight = weight;
 
@@ -1068,6 +1510,16 @@ bool TrajectoryEstimator::add_velocity_prior_factor(
   VelocityPriorAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.velocity_world = velocity_world;
   functor.weight = weight;
 
@@ -1114,6 +1566,16 @@ bool TrajectoryEstimator::add_acceleration_prior_factor(
   AccelerationPriorAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.acceleration_world = acceleration_world;
   functor.weight = weight;
 
@@ -1160,6 +1622,16 @@ bool TrajectoryEstimator::add_angular_velocity_prior_factor(
   AngularVelocityPriorAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.angular_velocity_body = angular_velocity_body;
   functor.weight = weight;
 
@@ -1213,6 +1685,22 @@ bool TrajectoryEstimator::add_relative_position_prior_factor(
   functor->u0_normalized = u0;
   functor->u1_normalized = u1;
   functor->inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c0, n0, c1, n1;
+    double dt0 = 0.0;
+    double dt1 = 0.0;
+    if (segment_blend_matrices(segment0, c0, n0, dt0) &&
+      segment_blend_matrices(segment1, c1, n1, dt1))
+    {
+      functor->non_uniform = true;
+      functor->blend_cumu = c0;
+      functor->blend_noncumu = n0;
+      functor->seg_delta_t = dt0;
+      functor->blend_cumu_1 = c1;
+      functor->blend_noncumu_1 = n1;
+      functor->seg_delta_t_1 = dt1;
+    }
+  }
   functor->target_p_body0 = target_p_body0;
   functor->weight = weight;
 
@@ -1286,6 +1774,22 @@ bool TrajectoryEstimator::add_relative_orientation_prior_factor(
   functor->u0_normalized = u0;
   functor->u1_normalized = u1;
   functor->inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c0, n0, c1, n1;
+    double dt0 = 0.0;
+    double dt1 = 0.0;
+    if (segment_blend_matrices(segment0, c0, n0, dt0) &&
+      segment_blend_matrices(segment1, c1, n1, dt1))
+    {
+      functor->non_uniform = true;
+      functor->blend_cumu = c0;
+      functor->blend_noncumu = n0;
+      functor->seg_delta_t = dt0;
+      functor->blend_cumu_1 = c1;
+      functor->blend_noncumu_1 = n1;
+      functor->seg_delta_t_1 = dt1;
+    }
+  }
   functor->target_q_body0_body1 = target_q_body0_body1.normalized();
   functor->weight = weight;
 
@@ -1349,6 +1853,16 @@ bool TrajectoryEstimator::add_orientation_prior_factor(
   OrientationPriorAutoDiffFunctor functor;
   functor.u_normalized = u;
   functor.inv_dt_s = 1.0 / dt_s_;
+  if (non_uniform_knots_) {
+    Eigen::Matrix4d c, n;
+    double dt = 0.0;
+    if (segment_blend_matrices(segment_index, c, n, dt)) {
+      functor.non_uniform = true;
+      functor.blend_cumu = c;
+      functor.blend_noncumu = n;
+      functor.seg_delta_t = dt;
+    }
+  }
   functor.q_world_body = q_world_body.normalized();
   functor.weight = weight;
 
@@ -1385,16 +1899,19 @@ bool TrajectoryEstimator::add_gyro_bias_prior_factor(
     rebuild_problem();
   }
 
-  BiasPriorAutoDiffFunctor functor;
-  functor.target = gyro_bias;
-  functor.weight = weight;
-  auto * cost = new ceres::AutoDiffCostFunction<
-    BiasPriorAutoDiffFunctor, 3, 3>(new BiasPriorAutoDiffFunctor(functor));
-
-  ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_radps, weight);
-  const auto block = impl_->problem->AddResidualBlock(
-    cost, loss, impl_->gyro_bias_storage.data());
-  impl_->bias_prior_residual_blocks.push_back(block);
+  // Anchor EVERY gyro-bias knot to the supplied target (a fresh loss per block;
+  // Ceres takes ownership of each). Counter still increments once so the existing
+  // probe assertion gyro_bias_prior_factor_count()==1 holds.
+  for (auto & bk : impl_->gyro_bias_storage) {
+    BiasPriorAutoDiffFunctor functor;
+    functor.target = gyro_bias;
+    functor.weight = weight;
+    auto * cost = new ceres::AutoDiffCostFunction<
+      BiasPriorAutoDiffFunctor, 3, 3>(new BiasPriorAutoDiffFunctor(functor));
+    ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_radps, weight);
+    const auto block = impl_->problem->AddResidualBlock(cost, loss, bk.data());
+    impl_->bias_prior_residual_blocks.push_back(block);
+  }
   ++gyro_bias_prior_factor_count_;
   return true;
 }
@@ -1414,18 +1931,56 @@ bool TrajectoryEstimator::add_accel_bias_prior_factor(
     rebuild_problem();
   }
 
-  BiasPriorAutoDiffFunctor functor;
-  functor.target = accel_bias;
-  functor.weight = weight;
-  auto * cost = new ceres::AutoDiffCostFunction<
-    BiasPriorAutoDiffFunctor, 3, 3>(new BiasPriorAutoDiffFunctor(functor));
-
-  ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_mps2, weight);
-  const auto block = impl_->problem->AddResidualBlock(
-    cost, loss, impl_->accel_bias_storage.data());
-  impl_->bias_prior_residual_blocks.push_back(block);
+  for (auto & bk : impl_->accel_bias_storage) {
+    BiasPriorAutoDiffFunctor functor;
+    functor.target = accel_bias;
+    functor.weight = weight;
+    auto * cost = new ceres::AutoDiffCostFunction<
+      BiasPriorAutoDiffFunctor, 3, 3>(new BiasPriorAutoDiffFunctor(functor));
+    ceres::LossFunction * loss = make_weighted_huber_loss(huber_delta_mps2, weight);
+    const auto block = impl_->problem->AddResidualBlock(cost, loss, bk.data());
+    impl_->bias_prior_residual_blocks.push_back(block);
+  }
   ++accel_bias_prior_factor_count_;
   return true;
+}
+
+bool TrajectoryEstimator::add_bias_random_walk_factors(
+  double gyro_weight, double accel_weight)
+{
+  if (impl_->rotation_storage.empty()) {
+    rebuild_problem();
+  }
+  const std::size_t n = impl_->gyro_bias_storage.size();
+  if (n < 2) {
+    return false;
+  }
+  bool added = false;
+  for (std::size_t k = 0; k + 1 < n; ++k) {
+    if (std::isfinite(gyro_weight) && gyro_weight > 0.0) {
+      BiasRandomWalkAutoDiffFunctor f;
+      f.weight = gyro_weight;
+      auto * cost = new ceres::AutoDiffCostFunction<
+        BiasRandomWalkAutoDiffFunctor, 3, 3, 3>(new BiasRandomWalkAutoDiffFunctor(f));
+      const auto block = impl_->problem->AddResidualBlock(
+        cost, nullptr,
+        impl_->gyro_bias_storage[k].data(), impl_->gyro_bias_storage[k + 1].data());
+      impl_->bias_prior_residual_blocks.push_back(block);
+      added = true;
+    }
+    if (std::isfinite(accel_weight) && accel_weight > 0.0) {
+      BiasRandomWalkAutoDiffFunctor f;
+      f.weight = accel_weight;
+      auto * cost = new ceres::AutoDiffCostFunction<
+        BiasRandomWalkAutoDiffFunctor, 3, 3, 3>(new BiasRandomWalkAutoDiffFunctor(f));
+      const auto block = impl_->problem->AddResidualBlock(
+        cost, nullptr,
+        impl_->accel_bias_storage[k].data(), impl_->accel_bias_storage[k + 1].data());
+      impl_->bias_prior_residual_blocks.push_back(block);
+      added = true;
+    }
+  }
+  return added;
 }
 
 bool TrajectoryEstimator::add_position_smoothness_factor(
@@ -1672,6 +2227,7 @@ void TrajectoryEstimator::rebuild_problem()
   impl_->imu_residual_blocks.clear();
   impl_->lidar_residual_blocks.clear();
   impl_->lidar_point_residual_blocks.clear();
+  impl_->photometric_residual_blocks.clear();
   impl_->position_prior_residual_blocks.clear();
   impl_->velocity_prior_residual_blocks.clear();
   impl_->acceleration_prior_residual_blocks.clear();
@@ -1685,9 +2241,19 @@ void TrajectoryEstimator::rebuild_problem()
   for (auto & pos : impl_->position_storage) {
     impl_->problem->AddParameterBlock(pos.data(), 3);
   }
-  impl_->problem->AddParameterBlock(impl_->gyro_bias_storage.data(), 3);
-  impl_->problem->AddParameterBlock(impl_->accel_bias_storage.data(), 3);
-  impl_->problem->AddParameterBlock(impl_->gravity_storage.data(), 3);
+  for (auto & bg : impl_->gyro_bias_storage) {
+    impl_->problem->AddParameterBlock(bg.data(), 3);
+  }
+  for (auto & ba : impl_->accel_bias_storage) {
+    impl_->problem->AddParameterBlock(ba.data(), 3);
+  }
+  // G1 (paper-faithful gravity): gravity magnitude is known (~9.81); only its
+  // 2-DoF direction (tilt) is unobservable at init. Constrain the 3-vector to a
+  // constant-norm sphere so the optimizer can refine the gravity TILT without
+  // letting |g| absorb accelerometer/scale error (the accel/gravity null-space
+  // that compresses + wiggles the continuous-time trajectory).
+  impl_->problem->AddParameterBlock(
+    impl_->gravity_storage.data(), 3, new ceres::SphereManifold<3>());
 }
 
 void TrajectoryEstimator::sync_state_to_storage()
@@ -1702,8 +2268,9 @@ void TrajectoryEstimator::sync_state_to_storage()
   for (const auto & p : position_knots_) {
     impl_->position_storage.push_back(p);
   }
-  impl_->gyro_bias_storage = gyro_bias_;
-  impl_->accel_bias_storage = accel_bias_;
+  // Seed one bias knot per spline knot from the persistent scalar bias.
+  impl_->gyro_bias_storage.assign(rotation_knots_.size(), gyro_bias_);
+  impl_->accel_bias_storage.assign(rotation_knots_.size(), accel_bias_);
   impl_->gravity_storage = gravity_world_;
 }
 
@@ -1719,8 +2286,26 @@ void TrajectoryEstimator::sync_state_from_storage()
   for (const auto & p : impl_->position_storage) {
     position_knots_.push_back(p);
   }
-  gyro_bias_ = impl_->gyro_bias_storage;
-  accel_bias_ = impl_->accel_bias_storage;
+  // Collapse the per-knot time-varying bias series back to the single persistent
+  // scalar bias carried across windows. The window-mean is the faithful aggregate:
+  // the OLD single global bias absorbed IMU residual across the whole window, and
+  // the mean of the per-knot series reproduces that (and is non-frozen whenever any
+  // interior knot was optimized, unlike .back(), whose final knot is never touched
+  // by an IMU factor since find_segment caps segment_index at knot_count-3).
+  if (!impl_->gyro_bias_storage.empty()) {
+    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+    for (const auto & bk : impl_->gyro_bias_storage) {
+      sum += bk;
+    }
+    gyro_bias_ = sum / static_cast<double>(impl_->gyro_bias_storage.size());
+  }
+  if (!impl_->accel_bias_storage.empty()) {
+    Eigen::Vector3d sum = Eigen::Vector3d::Zero();
+    for (const auto & bk : impl_->accel_bias_storage) {
+      sum += bk;
+    }
+    accel_bias_ = sum / static_cast<double>(impl_->accel_bias_storage.size());
+  }
   gravity_world_ = impl_->gravity_storage;
 }
 
@@ -1733,10 +2318,14 @@ TrajectoryEstimatorSummary TrajectoryEstimator::solve(
   }
 
   if (options.hold_gyro_bias_constant) {
-    impl_->problem->SetParameterBlockConstant(impl_->gyro_bias_storage.data());
+    for (auto & bg : impl_->gyro_bias_storage) {
+      impl_->problem->SetParameterBlockConstant(bg.data());
+    }
   }
   if (options.hold_accel_bias_constant) {
-    impl_->problem->SetParameterBlockConstant(impl_->accel_bias_storage.data());
+    for (auto & ba : impl_->accel_bias_storage) {
+      impl_->problem->SetParameterBlockConstant(ba.data());
+    }
   }
   if (options.hold_gravity_constant) {
     impl_->problem->SetParameterBlockConstant(impl_->gravity_storage.data());

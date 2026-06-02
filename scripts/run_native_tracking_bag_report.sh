@@ -2641,8 +2641,16 @@ cleanup() {
 trap cleanup EXIT
 
 setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
+  deterministic_bag_path:="${DETERMINISTIC_FEEDBACK_BAG:+${BAG_PATH}}" \
+  deterministic_feedback_bag_path:="${DETERMINISTIC_FEEDBACK_BAG:-}" \
+  output_tum_path:="${DETERMINISTIC_FEEDBACK_BAG:+${OUTPUT_DIR}/deterministic_trajectory.tum}" \
   enable_sliding_window_optimizer:=true \
+  enable_sliding_window_gravity_estimation:="${ENABLE_SLIDING_WINDOW_GRAVITY_ESTIMATION:-false}" \
+  sliding_window_gravity_estimation_prior_weight:="${SLIDING_WINDOW_GRAVITY_ESTIMATION_PRIOR_WEIGHT:-1.0}" \
   enable_lidar_plane_factor:=true \
+  enable_lidar_line_factor:="${ENABLE_LIDAR_LINE_FACTOR:-false}" \
+  lidar_line_max_condition:="${LIDAR_LINE_MAX_CONDITION:-0.2}" \
+  lidar_window_line_factor_weight:="${LIDAR_WINDOW_LINE_FACTOR_WEIGHT:-1.0}" \
   enable_visual_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_visual_alignment_window_factor:="${ENABLE_VISUAL_FACTORS}" \
   enable_se3_photometric_window_factor:="${ENABLE_VISUAL_FACTORS}" \
@@ -2890,6 +2898,34 @@ setsid ros2 launch gaussian_lic_bringup tracking.launch.py \
   sliding_window_relative_motion_history_published_after_s:="${SLIDING_WINDOW_RELATIVE_MOTION_HISTORY_PUBLISHED_AFTER_S}" \
   >"${launch_log}" 2>&1 &
 launch_pid=$!
+
+# Deterministic in-process replay mode: tracking_node reads the sensor bag +
+# the pre-recorded rendered-feedback bag itself (via deterministic_bag_path /
+# deterministic_feedback_bag_path) and writes output_tum_path, then exits. No
+# mapper, no recorder, no async ros2 bag play -> reproducible run-to-run. This
+# reuses the FULL preset param set already passed to tracking.launch.py above
+# (incl imu_linear_acceleration_scale, step guards, sliding-window weights).
+if [[ -n "${DETERMINISTIC_FEEDBACK_BAG:-}" ]]; then
+  echo "deterministic replay: waiting for tracking_node to finish reading bags (sensor=${BAG_PATH}, feedback=${DETERMINISTIC_FEEDBACK_BAG})..."
+  wait "${launch_pid}" 2>/dev/null || true
+  det_tum="${OUTPUT_DIR}/deterministic_trajectory.tum"
+  if [[ ! -s "${det_tum}" ]]; then
+    echo "deterministic replay FAIL: TUM ${det_tum} missing/empty"
+    tail -40 "${launch_log}" 2>/dev/null || true
+    exit 1
+  fi
+  det_poses="$(grep -cv '^#' "${det_tum}" 2>/dev/null || echo 0)"
+  echo "deterministic replay done: ${det_tum} (${det_poses} poses)"
+  if [[ -n "${REFERENCE_TUM_PATH:-}" && -f "${REFERENCE_TUM_PATH}" ]]; then
+    python3 "${ROOT_DIR}/scripts/trajectory_compare.py" \
+      --baseline "${REFERENCE_TUM_PATH}" --current "${det_tum}" \
+      --align yaw --max-association-dt 0.2 \
+      > "${OUTPUT_DIR}/deterministic_trajectory_compare.txt" 2>&1 || true
+    echo "--- trajectory_compare (deterministic vs reference) ---"
+    cat "${OUTPUT_DIR}/deterministic_trajectory_compare.txt" 2>/dev/null || true
+  fi
+  exit 0
+fi
 
 if [[ "${ENABLE_MAPPER_FEEDBACK}" == "true" ]]; then
   setsid ros2 run gaussian_lic_mapping mapping_node \

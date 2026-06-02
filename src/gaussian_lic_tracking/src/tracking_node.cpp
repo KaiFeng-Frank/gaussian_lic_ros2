@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -35,6 +37,9 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/serialization.hpp>
+#include <rclcpp/serialized_message.hpp>
+#include <rosbag2_cpp/reader.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -296,6 +301,32 @@ public:
       declare_parameter<std::string>("rendered_feedback_topic", "/gaussian_lic/rendered_feedback");
     enable_rendered_feedback_contract_ =
       declare_parameter<bool>("enable_rendered_feedback_contract", false);
+    // Deterministic offline replay: when deterministic_bag_path is set, main()
+    // reads the sensor bag (and the recorded rendered-feedback bag) directly and
+    // dispatches messages to the handlers IN-PROCESS, merged into one sequence
+    // sorted by header stamp, instead of spinning on async DDS subscriptions.
+    // This removes the cross-topic callback-interleaving + feedback-lag
+    // nondeterminism that makes the live (ros2 bag play) visual evaluation
+    // irreproducible. Everything is gated behind a non-empty
+    // deterministic_bag_path so the production async path is byte-for-byte
+    // untouched.
+    deterministic_bag_path_ =
+      declare_parameter<std::string>("deterministic_bag_path", "");
+    deterministic_feedback_bag_path_ =
+      declare_parameter<std::string>("deterministic_feedback_bag_path", "");
+    output_tum_path_ = declare_parameter<std::string>("output_tum_path", "");
+    if (!output_tum_path_.empty()) {
+      output_tum_stream_.open(output_tum_path_, std::ios::out | std::ios::trunc);
+      if (!output_tum_stream_) {
+        RCLCPP_WARN(
+          get_logger(),
+          "could not open output_tum_path '%s' for writing",
+          output_tum_path_.c_str());
+      } else {
+        output_tum_stream_ << "# timestamp tx ty tz qx qy qz qw" << std::endl;
+        output_tum_stream_.flush();
+      }
+    }
     rendered_image_qos_reliability_ =
       declare_parameter<std::string>("rendered_image_qos_reliability", "reliable");
     rendered_image_qos_durability_ =
@@ -656,6 +687,14 @@ public:
     lidar_plane_max_condition_ = finite_positive_parameter(
       "lidar_plane_max_condition",
       declare_parameter<double>("lidar_plane_max_condition", 0.2));
+    // LOAM edge/corner (point-to-line) factor — targets terminal yaw drift.
+    enable_lidar_line_factor_ = declare_parameter<bool>("enable_lidar_line_factor", false);
+    lidar_line_max_condition_ = finite_positive_parameter(
+      "lidar_line_max_condition",
+      declare_parameter<double>("lidar_line_max_condition", 0.2));
+    lidar_window_line_factor_weight_ = finite_positive_parameter(
+      "lidar_window_line_factor_weight",
+      declare_parameter<double>("lidar_window_line_factor_weight", 1.0));
     lidar_keyframe_translation_m_ = finite_nonnegative_parameter(
       "lidar_keyframe_translation_m",
       declare_parameter<double>("lidar_keyframe_translation_m", 0.25));
@@ -1130,6 +1169,10 @@ public:
     window_config.marginalization_prior_weight = sliding_window_marginalization_prior_weight_;
     window_config.visual_marginalization_prior_zero_bias_columns =
       visual_marginalization_prior_zero_bias_columns_;
+    window_config.estimate_gravity =
+      declare_parameter<bool>("enable_sliding_window_gravity_estimation", false);
+    window_config.gravity_estimation_prior_weight =
+      declare_parameter<double>("sliding_window_gravity_estimation_prior_weight", 1.0);
     sliding_window_optimizer_.set_config(window_config);
 
     gaussian_lic_tracking::LidarFactorConfig lidar_config;
@@ -1144,6 +1187,8 @@ public:
     lidar_config.pose_iterations = static_cast<size_t>(lidar_pose_factor_iterations_);
     lidar_config.plane_min_neighbors = static_cast<size_t>(lidar_plane_min_neighbors_);
     lidar_config.plane_max_condition = lidar_plane_max_condition_;
+    lidar_config.enable_line_factor = enable_lidar_line_factor_;
+    lidar_config.line_max_condition = lidar_line_max_condition_;
     lidar_factor_.set_config(lidar_config);
     visual_factor_.set_max_pixels(static_cast<size_t>(visual_max_pixels_));
 
@@ -1226,7 +1271,11 @@ public:
           }
           run_serialized_callback([this, msg]() { handle_rendered_feedback(*msg); });
         });
-      if (enable_rendered_feedback_ingress_queue_) {
+      // In deterministic offline replay, no wall-clock timer may fire: the
+      // ingress queue is drained synchronously inside run_deterministic_replay()
+      // after every dispatched message. Skip timer creation entirely so nothing
+      // runs async.
+      if (enable_rendered_feedback_ingress_queue_ && deterministic_bag_path_.empty()) {
         rendered_feedback_ingress_timer_ = create_wall_timer(
           std::chrono::milliseconds(rendered_feedback_ingress_drain_period_ms_),
           [this]() {
@@ -1255,6 +1304,216 @@ public:
     if (publish_tf_) {
       tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     }
+  }
+
+  const std::string & deterministic_bag_path() const { return deterministic_bag_path_; }
+
+  // Public on_* wrappers used by run_deterministic_replay(). They mirror the
+  // live subscription lambdas exactly: each calls the existing private
+  // handle_* under the same run_serialized_callback wrapper, so deterministic
+  // replay exercises the identical estimator path as production.
+  void on_imu(const sensor_msgs::msg::Imu::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_imu(*msg); });
+  }
+
+  void on_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_pointcloud(*msg); });
+  }
+
+  void on_image(const sensor_msgs::msg::Image::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_image(*msg); });
+  }
+
+  void on_depth(const sensor_msgs::msg::Image::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_depth(*msg); });
+  }
+
+  void on_camera_info(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_camera_info(*msg); });
+  }
+
+  void on_rendered_feedback(const gaussian_lic_msgs::msg::RenderedFeedback::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_rendered_feedback(*msg); });
+  }
+
+  // Legacy (contract=false) preview path: mirror the live rendered_image
+  // subscription lambda (handle_rendered_image under run_serialized_callback).
+  void on_rendered_image(const sensor_msgs::msg::Image::SharedPtr msg)
+  {
+    run_serialized_callback([this, msg]() { handle_rendered_image(*msg); });
+  }
+
+  // In-process deterministic replay: read the sensor bag and the recorded
+  // rendered-feedback bag, MERGE every message into a single sequence stably
+  // sorted by header stamp, then dispatch each message synchronously to the
+  // same handlers the live subscriptions use. Because the bags are fixed and
+  // dispatch is single-threaded in a deterministic stamp order, the result is
+  // reproducible run-to-run (unlike async `ros2 bag play`). The trajectory is
+  // written via the existing output_tum_path stream from the pose-publish site.
+  void run_deterministic_replay()
+  {
+    struct ReplayMessage
+    {
+      int64_t stamp_ns{0};
+      std::size_t order{0};  // tie-breaker preserving merge/storage order
+      std::string topic;
+      std::shared_ptr<rclcpp::SerializedMessage> serialized;
+    };
+
+    rclcpp::Serialization<sensor_msgs::msg::Imu> imu_serialization;
+    rclcpp::Serialization<sensor_msgs::msg::PointCloud2> pointcloud_serialization;
+    rclcpp::Serialization<sensor_msgs::msg::Image> image_serialization;
+    rclcpp::Serialization<sensor_msgs::msg::CameraInfo> camera_info_serialization;
+    rclcpp::Serialization<gaussian_lic_msgs::msg::RenderedFeedback> feedback_serialization;
+
+    std::vector<ReplayMessage> messages;
+    std::size_t order_counter = 0;
+
+    // Helper: peek the header stamp from a serialized message of a known type
+    // so we can merge-sort across both bags without deserializing twice for the
+    // dispatch (we keep the serialized buffer and deserialize once on dispatch).
+    auto load_bag = [&](const std::string & bag_path) {
+      if (bag_path.empty()) {
+        return;
+      }
+      rosbag2_cpp::Reader reader;
+      reader.open(bag_path);
+      while (rclcpp::ok() && reader.has_next()) {
+        const auto bag_message = reader.read_next();
+        auto serialized =
+          std::make_shared<rclcpp::SerializedMessage>(*bag_message->serialized_data);
+        const std::string & topic = bag_message->topic_name;
+        int64_t stamp_ns = 0;
+        bool keep = true;
+        if (topic == raw_camera_info_topic_) {
+          sensor_msgs::msg::CameraInfo m;
+          camera_info_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else if (topic == raw_imu_topic_) {
+          sensor_msgs::msg::Imu m;
+          imu_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else if (topic == raw_pointcloud_topic_) {
+          sensor_msgs::msg::PointCloud2 m;
+          pointcloud_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else if (topic == raw_image_topic_) {
+          sensor_msgs::msg::Image m;
+          image_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else if (topic == raw_depth_topic_) {
+          sensor_msgs::msg::Image m;
+          image_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else if (topic == rendered_feedback_topic_) {
+          gaussian_lic_msgs::msg::RenderedFeedback m;
+          feedback_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else if (
+          !enable_rendered_feedback_contract_ && topic == rendered_image_topic_) {
+          // Legacy (contract=false) preview feedback: the recorded feedback bag
+          // carries sensor_msgs/Image on rendered_image_topic_. Merge it in
+          // stamp order alongside the observed /camera/image so the legacy
+          // rendered<->observed pairing is deterministic.
+          sensor_msgs::msg::Image m;
+          image_serialization.deserialize_message(serialized.get(), &m);
+          stamp_ns = gaussian_lic_tracking::stamp_to_nanoseconds(m.header.stamp);
+        } else {
+          keep = false;
+        }
+        if (!keep) {
+          continue;
+        }
+        ReplayMessage entry;
+        entry.stamp_ns = stamp_ns;
+        entry.order = order_counter++;
+        entry.topic = topic;
+        entry.serialized = std::move(serialized);
+        messages.push_back(std::move(entry));
+      }
+    };
+
+    load_bag(deterministic_bag_path_);
+    load_bag(deterministic_feedback_bag_path_);
+
+    // Stable sort by header stamp; ties keep the (sensor-bag-first) load order.
+    std::stable_sort(
+      messages.begin(), messages.end(),
+      [](const ReplayMessage & lhs, const ReplayMessage & rhs) {
+        if (lhs.stamp_ns != rhs.stamp_ns) {
+          return lhs.stamp_ns < rhs.stamp_ns;
+        }
+        return lhs.order < rhs.order;
+      });
+
+    std::size_t imu_n = 0, lidar_n = 0, image_n = 0, depth_n = 0, info_n = 0,
+      feedback_n = 0, rendered_image_n = 0;
+    for (const auto & entry : messages) {
+      if (!rclcpp::ok()) {
+        break;
+      }
+      const std::string & topic = entry.topic;
+      if (topic == raw_camera_info_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::CameraInfo>();
+        camera_info_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_camera_info(msg);
+        ++info_n;
+      } else if (topic == raw_imu_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::Imu>();
+        imu_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_imu(msg);
+        ++imu_n;
+      } else if (topic == raw_pointcloud_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+        pointcloud_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_pointcloud(msg);
+        ++lidar_n;
+      } else if (topic == raw_image_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::Image>();
+        image_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_image(msg);
+        ++image_n;
+      } else if (topic == raw_depth_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::Image>();
+        image_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_depth(msg);
+        ++depth_n;
+      } else if (topic == rendered_feedback_topic_) {
+        auto msg = std::make_shared<gaussian_lic_msgs::msg::RenderedFeedback>();
+        feedback_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_rendered_feedback(msg);
+        ++feedback_n;
+      } else if (
+        !enable_rendered_feedback_contract_ && topic == rendered_image_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::Image>();
+        image_serialization.deserialize_message(entry.serialized.get(), msg.get());
+        on_rendered_image(msg);
+        ++rendered_image_n;
+      }
+      // The production async path drains the rendered-feedback ingress queue on
+      // a wall-clock timer (disabled in deterministic mode). Drain it
+      // synchronously after every dispatch so feedback is consumed in the same
+      // deterministic stamp order.
+      if (enable_rendered_feedback_contract_ && enable_rendered_feedback_ingress_queue_) {
+        run_serialized_callback([this]() { drain_rendered_feedback_ingress_queue(); });
+      }
+    }
+
+    if (output_tum_stream_.is_open()) {
+      output_tum_stream_.flush();
+    }
+    RCLCPP_INFO(
+      get_logger(),
+      "deterministic replay done: total=%zu imu=%zu lidar=%zu image=%zu depth=%zu "
+      "info=%zu feedback=%zu rendered_image=%zu",
+      messages.size(), imu_n, lidar_n, image_n, depth_n, info_n, feedback_n,
+      rendered_image_n);
   }
 
 private:
@@ -4032,6 +4291,7 @@ private:
 
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> window_point_factors;
     std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> window_plane_factors;
+    std::vector<gaussian_lic_tracking::SlidingWindowPointToLineFactor> window_line_factors;
     size_t window_point_correspondences = 0U;
     size_t window_plane_correspondences = 0U;
     size_t window_point_weight_count = 0U;
@@ -4094,6 +4354,20 @@ private:
               window_plane_weight_sum,
               window_plane_weight_min);
             window_plane_factors.push_back(std::move(lidar_plane_factor));
+          }
+        }
+        if (enable_lidar_line_factor_) {
+          auto lidar_line_factor = lidar_factor_.build_point_to_line_factor(lidar_points, tracking_pose);
+          RCLCPP_INFO_THROTTLE(
+            get_logger(), *get_clock(), 1000,
+            "[line-factor] enabled=%d line_corrs=%zu",
+            static_cast<int>(enable_lidar_line_factor_),
+            lidar_line_factor.frame_points_i.size());
+          if (!lidar_line_factor.frame_points_i.empty()) {
+            lidar_line_factor.weight *= lidar_window_line_factor_weight_;
+            apply_correspondence_weight_power(
+              lidar_line_factor.point_weights, lidar_window_confidence_power_);
+            window_line_factors.push_back(std::move(lidar_line_factor));
           }
         }
         if (enable_gaussian_snapshot_lidar_factor_ && gaussian_snapshot_.complete()) {
@@ -4400,6 +4674,7 @@ private:
         tracking_pose,
         window_point_factors,
         window_plane_factors,
+        window_line_factors,
         visual_window_factors,
         se3_photometric_factors,
         relative_translation_factors,
@@ -4440,6 +4715,23 @@ private:
     odom.twist.twist.linear.z = tracking_pose.v_w_i.z();
     odometry_pub_->publish(odom);
     ++num_published_poses_;
+
+    // Deterministic-replay trajectory output. Gated by the output stream being
+    // open (only opened when output_tum_path is set), so the production async
+    // path is unaffected. TUM format: timestamp tx ty tz qx qy qz qw.
+    if (output_tum_stream_.is_open()) {
+      const double stamp_s =
+        static_cast<double>(pose.header.stamp.sec) +
+        static_cast<double>(pose.header.stamp.nanosec) * 1.0e-9;
+      output_tum_stream_ << std::fixed << std::setprecision(9) << stamp_s << ' '
+                         << std::setprecision(9) << tracking_pose.p_w_i.x() << ' '
+                         << tracking_pose.p_w_i.y() << ' '
+                         << tracking_pose.p_w_i.z() << ' '
+                         << tracking_pose.q_w_i.x() << ' '
+                         << tracking_pose.q_w_i.y() << ' '
+                         << tracking_pose.q_w_i.z() << ' '
+                         << tracking_pose.q_w_i.w() << '\n';
+    }
 
     path_.header = pose.header;
     path_.poses.push_back(pose);
@@ -5123,6 +5415,7 @@ private:
     const gaussian_lic_tracking::TrajectoryPose & input_pose,
     const std::vector<gaussian_lic_tracking::SlidingWindowPointToPointFactor> & point_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowPointToPlaneFactor> & plane_factors,
+    const std::vector<gaussian_lic_tracking::SlidingWindowPointToLineFactor> & line_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowVisualAlignmentFactor> & visual_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowSe3PhotometricFactor> & se3_photometric_factors,
     const std::vector<gaussian_lic_tracking::SlidingWindowRelativeTranslationFactor> &
@@ -5228,6 +5521,18 @@ private:
         RCLCPP_WARN_THROTTLE(
           get_logger(), *get_clock(), 2000,
           "sliding window plane factor skipped: %s", ex.what());
+      }
+    }
+    for (const auto & line_factor : line_factors) {
+      try {
+        sliding_window_optimizer_.add_point_to_line_factor(line_factor);
+        window_factor_added = true;
+        external_feedback_factor_added = true;
+      } catch (const std::exception & ex) {
+        ++sliding_window_plane_factor_skip_count_;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000,
+          "sliding window line factor skipped: %s", ex.what());
       }
     }
     for (const auto & visual_factor : visual_factors) {
@@ -8483,6 +8788,10 @@ private:
   std::string tracking_status_topic_;
   std::string rendered_image_topic_;
   std::string rendered_feedback_topic_;
+  std::string deterministic_bag_path_;
+  std::string deterministic_feedback_bag_path_;
+  std::string output_tum_path_;
+  std::ofstream output_tum_stream_;
   std::string gaussian_map_topic_;
   int gaussian_snapshot_qos_depth_{64};
   std::string world_frame_;
@@ -8773,6 +9082,9 @@ private:
   double lidar_window_confidence_power_{1.0};
   int lidar_plane_min_neighbors_{5};
   double lidar_plane_max_condition_{0.2};
+  bool enable_lidar_line_factor_{false};
+  double lidar_line_max_condition_{0.2};
+  double lidar_window_line_factor_weight_{1.0};
   double lidar_keyframe_translation_m_{0.25};
   Eigen::Vector3d p_i_l_{Eigen::Vector3d::Zero()};
   Eigen::Quaterniond q_i_l_{Eigen::Quaterniond::Identity()};
@@ -9118,7 +9430,12 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<TrackingNode>());
+  auto node = std::make_shared<TrackingNode>();
+  if (!node->deterministic_bag_path().empty()) {
+    node->run_deterministic_replay();
+  } else {
+    rclcpp::spin(node);
+  }
   rclcpp::shutdown();
   return 0;
 }

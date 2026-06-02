@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <fstream>
@@ -23,6 +24,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
@@ -32,6 +34,9 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/serialization.hpp>
+#include <rclcpp/serialized_message.hpp>
+#include <rosbag2_cpp/reader.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -39,12 +44,14 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include <gaussian_lic_msgs/msg/gaussian_array.hpp>
+#include <gaussian_lic_msgs/msg/rendered_feedback.hpp>
 #include <gaussian_lic_tracking/gaussian_snapshot.hpp>
 #include <gaussian_lic_tracking/lidar_factor.hpp>
 #include <gaussian_lic_tracking/time.hpp>
 #include <gaussian_lic_tracking/visual_factor.hpp>
 #include <gaussian_lic_tracking/spline/continuous_time_sliding_window.hpp>
 #include <gaussian_lic_tracking/spline/lidar_plane_extractor.hpp>
+#include <gaussian_lic_tracking/spline/lidar_loam_submap.hpp>
 #include <gaussian_lic_tracking/spline/so3_ops.hpp>
 
 namespace gaussian_lic_tracking
@@ -461,6 +468,20 @@ public:
       declare_parameter<double>("retained_knot_orientation_prior_huber_delta_rad", 0.0);
     options.enable_spline_orientation_marginalization_prior =
       declare_parameter<bool>("enable_spline_orientation_marginalization_prior", false);
+    // Increment 2 Part B: non-uniform B-spline + adaptive knot density.
+    // Both default false => byte-identical uniform path. gravity_world is parsed
+    // below (:531), so get_knot_density's gravity_norm = gravity_world.norm() is
+    // available to the adaptive knot insertion at solve time.
+    options.enable_non_uniform_knots =
+      declare_parameter<bool>("enable_non_uniform_knots", false);
+    options.enable_adaptive_knot_density =
+      declare_parameter<bool>("enable_adaptive_knot_density", false);
+    options.enable_imu_propagation_seed =
+      declare_parameter<bool>("enable_imu_propagation_seed", false);
+    options.enable_imu_velocity_seed =
+      declare_parameter<bool>("enable_imu_velocity_seed", false);
+    options.enable_imu_presolve_seed =
+      declare_parameter<bool>("enable_imu_presolve_seed", false);
     options.gyro_bias_prior_weight =
       declare_parameter<double>("gyro_bias_prior_weight", 0.0);
     options.gyro_bias_prior_huber_delta_radps =
@@ -618,6 +639,41 @@ public:
       declare_parameter<double>("visual_rotation_sign", 1.0);
     enable_visual_se3_prior_ =
       declare_parameter<bool>("enable_visual_se3_prior", false);
+    // When set, the validated photometric-sample pipeline feeds tightly-coupled
+    // direct-photometric factors on the spline knots instead of collapsing them
+    // into the weak SE(3) pseudo-prior. This is the metric-scale visual
+    // constraint the SE(3) prior path could not provide.
+    enable_visual_photometric_factor_ =
+      declare_parameter<bool>("enable_visual_photometric_factor", false);
+    // Global scale on the photometric residual (intensity units). Each per-pixel
+    // factor competes implicitly with the IMU/LiDAR factors; this knob sets its
+    // leverage. Ceres Huber delta scales with it so the robust transition stays
+    // at the same intensity fraction.
+    visual_photometric_weight_ =
+      declare_parameter<double>("visual_photometric_weight", 1.0);
+    // Map-based photometric (Gaussian-LIC2-style global reference): accumulate a
+    // colored voxel map online and align the current image to it. Unlike
+    // frame-to-keyframe (local, plateaus ~4%), a persistent map is a STABLE
+    // GLOBAL reference whose residual is nonzero exactly when the pose has
+    // accumulated drift -> the lever against systematic drift.
+    enable_visual_map_photometric_ =
+      declare_parameter<bool>("enable_visual_map_photometric", false);
+    map_photometric_voxel_m_ =
+      declare_parameter<double>("map_photometric_voxel_m", 0.2);
+    map_photometric_min_obs_ =
+      static_cast<int>(declare_parameter<int>("map_photometric_min_obs", 3));
+    enable_render_photometric_ =
+      declare_parameter<bool>("enable_render_photometric", false);
+    deterministic_feedback_bag_path_ =
+      declare_parameter<std::string>("deterministic_feedback_bag_path", "");
+    rendered_feedback_topic_ = declare_parameter<std::string>(
+      "rendered_feedback_topic", "/gaussian_lic/rendered_feedback");
+    // Translation baseline (m) for frame-to-keyframe photometric: a new keyframe
+    // is snapshotted once the current pose translates this far from the held
+    // keyframe. Larger baseline = stronger drift signal but more appearance
+    // change; smaller = closer to (inert) frame-to-frame.
+    visual_photometric_keyframe_translation_m_ =
+      declare_parameter<double>("visual_photometric_keyframe_translation_m", 0.3);
     visual_se3_position_weight_ =
       declare_parameter<double>("visual_se3_position_weight", 0.0);
     visual_se3_orientation_weight_ =
@@ -742,6 +798,19 @@ public:
     }
     visual_factor_.set_max_pixels(static_cast<size_t>(visual_rotation_max_pixels_));
 
+    // Deterministic offline replay: when deterministic_bag_path is set, main()
+    // reads the bag directly and dispatches messages to the handlers IN-PROCESS,
+    // in fixed storage order, instead of spinning on async DDS subscriptions.
+    // This removes the cross-topic callback-interleaving + image-lag
+    // nondeterminism that makes the live (ros2 bag play) visual evaluation
+    // irreproducible. Pair with a high max_stamp_driven_steps_per_callback so
+    // stepping is wall-clock-independent too.
+    deterministic_bag_path_ = declare_parameter<std::string>("deterministic_bag_path", "");
+    replay_imu_topic_ = declare_parameter<std::string>("replay_imu_topic", "/imu");
+    replay_lidar_topic_ = declare_parameter<std::string>("replay_lidar_topic", "/livox/lidar");
+    replay_image_topic_ = declare_parameter<std::string>("replay_image_topic", "/camera/image");
+    replay_camera_info_topic_ =
+      declare_parameter<std::string>("replay_camera_info_topic", "/camera/camera_info");
     output_tum_path_ = declare_parameter<std::string>("output_tum_path", "");
     if (!output_tum_path_.empty()) {
       output_tum_stream_.open(output_tum_path_, std::ios::out | std::ios::trunc);
@@ -1022,6 +1091,14 @@ public:
     // explicitly while the tracker is still being RMSE-tuned.
     enable_voxel_plane_extraction_ =
       declare_parameter<bool>("enable_voxel_plane_extraction", false);
+    enable_voxel_edge_extraction_ =
+      declare_parameter<bool>("enable_voxel_edge_extraction", false);
+    voxel_edge_factor_weight_ =
+      declare_parameter<double>("voxel_edge_factor_weight", 1.0);
+    enable_loam_submap_association_ =
+      declare_parameter<bool>("enable_loam_submap_association", false);
+    loam_submap_factor_weight_ =
+      declare_parameter<double>("loam_submap_factor_weight", 1.0);
     enable_persistent_plane_map_ =
       declare_parameter<bool>("enable_persistent_plane_map", true);
     enable_persistent_point_map_ =
@@ -1103,9 +1180,21 @@ public:
       declare_parameter<double>("voxel_plane_max_inlier_m", 0.1);
     extractor_options.max_correspondences = static_cast<int>(
       declare_parameter<int>("voxel_plane_max_correspondences", 64));
+    extractor_options.linear_eigenvalue_ratio =
+      declare_parameter<double>("voxel_edge_eigen_ratio", 0.1);
+    extractor_options.max_edge_correspondences = static_cast<int>(
+      declare_parameter<int>("voxel_edge_max_correspondences", 128));
     extractor_options.min_range_m = pointcloud_min_range_m_;
     extractor_options.max_range_m = pointcloud_max_range_m_;
     plane_extractor_.set_options(extractor_options);
+    spline::LoamSubmapOptions loam_options;
+    loam_options.search_voxel_size_m =
+      declare_parameter<double>("loam_submap_voxel_size_m", 0.5);
+    loam_options.max_neighbor_distance_m =
+      declare_parameter<double>("loam_submap_max_neighbor_m", 1.0);
+    loam_options.max_points = static_cast<std::size_t>(
+      declare_parameter<int>("loam_submap_max_points", 40000));
+    loam_submap_.set_options(loam_options);
     spline::PersistentPlaneMapOptions plane_map_options;
     plane_map_options.max_planes = static_cast<int>(
       declare_parameter<int>("persistent_plane_map_max_planes", 512));
@@ -1162,7 +1251,9 @@ public:
         std::bind(&ContinuousTimeNode::on_pointcloud, this, std::placeholders::_1));
     }
 
-    if (enable_visual_rotation_prior_ || enable_visual_se3_prior_) {
+    if (enable_visual_rotation_prior_ || enable_visual_se3_prior_ ||
+      enable_visual_photometric_factor_)
+    {
       rclcpp::QoS camera_qos(rclcpp::KeepLast(20));
       camera_qos.best_effort();
       camera_info_subscription_ = create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -1217,6 +1308,82 @@ public:
     }
     knot_interval_ns_ =
       static_cast<int64_t>(std::llround(options.dt_s * 1.0e9));
+  }
+
+  const std::string & deterministic_bag_path() const { return deterministic_bag_path_; }
+
+  // In-process deterministic replay: read the bag in fixed storage order and
+  // dispatch each message synchronously to the same handlers the live
+  // subscriptions use. Because the bag file is fixed and dispatch is
+  // single-threaded in a deterministic order, the result is reproducible
+  // run-to-run (unlike async `ros2 bag play`). Output is written via the
+  // existing output_tum_path stream from publish_pose_at().
+  void run_deterministic_replay()
+  {
+    rosbag2_cpp::Reader reader;
+    reader.open(deterministic_bag_path_);
+    if (enable_render_photometric_ && !deterministic_feedback_bag_path_.empty()) {
+      rosbag2_cpp::Reader fb_reader;
+      fb_reader.open(deterministic_feedback_bag_path_);
+      rclcpp::Serialization<gaussian_lic_msgs::msg::RenderedFeedback> fb_ser;
+      while (rclcpp::ok() && fb_reader.has_next()) {
+        const auto bm = fb_reader.read_next();
+        if (bm->topic_name != rendered_feedback_topic_) {
+          continue;
+        }
+        rclcpp::SerializedMessage s(*bm->serialized_data);
+        gaussian_lic_msgs::msg::RenderedFeedback m;
+        fb_ser.deserialize_message(&s, &m);
+        VisualFrame rf;
+        if (decode_image_gray(m.image, rf)) {
+          rf.stamp_ns = stamp_to_nanoseconds(m.observed_stamp);
+          rendered_by_observed_stamp_[rf.stamp_ns] = std::move(rf);
+        }
+      }
+      RCLCPP_INFO(
+        get_logger(), "render-photometric: loaded %zu rendered frames keyed by observed_stamp",
+        rendered_by_observed_stamp_.size());
+    }
+    rclcpp::Serialization<sensor_msgs::msg::Imu> imu_serialization;
+    rclcpp::Serialization<sensor_msgs::msg::PointCloud2> pointcloud_serialization;
+    rclcpp::Serialization<sensor_msgs::msg::Image> image_serialization;
+    rclcpp::Serialization<sensor_msgs::msg::CameraInfo> camera_info_serialization;
+
+    std::size_t imu_n = 0, lidar_n = 0, image_n = 0, info_n = 0, total = 0;
+    while (rclcpp::ok() && reader.has_next()) {
+      const auto bag_message = reader.read_next();
+      rclcpp::SerializedMessage serialized(*bag_message->serialized_data);
+      const std::string & topic = bag_message->topic_name;
+      ++total;
+      if (topic == replay_camera_info_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::CameraInfo>();
+        camera_info_serialization.deserialize_message(&serialized, msg.get());
+        on_camera_info(msg);
+        ++info_n;
+      } else if (topic == replay_imu_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::Imu>();
+        imu_serialization.deserialize_message(&serialized, msg.get());
+        on_imu(msg);
+        ++imu_n;
+      } else if (topic == replay_lidar_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+        pointcloud_serialization.deserialize_message(&serialized, msg.get());
+        on_pointcloud(msg);
+        ++lidar_n;
+      } else if (topic == replay_image_topic_) {
+        auto msg = std::make_shared<sensor_msgs::msg::Image>();
+        image_serialization.deserialize_message(&serialized, msg.get());
+        on_image(msg);
+        ++image_n;
+      }
+    }
+    if (output_tum_stream_.is_open()) {
+      output_tum_stream_.flush();
+    }
+    RCLCPP_INFO(
+      get_logger(),
+      "deterministic replay done: total=%zu imu=%zu lidar=%zu image=%zu info=%zu",
+      total, imu_n, lidar_n, image_n, info_n);
   }
 
 private:
@@ -1432,7 +1599,8 @@ private:
 
   void on_camera_info(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
   {
-    if (!msg || (!enable_visual_rotation_prior_ && !enable_visual_se3_prior_)) {
+    if (!msg || (!enable_visual_rotation_prior_ && !enable_visual_se3_prior_ &&
+      !enable_visual_photometric_factor_)) {
       return;
     }
     const double fx = msg->k[0];
@@ -1456,7 +1624,8 @@ private:
 
   void on_image(const sensor_msgs::msg::Image::SharedPtr msg)
   {
-    if (!msg || (!enable_visual_rotation_prior_ && !enable_visual_se3_prior_)) {
+    if (!msg || (!enable_visual_rotation_prior_ && !enable_visual_se3_prior_ &&
+      !enable_visual_photometric_factor_)) {
       return;
     }
     VisualFrame frame;
@@ -1931,6 +2100,407 @@ private:
       return VisualSe3PriorStatus::kRejected;
     }
 
+    // Tightly-coupled direct-photometric path (previous-frame anchored, proper
+    // direct-VO data association). The fixed-pixel temporal-diff `samples` built
+    // above are optical-flow measurements, NOT reprojection references, so they
+    // are reused only as a texture gate. Here each point is anchored in the
+    // PREVIOUS frame (stable reference appearance + depth + pose), lifted to a
+    // FIXED world point, and reprojected into the CURRENT image; the factor
+    // constrains the current spline pose so the reprojected current intensity
+    // matches the previous reference. point_world is lifted via the previous
+    // (reference) pose, NOT the optimized current pose, so there is no circular
+    // dependency.
+    if (enable_visual_map_photometric_) {
+      // Map-based photometric (Gaussian-LIC2-style global reference). A
+      // persistent colored voxel map (running mean world position + intensity)
+      // is the STABLE GLOBAL reference: each current-frame point queries its
+      // voxel; if that voxel was built up over earlier frames, its mean world
+      // position reprojects (at the current pose) to a pixel whose current
+      // intensity should match the voxel's mean intensity -- nonzero residual
+      // EXACTLY when the current pose has accumulated drift from the map. Query
+      // is O(1) per current point (no full-map scan). Accumulate AFTER querying
+      // so the reference is built only from earlier frames (no tautology).
+      int64_t cur_depth_delta_ns = 0;
+      const SparseDepthFrame * cur_depth = select_sparse_depth_frame_locked(
+        current.stamp_ns, current.width, current.height, cur_depth_delta_ns);
+      Eigen::Quaterniond q_w_b_cur;
+      Eigen::Vector3d p_w_b_cur;
+      const size_t cur_pixels = current.width * current.height;
+      if (cur_depth == nullptr || cur_depth->depth_m.size() != cur_pixels ||
+        current.gray.size() != cur_pixels ||
+        !estimator_->query_pose(current.stamp_ns, q_w_b_cur, p_w_b_cur))
+      {
+        ++visual_se3_rejected_batches_;
+        return VisualSe3PriorStatus::kRejected;
+      }
+      const Eigen::Quaterniond q_w_c_cur =
+        (q_w_b_cur * camera_to_imu_rotation_).normalized();
+      const Eigen::Vector3d p_w_c_cur =
+        p_w_b_cur + q_w_b_cur * camera_to_imu_translation_;
+      const double fx = visual_intrinsics_.fx;
+      const double fy = visual_intrinsics_.fy;
+      const double cx = visual_intrinsics_.cx;
+      const double cy = visual_intrinsics_.cy;
+      const double inv_voxel = 1.0 / map_photometric_voxel_m_;
+      const double photo_huber = visual_se3_huber_delta_intensity_ > 0.0
+        ? visual_se3_huber_delta_intensity_ * visual_photometric_weight_
+        : -1.0;
+      const auto voxel_key = [inv_voxel](const Eigen::Vector3d & w) -> int64_t {
+        // Unique pack (no hash collisions): each axis in 21 bits, offset to
+        // non-negative. Range +/- 2^20 voxels (~+/-200 km at 0.2 m) is ample.
+        const int64_t off = 1LL << 20;
+        const int64_t vx = static_cast<int64_t>(std::floor(w.x() * inv_voxel)) + off;
+        const int64_t vy = static_cast<int64_t>(std::floor(w.y() * inv_voxel)) + off;
+        const int64_t vz = static_cast<int64_t>(std::floor(w.z() * inv_voxel)) + off;
+        return ((vx & 0x1FFFFF) << 42) | ((vy & 0x1FFFFF) << 21) | (vz & 0x1FFFFF);
+      };
+      const auto sample_current =
+        [&current](double u, double v, double & intensity, double & gu, double & gv) -> bool {
+          const int x0 = static_cast<int>(std::floor(u));
+          const int y0 = static_cast<int>(std::floor(v));
+          if (x0 < 1 || y0 < 1 ||
+            x0 + 2 >= static_cast<int>(current.width) ||
+            y0 + 2 >= static_cast<int>(current.height))
+          {
+            return false;
+          }
+          const double ax = u - static_cast<double>(x0);
+          const double ay = v - static_cast<double>(y0);
+          const auto px = [&current](int xx, int yy) {
+              return static_cast<double>(
+                current.gray[static_cast<size_t>(yy) * current.width + static_cast<size_t>(xx)]);
+            };
+          const auto bil = [&](int xx, int yy) {
+              return (1.0 - ax) * (1.0 - ay) * px(xx, yy) +
+                ax * (1.0 - ay) * px(xx + 1, yy) +
+                (1.0 - ax) * ay * px(xx, yy + 1) +
+                ax * ay * px(xx + 1, yy + 1);
+            };
+          intensity = bil(x0, y0);
+          gu = 0.5 * (bil(x0 + 1, y0) - bil(x0 - 1, y0));
+          gv = 0.5 * (bil(x0, y0 + 1) - bil(x0, y0 - 1));
+          return true;
+        };
+      const VisualFrame * rendered_ref = nullptr;
+      if (enable_render_photometric_) {
+        const auto rit = rendered_by_observed_stamp_.find(current.stamp_ns);
+        if (rit != rendered_by_observed_stamp_.end() &&
+          rit->second.width == current.width &&
+          rit->second.height == current.height &&
+          rit->second.gray.size() == current.width * current.height)
+        {
+          rendered_ref = &rit->second;
+        }
+      }
+      const auto sample_rendered =
+        [rendered_ref](double u, double v, double & intensity) -> bool {
+          if (rendered_ref == nullptr) { return false; }
+          const int x0 = static_cast<int>(std::floor(u));
+          const int y0 = static_cast<int>(std::floor(v));
+          if (x0 < 1 || y0 < 1 ||
+            x0 + 2 >= static_cast<int>(rendered_ref->width) ||
+            y0 + 2 >= static_cast<int>(rendered_ref->height))
+          {
+            return false;
+          }
+          const double ax = u - static_cast<double>(x0);
+          const double ay = v - static_cast<double>(y0);
+          const auto px = [&](int xx, int yy) {
+              return static_cast<double>(
+                rendered_ref->gray[static_cast<size_t>(yy) * rendered_ref->width +
+                static_cast<size_t>(xx)]);
+            };
+          intensity = (1.0 - ax) * (1.0 - ay) * px(x0, y0) +
+            ax * (1.0 - ay) * px(x0 + 1, y0) +
+            (1.0 - ax) * ay * px(x0, y0 + 1) +
+            ax * ay * px(x0 + 1, y0 + 1);
+          return true;
+        };
+      size_t valid = 0U;
+      for (size_t i = 0; i < cur_pixels; ++i) {
+        const float d = cur_depth->depth_m[i];
+        if (std::isfinite(d) &&
+          static_cast<double>(d) >= visual_se3_min_depth_m_ &&
+          static_cast<double>(d) <= visual_se3_max_depth_m_)
+        {
+          ++valid;
+        }
+      }
+      const size_t stride = std::max<size_t>(
+        1U, valid / static_cast<size_t>(std::max(1, visual_se3_max_samples_)));
+      const double w = visual_photometric_weight_;
+      std::vector<std::pair<int64_t, std::pair<Eigen::Vector3d, double>>> to_accumulate;
+      to_accumulate.reserve(static_cast<size_t>(std::max(1, visual_se3_max_samples_)));
+      size_t seen = 0U;
+      size_t added = 0U;
+      for (size_t i = 0; i < cur_pixels; ++i) {
+        const float d = cur_depth->depth_m[i];
+        if (!std::isfinite(d) ||
+          static_cast<double>(d) < visual_se3_min_depth_m_ ||
+          static_cast<double>(d) > visual_se3_max_depth_m_)
+        {
+          continue;
+        }
+        if ((seen++ % stride) != 0U) {
+          continue;
+        }
+        const size_t xp = i % current.width;
+        const size_t yp = i / current.width;
+        const double z = static_cast<double>(d);
+        const Eigen::Vector3d pc_cur(
+          (static_cast<double>(xp) - cx) * z / fx,
+          (static_cast<double>(yp) - cy) * z / fy,
+          z);
+        const Eigen::Vector3d world = q_w_c_cur * pc_cur + p_w_c_cur;
+        const int64_t key = voxel_key(world);
+        const double intensity_obs = static_cast<double>(current.gray[i]);
+        // QUERY the map (built from EARLIER frames) before accumulating.
+        const auto it = colored_photometric_map_.find(key);
+        if (it != colored_photometric_map_.end() &&
+          it->second.count >= map_photometric_min_obs_)
+        {
+          const double inv_n = 1.0 / static_cast<double>(it->second.count);
+          const Eigen::Vector3d map_xyz = it->second.xyz_sum * inv_n;
+          double map_intensity = it->second.intensity_sum * inv_n;
+          const Eigen::Vector3d pc_map = q_w_c_cur.conjugate() * (map_xyz - p_w_c_cur);
+          if (pc_map.z() > visual_se3_min_depth_m_) {
+            const double u0 = fx * pc_map.x() / pc_map.z() + cx;
+            const double v0 = fy * pc_map.y() / pc_map.z() + cy;
+            if (rendered_ref != nullptr) {
+              double rend_i = 0.0;
+              if (sample_rendered(u0, v0, rend_i)) {
+                map_intensity = rend_i;
+              } else {
+                continue;
+              }
+            }
+            double intensity = 0.0;
+            double gu = 0.0;
+            double gv = 0.0;
+            if (sample_current(u0, v0, intensity, gu, gv)) {
+              const double grad_norm = std::hypot(gu, gv);
+              const double residual = intensity - map_intensity;
+              if (std::isfinite(grad_norm) && grad_norm >= visual_se3_min_gradient_ &&
+                std::isfinite(residual) &&
+                (visual_se3_max_abs_residual_ <= 0.0 ||
+                std::abs(residual) <= visual_se3_max_abs_residual_))
+              {
+                spline::PhotometricObservation obs;
+                obs.point_world = map_xyz;
+                obs.fx = fx;
+                obs.fy = fy;
+                obs.cx = cx;
+                obs.cy = cy;
+                obs.q_camera_to_imu = camera_to_imu_rotation_;
+                obs.p_camera_in_imu = camera_to_imu_translation_;
+                obs.uv_reference = Eigen::Vector2d(u0, v0);
+                obs.bias = {w * residual};
+                obs.gradient = {Eigen::Vector2d(w * gu, w * gv)};
+                estimator_->add_photometric_factor(current.stamp_ns, obs, photo_huber);
+                ++added;
+              }
+            }
+          }
+        }
+        to_accumulate.emplace_back(key, std::make_pair(world, intensity_obs));
+        if (to_accumulate.size() >= static_cast<size_t>(visual_se3_max_samples_)) {
+          // keep accumulating across the whole frame, but cap factor work above
+        }
+      }
+      // ACCUMULATE current observations into the map (after querying).
+      for (const auto & entry : to_accumulate) {
+        ColoredVoxel & v_ = colored_photometric_map_[entry.first];
+        v_.xyz_sum += entry.second.first;
+        v_.intensity_sum += entry.second.second;
+        ++v_.count;
+      }
+      return VisualSe3PriorStatus::kAdded;
+    }
+
+    if (enable_visual_photometric_factor_) {
+      // Frame-to-KEYFRAME photometric: anchor points in a HELD keyframe (a
+      // stable, older reference) rather than the immediately-previous frame.
+      // Frame-to-frame residuals are ~0 because LiDAR+IMU already make
+      // consecutive frames locally consistent (the factor was inert); a keyframe
+      // held across a translation baseline yields nonzero residuals when the
+      // pose drifts from it, activating the factor. Stepping stone toward a
+      // persistent colored map.
+      Eigen::Quaterniond q_w_b_cur;
+      Eigen::Vector3d p_w_b_cur;
+      if (current.gray.size() != current.width * current.height ||
+        !estimator_->query_pose(current.stamp_ns, q_w_b_cur, p_w_b_cur))
+      {
+        ++visual_se3_rejected_batches_;
+        return VisualSe3PriorStatus::kRejected;
+      }
+      bool need_keyframe = !have_photometric_keyframe_;
+      if (have_photometric_keyframe_) {
+        Eigen::Quaterniond q_kf_b;
+        Eigen::Vector3d p_kf_b;
+        if (estimator_->query_pose(photometric_keyframe_.stamp_ns, q_kf_b, p_kf_b)) {
+          if ((p_w_b_cur - p_kf_b).norm() > visual_photometric_keyframe_translation_m_) {
+            need_keyframe = true;
+          }
+        } else {
+          need_keyframe = true;  // keyframe fell out of the queryable window
+        }
+      }
+      if (need_keyframe) {
+        int64_t kf_depth_delta_ns = 0;
+        const SparseDepthFrame * cur_depth = select_sparse_depth_frame_locked(
+          current.stamp_ns, current.width, current.height, kf_depth_delta_ns);
+        if (cur_depth != nullptr &&
+          cur_depth->depth_m.size() == current.width * current.height)
+        {
+          photometric_keyframe_ = current;             // copy gray
+          photometric_keyframe_depth_ = *cur_depth;     // snapshot depth
+          have_photometric_keyframe_ = true;
+        }
+        return VisualSe3PriorStatus::kAdded;            // current IS the new keyframe
+      }
+      const VisualFrame & kf = photometric_keyframe_;
+      const SparseDepthFrame * prev_depth = &photometric_keyframe_depth_;
+      const size_t prev_pixels = kf.width * kf.height;
+      Eigen::Quaterniond q_w_b_prev;
+      Eigen::Vector3d p_w_b_prev;
+      if (prev_depth->depth_m.size() != prev_pixels ||
+        kf.gray.size() != prev_pixels ||
+        !estimator_->query_pose(kf.stamp_ns, q_w_b_prev, p_w_b_prev))
+      {
+        ++visual_se3_rejected_batches_;
+        return VisualSe3PriorStatus::kRejected;
+      }
+      const Eigen::Quaterniond q_w_c_prev =
+        (q_w_b_prev * camera_to_imu_rotation_).normalized();
+      const Eigen::Vector3d p_w_c_prev =
+        p_w_b_prev + q_w_b_prev * camera_to_imu_translation_;
+      const Eigen::Quaterniond q_w_c_cur =
+        (q_w_b_cur * camera_to_imu_rotation_).normalized();
+      const Eigen::Vector3d p_w_c_cur =
+        p_w_b_cur + q_w_b_cur * camera_to_imu_translation_;
+      const double fx = visual_intrinsics_.fx;
+      const double fy = visual_intrinsics_.fy;
+      const double cx = visual_intrinsics_.cx;
+      const double cy = visual_intrinsics_.cy;
+      const double photo_huber = visual_se3_huber_delta_intensity_ > 0.0
+        ? visual_se3_huber_delta_intensity_ * visual_photometric_weight_
+        : -1.0;
+      // Bilinear sample of the current image + central-difference gradient.
+      const auto sample_current =
+        [&current](double u, double v, double & intensity, double & gu, double & gv) -> bool {
+          const int x0 = static_cast<int>(std::floor(u));
+          const int y0 = static_cast<int>(std::floor(v));
+          if (x0 < 1 || y0 < 1 ||
+            x0 + 2 >= static_cast<int>(current.width) ||
+            y0 + 2 >= static_cast<int>(current.height))
+          {
+            return false;
+          }
+          const double ax = u - static_cast<double>(x0);
+          const double ay = v - static_cast<double>(y0);
+          const auto px = [&current](int xx, int yy) {
+              return static_cast<double>(
+                current.gray[static_cast<size_t>(yy) * current.width + static_cast<size_t>(xx)]);
+            };
+          const auto bil = [&](int xx, int yy) {
+              return (1.0 - ax) * (1.0 - ay) * px(xx, yy) +
+                ax * (1.0 - ay) * px(xx + 1, yy) +
+                (1.0 - ax) * ay * px(xx, yy + 1) +
+                ax * ay * px(xx + 1, yy + 1);
+            };
+          intensity = bil(x0, y0);
+          gu = 0.5 * (bil(x0 + 1, y0) - bil(x0 - 1, y0));
+          gv = 0.5 * (bil(x0, y0 + 1) - bil(x0, y0 - 1));
+          return true;
+        };
+      size_t valid = 0U;
+      for (size_t i = 0; i < prev_pixels; ++i) {
+        const float d = prev_depth->depth_m[i];
+        if (std::isfinite(d) &&
+          static_cast<double>(d) >= visual_se3_min_depth_m_ &&
+          static_cast<double>(d) <= visual_se3_max_depth_m_)
+        {
+          ++valid;
+        }
+      }
+      if (valid == 0U) {
+        ++visual_se3_rejected_batches_;
+        return VisualSe3PriorStatus::kRejected;
+      }
+      const size_t stride = std::max<size_t>(
+        1U, valid / static_cast<size_t>(std::max(1, visual_se3_max_samples_)));
+      size_t seen = 0U;
+      size_t added = 0U;
+      for (size_t i = 0; i < prev_pixels; ++i) {
+        const float d = prev_depth->depth_m[i];
+        if (!std::isfinite(d) ||
+          static_cast<double>(d) < visual_se3_min_depth_m_ ||
+          static_cast<double>(d) > visual_se3_max_depth_m_)
+        {
+          continue;
+        }
+        if ((seen++ % stride) != 0U) {
+          continue;
+        }
+        const size_t xp = i % kf.width;
+        const size_t yp = i / kf.width;
+        const double z = static_cast<double>(d);
+        const Eigen::Vector3d pc_prev(
+          (static_cast<double>(xp) - cx) * z / fx,
+          (static_cast<double>(yp) - cy) * z / fy,
+          z);
+        const Eigen::Vector3d point_world = q_w_c_prev * pc_prev + p_w_c_prev;
+        const Eigen::Vector3d pc_cur = q_w_c_cur.conjugate() * (point_world - p_w_c_cur);
+        if (!(pc_cur.z() > visual_se3_min_depth_m_)) {
+          continue;
+        }
+        const double u0 = fx * pc_cur.x() / pc_cur.z() + cx;
+        const double v0 = fy * pc_cur.y() / pc_cur.z() + cy;
+        double intensity = 0.0;
+        double gu = 0.0;
+        double gv = 0.0;
+        if (!sample_current(u0, v0, intensity, gu, gv)) {
+          continue;
+        }
+        const double grad_norm = std::hypot(gu, gv);
+        if (!std::isfinite(grad_norm) || grad_norm < visual_se3_min_gradient_) {
+          continue;
+        }
+        const double reference = static_cast<double>(kf.gray[i]);
+        const double residual = intensity - reference;
+        if (!std::isfinite(residual) ||
+          (visual_se3_max_abs_residual_ > 0.0 &&
+          std::abs(residual) > visual_se3_max_abs_residual_))
+        {
+          continue;
+        }
+        // Pure global weight; Ceres HuberLoss (delta scaled above) handles
+        // per-residual robustness, so no manual down-weighting here.
+        const double w = visual_photometric_weight_;
+        spline::PhotometricObservation obs;
+        obs.point_world = point_world;
+        obs.fx = fx;
+        obs.fy = fy;
+        obs.cx = cx;
+        obs.cy = cy;
+        obs.q_camera_to_imu = camera_to_imu_rotation_;
+        obs.p_camera_in_imu = camera_to_imu_translation_;
+        obs.uv_reference = Eigen::Vector2d(u0, v0);
+        obs.bias = {w * residual};
+        obs.gradient = {Eigen::Vector2d(w * gu, w * gv)};
+        estimator_->add_photometric_factor(current.stamp_ns, obs, photo_huber);
+        ++added;
+        if (added >= static_cast<size_t>(visual_se3_max_samples_)) {
+          break;
+        }
+      }
+      if (added == 0U) {
+        ++visual_se3_rejected_batches_;
+        return VisualSe3PriorStatus::kRejected;
+      }
+      return VisualSe3PriorStatus::kAdded;
+    }
+
     const auto linearization =
       linearize_se3_photometric_samples(visual_intrinsics_, samples);
     if (!linearization.valid ||
@@ -2369,6 +2939,77 @@ private:
           lidar_huber_delta_m_);
         ++accepted;
       }
+      // Edge / line features: voxels with one dominant direction. Point-to-line
+      // residuals observe the yaw / along-corridor directions that planar
+      // (point-to-plane) features leave degenerate. Transform each edge to the
+      // world frame (stationary constraint) exactly like the plane path above.
+      if (enable_voxel_edge_extraction_ && have_scan_pose) {
+        const auto edges = plane_extractor_.extract_edges(points);
+        for (const auto & edge : edges) {
+          const Eigen::Vector3d edge_point_world = R_w_l * edge.centroid + p_w_l;
+          Eigen::Vector3d edge_dir_world = R_w_l * edge.direction;
+          const double dir_norm = edge_dir_world.norm();
+          if (dir_norm < 1.0e-9) {
+            continue;
+          }
+          edge_dir_world /= dir_norm;
+          spline::LidarPointCorrespondence edge_pc;
+          edge_pc.geometry = spline::LidarFeatureGeometry::kEdge;
+          edge_pc.edge_point = edge_point_world;
+          edge_pc.edge_normal = edge_dir_world;
+          edge_pc.point_lidar = edge.sample_point;
+          const int64_t edge_stamp_ns =
+            nearest_point_stamp_ns(points, point_stamps_ns, edge.sample_point, stamp_ns);
+          estimator_->add_lidar_correspondence(
+            edge_stamp_ns, edge_pc, extrinsics, voxel_edge_factor_weight_,
+            lidar_huber_delta_m_);
+          ++accepted;
+          ++voxel_edge_factors_;
+        }
+      }
+      // LOAM scan-to-submap association (ported from upstream Coco-LIC
+      // FindCorrespondence): match this scan's corner/surface feature centroids
+      // against an accumulated keyframe submap via 5-NN line/plane fitting, then
+      // grow the submap. Gives cross-scan geometric constraints (vs the
+      // self-referential per-scan voxels) that pin pose and break the
+      // accel/gravity ambiguity. Additive + gated; default off.
+      if (enable_loam_submap_association_ && have_scan_pose) {
+        const auto loam_edges = plane_extractor_.extract_edges(points);
+        std::vector<Eigen::Vector3d> corner_world;
+        std::vector<Eigen::Vector3d> surface_world;
+        corner_world.reserve(loam_edges.size());
+        surface_world.reserve(planes.size());
+        for (const auto & edge : loam_edges) {
+          const Eigen::Vector3d point_map = R_w_l * edge.centroid + p_w_l;
+          corner_world.push_back(point_map);
+          const auto corr = loam_submap_.associate_corner(edge.centroid, point_map);
+          if (corr) {
+            const int64_t st =
+              nearest_point_stamp_ns(points, point_stamps_ns, edge.centroid, stamp_ns);
+            estimator_->add_lidar_correspondence(
+              st, corr.value(), extrinsics,
+              loam_submap_factor_weight_ * corr->scale, lidar_huber_delta_m_);
+            ++accepted;
+            ++loam_submap_corner_factors_;
+          }
+        }
+        for (const auto & plane : planes) {
+          const Eigen::Vector3d point_map = R_w_l * plane.centroid + p_w_l;
+          surface_world.push_back(point_map);
+          const auto corr = loam_submap_.associate_surface(plane.centroid, point_map);
+          if (corr) {
+            const int64_t st =
+              nearest_point_stamp_ns(points, point_stamps_ns, plane.centroid, stamp_ns);
+            estimator_->add_lidar_correspondence(
+              st, corr.value(), extrinsics,
+              loam_submap_factor_weight_ * corr->scale, lidar_huber_delta_m_);
+            ++accepted;
+            ++loam_submap_surface_factors_;
+          }
+        }
+        loam_submap_.add_corner_points_world(corner_world);
+        loam_submap_.add_surface_points_world(surface_world);
+      }
       if (!deferred_planes.empty()) {
         queue_deferred_plane_map_update(stamp_ns, deferred_planes, extrinsics);
       }
@@ -2617,6 +3258,7 @@ private:
       get_logger(),
       "continuous-time diagnostics: steps=%zu imu_factors=%zu lidar_factors=%zu "
       "lidar_point_factors=%zu lidar_normal_factors=%zu "
+      "photometric_factors=%zu last_photometric_factors=%zu "
       "position_smoothness_factors=%zu rotation_smoothness_factors=%zu "
       "retained_knot_position_priors=%zu retained_knot_orientation_priors=%zu "
       "spline_position_marginalization_priors=%zu spline_position_marginalization_rows=%zu "
@@ -2743,6 +3385,8 @@ private:
       diagnostics.total_lidar_factors,
       diagnostics.total_lidar_point_factors,
       diagnostics.total_lidar_normal_factors,
+      diagnostics.total_photometric_factors,
+      diagnostics.last_step_photometric_factors,
       diagnostics.total_position_smoothness_factors,
       diagnostics.total_rotation_smoothness_factors,
       diagnostics.total_retained_knot_position_prior_factors,
@@ -3855,6 +4499,30 @@ private:
       seed_orientation);
     std::vector<Eigen::Vector3d> pos_knots(
       rot_knots.size(), seed_position);
+    if (const char * seed_tum_env = std::getenv("CT_SEED_TUM")) {
+      const std::string seed_tum_path(seed_tum_env);
+      if (!seed_tum_path.empty()) {
+        std::ifstream seed_in(seed_tum_path);
+        std::vector<int64_t> seed_stamps;
+        std::vector<Eigen::Quaterniond> seed_q;
+        std::vector<Eigen::Vector3d> seed_p;
+        std::string seed_line;
+        while (std::getline(seed_in, seed_line)) {
+          if (seed_line.empty() || seed_line[0] == '#') {continue;}
+          std::istringstream ss(seed_line);
+          double t, tx, ty, tz, qx, qy, qz, qw;
+          if (!(ss >> t >> tx >> ty >> tz >> qx >> qy >> qz >> qw)) {continue;}
+          seed_stamps.push_back(static_cast<int64_t>(std::llround(t * 1.0e9)));
+          // TUM is qx qy qz qw (qw LAST); Eigen::Quaterniond(w,x,y,z) takes w FIRST.
+          seed_q.emplace_back(Eigen::Quaterniond(qw, qx, qy, qz).normalized());
+          seed_p.emplace_back(tx, ty, tz);
+        }
+        estimator_->set_reference_trajectory(seed_stamps, seed_q, seed_p);
+        RCLCPP_INFO(
+          get_logger(), "CT seed reference: %s (%zu poses)",
+          seed_tum_path.c_str(), seed_stamps.size());
+      }
+    }
     estimator_->initialize(start_stamp, rot_knots, pos_knots);
 
     for (const auto & sample : seed_imu_buffer_) {
@@ -3996,6 +4664,11 @@ private:
 
   std::string output_tum_path_;
   std::ofstream output_tum_stream_;
+  std::string deterministic_bag_path_;
+  std::string replay_imu_topic_;
+  std::string replay_lidar_topic_;
+  std::string replay_image_topic_;
+  std::string replay_camera_info_topic_;
   std::size_t tum_lines_written_{0};
 
   bool pointcloud_enable_{true};
@@ -4204,6 +4877,28 @@ private:
   double last_visual_rotation_rmse_{0.0};
 
   bool enable_visual_se3_prior_{false};
+  bool enable_visual_photometric_factor_{false};
+  double visual_photometric_weight_{1.0};
+  double visual_photometric_keyframe_translation_m_{0.3};
+  bool have_photometric_keyframe_{false};
+  VisualFrame photometric_keyframe_{};
+  SparseDepthFrame photometric_keyframe_depth_{};
+  // Map-based photometric: persistent colored voxel map (running mean of world
+  // position + intensity per voxel), queried per-frame by current points.
+  bool enable_visual_map_photometric_{false};
+  double map_photometric_voxel_m_{0.2};
+  int map_photometric_min_obs_{3};
+  bool enable_render_photometric_{false};
+  std::string deterministic_feedback_bag_path_;
+  std::string rendered_feedback_topic_;
+  std::unordered_map<int64_t, VisualFrame> rendered_by_observed_stamp_{};
+  struct ColoredVoxel
+  {
+    Eigen::Vector3d xyz_sum{Eigen::Vector3d::Zero()};
+    double intensity_sum{0.0};
+    int count{0};
+  };
+  std::unordered_map<int64_t, ColoredVoxel> colored_photometric_map_{};
   double visual_se3_position_weight_{0.0};
   double visual_se3_orientation_weight_{0.0};
   double visual_se3_velocity_weight_{0.0};
@@ -4259,6 +4954,14 @@ private:
   bool enable_startup_bias_autocal_{true};
   double imu_linear_acceleration_scale_{1.0};
   bool enable_voxel_plane_extraction_{false};
+  bool enable_voxel_edge_extraction_{false};
+  double voxel_edge_factor_weight_{1.0};
+  std::size_t voxel_edge_factors_{0};
+  bool enable_loam_submap_association_{false};
+  double loam_submap_factor_weight_{1.0};
+  std::size_t loam_submap_corner_factors_{0};
+  std::size_t loam_submap_surface_factors_{0};
+  spline::LidarLoamSubmap loam_submap_{};
   bool enable_persistent_plane_map_{true};
   bool persistent_map_update_requires_accepted_solve_{false};
   bool enable_external_odometry_prior_{false};
@@ -4317,7 +5020,12 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<gaussian_lic_tracking::ContinuousTimeNode>());
+  auto node = std::make_shared<gaussian_lic_tracking::ContinuousTimeNode>();
+  if (!node->deterministic_bag_path().empty()) {
+    node->run_deterministic_replay();
+  } else {
+    rclcpp::spin(node);
+  }
   rclcpp::shutdown();
   return 0;
 }
