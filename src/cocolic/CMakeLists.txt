@@ -139,4 +139,10 @@ add_executable(storage_autodetect_test test/storage_autodetect_test.cpp)
 ament_target_dependencies(storage_autodetect_test rclcpp rosbag2_cpp rosbag2_storage)
 install(TARGETS storage_autodetect_test DESTINATION lib/${PROJECT_NAME})
 
+if(BUILD_TESTING)
+  add_test(NAME cocolic_bag_ingest_test COMMAND $<TARGET_FILE:bag_ingest_test>)
+  add_test(NAME cocolic_ingest_offset_time_test COMMAND $<TARGET_FILE:ingest_offset_time_test>)
+  add_test(NAME cocolic_storage_autodetect_test COMMAND $<TARGET_FILE:storage_autodetect_test>)
+endif()
+
 ament_package()

@@ -4,6 +4,8 @@
 // the ported msg_manager will feed into the Coco-LIC pipeline. Standalone: no
 // estimator yet, just de-risking the ingest path before the full RunBag port.
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <memory>
 
@@ -14,9 +16,16 @@
 
 int main(int argc, char ** argv)
 {
-  const std::string bag = (argc > 1)
+  const bool explicit_bag = argc > 1;
+  const std::string bag = explicit_bag
     ? argv[1]
-    : "/home/frank/data/fast_livo/CBD_Building_01_frontend_raw";
+    : (std::getenv("COCOLIC_TEST_FASTLIVO2_RAW_BAG")
+      ? std::getenv("COCOLIC_TEST_FASTLIVO2_RAW_BAG")
+      : "/home/frank/data/fast_livo/CBD_Building_01_frontend_raw");
+  if (!std::filesystem::exists(bag)) {
+    std::printf("[bag_ingest_test] SKIP: bag path is unavailable: %s\n", bag.c_str());
+    return explicit_bag ? 1 : 0;
+  }
 
   rosbag2_cpp::Reader reader;
   reader.open(bag);
