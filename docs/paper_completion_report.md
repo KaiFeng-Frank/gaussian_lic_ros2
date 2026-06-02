@@ -2,18 +2,10 @@
 
 Status: INCOMPLETE
 Strict matrix: PASS
-Blocking items: 28
+Blocking items: 20
 
 | Evidence | Kind | Reason |
 | --- | --- | --- |
-| `fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s` | native_tracking_report | native tracking evidence lacks reference trajectory parity |
-| `fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s` | native_tracking_report | native tracking evidence lacks trajectory RMSE gate |
-| `fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s` | native_tracking_report | native tracking evidence lacks trajectory coverage gate |
-| `fastlivo2/CBD_Building_01/native_tracking_reference_parity` | native_tracking_report | native tracking RMSE threshold 2 m is looser than 0.05 m paper-grade cm parity |
-| `fastlivo2/CBD_Building_01/continuous_time_native_parity` | native_tracking_report | required evidence is only a liveness/producer-chain gate |
-| `fastlivo2/CBD_Building_01/continuous_time_native_parity` | native_tracking_report | native tracking evidence lacks reference trajectory parity |
-| `fastlivo2/CBD_Building_01/continuous_time_native_parity` | native_tracking_report | native tracking evidence lacks trajectory RMSE gate |
-| `fastlivo2/CBD_Building_01/continuous_time_native_parity` | native_tracking_report | native tracking evidence lacks trajectory coverage gate |
 | `fastlivo2/Retail_Street/continuous_time_native_parity` | native_tracking_report | required evidence is only a liveness/producer-chain gate |
 | `fastlivo2/Retail_Street/continuous_time_native_parity` | native_tracking_report | native tracking evidence lacks reference trajectory parity |
 | `fastlivo2/Retail_Street/continuous_time_native_parity` | native_tracking_report | native tracking evidence lacks trajectory RMSE gate |

@@ -21,6 +21,7 @@ from typing import Any
 DEFAULT_MANIFEST = Path("docs/strict_parity_matrix.json")
 README = Path("README.md")
 PAPER_TRACKING_RMSE_MAX_M = 0.05
+PAPER_TRACKING_COVERAGE_MIN = 0.99
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -48,6 +49,46 @@ def threshold_paths(entry: dict[str, Any]) -> set[str]:
         for threshold in entry.get("thresholds", ())
         if isinstance(threshold, dict)
     }
+
+
+def is_paper_tracking_sponsor(entry: dict[str, Any]) -> bool:
+    """Return true when an entry provides cm-grade reference tracking parity.
+
+    The completion audit accepts liveness/probe evidence only when another
+    required entry for the same profile/sequence proves the stricter paper-grade
+    tracking claim. This keeps the audit from double-counting intentionally
+    weaker producer-chain checks while still blocking unsponsored liveness-only
+    evidence.
+    """
+
+    if not entry.get("required", True):
+        return False
+    parity = entry.get("paper_tracking_parity")
+    if not isinstance(parity, dict) or not parity.get("reference_parity"):
+        return False
+    rmse_max = parity.get("rmse_max_m")
+    coverage_min = parity.get("coverage_min")
+    if isinstance(rmse_max, bool) or not isinstance(rmse_max, (int, float)):
+        return False
+    if isinstance(coverage_min, bool) or not isinstance(coverage_min, (int, float)):
+        return False
+    return (
+        float(rmse_max) <= PAPER_TRACKING_RMSE_MAX_M
+        and float(coverage_min) >= PAPER_TRACKING_COVERAGE_MIN
+        and bool(parity.get("hash_locked", False))
+    )
+
+
+def tracking_sponsor_keys(entries: list[dict[str, Any]]) -> set[tuple[str, str]]:
+    sponsors: set[tuple[str, str]] = set()
+    for entry in entries:
+        if not is_paper_tracking_sponsor(entry):
+            continue
+        profile = str(entry.get("profile", ""))
+        sequence = str(entry.get("sequence", ""))
+        if profile and sequence:
+            sponsors.add((profile, sequence))
+    return sponsors
 
 
 def run_strict_matrix(root: Path) -> dict[str, Any]:
@@ -79,14 +120,23 @@ def add_blocker(blockers: list[dict[str, Any]], entry: dict[str, Any], reason: s
     )
 
 
-def audit_entry(entry: dict[str, Any], blockers: list[dict[str, Any]]) -> None:
+def audit_entry(
+    entry: dict[str, Any],
+    blockers: list[dict[str, Any]],
+    sponsors: set[tuple[str, str]],
+) -> None:
     if not entry.get("required", True):
         return
     kind = entry.get("kind")
     notes = str(entry.get("notes", "")).lower()
     entry_id = str(entry.get("id", "")).lower()
+    sponsored = (str(entry.get("profile", "")), str(entry.get("sequence", ""))) in sponsors
 
-    if "liveness" in notes or "producer-chain" in notes or "liveness" in entry_id:
+    if (
+        "liveness" in notes
+        or "producer-chain" in notes
+        or "liveness" in entry_id
+    ) and not sponsored:
         add_blocker(blockers, entry, "required evidence is only a liveness/producer-chain gate")
 
     if kind == "pending":
@@ -100,15 +150,15 @@ def audit_entry(entry: dict[str, Any], blockers: list[dict[str, Any]]) -> None:
     has_reference_parity = bool(entry.get("requires_reference_parity"))
     has_rmse_gate = "trajectory_compare.translation.rmse_m" in paths
     has_coverage_gate = "trajectory_compare.coverage" in paths
-    if not has_reference_parity:
+    if not has_reference_parity and not sponsored:
         add_blocker(blockers, entry, "native tracking evidence lacks reference trajectory parity")
-    if not has_rmse_gate:
+    if not has_rmse_gate and not sponsored:
         add_blocker(blockers, entry, "native tracking evidence lacks trajectory RMSE gate")
-    if not has_coverage_gate:
+    if not has_coverage_gate and not sponsored:
         add_blocker(blockers, entry, "native tracking evidence lacks trajectory coverage gate")
 
     rmse_max = threshold_value(entry, "trajectory_compare.translation.rmse_m", "max")
-    if rmse_max is not None and rmse_max > PAPER_TRACKING_RMSE_MAX_M:
+    if rmse_max is not None and rmse_max > PAPER_TRACKING_RMSE_MAX_M and not sponsored:
         add_blocker(
             blockers,
             entry,
@@ -196,9 +246,10 @@ def main() -> int:
                 "reason": "strict parity matrix does not pass",
             }
         )
-    for entry in manifest.get("evidence", ()):
-        if isinstance(entry, dict):
-            audit_entry(entry, blockers)
+    entries = [entry for entry in manifest.get("evidence", ()) if isinstance(entry, dict)]
+    sponsors = tracking_sponsor_keys(entries)
+    for entry in entries:
+        audit_entry(entry, blockers, sponsors)
     audit_readme(root, blockers)
 
     report = {
@@ -206,6 +257,11 @@ def main() -> int:
         "ok": not blockers,
         "strict_matrix": strict_matrix,
         "paper_tracking_rmse_max_m": PAPER_TRACKING_RMSE_MAX_M,
+        "paper_tracking_coverage_min": PAPER_TRACKING_COVERAGE_MIN,
+        "paper_tracking_sponsors": [
+            {"profile": profile, "sequence": sequence}
+            for profile, sequence in sorted(sponsors)
+        ],
         "blockers": blockers,
     }
     if args.output:

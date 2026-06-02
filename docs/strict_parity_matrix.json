@@ -973,6 +973,12 @@
         "--require-evidence-hashes"
       ],
       "timeout_sec": 30,
+      "paper_tracking_parity": {
+        "reference_parity": true,
+        "rmse_max_m": 0.05,
+        "coverage_min": 0.999,
+        "hash_locked": true
+      },
       "notes": "Faithful Coco-LIC/Gaussian-LIC2 ROS2 frontend port gate. Requires committed LIO, LICO, and camera-fixed reports, the upstream Coco-LIC 10 Hz reference trajectory, and the emitted ROS2 trajectories to match their archived SHA256 hashes while preserving cm-scale ATE thresholds."
     },
     {

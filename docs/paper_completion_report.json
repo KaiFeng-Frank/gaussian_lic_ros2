@@ -1,62 +1,6 @@
 {
   "blockers": [
     {
-      "id": "fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks reference trajectory parity",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks trajectory RMSE gate",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/native_tracking_visual_ba_120s",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks trajectory coverage gate",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/native_tracking_reference_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking RMSE threshold 2 m is looser than 0.05 m paper-grade cm parity",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "required evidence is only a liveness/producer-chain gate",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks reference trajectory parity",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks trajectory RMSE gate",
-      "sequence": "CBD_Building_01"
-    },
-    {
-      "id": "fastlivo2/CBD_Building_01/continuous_time_native_parity",
-      "kind": "native_tracking_report",
-      "profile": "fastlivo2",
-      "reason": "native tracking evidence lacks trajectory coverage gate",
-      "sequence": "CBD_Building_01"
-    },
-    {
       "id": "fastlivo2/Retail_Street/continuous_time_native_parity",
       "kind": "native_tracking_report",
       "profile": "fastlivo2",
@@ -198,7 +142,14 @@
     }
   ],
   "ok": false,
+  "paper_tracking_coverage_min": 0.99,
   "paper_tracking_rmse_max_m": 0.05,
+  "paper_tracking_sponsors": [
+    {
+      "profile": "fastlivo2",
+      "sequence": "CBD_Building_01"
+    }
+  ],
   "schema": "gaussian_lic_paper_completion_audit/v1",
   "strict_matrix": {
     "ok": true,
