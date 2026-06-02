@@ -184,6 +184,50 @@ def format_step_event(step: dict[str, Any] | None) -> str:
     )
 
 
+def native_report_diagnostics(entry: dict[str, Any], root: Path) -> list[str]:
+    """Return paper-completion blockers declared by the native report itself."""
+
+    if entry.get("kind") != "native_tracking_report":
+        return []
+    report_path = resolve_path(root, entry.get("report"))
+    if report_path is None:
+        return ["native tracking evidence lacks report path"]
+    if not report_path.is_file():
+        return [f"native tracking report is missing: {report_path}"]
+    try:
+        report = load_json(report_path)
+    except Exception as exc:  # noqa: BLE001
+        return [f"native tracking report failed to load: {exc}"]
+
+    reasons: list[str] = []
+    if not bool(report.get("ok", True)):
+        errors = report.get("errors")
+        if isinstance(errors, list) and errors:
+            detail = "; ".join(str(error) for error in errors[:5])
+        else:
+            detail = "ok=false without explicit errors"
+        reasons.append(f"native tracking report self-reports failure: {detail}")
+
+    summary = report.get("runtime_diagnostic_summary")
+    if isinstance(summary, dict):
+        rejection_values = []
+        for key in (
+            "output_pose_rejections_final",
+            "output_pose_guard_log_rejections",
+        ):
+            value = summary.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            rejection_values.append(int(value))
+        max_rejections = max(rejection_values, default=0)
+        if max_rejections > 0:
+            reasons.append(
+                "native tracking output guard rejected poses before paper compare: "
+                f"{max_rejections}"
+            )
+    return reasons
+
+
 def candidate_tracking_diagnostics(entry: dict[str, Any], root: Path) -> list[str]:
     candidate = entry.get("paper_tracking_candidate")
     if not isinstance(candidate, dict):
@@ -296,6 +340,8 @@ def audit_entry(
     notes = str(entry.get("notes", "")).lower()
     entry_id = str(entry.get("id", "")).lower()
     sponsored = (str(entry.get("profile", "")), str(entry.get("sequence", ""))) in sponsors
+    for reason in native_report_diagnostics(entry, root):
+        add_blocker(blockers, entry, reason)
     candidate_reasons = candidate_tracking_diagnostics(entry, root)
     if candidate_reasons and not sponsored:
         for reason in candidate_reasons:
