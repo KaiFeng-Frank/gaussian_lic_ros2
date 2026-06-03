@@ -1,0 +1,50 @@
+odometry_mode: 1  # LICO = 1 (full LiDAR-Inertial-Camera, slimmed R3LIVE front-end)
+
+project_path: /home/frank/gaussian_lic_ros2/run_lio
+
+lidar_yaml: /fastlivo2/lidar.yaml
+imu_yaml: /fastlivo2/imu.yaml
+camera_yaml: /fastlivo2/camera.yaml
+
+bag_path: /home/frank/data/fast_livo/CBD_Building_01_frontend_raw_offset_time_full
+bag_start: 0.
+bag_durr: 125
+
+
+### SplineParams ###
+t_add: 0.1
+distance0: 0.03
+non_uniform: true
+division_coarse: 1
+
+
+### OptimizationParams ###
+t_begin_add_cam: 5.0   # add visual constraints after 5s of successful init
+lidar_iter: 2
+use_lidar_scale: true
+lidar_weight: 500.0
+image_weight: 4.0
+gyroscope_noise_density: 3.45557556e-03
+gyroscope_random_walk: 2.617993833e-07
+accelerometer_noise_density: 2.425376259e-02
+accelerometer_random_walk: 1.96e-06
+
+
+### EvalutaionParams ###
+is_evo_viral: false
+
+
+### Gaussian-LIC ###
+if_3dgs: true
+gs_live_publish: true   # GL2 step-2: live publish to concurrent mapper
+gs_lockstep: true
+gs_lockstep_max_lag_s: 0.5
+gs_lockstep_timeout_s: 2.0
+enable_render_photometric: true
+render_photo_weight: 2.0
+render_photo_patch_half: 2
+lidar_skip: 10
+
+lidar_degrade_window_start_s: 40.0
+lidar_degrade_window_end_s: 80.0
+lidar_degrade_factor: 0.06

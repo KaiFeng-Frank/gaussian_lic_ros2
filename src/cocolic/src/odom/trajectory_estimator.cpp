@@ -306,7 +306,11 @@ namespace cocolic
     AddControlPointsNURBS(su.first - 3, vec);
     AddControlPointsNURBS(su.first - 3, vec, true);
 
-    ceres::LossFunction *loss_function = NULL;
+    // GL2 step-2c: robust kernel on the render-photometric residual — render
+    // outliers (occlusions, imperfect renders, dynamic content) inject large
+    // intensity residuals that otherwise destabilize the SO(3) control points
+    // (non-orthogonal-R Sophus crash at higher weights). Cauchy bounds them.
+    ceres::LossFunction *loss_function = new ceres::CauchyLoss(1.0);
     problem_->AddResidualBlock(cost_function, loss_function, vec);
   }
 

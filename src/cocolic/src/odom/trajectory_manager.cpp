@@ -381,12 +381,12 @@ namespace cocolic
       if (use_lidar_scale)
       {
         estimator->AddLoamMeasurementAnalyticNURBS(v, S_GtoM, p_GinM, S_LtoI, p_LinI,
-                                                   opt_weight_.lidar_weight * v.scale);
+                                                   LidarWeightAt(v.t_point) * v.scale);
       }
       else
       {
         estimator->AddLoamMeasurementAnalyticNURBS(v, S_GtoM, p_GinM, S_LtoI, p_LinI,
-                                                   opt_weight_.lidar_weight);
+                                                   LidarWeightAt(v.t_point));
       }
     }
 
@@ -445,6 +445,20 @@ namespace cocolic
             trajectory_->GetSensorEP(CameraSensor).so3,
             trajectory_->GetSensorEP(CameraSensor).p,
             K_, opt_weight_.image_weight);
+
+        // GL2 step-2c: render-photometric factor — align the observed image to the
+        // rendered-map reference patch (sampled at this pnp pixel). Refines the same
+        // continuous-time pose the PnP factor touches; reuses track A's native factor.
+        if (rp_enable_ && i < (int)rp_valid_.size() && rp_valid_[i] &&
+            !rp_observed_gray_.empty() && (int)rp_patches_[i].size() > 0)
+        {
+          estimator->AddPhotometricMeasurementAnalyticNURBS(
+              rp_patch_half_, /*scale=*/1, /*level=*/0, rp_patches_[i].data(),
+              pnp_3ds[i], rp_observed_gray_, img_time_stamp,
+              trajectory_->GetSensorEP(CameraSensor).so3,
+              trajectory_->GetSensorEP(CameraSensor).p,
+              K_, rp_weight_);
+        }
       }
     }
     else
@@ -617,7 +631,7 @@ namespace cocolic
 
       if (!drop_set.empty())
       {
-        double weight = opt_weight_.lidar_weight;
+        double weight = LidarWeightAt(v.t_point);  // GL2 demo: time-windowed degradation
         if (use_lidar_scale)
         {
           weight *= v.scale;

@@ -22,6 +22,7 @@
   <depend>tf2_ros</depend>
   <depend>tf2_eigen</depend>
   <depend>cv_bridge</depend>
+  <depend>gaussian_lic_msgs</depend>
   <depend>pcl_conversions</depend>
   <depend>rosbag2_cpp</depend>
   <depend>libceres-dev</depend>

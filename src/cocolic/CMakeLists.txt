@@ -22,6 +22,7 @@ find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(gaussian_lic_msgs REQUIRED)  # GL2 step-2: RenderedFeedback subscription
 find_package(pcl_conversions REQUIRED)  # ROS2 port: pcl::fromROSMsg for Velodyne (M2DGR)
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
@@ -86,7 +87,7 @@ target_link_libraries(cocolic_core
 )
 # msg_manager.cpp uses rosbag2 + rclcpp serialization + cv_bridge + sensor_msgs.
 ament_target_dependencies(cocolic_core
-  rclcpp rosbag2_cpp rosbag2_storage cv_bridge pcl_conversions sensor_msgs std_msgs geometry_msgs)
+  rclcpp rosbag2_cpp rosbag2_storage cv_bridge pcl_conversions sensor_msgs std_msgs geometry_msgs gaussian_lic_msgs)
 if(OpenMP_CXX_FOUND)
   target_link_libraries(cocolic_core OpenMP::OpenMP_CXX)
 endif()

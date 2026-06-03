@@ -35,6 +35,18 @@
 
 #include <camera/r3live_slim.hpp>
 
+// GL2 step-1: write the /*_for_gs streams (track A's stable poses) to a
+// mapper_contract rosbag2 -> replay to the CUDA 3DGS mapper -> PSNR.
+// GL2 step-2: ALSO publish them live (gs_live_publish) so the mapper runs
+// concurrently and feeds /gaussian_lic/rendered_feedback back into track A's BA.
+#include <rosbag2_cpp/writer.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <gaussian_lic_msgs/msg/rendered_feedback.hpp>
+#include <map>
+#include <mutex>
+
 namespace cocolic
 {
 
@@ -131,6 +143,17 @@ namespace cocolic
 
     void Publish3DGSMappingData(const NextMsgs& cur_msg);
 
+    // GL2 step-1: for_gs mapper-contract bag writer (track A -> 3DGS mapper).
+    void OpenForGsWriter(const std::string &out_dir);
+
+    // GL2 step-2: create live /*_for_gs publishers for concurrent mapper coupling.
+    void OpenForGsLivePublishers();
+    void WriteForGsFrame(const cv::Mat &img_bgr, const cv::Mat &depth32f,
+                         const Eigen::Quaterniond &q_wc, const Eigen::Vector3d &t_wc,
+                         const Eigen::aligned_vector<Eigen::Vector3d> &pts,
+                         const Eigen::aligned_vector<Eigen::Vector3i> &rgb,
+                         int64_t stamp_ns);
+
   protected:
     OdometryMode odometry_mode_;
 
@@ -206,6 +229,40 @@ namespace cocolic
 
     bool if_3dgs_;
     int lidar_skip_;
+
+    // GL2 step-1 for_gs writer state
+    std::shared_ptr<rosbag2_cpp::Writer> forgs_writer_;
+    bool forgs_open_ = false;
+
+    // GL2 step-2 live-publish state (concurrent mapper coupling)
+    bool gs_live_publish_ = false;
+    rclcpp::Node::SharedPtr gs_node_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_gs_img_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_gs_depth_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr pub_gs_caminfo_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_gs_pose_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_gs_points_;
+
+    // GL2 step-2bc: rendered_feedback subscription + cache (closed-loop coupling).
+    rclcpp::Subscription<gaussian_lic_msgs::msg::RenderedFeedback>::SharedPtr sub_gs_feedback_;
+    std::mutex gs_fb_mutex_;
+    std::map<int64_t, gaussian_lic_msgs::msg::RenderedFeedback> gs_feedback_;  // keyed by observed_stamp ns
+    int64_t gs_fb_count_ = 0;
+    int64_t gs_fb_last_observed_ns_ = 0;
+    void SpinForGsFeedback();  // drain subscription + timing probe (call each RunBag iter)
+    // GL2 lockstep pacing (OQ4 fix): after publishing a frame, wait until mapper
+    // feedback catches to within max_lag of it — caps feedback staleness.
+    bool gs_lockstep_ = false;
+    int64_t gs_lockstep_max_lag_ns_ = 500000000;   // 0.5 s
+    int64_t gs_lockstep_timeout_ms_ = 2000;        // 2.0 s
+    void PaceForGsFeedback(int64_t pub_abs_ns);
+
+    // GL2 step-2c: build per-frame render-photometric reference (rendered-map patches
+    // at each pnp pixel) and hand it to trajectory_manager before the LIC solve.
+    bool enable_render_photometric_ = false;
+    double rp_weight_ = 0.5;
+    int rp_patch_half_ = 2;
+    void BuildRenderPhotometric();
 
     std::queue<int64_t> time_buf;  // img timestamp
     std::queue<LiDARFeature> lidar_buf;  // lidarfeature in local

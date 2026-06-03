@@ -206,7 +206,45 @@ namespace cocolic
 
     void SetIntrinsic(const Eigen::Matrix3d& K) { K_ = K; }
 
+    // GL2 step-2c: per-frame render-photometric reference (patches sampled from the
+    // mapper's rendered image at each pnp pixel) + observed grayscale image. When set,
+    // UpdateTrajectoryWithLIC adds photometric factors alongside the PnP factors.
+    void SetRenderPhotometric(const cv::Mat &observed_gray,
+                              std::vector<std::vector<float>> patches,
+                              std::vector<char> valid,
+                              int patch_half, double weight)
+    {
+      rp_observed_gray_ = observed_gray;
+      rp_patches_ = std::move(patches);
+      rp_valid_ = std::move(valid);
+      rp_patch_half_ = patch_half;
+      rp_weight_ = weight;
+      rp_enable_ = true;
+    }
+    void ClearRenderPhotometric() { rp_enable_ = false; rp_observed_gray_.release(); rp_patches_.clear(); rp_valid_.clear(); }
+
+    // GL2 demo: time-windowed LiDAR degradation (good -> bad -> good). During [start,end)
+    // of the trajectory the LiDAR factor weight is scaled by factor (<1 weakens LIO),
+    // so the map built in the good segments must carry the degraded segment (breaks
+    // the self-referential ceiling and shows a larger render-photometric coupling gain.
+    void SetLidarDegradeWindow(double start_s, double end_s, double factor)
+    {
+      lidar_deg_start_ns_ = (int64_t)(start_s * 1e9);
+      lidar_deg_end_ns_ = (int64_t)(end_s * 1e9);
+      lidar_deg_factor_ = factor;
+    }
+    double LidarWeightAt(int64_t t_point) const
+    {
+      double w = opt_weight_.lidar_weight;
+      if (lidar_deg_start_ns_ >= 0 && t_point >= lidar_deg_start_ns_ && t_point < lidar_deg_end_ns_)
+        w *= lidar_deg_factor_;
+      return w;
+    }
+
   private:
+    int64_t lidar_deg_start_ns_ = -1;
+    int64_t lidar_deg_end_ns_ = -1;
+    double lidar_deg_factor_ = 1.0;
     bool LocatedInFirstSegment(double cur_t) const
     {
       size_t knot_idx = trajectory_->GetCtrlIndexNURBS(cur_t * S_TO_NS) - 3;
@@ -281,6 +319,14 @@ namespace cocolic
     Eigen::aligned_vector<Eigen::Vector2d> px_obss_;
 
     Eigen::Matrix3d K_;
+
+    // GL2 step-2c render-photometric reference (set per-frame by OdometryManager)
+    cv::Mat rp_observed_gray_;
+    std::vector<std::vector<float>> rp_patches_;
+    std::vector<char> rp_valid_;
+    int rp_patch_half_ = 2;
+    double rp_weight_ = 1.0;
+    bool rp_enable_ = false;
 
   public:
     void ClearVisual()

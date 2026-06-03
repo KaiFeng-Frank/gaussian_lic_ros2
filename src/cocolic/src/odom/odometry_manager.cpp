@@ -26,6 +26,10 @@
 #include <string>
 #include <sstream>
 #include <filesystem>  // ROS2 port: std::filesystem (was boost::filesystem)
+#include <cstring>     // GL2: memcpy for for_gs PointCloud2 packing
+#include <chrono>     // GL2: lockstep pacing timing
+#include <thread>     // GL2: sleep_for in lockstep pacing
+#include <opencv2/imgproc.hpp>  // GL2: cv::cvtColor for render-photometric
 
 std::fstream rgb_file;
 std::fstream img_file;
@@ -130,6 +134,29 @@ namespace cocolic
     // gaussian-lic
     if_3dgs_ = node["if_3dgs"].as<bool>();
     lidar_skip_ = node["lidar_skip"].as<int>();
+    // GL2 step-2: when true, publish /*_for_gs live to a concurrent mapper
+    // (tight coupling) instead of writing the offline mapper_contract bag.
+    gs_live_publish_ = node["gs_live_publish"] ? node["gs_live_publish"].as<bool>() : false;
+    // GL2 lockstep pacing (OQ4 fix): pace track A to mapper feedback throughput.
+    gs_lockstep_ = node["gs_lockstep"] ? node["gs_lockstep"].as<bool>() : false;
+    if (node["gs_lockstep_max_lag_s"])
+      gs_lockstep_max_lag_ns_ = (int64_t)(node["gs_lockstep_max_lag_s"].as<double>() * 1e9);
+    if (node["gs_lockstep_timeout_s"])
+      gs_lockstep_timeout_ms_ = (int64_t)(node["gs_lockstep_timeout_s"].as<double>() * 1e3);
+    // GL2 step-2c: render-photometric coupling (rendered map → track A pose factor).
+    enable_render_photometric_ = node["enable_render_photometric"] ? node["enable_render_photometric"].as<bool>() : false;
+    if (node["render_photo_weight"]) rp_weight_ = node["render_photo_weight"].as<double>();
+    if (node["render_photo_patch_half"]) rp_patch_half_ = node["render_photo_patch_half"].as<int>();
+    // GL2 demo: time-windowed LiDAR degradation (good -> bad -> good) for an asymmetric
+    // scenario where the good-segment map independently corrects the degraded segment.
+    if (node["lidar_degrade_window_start_s"] && node["lidar_degrade_window_end_s"])
+    {
+      double ds = node["lidar_degrade_window_start_s"].as<double>();
+      double de = node["lidar_degrade_window_end_s"].as<double>();
+      double df = node["lidar_degrade_factor"] ? node["lidar_degrade_factor"].as<double>() : 1.0;
+      trajectory_manager_->SetLidarDegradeWindow(ds, de, df);
+      std::cout << "\n[GL2] LiDAR degrade window [" << ds << "," << de << ")s factor " << df << "\n";
+    }
     lidarpoints.clear();
 
     std::cout << std::fixed << std::setprecision(4);
@@ -169,6 +196,10 @@ namespace cocolic
       {
         break;
       }
+
+      /// GL2 step-2bc: drain rendered_feedback from the concurrent mapper (no-op
+      /// until gs_node_ exists, i.e. gs_live_publish mode after first image frame).
+      SpinForGsFeedback();
 
       /// [2] static initialization, do not move at the begging!
       if (!is_initialized_)
@@ -251,6 +282,16 @@ namespace cocolic
           msg_manager_->image_buf_.pop_front();
         }
       }
+    }
+
+    // GL2 step-1: flush + close the mapper_contract writer before shutdown —
+    // rosbag2's cache-consumer thread must be joined or std::terminate fires.
+    if (forgs_open_)
+    {
+      forgs_writer_->close();
+      forgs_writer_.reset();
+      forgs_open_ = false;
+      std::cout << "[GL2] mapper_contract bag closed.\n";
     }
   }
 
@@ -354,6 +395,9 @@ namespace cocolic
     }
 
     /// [5] finely optimize trajectory based on prior、lidar、imu、camera
+    // GL2 step-2c: build render-photometric reference once per frame (used in all iters).
+    if (process_image)
+      BuildRenderPhotometric();
     for (int iter = 0; iter < lidar_iter_; ++iter)
     {
       lidar_handler_->GetLoamFeatureAssociation();
@@ -433,13 +477,11 @@ namespace cocolic
 #endif
     }
 
-    /// [new] for Gaussian-LIC (camera/3DGS — S4)
-#if 0
+    /// [new] for Gaussian-LIC (camera/3DGS — GL2 step-1 mapper contract)
     if (process_image && if_3dgs_)
     {
       Publish3DGSMappingData(msg);
     }
-#endif
 
     /// [8] visualize tf in rviz
     auto pose = trajectory_->GetLidarPoseNURBS(msg.lidar_timestamp);
@@ -751,14 +793,245 @@ namespace cocolic
         trajectory_, 0.0, trajectory_->maxTimeNURBS(), 0.1);
   }
 
+  // GL2 step-1: open a mapper_contract rosbag2 for the /*_for_gs streams.
+  void OdometryManager::OpenForGsWriter(const std::string &out_dir)
+  {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::remove_all(out_dir, ec);  // fresh mapper_contract bag each run
+    forgs_writer_ = std::make_shared<rosbag2_cpp::Writer>();
+    rosbag2_storage::StorageOptions so;
+    so.uri = out_dir;
+    so.storage_id = "mcap";
+    rosbag2_cpp::ConverterOptions co;
+    co.input_serialization_format = "cdr";
+    co.output_serialization_format = "cdr";
+    forgs_writer_->open(so, co);
+    forgs_open_ = true;
+    std::cout << "\n[GL2] for_gs mapper-contract writer -> " << out_dir << "\n";
+  }
+
+  // GL2 step-2: create live /*_for_gs publishers (best_effort/keep_last to match
+  // the mapper's sensor QoS) so the CUDA mapper can run concurrently with track A.
+  void OdometryManager::OpenForGsLivePublishers()
+  {
+    if (gs_node_) return;
+    gs_node_ = rclcpp::Node::make_shared("cocolic_gs_frontend");
+    // GL2 step-2 flow control: RELIABLE + deep history so the mapper buffers
+    // every frame and reliable backpressure paces track A to mapper throughput
+    // (best_effort dropped ~90% when track A out-paced the mapper).
+    auto qos = rclcpp::QoS(rclcpp::KeepLast(200)).reliable();
+    pub_gs_img_ = gs_node_->create_publisher<sensor_msgs::msg::Image>("/image_for_gs", qos);
+    pub_gs_depth_ = gs_node_->create_publisher<sensor_msgs::msg::Image>("/depth_for_gs", qos);
+    pub_gs_caminfo_ = gs_node_->create_publisher<sensor_msgs::msg::CameraInfo>("/camera_info_for_gs", qos);
+    pub_gs_pose_ = gs_node_->create_publisher<geometry_msgs::msg::PoseStamped>("/pose_for_gs", qos);
+    pub_gs_points_ = gs_node_->create_publisher<sensor_msgs::msg::PointCloud2>("/points_for_gs", qos);
+
+    // GL2 step-2bc: subscribe to the mapper's rendered feedback (reliable, to match
+    // the mapper's rendered_feedback_qos). Lightweight callback: stash by observed_stamp.
+    auto fb_qos = rclcpp::QoS(rclcpp::KeepLast(64)).reliable();
+    sub_gs_feedback_ = gs_node_->create_subscription<gaussian_lic_msgs::msg::RenderedFeedback>(
+        "/gaussian_lic/rendered_feedback", fb_qos,
+        [this](gaussian_lic_msgs::msg::RenderedFeedback::SharedPtr m) {
+          int64_t obs_ns = static_cast<int64_t>(m->observed_stamp.sec) * 1000000000LL +
+                           m->observed_stamp.nanosec;
+          std::lock_guard<std::mutex> lk(gs_fb_mutex_);
+          gs_feedback_[obs_ns] = *m;
+          gs_fb_count_++;
+          gs_fb_last_observed_ns_ = obs_ns;
+          while (gs_feedback_.size() > 200) gs_feedback_.erase(gs_feedback_.begin());
+        });
+    std::cout << "\n[GL2] for_gs LIVE pubs + rendered_feedback sub up (closed-loop coupling)\n";
+  }
+
+  // GL2 step-2c: build the per-frame render-photometric reference. For each visible
+  // map point (v_points_ / px_obss_), sample a patch from the mapper's latest RENDERED
+  // image at that pixel (the map's expected appearance) -> reference; the observed gray
+  // image is the sample target. Hands both to trajectory_manager for the LIC solve.
+  void OdometryManager::BuildRenderPhotometric()
+  {
+    if (!gs_live_publish_ || !enable_render_photometric_ || !gs_node_)
+    {
+      trajectory_manager_->ClearRenderPhotometric();
+      return;
+    }
+    gaussian_lic_msgs::msg::RenderedFeedback fb;
+    bool have = false;
+    {
+      std::lock_guard<std::mutex> lk(gs_fb_mutex_);
+      if (!gs_feedback_.empty()) { fb = gs_feedback_.rbegin()->second; have = true; }
+    }
+    if (!have || v_points_.empty())
+    {
+      trajectory_manager_->ClearRenderPhotometric();
+      return;
+    }
+    cv::Mat rendered_gray;
+    try { rendered_gray = cv_bridge::toCvCopy(fb.image, "mono8")->image; }
+    catch (...) { trajectory_manager_->ClearRenderPhotometric(); return; }
+    if (rendered_gray.empty() || camera_handler_->img_pose_->m_img.empty())
+    {
+      trajectory_manager_->ClearRenderPhotometric();
+      return;
+    }
+    cv::Mat observed_gray;
+    cv::cvtColor(camera_handler_->img_pose_->m_img, observed_gray, cv::COLOR_BGR2GRAY);
+    const int W = observed_gray.cols, H = observed_gray.rows;
+    if (rendered_gray.cols != W || rendered_gray.rows != H)
+    {
+      trajectory_manager_->ClearRenderPhotometric();
+      return;  // OQ6: require resolution parity
+    }
+    const int half = rp_patch_half_;
+    const int ps = 2 * half;
+    const int margin = half + 3;  // factor reads ±(half+2) around projected pixel; no bounds-check inside
+    std::vector<std::vector<float>> patches(v_points_.size());
+    std::vector<char> valid(v_points_.size(), 0);
+    int n_valid = 0;
+    for (size_t i = 0; i < v_points_.size(); ++i)
+    {
+      int u = (int)std::round(px_obss_[i].x());
+      int v = (int)std::round(px_obss_[i].y());
+      if (u < margin || u >= W - margin || v < margin || v >= H - margin) continue;
+      std::vector<float> p(ps * ps);
+      for (int x = 0; x < ps; ++x)
+        for (int y = 0; y < ps; ++y)
+          p[x * ps + y] = (float)rendered_gray.at<uint8_t>(v + (x - half), u + (y - half));
+      patches[i] = std::move(p);
+      valid[i] = 1;
+      ++n_valid;
+    }
+    static int64_t bp_cnt = 0;
+    if (++bp_cnt % 25 == 0)
+      std::cout << "[GL2 render-photo] valid_patches=" << n_valid << "/" << v_points_.size() << "\n";
+    trajectory_manager_->SetRenderPhotometric(observed_gray, std::move(patches), std::move(valid), half, rp_weight_);
+  }
+
+  // GL2 lockstep pacing (OQ4 fix): block after a published frame until the mapper's
+  // latest feedback corresponds to a frame within max_lag of pub_abs_ns (or timeout).
+  // Caps feedback staleness to ~one mapper-frame latency so the photometric factor
+  // gets a rendered view that still overlaps the current observation.
+  void OdometryManager::PaceForGsFeedback(int64_t pub_abs_ns)
+  {
+    if (!gs_node_ || !gs_live_publish_ || !gs_lockstep_) return;
+    auto t0 = std::chrono::steady_clock::now();
+    while (rclcpp::ok())
+    {
+      rclcpp::spin_some(gs_node_);
+      int64_t last_fb;
+      { std::lock_guard<std::mutex> lk(gs_fb_mutex_); last_fb = gs_fb_last_observed_ns_; }
+      if (last_fb != 0 && last_fb >= pub_abs_ns - gs_lockstep_max_lag_ns_) break;
+      auto el = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - t0).count();
+      if (el > gs_lockstep_timeout_ms_) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+  }
+
+  // GL2 step-2bc: drain the rendered_feedback subscription each RunBag iteration +
+  // timing probe answering OQ4 — is feedback fresh enough to refine still-active knots?
+  void OdometryManager::SpinForGsFeedback()
+  {
+    if (!gs_node_) return;
+    rclcpp::spin_some(gs_node_);
+    static int64_t probe_cnt = 0;
+    int64_t n, last_obs;
+    {
+      std::lock_guard<std::mutex> lk(gs_fb_mutex_);
+      n = gs_fb_count_; last_obs = gs_fb_last_observed_ns_;
+    }
+    if (n > 0 && (++probe_cnt % 25 == 0))
+    {
+      // active_time is relative to data start; feedback observed_stamp is absolute.
+      int64_t active_abs = trajectory_->GetActiveTime() + trajectory_->GetDataStartTime();
+      double lag_s = static_cast<double>(active_abs - last_obs) / 1e9;
+      std::cout << "[GL2 probe] feedback_count=" << n
+                << " last_obs_lag_vs_active=" << lag_s << "s (>0 = feedback older than active window edge)\n";
+    }
+  }
+
+  // GL2 step-1/2: build one frame of the tracking-to-mapping interface (track A's
+  // stable poses) — image(bgr8)/depth(32FC1 m)/camera_info(K_)/pose(Twc)/points(xyzrgb)
+  // — then write it to the mapper_contract bag (step-1) and/or publish it live (step-2).
+  void OdometryManager::WriteForGsFrame(
+      const cv::Mat &img_bgr, const cv::Mat &depth32f,
+      const Eigen::Quaterniond &q_wc, const Eigen::Vector3d &t_wc,
+      const Eigen::aligned_vector<Eigen::Vector3d> &pts,
+      const Eigen::aligned_vector<Eigen::Vector3i> &rgb, int64_t stamp_ns)
+  {
+    if (!forgs_open_ && !gs_live_publish_) return;
+    rclcpp::Time stamp(stamp_ns);
+    std_msgs::msg::Header hdr;
+    hdr.stamp = stamp;
+    hdr.frame_id = "camera";
+
+    sensor_msgs::msg::Image img_msg;
+    { cv_bridge::CvImage cvi; cvi.header = hdr; cvi.encoding = "bgr8"; cvi.image = img_bgr;
+      img_msg = *cvi.toImageMsg(); }
+
+    sensor_msgs::msg::Image depth_msg;
+    { cv_bridge::CvImage cvi; cvi.header = hdr; cvi.encoding = "32FC1"; cvi.image = depth32f;
+      depth_msg = *cvi.toImageMsg(); }
+
+    sensor_msgs::msg::CameraInfo ci; ci.header = hdr;
+    ci.width = img_bgr.cols; ci.height = img_bgr.rows;
+    ci.k = {K_(0,0),0.0,K_(0,2), 0.0,K_(1,1),K_(1,2), 0.0,0.0,1.0};
+
+    geometry_msgs::msg::PoseStamped ps; ps.header = hdr;
+    ps.pose.position.x = t_wc.x(); ps.pose.position.y = t_wc.y(); ps.pose.position.z = t_wc.z();
+    ps.pose.orientation.x = q_wc.x(); ps.pose.orientation.y = q_wc.y();
+    ps.pose.orientation.z = q_wc.z(); ps.pose.orientation.w = q_wc.w();
+
+    sensor_msgs::msg::PointCloud2 pc; pc.header = hdr;
+    pc.height = 1; pc.width = static_cast<uint32_t>(pts.size());
+    pc.is_bigendian = false; pc.is_dense = true;
+    auto add_field = [&](const std::string &nm, uint32_t off) {
+      sensor_msgs::msg::PointField f; f.name = nm; f.offset = off;
+      f.datatype = sensor_msgs::msg::PointField::FLOAT32; f.count = 1;
+      pc.fields.push_back(f);
+    };
+    add_field("x", 0); add_field("y", 4); add_field("z", 8); add_field("rgb", 12);
+    pc.point_step = 16; pc.row_step = pc.point_step * pc.width;
+    pc.data.resize(static_cast<size_t>(pc.row_step));
+    for (size_t i = 0; i < pts.size(); ++i) {
+      float xyz[3] = {(float)pts[i].x(), (float)pts[i].y(), (float)pts[i].z()};
+      uint32_t r = (uint32_t)std::min(255, std::max(0, rgb[i].x()));
+      uint32_t g = (uint32_t)std::min(255, std::max(0, rgb[i].y()));
+      uint32_t b = (uint32_t)std::min(255, std::max(0, rgb[i].z()));
+      uint32_t packed = (r << 16) | (g << 8) | b;
+      float rgbf; std::memcpy(&rgbf, &packed, 4);
+      uint8_t *p = pc.data.data() + i * pc.point_step;
+      std::memcpy(p + 0, &xyz[0], 4); std::memcpy(p + 4, &xyz[1], 4);
+      std::memcpy(p + 8, &xyz[2], 4); std::memcpy(p + 12, &rgbf, 4);
+    }
+
+    if (forgs_open_) {  // step-1: persist to mapper_contract bag
+      forgs_writer_->write(img_msg, "/image_for_gs", stamp);
+      forgs_writer_->write(depth_msg, "/depth_for_gs", stamp);
+      forgs_writer_->write(ci, "/camera_info_for_gs", stamp);
+      forgs_writer_->write(ps, "/pose_for_gs", stamp);
+      forgs_writer_->write(pc, "/points_for_gs", stamp);
+    }
+    if (gs_live_publish_) {  // step-2: live to the concurrent mapper
+      pub_gs_img_->publish(img_msg);
+      pub_gs_depth_->publish(depth_msg);
+      pub_gs_caminfo_->publish(ci);
+      pub_gs_pose_->publish(ps);
+      pub_gs_points_->publish(pc);
+    }
+  }
+
   void OdometryManager::Publish3DGSMappingData(const NextMsgs& msg)
   {
-    // ROS2 port: camera/3DGS body deferred (S4) — uses camera_handler_ member
-    // types (img_pose_, m_camera_intrinsic) + 3DGS publishers. Never called in
-    // the LIO build (call site #if 0'd). Restore with the real R3LIVE port.
-    (void)msg;
-    return;
-#if 0
+    // GL2: generate the tracking→mapping interface (track A's stable poses).
+    // step-2 (gs_live_publish): publish live to a concurrent mapper;
+    // step-1 (default): persist to the mapper_contract rosbag2 for offline replay.
+    if (gs_live_publish_) {
+      if (!gs_node_) OpenForGsLivePublishers();
+    } else {
+      if (!forgs_open_) OpenForGsWriter(cache_path_ + "_mapper_contract");
+    }
+
     time_buf.push(msg.image_timestamp);
     lidar_buf.push(lidar_handler_->GetFeatureCurrent());
     img_buf.push(camera_handler_->img_pose_->m_img);
@@ -783,9 +1056,6 @@ namespace cocolic
           trajectory_->UndistortScanInG(*cloud_distort_ds, lidar.timestamp, *cloud_undistort_ds);
           lidarpoints.push_back(cloud_undistort_ds);
         }
-
-        // image
-        odom_viewer_.Publish3DGSImage(img, time + trajectory_->GetDataStartTime());
 
         auto pose_cam = trajectory_->GetCameraPoseNURBS(time);
         auto inv_pose_cam = pose_cam.inverse();
@@ -824,11 +1094,6 @@ namespace cocolic
         {
           lidarpoints.erase(lidarpoints.begin());
         }
-        odom_viewer_.Publish3DGSDepth(depthmap, time + trajectory_->GetDataStartTime());
-
-        // pose
-        odom_viewer_.Publish3DGSPose(pose_cam.unit_quaternion(), pose_cam.translation(), time + trajectory_->GetDataStartTime());
-
         // points
         int filter_cnt = 0;
         int skip = lidar_skip_;
@@ -883,11 +1148,16 @@ namespace cocolic
           }
           new_colors.push_back(Eigen::Vector3i(red, green, blue));
         }
-        odom_viewer_.Publish3DGSPoints(new_points, new_colors, time + trajectory_->GetDataStartTime());
+        // GL2 step-1: emit the full frame (image/depth/pose/points) to the
+        // mapper_contract bag in one shot — track A's pose is the contract.
+        WriteForGsFrame(img, depthmap, pose_cam.unit_quaternion(),
+                        pose_cam.translation(), new_points, new_colors,
+                        time + trajectory_->GetDataStartTime());
+        // GL2 lockstep: wait for the mapper to catch up before advancing (caps feedback lag).
+        PaceForGsFeedback(time + trajectory_->GetDataStartTime());
       }
       else break;
     }
-#endif
   }
 
   double OdometryManager::SaveOdometry()
