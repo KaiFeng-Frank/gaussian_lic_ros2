@@ -74,7 +74,7 @@ mapping_node:
     enable_torch_gaussian_extend_visibility_filter: true
     torch_gaussian_extend_alpha_threshold: 0.99
     enable_torch_gaussian_optimization: true
-    torch_gaussian_optimization_steps: 200
+    torch_gaussian_optimization_steps: 300
     torch_gaussian_optimization_max_samples: 4096
     torch_gaussian_optimization_sampling: upstream_random
     torch_gaussian_optimization_seed: 20260505

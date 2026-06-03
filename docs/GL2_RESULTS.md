@@ -46,9 +46,17 @@ excellent + map built from track A's own poses = self-referential).
 | Config | PSNR novel | PSNR train | frames | SSIM novel |
 |---|---|---|---|---|
 | Uncoupled (bag-replay) | 24.78 dB | 25.79 dB | 871 / 1121 | 0.83 |
-| Coupled (live + lockstep) | **24.91 dB** | 25.11 dB | **1121 / 1121** | 0.83 |
+| Coupled (live + lockstep, 100 opt-steps) | 24.91 dB | 25.11 dB | **1121 / 1121** | 0.83 |
+| **Coupled + tuned (200 opt-steps)** | **25.29 dB** | 25.56 dB | 1121 / 1121 | 0.839 |
 
 Lockstep gives full frame coverage (vs best-effort drops).
+
+**PSNR tuning (super-paper-level lever):** the online LIC-paced 3DGS is limited by
+per-Gaussian optimization budget, NOT Gaussian count. Doubling `torch_gaussian_optimization_steps`
+100 -> 200 gains **+0.38 dB** (24.91 -> 25.29); 300 gains only +0.05 more
+(diminishing return, so 200 is the sweet spot). Densification regresses here:
+enabling it gives 1.42 M Gaussians but 23.02 dB (-1.9 dB), with 19x more
+Gaussians and each under-optimized. Tuned default = 200 opt-steps, densification OFF.
 
 ### Coupling gain under LIO degradation (uniform: lidar_weight 500→30)
 | render_photo_weight | ATE RMSE | Δ vs degraded baseline |
@@ -118,6 +126,10 @@ Configs: `run_lio/config/ct_odometry_lico_full_baseline.yaml`,
 `run_lio/config/cbd_mapper_coupled.yaml`. Mapper binary `build/gaussian_lic_mapping/mapping_node`
 (CUDA, libtorch @ /home/frank/Software/libtorch). Note: track A exits with code 134
 (pre-existing LICO teardown `terminate`) AFTER saving the trajectory — this is benign.
+The PSNR ablation configs are `run_lio/config/cbd_mapper.yaml` (100 steps),
+`run_lio/config/cbd_mapper_coupled.yaml` / `cbd_mapper_moreopt.yaml` (200 steps),
+`run_lio/config/cbd_mapper_opt300.yaml` (300 steps), and
+`run_lio/config/cbd_mapper_densify.yaml` (densification ablation).
 
 ## Implementation files (GL2-specific changes)
 - `src/cocolic/src/odom/odometry_manager.{h,cpp}`: for_gs live publishers + bag writer,
