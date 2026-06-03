@@ -17,3 +17,12 @@ bags/*/
 baseline/
 results/
 *.bag
+run_lio/data/*_mapper_contract/
+run_lio/data/ate_*.json
+run_lio/data/cbd_gs*_map*/
+run_lio/data/exp_*.log
+run_lio/data/coupled_*.log
+run_lio/data/full_mapper.log
+run_lio/data/gl2_psnr*/
+run_lio/data/gl2_step*_orchestration.log
+run_lio/data/traj_*.tum
