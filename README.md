@@ -9,6 +9,15 @@ tracking frontend, mapper contract, CUDA/Torch Gaussian mapping path, offline
 artifact tooling, and validation scripts in one workspace so each part can be
 ported and tested independently.
 
+## Forked / Ported From
+
+This work is a ROS2 engineering port based on
+[`APRIL-ZJU/Gaussian-LIC`](https://github.com/APRIL-ZJU/Gaussian-LIC). The
+original Gaussian-LIC/Gaussian-LIC2 algorithms, paper lineage, and upstream
+implementation credit belong to the APRIL-ZJU authors. This repository focuses
+on the ROS2 Jazzy port, middleware contracts, CUDA/Torch integration, validation
+tooling, and reproducibility packaging around that upstream work.
+
 ## Current Status
 
 The public tree is an executable ROS2 porting checkpoint, not a packaged
