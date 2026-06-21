@@ -18,6 +18,8 @@ implementation credit belong to the APRIL-ZJU authors. This repository focuses
 on the ROS2 Jazzy port, middleware contracts, CUDA/Torch integration, validation
 tooling, and reproducibility packaging around that upstream work.
 
+The upstream authors have been informed about this ROS2 port.
+
 ## Current Status
 
 The public tree is an executable ROS2 porting checkpoint, not a packaged
